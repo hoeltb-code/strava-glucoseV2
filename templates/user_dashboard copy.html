@@ -1,0 +1,558 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard · {{ user.email }}{% endblock %}
+
+{% block content %}
+
+<!-- ========================================================= -->
+<!-- 🧍 En-tête utilisateur (avatar ovale doré style vieux tableau) -->
+<!-- ========================================================= -->
+<div style="
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:16px 0 12px;
+  border-bottom:1px solid var(--border-soft);
+  margin-bottom:16px;
+">
+  <div style="display:flex; align-items:center; gap:14px;">
+    {% if user.profile_image_url %}
+    <div style="position:relative; width:70px; height:90px; flex-shrink:0;
+                transform: rotate(9deg);">
+
+    <!-- Cadre doré ovale -->
+    <div style="
+        position:absolute;
+        inset:0;
+        border-radius:50% / 58%;
+        background:
+            radial-gradient(circle at 30% 30%, #f7e7b0, #d4b469, #a07c36),
+            linear-gradient(145deg, rgba(255,255,255,0.5), rgba(0,0,0,0.3));
+        background-blend-mode:overlay;
+        box-shadow:
+            inset 0 1px 2px rgba(255,255,255,0.7),
+            inset 0 -2px 4px rgba(0,0,0,0.35),
+            0 4px 10px rgba(0,0,0,0.35);
+        padding:4px;
+        ">
+    </div>
+
+    <!-- Intérieur ovale -->
+    <div style="
+        position:absolute;
+        top:4px; left:4px;
+        width:calc(100% - 8px);
+        height:calc(100% - 8px);
+        border-radius:50% / 58%;
+        overflow:hidden;
+        background:#fff;
+        ">
+        <img src="{{ user.profile_image_url }}"
+            alt="Avatar"
+            style="width:100%; height:100%; object-fit:cover;">
+    </div>
+    </div>
+    {% else %}
+    <div style="position:relative; width:70px; height:90px; flex-shrink:0;
+                transform: rotate(-3deg);">
+
+    <!-- Cadre doré ovale -->
+    <div style="
+        position:absolute;
+        inset:0;
+        border-radius:50% / 58%;
+        background:
+            radial-gradient(circle at 30% 30%, #f7e7b0, #d4b469, #a07c36),
+            linear-gradient(145deg, rgba(255,255,255,0.5), rgba(0,0,0,0.3));
+        background-blend-mode:overlay;
+        box-shadow:
+            inset 0 1px 2px rgba(255,255,255,0.7),
+            inset 0 -2px 4px rgba(0,0,0,0.35),
+            0 4px 10px rgba(0,0,0,0.35);
+        padding:4px;
+        ">
+    </div>
+
+    <!-- Intérieur + initiale -->
+    <div style="
+        position:absolute;
+        top:4px; left:4px;
+        width:calc(100% - 8px);
+        height:calc(100% - 8px);
+        border-radius:50% / 58%;
+        display:flex; align-items:center; justify-content:center;
+        background:#fff;
+        color:#111827;
+        font-weight:700;
+        font-size:1.3rem;
+        ">
+        {% if user.first_name %}
+        {{ user.first_name[0]|upper }}
+        {% else %}
+        {{ user.email[0]|upper }}
+        {% endif %}
+    </div>
+    </div>
+    {% endif %}
+
+    <div>
+      <div style="font-size:1.1rem; font-weight:600; color:var(--text-main);">
+        {% if user.first_name or user.last_name %}
+          {{ user.first_name or "" }} {{ user.last_name or "" }}
+        {% else %}
+          {{ user.email }}
+        {% endif %}
+      </div>
+      <div style="font-size:0.9rem; color:var(--text-muted); margin-top:2px;">Dashboard · id={{ user.id }}</div>
+      <div style="font-size:0.8rem; color:#9ca3af; margin-top:2px;">
+        {% if user.location %}{{ user.location }}{% else %}Localisation non renseignée{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex; gap:8px;">
+    <!-- Bouton secondaire (Profil) -->
+    <a href="/ui/user/{{ user.id }}/profile"
+       style="display:inline-flex; align-items:center; gap:6px;
+              padding:10px 16px; font-size:.95rem; font-weight:600; border-radius:2px;
+              border:1px solid #cbd5e1; background:#ffffff; color:var(--text-main);
+              text-decoration:none; box-shadow:0 3px 10px rgba(2,6,23,.05);
+              transition:filter .15s ease, transform .06s ease;"
+       onmouseover="this.style.background='#f8fafc'"
+       onmouseout="this.style.background='#ffffff'">👤 Profil</a>
+
+    <!-- Bouton principal (Déconnexion) -->
+    <a href="/ui/login"
+       style="display:inline-flex; align-items:center; gap:6px;
+              padding:10px 16px; font-size:.95rem; font-weight:600; border-radius:2px;
+              border:1px solid transparent; background:var(--grad-accent); color:#fff;
+              text-decoration:none; box-shadow:0 6px 16px rgba(37,99,235,.25);
+              transition:filter .15s ease, transform .06s ease;"
+       onmouseover="this.style.filter='brightness(1.03)'"
+       onmouseout="this.style.filter='none'"
+       onmousedown="this.style.transform='translateY(1px)'"
+       onmouseup="this.style.transform='none'">🚪 Déconnexion</a>
+  </div>
+</div>
+
+
+
+
+<!-- ========================================================= -->
+<!-- Layout 2 colonnes : gauche = import, droite = activités -->
+<!-- ========================================================= -->
+<div style="display:flex; gap:20px; align-items:flex-start;">
+
+  <!-- COLONNE GAUCHE : Profil coureur -->
+  <div class="card" style="flex:1;">
+    <h2 style="font-size:1rem; font-weight:600; margin-bottom:7px;">🏃 Profil coureur</h2>
+    <p class="muted" style="margin-top:0; font-size:0.85rem;">
+      Voir ton profil cardio × pente × VAM × cadence × allure.
+    </p>
+
+    <div style="margin-top:12px; text-align:right;">
+      <a href="/ui/user/{{ user.id }}/runner-profile"
+        style="
+            display:inline-block;
+            padding:10px 16px;
+            background:var(--grad-accent);
+            color:white;
+            text-decoration:none;
+            border-radius:4px;
+            font-weight:600;
+            box-shadow:0 6px 16px rgba(37,99,235,.25);
+            transition:filter .15s ease;
+        "
+        onmouseover="this.style.filter='brightness(1.05)'"
+        onmouseout="this.style.filter='none'">
+        📈 Voir le profil coureur
+      </a>
+    </div>
+  </div>
+
+
+  <!-- COLONNE DROITE : Import GPX/FIT -->
+  <div class="card" style="flex:1;">
+    <h2 style="font-size:1rem; font-weight:600; margin-bottom:7px;">📤 Import d'activité (GPX / FIT)</h2>
+    <p class="muted" style="margin-top:0; font-size:0.85rem;">
+      Dépose un fichier GPX ou FIT pour enrichir ton historique et lancer l’orchestrateur.
+    </p>
+
+    <!-- Zone de drop -->
+    <div id="dropzone"
+      style="
+        margin-top:12px;
+        padding:30px;
+        border:2px dashed #ccc;
+        border-radius:6px;
+        text-align:center;
+        color:#777;
+        cursor:pointer;
+        transition:0.2s border-color ease;
+      "
+      ondragover="this.style.borderColor='var(--accent)'; event.preventDefault();"
+      ondragleave="this.style.borderColor='#ccc';"
+      onclick="document.getElementById('file-input').click();"
+      >
+      📁 <strong>Glisse ton fichier ici</strong><br>
+      <span style="font-size:0.8rem;">ou clique pour choisir un fichier</span>
+    </div>
+
+    <!-- Input invisible -->
+    <input id="file-input" type="file" accept=".gpx,.fit" style="display:none;"
+      onchange="document.getElementById('selected-file').textContent = this.files[0].name;">
+
+    <!-- Nom du fichier sélectionné -->
+    <p id="selected-file"
+      style="font-size:0.85rem; color:#444; margin-top:10px; min-height:18px;">
+    </p>
+
+    <!-- Bouton lancer l'orchestrateur -->
+    <div style="margin-top:12px; text-align:right;">
+      <button onclick="startImport()"
+        style="
+          padding:10px 16px;
+          background:var(--grad-accent);
+          color:white;
+          border:none;
+          border-radius:4px;
+          font-weight:600;
+          box-shadow:0 6px 16px rgba(37,99,235,.25);
+          cursor:pointer;
+        ">
+        ⚙️ Lancer l'orchestrateur
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function startImport() {
+  const fileInput = document.getElementById('file-input');
+  if (!fileInput.files.length) {
+    alert("Merci de sélectionner un fichier GPX ou FIT !");
+    return;
+  }
+  
+  // Appel POST → /api/upload (à adapter à ton backend)
+  const formData = new FormData();
+  formData.append("file", fileInput.files[0]);
+
+  fetch("/api/import-activity", {
+    method: "POST",
+    body: formData
+  })
+  .then(r => r.json())
+  .then(data => {
+    alert("Import lancé ! L'orchestrateur traite l'activité 🔧");
+  })
+  .catch(err => {
+    console.error(err);
+    alert("Erreur lors de l'import.");
+  });
+}
+</script>
+
+  <div>
+    <div class="card">
+        <!-- point d'ancrage de VAM un peu au-dessus pour éviter le scroll trop bas -->
+        <div id="anchor-vam" style="position:relative; top:-80px;"></div>
+        <!-- Sélecteur d’activité -->
+      <h2 style="font-size:1rem; font-weight:600; margin-bottom:6px;">🏃 Activités enregistrées</h2>
+      {% if activities %}
+        <p class="muted" style="margin-top:0; font-size:0.85rem;">Choisis une activité pour afficher les détails, les courbes et le tracé GPS.</p>
+        <label style="margin-bottom:4px;">Activité :</label>
+        <select id="activitySelect" style="min-width: 100%; max-width:100%;">
+          {% for a in activities %}
+            <option value="{{ a.id }}">{{ a.label }}</option>
+          {% endfor %}
+        </select>
+        <div style="margin-top:10px; display:flex; justify-content:flex-end; gap:8px;">
+          <button type="button" onclick="
+            const sel = document.getElementById('activitySelect');
+            const id = sel.value;
+            if (id) window.location.href = `/ui/user/{{ user.id }}/activity/${id}`;
+          ">Voir cette activité</button>
+        </div>
+      {% else %}
+        <p class="muted" style="margin-top:8px;">Aucune activité enregistrée pour cet utilisateur pour le moment.</p>
+        <p class="muted" style="margin-top:4px; font-size:0.85rem;">Utilise le bouton “📥 Import Strava” pour récupérer ta première activité.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================= -->
+<!-- 2 blocs côte à côte : Records VAM | Tableau VAM par pente -->
+<!-- ========================================================= -->
+<div style="margin-top:1px; display:grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap:4px;">
+
+  <!-- 🏆 Records VAM -->
+  <div class="card">
+    <h2 style="font-size:1rem; font-weight:600; margin-bottom:4px;">🏆 Records VAM (5/15/30)</h2>
+    <p class="muted" style="margin-top:0; font-size:0.85rem;">
+      La VAM (Vitesse Ascensionnelle Moyenne) en m/hr mesurée sur ta meilleure sortie sur une période de 5, 15 & 30 minutes.
+    </p>
+    {% if user_prs and user_prs|length > 0 %}
+      <table cellpadding="6" cellspacing="0" style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+        <thead>
+          <tr style="border-bottom:1px solid #e5e7eb;">
+            <th style="text-align:left;">Sport</th>
+            <th style="text-align:center;">Fenêtre</th>
+            <th style="text-align:right;">VAM (m/hr)</th>
+            <th style="text-align:center;">Activité</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for pr in user_prs %}
+          <tr style="border-bottom:1px solid #f3f4f6;">
+            <td>{{ pr.sport }}</td>
+            <td style="text-align:center;">{{ pr.window_min }} min</td>
+            <td style="text-align:right;">
+              {% if pr.vam_m_per_h is not none %}{{ pr.vam_m_per_h|round(0)|int }} m/hr{% else %}n/a{% endif %}
+            </td>
+            <td style="text-align:center;">{{ pr.date_str }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">Aucun record disponible.</p>
+    {% endif %}
+  </div>
+
+
+<!-- 📊 Tableau VAM par pente + filtre zone -->
+<div class="card" id="vam-by-slope">
+
+
+  <h2 style="font-size:1rem; font-weight:600; margin-bottom:4px;">📊 VAM (en m/hr) par % de pente</h2>
+
+  <!-- Filtre zone cardiaque (navigation fluide sans retour en haut) -->
+  <div style="margin-bottom:10px;">
+    <label for="hr_zone">Zone cardiaque :</label>
+    <select id="hr_zone" name="hr_zone">
+      <option value="all" {{ 'selected' if hr_zone_filter == 'all' }}>Toutes</option>
+      {% for z in ['Zone 1','Zone 2','Zone 3','Zone 4','Zone 5'] %}
+        <option value="{{ z }}" {{ 'selected' if hr_zone_filter == z }}>{{ z }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  {% if vam_by_slope and vam_by_slope|length > 0 %}
+    {# Ordre voulu + labels lisibles #}
+    {% set order = ['S0_5','S5_10','S10_15','S15_20','S20_25','S25_30','S30_40','S40p'] %}
+    {% set labels = {
+      'S0_5':'0–5%',
+      'S5_10':'5–10%',
+      'S10_15':'10–15%',
+      'S15_20':'15–20%',
+      'S20_25':'20–25%',
+      'S25_30':'25–30%',
+      'S30_40':'30–40%',
+      'S40p':'>40%'
+    } %}
+
+    {# Indexer les lignes par clé slope_band #}
+    {% set bykey = {} %}
+    {% for r in vam_by_slope %}
+      {% set _ = bykey.update({ r.slope_band: r }) %}
+    {% endfor %}
+
+    <table cellpadding="6" cellspacing="0" style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+      <thead>
+        <tr style="border-bottom:1px solid #e5e7eb;">
+          <th style="text-align:left;">Pente</th>
+          <th style="text-align:right;">VAM min</th>
+          <th style="text-align:right;">VAM moy</th>
+          <th style="text-align:right;">VAM max</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for k in order %}
+          {% set row = bykey.get(k) %}
+          {% if row %}
+            <tr style="border-bottom:1px solid #f3f4f6;">
+              <td>{{ labels.get(k, k) }}</td>
+              <td style="text-align:right;">
+                {% if row.vam_min is not none %}{{ row.vam_min|round(0)|int }}{% else %}n/a{% endif %}
+              </td>
+              <td style="text-align:right;">
+                {% if row.vam_avg is not none %}{{ row.vam_avg|round(0)|int }}{% else %}n/a{% endif %}
+              </td>
+              <td style="text-align:right;">
+                {% if row.vam_max is not none %}{{ row.vam_max|round(0)|int }}{% else %}n/a{% endif %}
+              </td>
+            </tr>
+          {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">Aucune donnée disponible pour ce filtre.</p>
+  {% endif %}
+</div>
+
+<script>
+  (function(){
+    const sel = document.getElementById('hr_zone');
+    if (!sel) return;
+    sel.addEventListener('change', function(){
+      const url = new URL(window.location);
+      url.searchParams.set('hr_zone', this.value);
+      url.hash = 'anchor-vam';             // cible l’ancre un peu plus haut
+      window.location.replace(url);        // recharge sans empiler l’historique
+    });
+  })();
+</script>
+
+
+
+
+</div>
+
+<!-- ================== DERNIÈRES ACTIVITÉS (split map | VAM) ================== -->
+{% for a in last_activities %}
+  <div class="card"
+     style="
+       position:relative;
+       overflow:visible;
+       border:2px solid {{ a.level_color }};
+       border-radius:6px;
+     ">
+
+    {% if a.level %}
+      <!-- Badge niveau losange -->
+      <div style="
+        position:absolute;
+        top:-10px;
+        right:10px;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      ">
+        <div style="position:relative; width:75px; height:60px;">
+          <!-- Contour blanc + ombre -->
+          <div style="
+            position:absolute;
+            inset:0;
+            clip-path: polygon(50% 0, 92% 40%, 70% 100%, 30% 100%, 8% 40%);
+            background:#ffffff;
+            box-shadow:0 4px 12px rgba(15,23,42,0.35);
+            border-radius:2px;
+          "></div>
+
+          <!-- Intérieur coloré -->
+            <div style="
+                position:absolute;
+                inset:3px;
+                clip-path: polygon(50% 0, 92% 40%, 70% 100%, 30% 100%, 8% 40%);
+                background: {{ a.level_color or '#6b7280' }};
+                display:flex;
+                flex-direction:column;
+                align-items:center;
+                justify-content:center;
+                color:#ffffff;
+                font-weight:700;
+                text-transform:uppercase;
+
+                /* 👉 Tu peux ajuster ici le texte du losang */
+                padding-top:10px;
+                padding-bottom:4px;
+                padding-left:4px;
+                padding-right:4px;
+            ">
+            <div style="font-size:0.55rem; letter-spacing:0.06em; opacity:0.9;">
+              Niveau
+            </div>
+            <div style="font-size:1.05rem; line-height:1; margin-top:2px;">
+              {{ a.level }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Label sortie sous le losange -->
+        <div style="
+          margin-top:4px;
+          font-size:0.65rem;
+          text-transform:uppercase;
+          letter-spacing:0.06em;
+          color:#6b7280;
+        ">
+          Sortie
+        </div>
+      </div>
+    {% endif %}
+
+    <h3 style="margin:0;">
+      <a href="/ui/user/{{ user.id }}/activity/{{ a.id }}">{{ a.name }}</a>
+    </h3>
+    <p class="muted" style="margin:4px 0 12px;">
+      {{ a.date_str }} · {{ a.dist_km }} km · D+ {{ a.dplus }} m ·
+      Durée {{ (a.duration_sec // 3600)|int }}h{{ ((a.duration_sec % 3600) // 60)|int }} ·
+      {% if a.tir_percent is not none %}TIR {{ a.tir_percent|round(0) }}%{% else %}TIR n/a{% endif %}
+    </p>
+
+    <div style="display:grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap:36px;">
+      <!-- Carte à gauche -->
+      <div id="map-{{ a.id }}" style="height: 240px; border:1px solid #eee; border-radius:2px;"></div>
+
+      <!-- ⛰️ VAM de l’activité -->
+      <div style="margin-top:12px;">
+        <h4 style="margin:0 0 6px 0;">⛰️ VAM de l’activité</h4>
+        <p class="muted" style="margin:0 0 10px 0; font-size:0.85rem;">
+          Vitesse Ascensionnelle Maximale (VAM) : meilleur rythme vertical moyen
+          atteint sur une fenêtre glissante de 5, 15 et 30 minutes.
+        </p>
+
+        <div style="display:grid; grid-template-columns: 1fr auto; row-gap:4px;">
+          <div>5 min</div>
+          <div style="text-align:right;">
+            {% if a.vam_5 is not none %}
+              {{ a.vam_5|round(0)|int }} m/hr
+            {% else %} n/a {% endif %}
+          </div>
+
+          <div>15 min</div>
+          <div style="text-align:right;">
+            {% if a.vam_15 is not none %}
+              {{ a.vam_15|round(0)|int }} m/hr
+            {% else %} n/a {% endif %}
+          </div>
+
+          <div>30 min</div>
+          <div style="text-align:right;">
+            {% if a.vam_30 is not none %}
+              {{ a.vam_30|round(0)|int }} m/hr
+            {% else %} n/a {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function(){
+        const pts = {{ a.gps|tojson }};
+        if (pts && pts.length > 1 && window.L) {
+          const map = L.map('map-{{ a.id }}', { zoomControl: false });
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+          }).addTo(map);
+          const poly = L.polyline(pts, { weight: 3 }).addTo(map);
+          map.fitBounds(poly.getBounds(), { padding: [20, 20] });
+        }
+      })();
+    </script>
+  </div>
+{% endfor %}
+
+<script>
+  try {
+    const dbg = {{ debug_js|safe }};
+    console.log("Dashboard data:", dbg);
+  } catch (e) {}
+</script>
+
+{% endblock %}

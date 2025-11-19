@@ -1,0 +1,22 @@
+# ---- Environnements Python ----
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# ---- Bases de données locales (SQLite) ----
+*.db
+*.sqlite3
+
+# ---- Config & secrets ----
+.env
+*.env
+app/tokens.json
+
+# ---- Node / libre_node ----
+libre_node/node_modules/
+libre_node/package-lock.json
+
+# ---- Fichiers de backup / temporaires ----
+.DS_Store
+*.log

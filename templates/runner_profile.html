@@ -1,0 +1,517 @@
+{% extends "base.html" %}
+{% block title %}Profil coureur · {{ user.first_name or user.email }}{% endblock %}
+
+{% block content %}
+
+<!-- ╔══════════════════════════════╗ -->
+<!--   🧍 Header utilisateur + actions  -->
+<!-- ╚══════════════════════════════╝ -->
+<div style="
+  display:flex; align-items:center; justify-content:space-between;
+  padding:16px 0 12px; border-bottom:1px solid var(--border-soft);
+  margin-bottom:16px;
+">
+  <div style="display:flex; align-items:center; gap:14px;">
+
+    {% if user.profile_image_url %}
+    <div style="position:relative; width:70px; height:90px; flex-shrink:0;">
+      <div style="
+        position:absolute; inset:0; border-radius:50% / 58%;
+        background: radial-gradient(circle at 30% 30%, #f7e7b0, #d4b469, #a07c36),
+                    linear-gradient(145deg, rgba(255,255,255,0.5), rgba(0,0,0,0.3));
+        background-blend-mode:overlay;
+        box-shadow: inset 0 1px 2px rgba(255,255,255,0.7),
+                    inset 0 -2px 4px rgba(0,0,0,0.35),
+                    0 4px 10px rgba(0,0,0,0.35);
+        padding:4px;
+      "></div>
+      <div style="
+        position:absolute; top:4px; left:4px;
+        width:calc(100% - 8px); height:calc(100% - 8px);
+        border-radius:50% / 58%; overflow:hidden; background:#fff;
+      ">
+        <img src="{{ user.profile_image_url }}" style="width:100%;height:100%;object-fit:cover;">
+      </div>
+    </div>
+    {% else %}
+    <div style="position:relative; width:70px; height:90px; flex-shrink:0;">
+      <div style="
+        position:absolute; inset:0; border-radius:50% / 58%;
+        background: radial-gradient(circle at 30% 30%, #f7e7b0, #d4b469, #a07c36),
+                    linear-gradient(145deg, rgba(255,255,255,0.5), rgba(0,0,0,0.3));
+        background-blend-mode:overlay;
+        box-shadow: inset 0 1px 2px rgba(255,255,255,0.7),
+                    inset 0 -2px 4px rgba(0,0,0,0.35),
+                    0 4px 10px rgba(0,0,0,0.35);
+        padding:4px;
+      "></div>
+      <div style="
+        position:absolute; top:4px; left:4px;
+        width:calc(100% - 8px); height:calc(100% - 8px);
+        border-radius:50% / 58%;
+        display:flex; align-items:center; justify-content:center;
+        background:#fff; color:#111827; font-weight:700; font-size:1.3rem;
+      ">
+        {% if user.first_name %}
+          {{ user.first_name[0]|upper }}
+        {% else %}
+          {{ user.email[0]|upper }}
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div>
+      <div style="font-size:1.1rem; font-weight:600;">
+        {% if user.first_name or user.last_name %}
+          {{ user.first_name or "" }} {{ user.last_name or "" }}
+        {% else %}
+          {{ user.email }}
+        {% endif %}
+      </div>
+      <div class="muted" style="margin-top:2px;">Profil coureur · id={{ user.id }}</div>
+    </div>
+  </div>
+
+  <div style="display:flex; gap:10px;">
+    <!-- Retour dashboard -->
+    <a href="/ui/user/{{ user.id }}"
+       style="display:inline-flex; align-items:center; gap:6px;
+              padding:10px 16px; font-size:.95rem; font-weight:600; border-radius:2px;
+              border:1px solid #cbd5e1; background:#ffffff; color:var(--text-main);
+              text-decoration:none; box-shadow:0 3px 10px rgba(2,6,23,.05);
+              transition:filter .15s ease, transform .06s ease;"
+       onmouseover="this.style.background='#f8fafc'"
+       onmouseout="this.style.background='#ffffff'">
+      ⬅️ Dashboard
+    </a>
+  </div>
+</div>
+
+<!-- ╔══════════════════════════════╗ -->
+<!--      🎯 En-tête profil coureur -->
+<!-- ╚══════════════════════════════╝ -->
+<div class="card" style="padding:14px; margin-bottom:14px;">
+  <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+    <div>
+      <h2 style="margin:0 0 4px 0; font-size:1.05rem; font-weight:600;">
+        Profil coureur – {{ sport }}
+      </h2>
+      <p class="muted" style="margin:0; font-size:0.85rem;">
+        Choisis un onglet : VAM, allure, cadence, ou dégradation avec la durée.
+      </p>
+    </div>
+
+    <form method="get"
+          action="{{ request.url.path }}"
+          style="display:flex; gap:8px; align-items:center; font-size:0.85rem;">
+
+      <input type="hidden" name="sport" value="{{ sport }}">
+      <input type="hidden" name="tab" value="{{ tab }}">
+      <input type="hidden" name="hr_zone_fatigue" value="{{ hr_zone_fatigue }}">
+
+      <label for="period" style="white-space:nowrap;">Période :</label>
+      <select id="period" name="period"
+              onchange="this.form.submit()"
+              style="padding:4px 6px; border-radius:4px; border:1px solid #d1d5db;">
+        <option value="all" {% if period == 'all' %}selected{% endif %}>
+          Tout l’historique
+        </option>
+        <option value="last_12_months" {% if period == 'last_12_months' %}selected{% endif %}>
+          12 derniers mois
+        </option>
+      </select>
+    </form>
+  </div>
+</div>
+
+<!-- ╔══════════════════════════════╗ -->
+<!--   ⬅️ Menu latéral / contenu     -->
+<!-- ╚══════════════════════════════╝ -->
+<div style="
+  display:grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap:16px;
+  align-items:flex-start;
+">
+
+  <!-- 🧭 Colonne gauche : menu onglets -->
+  <aside class="card" style="padding:12px; font-size:0.9rem;">
+    <div style="font-weight:600; font-size:0.85rem; margin-bottom:8px;
+                text-transform:uppercase; color:#6b7280;">
+      Profil coureur
+    </div>
+
+    {% set base_url = request.url.path %}
+
+    <!-- Onglet VAM -->
+    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=vam&hr_zone_fatigue={{ hr_zone_fatigue }}"
+       style="
+         display:block; padding:8px 10px; border-radius:4px;
+         text-decoration:none; margin-bottom:4px;
+         {% if tab == 'vam' %}
+           background:#0f172a; color:#f9fafb; font-weight:600;
+         {% else %}
+           color:#111827;
+         {% endif %}
+       ">
+      VAM par pente × cardio
+    </a>
+
+    <!-- Onglet Allure -->
+    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=pace&hr_zone_fatigue={{ hr_zone_fatigue }}"
+       style="
+         display:block; padding:8px 10px; border-radius:4px;
+         text-decoration:none; margin-bottom:4px;
+         {% if tab == 'pace' %}
+           background:#0f172a; color:#f9fafb; font-weight:600;
+         {% else %}
+           color:#111827;
+         {% endif %}
+       ">
+      Allure par pente × cardio
+    </a>
+
+    <!-- Onglet Cadence -->
+    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=cadence&hr_zone_fatigue={{ hr_zone_fatigue }}"
+       style="
+         display:block; padding:8px 10px; border-radius:4px;
+         text-decoration:none; margin-bottom:4px;
+         {% if tab == 'cadence' %}
+           background:#0f172a; color:#f9fafb; font-weight:600;
+         {% else %}
+           color:#111827;
+         {% endif %}
+       ">
+      Cadence par pente × cardio
+    </a>
+
+    <!-- Onglet Fatigue / durée -->
+    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=fatigue&hr_zone_fatigue={{ hr_zone_fatigue }}"
+       style="
+         display:block; padding:8px 10px; border-radius:4px;
+         text-decoration:none; margin-bottom:4px;
+         {% if tab == 'fatigue' %}
+           background:#0f172a; color:#f9fafb; font-weight:600;
+         {% else %}
+           color:#111827;
+         {% endif %}
+       ">
+      Fatigue / durée de course
+    </a>
+  </aside>
+
+  <!-- 🧩 Colonne droite : contenu selon l’onglet -->
+  <main>
+
+    {# ════════════ ONGLET VAM ════════════ #}
+    {% if tab == 'vam' %}
+
+      <div class="card" style="padding:14px;">
+        {% if profile.zones and profile.zones|length > 0 %}
+          <h3 style="margin:0 0 10px 0; font-size:0.95rem;">
+            VAM (m/h) par % de pente et zone cardio
+          </h3>
+          <p class="muted" style="margin:0 0 10px 0; font-size:0.8rem;">
+            Ici on ne regarde que les <strong>pentes positives</strong> (montées).
+          </p>
+
+          <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+            <thead>
+              <tr style="border-bottom:1px solid #e5e7eb;">
+                <th style="text-align:left; padding:4px 2px;">Pente</th>
+                {% for z in hr_zones %}
+                  <th style="text-align:right; padding:4px 2px;">
+                    {{ z }}<br>
+                    <span style="font-weight:400; font-size:0.7rem;">VAM (m/h)</span>
+                  </th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for slope_id, slope_label in slopes_order %}
+                {% if not slope_id.startswith("Sneg") %} {# ❌ exclut pentes négatives #}
+                  <tr style="border-bottom:1px solid #f3f4f6;">
+                    <td style="padding:4px 2px;">{{ slope_label }}</td>
+
+                    {% for z in hr_zones %}
+                      {% set zone = profile.zones.get(z) %}
+                      {% if zone %}
+                        {% set cell = zone.get(slope_id) %}
+                      {% else %}
+                        {% set cell = None %}
+                      {% endif %}
+
+                      <td style="text-align:right; padding:4px 2px;">
+                        {% if cell and cell.avg_vam_m_per_h %}
+                          {{ cell.avg_vam_m_per_h|round(0)|int }}
+                        {% else %}
+                          –
+                        {% endif %}
+                      </td>
+                    {% endfor %}
+                  </tr>
+                {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p class="muted" style="margin:0;">
+            Aucune donnée d’agrégats trouvée pour ce profil (sport={{ sport }}, période={{ period }}).
+          </p>
+        {% endif %}
+      </div>
+
+    {% endif %} {# fin tab == 'vam' #}
+
+    {# ════════════ ONGLET ALLURE ════════════ #}
+    {% if tab == 'pace' %}
+
+      <div class="card" style="padding:14px;">
+        {% if profile.zones and profile.zones|length > 0 %}
+          <h3 style="margin:0 0 10px 0; font-size:0.95rem;">
+            Allure moyenne (min/km) par % de pente et zone cardio
+          </h3>
+          <p class="muted" style="margin:0 0 10px 0; font-size:0.8rem;">
+            On inclut ici montées <strong>et descentes</strong> pour voir comment tu gères
+            toutes les pentes.
+          </p>
+
+          <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+            <thead>
+              <tr style="border-bottom:1px solid #e5e7eb;">
+                <th style="text-align:left; padding:4px 2px;">Pente</th>
+                {% for z in hr_zones %}
+                  <th style="text-align:right; padding:4px 2px;">
+                    {{ z }}<br>
+                    <span style="font-weight:400; font-size:0.7rem;">Allure (min/km)</span>
+                  </th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for slope_id, slope_label in slopes_order %}
+                <tr style="border-bottom:1px solid #f3f4f6;">
+                  <td style="padding:4px 2px;">{{ slope_label }}</td>
+
+                  {% for z in hr_zones %}
+                    {% set zone = profile.zones.get(z) %}
+                    {% if zone %}
+                      {% set cell = zone.get(slope_id) %}
+                    {% else %}
+                      {% set cell = None %}
+                    {% endif %}
+
+                    <td style="text-align:right; padding:4px 2px;">
+                      {% if cell and cell.avg_pace_s_per_km %}
+                        {% set pace_sec = cell.avg_pace_s_per_km|round(0)|int %}
+                        {% set pace_min = pace_sec // 60 %}
+                        {% set pace_rem = pace_sec % 60 %}
+                        {{ pace_min }}'{{ "%02d"|format(pace_rem) }}
+                      {% else %}
+                        –
+                      {% endif %}
+                    </td>
+                  {% endfor %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p class="muted" style="margin:0;">
+            Aucune donnée d’agrégats trouvée pour ce profil (sport={{ sport }}, période={{ period }}).
+          </p>
+        {% endif %}
+      </div>
+
+    {% endif %} {# fin tab == 'pace' #}
+
+    {# ════════════ ONGLET CADENCE ════════════ #}
+    {% if tab == 'cadence' %}
+
+      <div class="card" style="padding:14px;">
+        {% if profile.zones and profile.zones|length > 0 %}
+          <h3 style="margin:0 0 10px 0; font-size:0.95rem;">
+            Cadence de pas (pas/min) par % de pente et zone cardio
+          </h3>
+          <p class="muted" style="margin:0 0 10px 0; font-size:0.8rem;">
+            Ça permet de voir à quelles pentes tu marches, trottines ou cours.
+          </p>
+
+          <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+            <thead>
+              <tr style="border-bottom:1px solid #e5e7eb;">
+                <th style="text-align:left; padding:4px 2px;">Pente</th>
+                {% for z in hr_zones %}
+                  <th style="text-align:right; padding:4px 2px;">
+                    {{ z }}<br>
+                    <span style="font-weight:400; font-size:0.7rem;">Cadence (pas/min)</span>
+                  </th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for slope_id, slope_label in slopes_order %}
+                <tr style="border-bottom:1px solid #f3f4f6;">
+                  <td style="padding:4px 2px;">{{ slope_label }}</td>
+
+                  {% for z in hr_zones %}
+                    {% set zone = profile.zones.get(z) %}
+                    {% if zone %}
+                      {% set cell = zone.get(slope_id) %}
+                    {% else %}
+                      {% set cell = None %}
+                    {% endif %}
+
+                    <td style="text-align:right; padding:4px 2px;">
+                      {% if cell and cell.avg_cadence_spm %}
+                        {{ (cell.avg_cadence_spm * 2) | int }}
+                      {% else %}
+                        –
+                      {% endif %}
+                    </td>
+                  {% endfor %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p class="muted" style="margin:0;">
+            Aucune donnée d’agrégats trouvée pour ce profil (sport={{ sport }}, période={{ period }}).
+          </p>
+        {% endif %}
+      </div>
+
+    {% endif %} {# fin tab == 'cadence' #}
+
+    {# ════════════ ONGLET FATIGUE ════════════ #}
+    {% if tab == 'fatigue' %}
+
+      <div class="card" style="padding:14px;">
+
+        {% if fatigue_profile and fatigue_profile.by_slope %}
+
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:8px;">
+            <div>
+              <h3 style="margin:0 0 4px 0; font-size:0.95rem;">
+                Dégradation de la performance selon la durée de la sortie
+              </h3>
+              <p class="muted" style="margin:0; font-size:0.8rem;">
+                {% if fatigue_profile.hr_zone %}
+                  Zone cardio analysée : <strong>{{ fatigue_profile.hr_zone }}</strong>.
+                {% else %}
+                  Toutes les zones cardiaques sont agrégées.
+                {% endif %}
+              </p>
+            </div>
+
+            <!-- 🎛 Filtre zone cardio pour la fatigue -->
+            <form method="get"
+                  action="{{ request.url.path }}"
+                  style="display:flex; gap:8px; align-items:center; font-size:0.8rem;">
+              <input type="hidden" name="sport" value="{{ sport }}">
+              <input type="hidden" name="period" value="{{ period }}">
+              <input type="hidden" name="tab" value="fatigue">
+
+              <label for="hr_zone_fatigue" style="white-space:nowrap;">Zone cardio :</label>
+              <select id="hr_zone_fatigue"
+                      name="hr_zone_fatigue"
+                      onchange="this.form.submit()
+                      "
+                      style="padding:4px 6px; border-radius:4px; border:1px solid #d1d5db;">
+                <option value="all" {% if hr_zone_fatigue == 'all' %}selected{% endif %}>
+                  Toutes
+                </option>
+                {% for z in hr_zones %}
+                  <option value="{{ z }}" {% if hr_zone_fatigue == z %}selected{% endif %}>
+                    {{ z }}
+                  </option>
+                {% endfor %}
+              </select>
+            </form>
+          </div>
+
+          {% set buckets = fatigue_profile.buckets %}
+
+          <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+            <thead>
+              <tr style="border-bottom:1px solid #e5e7eb;">
+                <th style="text-align:left; padding:4px 2px;">Pente</th>
+                {% for b in buckets %}
+                  <th style="text-align:right; padding:4px 2px;">
+                    {{ b.label }}<br>
+                    <span style="font-weight:400; font-size:0.7rem;">Allure /km</span>
+                  </th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+
+              {% for slope_id, slope_label in slopes_order %}
+                {% set slope_stats = fatigue_profile.by_slope.get(slope_id) %}
+                {% if slope_stats %}
+                  <tr style="border-bottom:1px solid #f3f4f6;">
+                    <td style="padding:4px 2px;">{{ slope_label }}</td>
+
+                    {% for b in buckets %}
+                      {% set bucket_id = b.id %}
+                      {% set bucket_stats = slope_stats.get(bucket_id) %}
+
+                      <td style="text-align:right; padding:4px 2px;">
+                        {% if bucket_stats and bucket_stats.avg_pace_s_per_km %}
+
+                          {% set pace_s = bucket_stats.avg_pace_s_per_km %}
+                          {% set m = (pace_s // 60)|int %}
+                          {% set s = (pace_s % 60)|int %}
+
+                          <div style="font-weight:600;">
+                            {{ "%d:%02d"|format(m, s) }} /km
+                          </div>
+
+                          {% set deg = bucket_stats.degradation_vs_short_pct %}
+                          {% if deg is not none and bucket_id != 'short' %}
+                            {% set sign = '+' if deg >= 0 else '' %}
+                            <div style="font-size:0.7rem; color:#6b7280;">
+                              {{ sign }}{{ deg|round(0)|int }}%
+                            </div>
+                          {% elif bucket_id == 'short' %}
+                            <div style="font-size:0.7rem; color:#6b7280;">
+                              Référence
+                            </div>
+                          {% endif %}
+
+                        {% else %}
+                          <span style="opacity:0.3;">–</span>
+                        {% endif %}
+                      </td>
+
+                    {% endfor %}
+                  </tr>
+                {% endif %}
+              {% endfor %}
+
+            </tbody>
+          </table>
+
+          <p class="muted" style="margin-top:10px; font-size:0.75rem;">
+            Exemple de lecture : si sur les pentes 10–15% tu es à 6:00/km sur les sorties
+            &lt;2h mais à 6:45/km sur les sorties 5–10h (+12%), cela montre à quel point
+            ton allure moyenne se dégrade quand la durée augmente dans cette zone cardio.
+          </p>
+
+        {% else %}
+          <p class="muted" style="margin:0;">
+            Pas encore assez de données par durée pour calculer la dégradation.
+          </p>
+        {% endif %}
+
+      </div>
+
+    {% endif %} {# fin tab == 'fatigue' #}
+
+  </main>
+</div>
+
+{% endblock %}
+
+

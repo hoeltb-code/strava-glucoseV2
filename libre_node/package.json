@@ -1,0 +1,9 @@
+{
+  "name": "libre-node",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@babel/runtime": "^7.28.4",
+    "@diakem/libre-link-up-api-client": "^0.7.2"
+  }
+}

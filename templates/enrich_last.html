@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Enrichissement activité</title>
+  </head>
+  <body>
+    <h1>Enrichissement de la dernière activité</h1>
+    <p><strong>User ID :</strong> {{ user_id }}</p>
+    <p><strong>Activité :</strong> {{ activity_id }} – {{ name }} – {{ start_date }}</p>
+    <p>{{ message }}</p>
+
+    <p><a href="/ui">⬅️ Retour à l'accueil</a></p>
+    <p><a href="/ui/user/{{ user_id }}">➡️ Aller au dashboard utilisateur</a></p>
+  </body>
+</html>

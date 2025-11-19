@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Bienvenue</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        padding: 24px;
+        max-width: 600px;
+        margin: 0 auto;
+      }
+      .card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 20px;
+      }
+      .btn {
+        display: inline-block;
+        padding: 10px 16px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        text-decoration: none;
+        font-size: 14px;
+        margin-right: 8px;
+      }
+      .btn-primary {
+        background: #fc4c02; /* couleur Strava-ish */
+        color: white;
+      }
+      .btn-secondary {
+        background: #f2f2f2;
+        color: #333;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Bienvenue, {{ user.first_name or user.email }} 👋</h1>
+      <p>
+        Tu peux connecter ton compte Strava dès maintenant pour que l'application
+        récupère automatiquement tes activités et les enrichisse avec tes données
+        de glycémie.
+      </p>
+
+      {% if has_strava %}
+        <p>✅ Ton compte est déjà connecté à Strava.</p>
+        <p>
+          <a href="/ui/user/{{ user.id }}" class="btn btn-primary">
+            Aller au dashboard
+          </a>
+        </p>
+      {% else %}
+        <p>Souhaites-tu connecter Strava maintenant ?</p>
+        <p>
+          <!-- Connexion Strava -->
+          <a href="/auth/strava?user_id={{ user.id }}" class="btn btn-primary">
+            Me connecter à Strava
+          </a>
+
+          <!-- Ignorer pour l'instant -->
+          <a href="/ui/user/{{ user.id }}" class="btn btn-secondary">
+            Je le ferai plus tard
+          </a>
+        </p>
+      {% endif %}
+    </div>
+  </body>
+</html>

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard · Strava x Glucose{% endblock %}
+
+{% block content %}
+  <div class="card">
+    <h2>👥 Utilisateurs</h2>
+    <p style="color: var(--text-muted); margin-top: -4px;">
+      Statut des connexions Strava et LibreLinkUp
+    </p>
+
+    {% if users %}
+      <table style="width: 100%; border-collapse: collapse; margin-top: 12px;">
+        <thead>
+          <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
+            <th style="text-align:left; padding: 6px;">ID</th>
+            <th style="text-align:left; padding: 6px;">Utilisateur</th>
+            <th style="text-align:left; padding: 6px;">Strava</th>
+            <th style="text-align:left; padding: 6px;">LibreLinkUp</th>
+            <th style="text-align:right; padding: 6px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+              <td style="padding: 6px;">#{{ u.id }}</td>
+              <td style="padding: 6px;">{{ u.email }}</td>
+              <td style="padding: 6px;">
+                {% if u.has_strava %}
+                  <span style="color: #4ade80;">Connecté</span>
+                {% else %}
+                  <span style="color: #f87171;">Non connecté</span>
+                {% endif %}
+              </td>
+              <td style="padding: 6px;">
+                {% if u.libre_email %}
+                  <span style="color: #4ade80;">{{ u.libre_email }}</span>
+                {% else %}
+                  <span style="color: #f87171;">Non configuré</span>
+                {% endif %}
+              </td>
+              <td style="text-align:right; padding: 6px;">
+                <form method="post" action="/ui/enrich-last" style="display:inline;">
+                  <input type="hidden" name="user_id" value="{{ u.id }}">
+                  <button type="submit"
+                          style="background: var(--accent); color: white; border: none;
+                                 border-radius: 6px; padding: 5px 10px; cursor: pointer;">
+                    Enrichir
+                  </button>
+                </form>
+                <a href="/ui/user/{{ u.id }}"
+                   style="margin-left: 6px; color: var(--accent); font-size: 0.9rem;">
+                  Voir
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p style="margin-top: 12px; color: var(--text-muted);">
+        Aucun utilisateur enregistré pour le moment.<br>
+        Crée un utilisateur via <a href="/ui/signup">la page d'inscription</a>.
+      </p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3>ℹ️ Aide rapide</h3>
+    <ul style="color: var(--text-muted); line-height: 1.5;">
+      <li>1️⃣ Crée un utilisateur (email + mot de passe).</li>
+      <li>2️⃣ Connecte ton compte Strava via le flux OAuth.</li>
+      <li>3️⃣ Configure ton compte LibreLinkUp.</li>
+      <li>4️⃣ Clique sur <em>“Enrichir”</em> pour récupérer la glycémie et la lier à la dernière activité Strava.</li>
+    </ul>
+  </div>
+{% endblock %}

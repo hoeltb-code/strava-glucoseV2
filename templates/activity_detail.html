@@ -1,0 +1,1070 @@
+{% extends "base.html" %}
+{% block title %}Activité · {{ activity.name or "Sans titre" }}{% endblock %}
+
+{% block content %}
+
+<!-- ╔══════════════════════════════╗ -->
+<!--   🧍 Header utilisateur + actions  -->
+<!-- ╚══════════════════════════════╝ -->
+<div style="
+  display:flex; align-items:center; justify-content:space-between;
+  padding:16px 0 12px; border-bottom:1px solid var(--border-soft);
+  margin-bottom:16px;
+">
+  <div style="display:flex; align-items:center; gap:14px;">
+
+    {% if user.profile_image_url %}
+    <div style="position:relative; width:70px; height:90px; flex-shrink:0;">
+      <div style="
+        position:absolute; inset:0; border-radius:50% / 58%;
+        background: radial-gradient(circle at 30% 30%, #f7e7b0, #d4b469, #a07c36),
+                    linear-gradient(145deg, rgba(255,255,255,0.5), rgba(0,0,0,0.3));
+        background-blend-mode:overlay;
+        box-shadow: inset 0 1px 2px rgba(255,255,255,0.7),
+                    inset 0 -2px 4px rgba(0,0,0,0.35),
+                    0 4px 10px rgba(0,0,0,0.35);
+        padding:4px;
+      "></div>
+      <div style="
+        position:absolute; top:4px; left:4px;
+        width:calc(100% - 8px); height:calc(100% - 8px);
+        border-radius:50% / 58%; overflow:hidden;
+      ">
+        <img src="{{ user.profile_image_url }}" style="width:100%;height:100%;object-fit:cover;">
+      </div>
+    </div>
+    {% endif %}
+
+    <div>
+      <div style="font-size:1.1rem; font-weight:600;">
+        {{ user.first_name or "" }} {{ user.last_name or "" }}
+      </div>
+      <div class="muted" style="margin-top:2px;">id={{ user.id }}</div>
+    </div>
+  </div>
+
+  <div style="display:flex; gap:10px;">
+
+    <!-- Bouton secondaire : Retour Dashboard -->
+    <a href="/ui/user/{{ user.id }}"
+       style="display:inline-flex; align-items:center; gap:6px;
+              padding:10px 16px; font-size:.95rem; font-weight:600; border-radius:2px;
+              border:1px solid #cbd5e1; background:#ffffff; color:var(--text-main);
+              text-decoration:none; box-shadow:0 3px 10px rgba(2,6,23,.05);
+              transition:filter .15s ease, transform .06s ease;"
+       onmouseover="this.style.background='#f8fafc'"
+       onmouseout="this.style.background='#ffffff'">⬅️ Dashboard</a>
+
+    <!-- Bouton danger : Supprimer -->
+    <form method="post"
+          action="/ui/user/{{ user.id }}/activity/{{ activity.id }}/delete"
+          onsubmit="return confirm('Supprimer définitivement ?')">
+      <button type="submit"
+        style="display:inline-flex; align-items:center; gap:6px;
+               padding:10px 16px; font-size:.95rem; font-weight:600; border-radius:2px;
+               border:1px solid transparent; background:#dc2626; color:#fff;
+               text-decoration:none; box-shadow:0 6px 16px rgba(220,38,38,.25);
+               transition:filter .15s ease, transform .06s ease; cursor:pointer;"
+        onmouseover="this.style.filter='brightness(1.08)'"
+        onmouseout="this.style.filter='none'"
+        onmousedown="this.style.transform='translateY(1px)'"
+        onmouseup="this.style.transform='none'">
+        🗑 Supprimer
+      </button>
+    </form>
+
+  </div>
+</div>
+
+<!-- ╔══════════════════════════════╗ -->
+<!--      🏃 Informations activité    -->
+<!-- ╚══════════════════════════════╝ -->
+<div class="card" style="position:relative; padding:18px; margin-bottom:16px;">
+
+  {% if level %}
+  <div style="position:absolute; top:-12px; right:12px;">
+    <div style="position:relative; width:70px; height:55px;">
+      <div style="
+        position:absolute; inset:0;
+        clip-path:polygon(50% 0, 92% 40%, 70% 100%, 30% 100%, 8% 40%);
+        background:#fff; box-shadow:0 4px 10px rgba(0,0,0,0.25);
+      "></div>
+
+      <div style="
+        position:absolute; inset:3px;
+        clip-path:polygon(50% 0, 92% 40%, 70% 100%, 30% 100%, 8% 40%);
+        background:{{ level_color }}; color:#fff;
+        display:flex; flex-direction:column; align-items:center; justify-content:center;
+        font-weight:700; padding-top:8px;
+      ">
+        <div style="font-size:0.55rem;">Niveau</div>
+        <div style="font-size:1rem; margin-top:2px;">{{ level }}</div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <h2 style="margin:0 0 8px 0; font-size:1.1rem; font-weight:600;">
+    {{ activity.name or "Activité sans nom" }}
+  </h2>
+
+  <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;">
+    <div><div class="tile-k">Distance</div><div class="tile-v">{{ dist_km }} km</div></div>
+    <div><div class="tile-k">D+</div><div class="tile-v">{{ dplus }} m</div></div>
+    <div><div class="tile-k">Durée</div>
+      <div class="tile-v">
+        {% set h = duration_sec // 3600 %}
+        {% set m = (duration_sec % 3600) // 60 %}
+        {{ h }}h{{ m }}
+      </div>
+    </div>
+    <div><div class="tile-k">FC moy</div><div class="tile-v">{{ fc }}</div></div>
+
+    {% if gly_avg %}
+      <div><div class="tile-k">Gly moy</div><div class="tile-v">{{ gly_avg|round(0) }} mg/dL</div></div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ╔══════════════════════════════╗ -->
+<!--      ⬅️ Menu latéral / contenu  -->
+<!-- ╚══════════════════════════════╝ -->
+<div style="
+  display:grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap:16px;
+  align-items:flex-start;
+">
+
+  <!-- 🧭 Colonne gauche : petit menu "à la Strava" -->
+  <aside class="card" style="padding:12px; font-size:0.9rem;">
+    <div style="font-weight:600; font-size:0.85rem; margin-bottom:8px; text-transform:uppercase; color:#6b7280;">
+      Analyse
+    </div>
+
+    {% set base_url = request.url.path %}
+
+    <a href="{{ base_url }}?tab=overview"
+       style="
+         display:block; padding:8px 10px; border-radius:4px;
+         text-decoration:none;
+         margin-bottom:4px;
+         {% if tab == 'overview' %}
+           background:#0f172a; color:#f9fafb; font-weight:600;
+         {% else %}
+           color:#111827;
+         {% endif %}
+       ">
+      Vue d’ensemble
+    </a>
+
+    <a href="{{ base_url }}?tab=segments"
+       style="
+         display:block; padding:8px 10px; border-radius:4px;
+         text-decoration:none;
+         margin-bottom:4px;
+         {% if tab == 'segments' %}
+           background:#0f172a; color:#f9fafb; font-weight:600;
+         {% else %}
+           color:#111827;
+         {% endif %}
+       ">
+      Marche ou course ?
+    </a>
+
+    <a href="{{ base_url }}?tab=climbs"
+       style="
+         display:block; padding:8px 10px; border-radius:4px;
+         text-decoration:none;
+         margin-bottom:4px;
+         {% if tab == 'climbs' %}
+           background:#0f172a; color:#f9fafb; font-weight:600;
+         {% else %}
+           color:#111827;
+         {% endif %}
+       ">
+      Montées remarquables
+    </a>
+
+    <a href="{{ base_url }}?tab=glycemia"
+       style="
+         display:block; padding:8px 10px; border-radius:4px;
+         text-decoration:none;
+         margin-bottom:4px;
+         {% if tab == 'glycemia' %}
+           background:#0f172a; color:#f9fafb; font-weight:600;
+         {% else %}
+           color:#111827;
+         {% endif %}
+       ">
+      Suivi de la glycémie
+    </a>
+
+    <a href="{{ base_url }}?tab=vam"
+       style="
+         display:block; padding:8px 10px; border-radius:4px;
+         text-decoration:none;
+         margin-bottom:4px;
+         {% if tab == 'vam' %}
+           background:#0f172a; color:#f9fafb; font-weight:600;
+         {% else %}
+           color:#111827;
+         {% endif %}
+       ">
+      Vitesse ascensionnelle (m/hr)
+    </a>
+
+    <a href="{{ base_url }}?tab=splits"
+       style="
+         display:block; padding:8px 10px; border-radius:4px;
+         text-decoration:none;
+         margin-bottom:4px;
+         {% if tab == 'splits' %}
+           background:#0f172a; color:#f9fafb; font-weight:600;
+         {% else %}
+           color:#111827;
+         {% endif %}
+       ">
+      Détail de la course
+    </a>
+
+  </aside>
+
+  <!-- 🧩 Colonne droite : contenu selon l’onglet -->
+  <main>
+
+    {# ════════════ ONGLET 1 : VUE D’ENSEMBLE ════════════ #}
+    {% if tab == 'overview' %}
+
+      <!-- Carte + VAM -->
+      <div class="card" style="padding:0; overflow:hidden;">
+
+        <div style="
+          display:grid;
+          grid-template-columns: minmax(0,1.2fr) 1px minmax(0,1fr);
+          min-height:260px;
+        ">
+
+          <!-- 🗺️ Colonne Carte -->
+          <div style="padding:16px;">
+            {% if has_gps %}
+              <div id="map" style="width:100%;height:260px;border-radius:2px;"></div>
+              <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+              <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+              <script>
+                const gpsPts = {{ gps_js|safe }};
+                if (gpsPts.length > 1) {
+                  const map = L.map('map');
+                  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                  const poly = L.polyline(gpsPts,{color:'#fc4c02',weight:4}).addTo(map);
+                  map.fitBounds(poly.getBounds());
+                }
+              </script>
+            {% else %}
+              <p class="muted">Pas de GPS.</p>
+            {% endif %}
+          </div>
+
+          <!-- Trait vertical -->
+          <div style="background:#e5e7eb;"></div>
+
+          <!-- ⛰️ Colonne VAM -->
+          <div style="padding:16px;">
+
+            <h3 style="margin-top:0; margin-bottom:10px; font-size:0.9rem;">
+              VAM (m/h) par % de pente et zone cardio
+            </h3>
+
+            <table style="width:100%; border-collapse:collapse; font-size:0.75rem;">
+              <thead>
+                <tr style="border-bottom:1px solid #e5e7eb;">
+                  <th style="text-align:left;">Pente</th>
+                  {% for z in hr_zones %}
+                  <th style="text-align:right;">{{ z }}</th>
+                  {% endfor %}
+                </tr>
+              </thead>
+
+              <tbody>
+              {% for slope_id, slope_label in slopes_order %}
+                {% if not slope_id.startswith('Sneg') %}
+                <tr style="border-bottom:1px solid #f3f4f6;">
+                  <td style="padding:4px 0;">{{ slope_label }}</td>
+
+                  {% for z in hr_zones %}
+                  {% set v = vam_by_slope_zone[slope_id][z] %}
+                  <td style="text-align:right; padding:4px 0;">
+                    {% if v is not none %}
+                      {{ v|round(0) }}
+                    {% else %}
+                      –
+                    {% endif %}
+                  </td>
+                  {% endfor %}
+                </tr>
+                {% endif %}
+              {% endfor %}
+              </tbody>
+            </table>
+
+
+          </div>
+
+        </div>
+      </div>
+
+
+
+    {% endif %} {# fin tab == overview #}
+
+
+    {# ════════════ ONGLET 2 : SEGMENTS ════════════ #}
+    {% if tab == 'segments' %}
+
+      {# Sélecteur du nombre de tronçons spécifique à l’onglet SEGMENTS #}
+      <form method="get"
+            action="{{ request.url.path }}"
+            style="
+              margin:0 0 16px 0;
+              display:flex;
+              align-items:center;
+              gap:10px;
+              font-size:0.9rem;
+            ">
+
+        {# On force tab=segments pour rester sur cet onglet après submit #}
+        <input type="hidden" name="tab" value="segments">
+
+        <label for="segments-seg" style="white-space:nowrap;">
+          Découper le parcours en :
+        </label>
+
+        <select id="segments-seg"
+                name="segments"
+                onchange="this.form.submit()"
+                style="
+                  padding:4px 6px;
+                  font-size:0.85rem;
+                  width:110px;
+                  border:1px solid #d1d5db;
+                  border-radius:4px;
+                  background:white;
+                ">
+          {% for n in range(2, 8) %}
+            <option value="{{ n }}"
+                    {% if n == current_seg_count %}selected{% endif %}>
+              {{ n }} tronçons
+            </option>
+          {% endfor %}
+        </select>
+      </form>
+
+      <!-- Vue globale par tronçon -->
+      <div class="card"
+          style="
+              margin-top:0;
+              border:3px solid #0f766e;
+              border-radius:4px;
+              padding:16px;
+          ">
+
+        <h3 style="margin-top:0; color:#0f766e; font-weight:700;">
+          Vue globale par tronçon
+        </h3>
+
+        <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+          <thead>
+            <tr style="border-bottom:1px solid #e5e7eb;">
+              <th style="text-align:left;">Tronçon</th>
+              {% for seg in segments_km_labels %}
+                <th style="text-align:center;">{{ seg }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+
+          <tbody>
+
+            <!-- FC moyenne -->
+            <tr style="border-bottom:1px solid #f3f4f6;">
+              <td>FC moy</td>
+              {% for seg in segments_km_labels %}
+                {% set idx = loop.index0 %}
+                {% set hr = hr_by_segment[idx] %}
+                <td style="text-align:center; padding:4px 2px;">
+                  {% if hr is not none %}
+                    <span style="color:#000; font-weight:400;">{{ hr }} bpm</span>
+                  {% else %}
+                    <span style="opacity:0.3;">–</span>
+                  {% endif %}
+                </td>
+              {% endfor %}
+            </tr>
+
+            <!-- Allure moyenne -->
+            <tr style="border-bottom:1px solid #f3f4f6;">
+              <td>Allure moy</td>
+              {% for seg in segments_km_labels %}
+                {% set idx = loop.index0 %}
+                {% set pace = pace_by_segment[idx] %}
+                <td style="text-align:center; padding:4px 2px;">
+                  {% if pace %}
+                    <span style="color:#000; font-weight:400;">{{ pace }}</span>
+                  {% else %}
+                    <span style="opacity:0.3;">–</span>
+                  {% endif %}
+                </td>
+              {% endfor %}
+            </tr>
+
+            <!-- D+ -->
+            <tr style="border-bottom:1px solid #f3f4f6;">
+              <td>D+</td>
+              {% for seg in segments_km_labels %}
+                {% set idx = loop.index0 %}
+                {% set dplus = dplus_by_segment[idx] %}
+                <td style="text-align:center; padding:4px 2px;">
+                  {% if dplus is not none %}
+                    <span style="color:#000; font-weight:400;">{{ dplus }} m</span>
+                  {% else %}
+                    <span style="opacity:0.3;">–</span>
+                  {% endif %}
+                </td>
+              {% endfor %}
+            </tr>
+
+            <!-- D- -->
+            <tr>
+              <td>D-</td>
+              {% for seg in segments_km_labels %}
+                {% set idx = loop.index0 %}
+                {% set dminus = dminus_by_segment[idx] %}
+                <td style="text-align:center; padding:4px 2px;">
+                  {% if dminus is not none %}
+                    <span style="color:#000; font-weight:400;">{{ dminus }} m</span>
+                  {% else %}
+                    <span style="opacity:0.3;">–</span>
+                  {% endif %}
+                </td>
+              {% endfor %}
+            </tr>
+
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Cadence & Mouvement -->
+      <div style="padding:16px; border-top:1px solid #e5e7eb; margin-top:16px; background:white; border-radius:4px;">
+
+        <h3 style="margin:0 0 10px 0;">Cadence de pas par % de pente par tronçons</h3>
+
+        <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+          <thead>
+            <tr style="border-bottom:1px solid #e5e7eb;">
+              <th style="text-align:left;">Pente</th>
+              {% for seg in segments_km_labels %}
+                <th style="text-align:center;">{{ seg }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+
+          <tbody>
+            {% for slope_id, slope_label in slopes_order %}
+            <tr style="border-bottom:1px solid #f3f4f6;">
+              <td>{{ slope_label }}</td>
+
+              {% for seg in segments_km_labels %}
+                {% set idx = loop.index0 %}
+                {% set cell = progression_table[slope_id][idx] %}
+
+                {% set bg = "" %}
+                {% if cell.class == "MARCHE" %}
+                    {% set bg = "background:#fecaca;" %}
+                {% elif cell.class == "TROTTINAGE" %}
+                    {% set bg = "background:#fef9c3;" %}
+                {% elif cell.class == "COURSE" %}
+                    {% set bg = "background:#bbf7d0;" %}
+                {% endif %}
+
+                <td style="text-align:center; padding:4px 2px; {{ bg }}">
+
+                  {% if cell.ppm is not none %}
+                    <div style="font-size:0.65rem; color:#4b5563;">
+                      {{ cell.ppm }} ppm
+                    </div>
+                    <div style="font-size:0.80rem; font-weight:700;">
+                      {{ cell.class }}
+                    </div>
+                  {% else %}
+                    <span style="opacity:0.3;">–</span>
+                  {% endif %}
+
+                </td>
+
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+      </div>
+
+    {% endif %} {# fin tab == segments #}
+
+
+
+    {# ════════════ ONGLET 3 : MONTÉES ════════════ #}
+    {% if tab == 'climbs' %}
+
+      <!-- Montées remarquables -->
+      <div id="climbs-section"
+           style="padding:16px; border-top:1px solid #e5e7eb; margin-top:0; background:white; border-radius:4px;">
+          <h3 style="margin:0 0 10px 0;">
+            Montées remarquables de la sortie
+            <span style="font-weight:400; font-size:0.8em; opacity:0.9;">
+              (Clique sur une ligne pour voir la montée)
+            </span>
+          </h3>
+        {% if climbs and climbs|length > 0 %}
+          <table style="
+            width:100%;
+            border-collapse:collapse;
+            font-size:0.75rem;          /* police plus petite */
+            line-height:1.15;           /* plus compact */
+          ">
+            <thead>
+              <tr style="border-bottom:1px solid #e5e7eb;">
+                <th style="padding:4px 2px; text-align:center; font-weight:600;">Début</th>
+                <th style="padding:4px 2px; text-align:center; font-weight:600;">Fin</th>
+                <th style="padding:4px 2px; text-align:center; font-weight:600;">Km</th>
+                <th style="padding:4px 2px; text-align:center; font-weight:600;">D+ net</th>
+                <th style="padding:4px 2px; text-align:center; font-weight:600;">D+</th>
+                <th style="padding:4px 2px; text-align:center; font-weight:600;">D-</th>
+                <th style="padding:4px 2px; text-align:center; font-weight:600;">Pente</th>
+                <th style="padding:4px 2px; text-align:center; font-weight:600;">FC</th>
+                <th style="padding:4px 2px; text-align:center; font-weight:600;">VAM</th>
+                <th style="padding:4px 2px; text-align:center; font-weight:600;">Allure</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {% for c in climbs %}
+                <tr
+                  onclick="window.location='{{ request.url.path }}?tab=climbs&segments={{ current_seg_count }}&climb_start={{ c.start_idx }}&climb_end={{ c.end_idx }}#climbs-section';"
+                  style="
+                    cursor:pointer;
+                    border-bottom:1px solid #f3f4f6;
+                    transition:background 0.15s ease;
+                  "
+                  onmouseover="this.style.background='#f9fafb';"
+                  onmouseout="this.style.background='white';"
+                >
+                  <td style="text-align:center; padding:4px 2px;">{{ c.km_debut|round(1) }}</td>
+                  <td style="text-align:center; padding:4px 2px;">{{ c.km_fin|round(1) }}</td>
+                  <td style="text-align:center; padding:4px 2px;">{{ (c.longueur_m / 1000.0)|round(1) }}</td>
+
+                  <td style="text-align:center; padding:4px 2px;">{{ c.denivele_m|round(0)|int }}</td>
+                  <td style="text-align:center; padding:4px 2px;">{{ c.dplus_brut|round(0)|int }}</td>
+                  <td style="text-align:center; padding:4px 2px;">{{ c.dminus_brut|round(0)|int }}</td>
+
+                  <td style="text-align:center; padding:4px 2px;">{{ c.pente_moy_pct|round(0)|int }}%</td>
+
+                  <td style="text-align:center; padding:4px 2px;">
+                    {% if c.hr_avg %}
+                      {{ c.hr_avg|round(0)|int }}
+                    {% else %}
+                      –
+                    {% endif %}
+                  </td>
+
+                  <td style="text-align:center; padding:4px 2px;">
+                    {% if c.avg_vam %}
+                      {{ c.avg_vam|round(0)|int }}
+                    {% else %}
+                      –
+                    {% endif %}
+                  </td>
+
+                  <td style="text-align:center; padding:4px 2px;">
+                    {% if c.avg_pace %}
+                      {{ c.avg_pace }}
+                    {% else %}
+                      –
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+
+
+        {% else %}
+          <p style="font-size:0.85rem; opacity:0.7;">Aucune montée remarquable détectée avec les paramètres actuels.</p>
+        {% endif %}
+      </div>
+
+      {% if selected_climb %}
+
+        <!-- Bloc détails + profil altitude en dessous -->
+        <div style="margin:16px 0 0 0; padding:12px; border:1px solid #e5e7eb; border-radius:4px; background:white;">
+
+          <h4 style="margin:0 0 8px 0;">Détails de la montée sélectionnée</h4>
+
+          <p style="margin:0 0 6px 0; font-size:0.85rem;">
+            Du km {{ selected_climb.km_debut|round(1) }}
+            au km {{ selected_climb.km_fin|round(1) }} —
+            longueur {{ (selected_climb.longueur_m / 1000.0)|round(1) }} km,
+            D+ net {{ selected_climb.denivele_m|round(0)|int }} m
+            (D+ {{ selected_climb.dplus_brut|round(0)|int }} m,
+             D- {{ selected_climb.dminus_brut|round(0)|int }} m),
+            pente moy. {{ selected_climb.pente_moy_pct|round(0)|int }}%.
+          </p>
+
+          <p style="margin:0 0 8px 0; font-size:0.85rem;">
+            VAM moy :
+            {% if selected_climb.avg_vam %}
+              {{ selected_climb.avg_vam|round(0)|int }} m/h
+            {% else %}
+              –
+            {% endif %}
+            &nbsp;|&nbsp;
+            Allure moy :
+            {% if selected_climb.avg_pace %}
+              {{ selected_climb.avg_pace }}
+            {% else %}
+              –
+            {% endif %}
+            &nbsp;|&nbsp;
+            FC moy :
+            {% if selected_climb.hr_avg %}
+              {{ selected_climb.hr_avg|round(0)|int }} bpm
+            {% else %}
+              –
+            {% endif %}
+          </p>
+
+          <div style="margin-top:8px; height:220px;">
+            <canvas id="altitudeChart" width="800" height="220"></canvas>
+          </div>
+        </div>
+
+        <!-- Script du profil altitude "style Strava" -->
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script>
+          (function() {
+            const rawAltData = {{ alt_profile_js | safe }};
+            if (!rawAltData || rawAltData.length === 0) return;
+
+            const kmDebut = {{ selected_climb.km_debut }};
+            const kmFin   = {{ selected_climb.km_fin }};
+
+            // Profil complet {x: km, y: alt}
+            const altData = rawAltData.map(pt => ({ x: pt[0], y: pt[1] }));
+
+            // Montée sélectionnée (pour les points de début / fin)
+            const climbPoints = altData.filter(pt => pt.x >= kmDebut && pt.x <= kmFin);
+            const startPoint  = climbPoints.length > 0 ? [climbPoints[0]] : [];
+            const endPoint    = climbPoints.length > 1 ? [climbPoints[climbPoints.length - 1]] : [];
+
+            // Dataset spécial : même profil, mais avec des valeurs null en dehors de la montée
+            const highlightedClimbData = altData.map(pt =>
+              (pt.x >= kmDebut && pt.x <= kmFin)
+                ? { x: pt.x, y: pt.y }
+                : { x: pt.x, y: null }
+            );
+
+            const ctx = document.getElementById('altitudeChart').getContext('2d');
+
+            new Chart(ctx, {
+              type: 'line',
+              data: {
+                datasets: [
+                  {
+                    label: 'Profil altitude',
+                    data: altData,
+                    borderColor: '#000099',
+                    borderWidth: 1,
+                    pointRadius: 0,
+                    tension: 0.25,
+                    fill: true,
+                    backgroundColor: 'rgba(148, 163, 184, 0.15)',
+                    order: 1
+                  },
+                  {
+                    label: 'Montée sélectionnée',
+                    data: highlightedClimbData,
+                    borderColor: '#000099',
+                    borderWidth: 1,
+                    pointRadius: 2,
+                    tension: 0.25,
+                    fill: false,
+                    order: 2
+                  },
+                  {
+                    type: 'scatter',
+                    label: 'Début montée',
+                    data: startPoint,
+                    backgroundColor: '#000099',
+                    borderColor: '#000099',
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    showLine: false,
+                    order: 3
+                  },
+                  {
+                    type: 'scatter',
+                    label: 'Fin montée',
+                    data: endPoint,
+                    backgroundColor: '#000099',
+                    borderColor: '#000099',
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    showLine: false,
+                    order: 3
+                  }
+                ]
+              },
+              options: {
+                responsive: false,
+                maintainAspectRatio: false,
+                animation: false,
+                plugins: {
+                  legend: {
+                    display: false
+                  },
+                  tooltip: {
+                    intersect: false,
+                    mode: 'index',
+                    callbacks: {
+                      label: function(context) {
+                        const x = context.parsed.x;
+                        const y = context.parsed.y;
+                        if (x == null || y == null) return '';
+                        const inClimb = (x >= kmDebut && x <= kmFin);
+                        const base = `${x.toFixed(1)} km – ${Math.round(y)} m`;
+                        return inClimb ? `${base} (montée)` : base;
+                      }
+                    }
+                  }
+                },
+                scales: {
+                  x: {
+                    type: 'linear',
+                    title: { display: true, text: 'Distance (km)' },
+                    ticks: { stepSize: 1 },
+                    grid: { color: 'rgba(148, 163, 184, 0.2)' }
+                  },
+                  y: {
+                    title: { display: true, text: 'Altitude (m)' },
+                    grid: { color: 'rgba(148, 163, 184, 0.2)' }
+                  }
+                },
+                elements: {
+                  line: { tension: 0.25 }
+                }
+              }
+            });
+          })();
+        </script>
+      {% endif %}
+
+    {% endif %} {# fin tab == climbs #}
+
+    {# ════════════ ONGLET 4 : GLYCÉMIE ════════════ #}
+    {% if tab == 'glycemia' and has_glucose %}
+
+      <div class="card"
+          style="margin-top:0; border-radius:4px; padding:16px;">
+
+        <h3 style="margin:0 0 10px 0; font-size:0.95rem;">
+          Distribution de la glycémie pendant la sortie
+        </h3>
+
+        <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+          <thead>
+            <tr style="border-bottom:1px solid #e5e7eb;">
+              <th style="text-align:left;">Zone</th>
+              <th style="text-align:left;">Description</th>
+              <th style="text-align:left;">Plage</th>
+              <th style="text-align:right;">Temps</th>
+              <th style="text-align:right;">% temps</th>
+              <th style="text-align:left; width:40%;">Répartition</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {% for row in glucose_zone_rows %}
+            {% set bar_color =
+                  '#ef4444' if row.zone_index == 1 else
+                  '#facc15' if row.zone_index == 5 else
+                  '#15803d'  %}
+
+            <tr style="border-bottom:1px solid #f3f4f6;">
+              <td>{{ row.name }}</td>
+              <td>{{ row.description }}</td>
+              <td>{{ row.range }}</td>
+              <td style="text-align:right;">{{ row.time_str }}</td>
+              <td style="text-align:right;">{{ row.percent }}%</td>
+
+              <td>
+                <div style="
+                  background:#e5e7eb;
+                  border-radius:999px;
+                  overflow:hidden;
+                  height:14px;
+                ">
+                  <div style="
+                    width:{{ row.percent }}%;
+                    height:100%;
+                    background:{{ bar_color }};
+                  "></div>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <p style="margin-top:10px; font-size:0.7rem; color:#6b7280;">
+          Zones actuelles : &lt;70, 70–100, 100–140, 140–180, &gt;180 mg/dL.
+          (personnalisables).
+        </p>
+
+      </div>
+
+    {% endif %}
+
+
+    {# ════════════ ONGLET 5 : VITESSE ASCENSIONNELLE ════════════ #}
+    {% if tab == 'vam' and has_vam %}
+
+      <div class="card"
+          style="margin-top:0; border-radius:4px; padding:16px;">
+
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px;">
+          <h3 style="margin:0; font-size:0.95rem;">
+            Temps passé par zone de vitesse ascensionnelle
+          </h3>
+
+          <!-- Menu déroulant de filtre par zone cardio -->
+          <form method="get"
+                style="margin:0; font-size:0.85rem; display:flex; align-items:center; gap:6px;">
+            <input type="hidden" name="tab" value="vam">
+            <input type="hidden" name="segments" value="{{ current_seg_count }}">
+
+            <label for="vam_hr" style="white-space:nowrap;">Zone cardio :</label>
+            <select id="vam_hr"
+                    name="vam_hr"
+                    onchange="this.form.submit()"
+                    style="font-size:0.85rem; padding:2px 4px; border-radius:3px; border:1px solid #d1d5db;">
+              <option value="ALL" {% if vam_hr_filter == 'ALL' %}selected{% endif %}>
+                Toutes zones
+              </option>
+              {% for z in hr_zones %}
+                <option value="{{ z }}" {% if vam_hr_filter == z %}selected{% endif %}>
+                  {{ z }}
+                </option>
+              {% endfor %}
+            </select>
+          </form>
+        </div>
+
+        <table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-top:10px;">
+          <thead>
+            <tr style="border-bottom:1px solid #e5e7eb;">
+              <th style="text-align:left;">Zone VAM</th>
+              <th style="text-align:left;">Plage (m/h)</th>
+              <th style="text-align:right;">Temps</th>
+              <th style="text-align:right;">% temps</th>
+              <th style="text-align:left; width:45%;">Répartition</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {% for row in vam_zone_rows %}
+            <tr style="border-bottom:1px solid #f3f4f6;">
+              <td>{{ row.name }}</td>
+              <td>{{ row.range }}</td>
+              <td style="text-align:right;">{{ row.time_str }}</td>
+              <td style="text-align:right;">{{ row.percent }}%</td>
+              <td>
+                <div style="
+                  background:#e5e7eb;
+                  border-radius:999px;
+                  overflow:hidden;
+                  height:14px;
+                ">
+                  <div style="
+                    width:{{ row.percent }}%;
+                    height:100%;
+                    background:#000099;  /* bleu */
+                  "></div>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <p style="margin-top:10px; font-size:0.7rem; color:#6b7280;">
+          Zones VAM utilisées : &lt;300, 300–600, 600–900, 900–1200, &gt;1200 m/h
+          (ajustables dans le code).
+          <br>
+          {% if vam_hr_filter == 'ALL' %}
+            Filtre actuel : <strong>toutes zones cardiaques</strong>.
+          {% else %}
+            Filtre actuel : <strong>{{ vam_hr_filter }}</strong>.
+          {% endif %}
+        </p>
+      </div>
+
+    {% endif %}
+
+{# ════════════ ONGLET 6 : SPLITS ════════════ #}
+{% if tab == 'splits' %}
+
+  <div class="card"
+      style="margin-top:0; border-radius:4px; padding:16px;">
+
+    <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px;">
+      <h3 style="margin:0; font-size:0.95rem;">
+        Splits par {{ split_km|int }} km
+      </h3>
+
+      <!-- Sélecteur de taille de splits -->
+      <form method="get"
+            style="margin:0; font-size:0.85rem; display:flex; align-items:center; gap:6px;">
+        <input type="hidden" name="tab" value="splits">
+
+        <label for="split_km" style="white-space:nowrap;">Taille des splits :</label>
+        <select id="split_km"
+                name="split_km"
+                onchange="this.form.submit()"
+                style="font-size:0.85rem; padding:2px 4px; border-radius:3px; border:1px solid #d1d5db;">
+          {% for opt in split_km_options %}
+            <option value="{{ opt }}"
+                    {% if opt == split_km %}selected{% endif %}>
+              {{ opt }} km
+            </option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
+
+    <table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-top:10px;">
+      <thead>
+        <tr style="border-bottom:1px solid #e5e7eb;">
+          <th style="text-align:left;">Split</th>
+          <th style="text-align:right;">Dist.</th>
+          <th style="text-align:right;">Temps</th>
+          <th style="text-align:right;">Allure</th>
+          <th style="text-align:right;">FC moy</th>
+          <th style="text-align:right;">Cad moy</th>
+          <th style="text-align:right;">Gly moy</th>
+          <th style="text-align:right;">D+</th>
+          <th style="text-align:right;">D-</th>
+          <th style="text-align:right;">D+ cum.</th>
+          <th style="text-align:right;">D- cum.</th>
+          <th style="text-align:right;">VAM max 1'</th>
+          <th style="text-align:right;">VAM split</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% if splits_rows %}
+          {% for row in splits_rows %}
+          <tr
+            style="
+              {% if loop.index is even %}
+                background:#f9fafb;
+              {% else %}
+                background:white;
+              {% endif %}
+              border-bottom:1px solid #e5e7eb;
+            "
+          >
+
+            <!-- Split size -->
+            <td style="text-align:center;">
+              {{ row.split_km|round(1) }} km
+            </td>
+
+            <!-- Dist cumulée -->
+            <td style="text-align:center;">
+              {{ row.split_cum_km|round(1) }} km
+            </td>
+
+            <!-- Temps -->
+            <td style="text-align:center;">{{ row.time_str }}</td>
+
+            <!-- Allure -->
+            <td style="text-align:center;">
+              {% if row.pace %}{{ row.pace }}{% else %}–{% endif %}
+            </td>
+
+            <!-- FC moy -->
+            <td style="text-align:center;">
+              {% if row.hr_avg is not none %}{{ row.hr_avg }}{% else %}–{% endif %}
+            </td>
+
+            <!-- Cad moy -->
+            <td style="text-align:center;">
+              {% if row.cad_avg is not none %}{{ row.cad_avg }}{% else %}–{% endif %}
+            </td>
+
+            <!-- Gly moy -->
+            <td style="text-align:center;">
+              {% if row.gly_avg is not none %}{{ row.gly_avg }}{% else %}–{% endif %}
+            </td>
+
+            <!-- D+ / D- -->
+            <td style="text-align:center;">{{ row.dplus }}</td>
+            <td style="text-align:center;">{{ row.dminus }}</td>
+
+            <!-- D+ cum / D- cum -->
+            <td style="text-align:center;">{{ row.dplus_cum }}</td>
+            <td style="text-align:center;">{{ row.dminus_cum }}</td>
+
+            <!-- VAM max 1' -->
+            <td style="text-align:center;">
+              {% if row.vam_max_1min is not none %}
+                {{ row.vam_max_1min }}
+              {% else %}
+                –
+              {% endif %}
+            </td>
+
+            <!-- VAM split -->
+            <td style="text-align:center;">
+              {% if row.vam_seg is not none %}
+                {{ row.vam_seg }}
+              {% else %}
+                –
+              {% endif %}
+            </td>
+
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="13" style="text-align:center; padding:8px; color:#9ca3af;">
+              Aucun split disponible pour cette activité.
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+
+    </table>
+
+  </div>
+
+{% endif %}
+
+
+
+
+
+
+  </main>
+</div>
+
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard · Strava x Glucose{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 700px; margin: 0 auto;">
+  <h1 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 12px;">🏃 Utilisateurs enregistrés</h1>
+
+  {% if users %}
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+      <thead>
+        <tr style="text-align: left; border-bottom: 1px solid #e5e7eb;">
+          <th style="padding: 6px;">ID</th>
+          <th style="padding: 6px;">Nom</th>
+          <th style="padding: 6px;">Email</th>
+          <th style="padding: 6px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in users %}
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 6px;">{{ user.id }}</td>
+          <td style="padding: 6px;">{{ user.name or "—" }}</td>
+          <td style="padding: 6px;">{{ user.email or "—" }}</td>
+          <td style="padding: 6px;">
+            <a href="/ui/user/{{ user.id }}" style="color: var(--accent); font-weight: 500;">Ouvrir</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted" style="margin-top: 8px;">Aucun utilisateur trouvé pour le moment.</p>
+  {% endif %}
+</div>
+{% endblock %}

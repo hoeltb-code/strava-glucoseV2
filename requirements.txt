@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+httpx
+python-dotenv
+pydantic
+apscheduler
+pylibrelinkup
+pydantic-settings
+stravalib
+sqlmodel
+aiosqlite
+sqlalchemy>=2.0.0
+jinja2
+python-multipart
+passlib[bcrypt]

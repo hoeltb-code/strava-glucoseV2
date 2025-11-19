@@ -1,0 +1,442 @@
+{% extends "base.html" %}
+
+{% block title %}Profil · {{ user.email }}{% endblock %}
+
+{% block content %}
+
+<!-- ========================================================= -->
+<!-- 🧍 En-tête style Strava avec avatar pentagone (version bleue) -->
+<!-- ========================================================= -->
+<div style="
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:16px 0 12px;
+  border-bottom:1px solid var(--border-soft);
+  margin-bottom:16px;
+">
+  <div style="display:flex; align-items:center; gap:14px;">
+    {% if user.profile_image_url %}
+    <div style="position:relative; width:70px; height:90px; flex-shrink:0;
+                transform: rotate(9deg);">
+
+        <!-- Cadre doré ovale -->
+        <div style="
+            position:absolute;
+            inset:0;
+            border-radius:50% / 58%;
+            background:
+            radial-gradient(circle at 30% 30%, #f7e7b0, #d4b469, #a07c36),
+            linear-gradient(145deg, rgba(255,255,255,0.5), rgba(0,0,0,0.3));
+            background-blend-mode:overlay;
+            box-shadow:
+            inset 0 1px 2px rgba(255,255,255,0.7),
+            inset 0 -2px 4px rgba(0,0,0,0.35),
+            0 4px 10px rgba(0,0,0,0.35);
+            padding:4px;
+        ">
+        </div>
+
+        <!-- Intérieur ovale avec photo -->
+        <div style="
+            position:absolute;
+            top:4px; left:4px;
+            width:calc(100% - 8px);
+            height:calc(100% - 8px);
+            border-radius:50% / 58%;
+            overflow:hidden;
+            background:#fff;
+        ">
+        <img src="{{ user.profile_image_url }}" alt="Avatar"
+            style="width:100%; height:100%; object-fit:cover;">
+        </div>
+    </div>
+
+    {% else %}
+    <div style="position:relative; width:70px; height:90px; flex-shrink:0;
+                transform: rotate(-9deg);">
+
+        <!-- Cadre doré ovale -->
+        <div style="
+            position:absolute;
+            inset:0;
+            border-radius:50% / 58%;
+            background:
+            radial-gradient(circle at 30% 30%, #f7e7b0, #d4b469, #a07c36),
+            linear-gradient(145deg, rgba(255,255,255,0.5), rgba(0,0,0,0.3));
+            background-blend-mode:overlay;
+            box-shadow:
+            inset 0 1px 2px rgba(255,255,255,0.7),
+            inset 0 -2px 4px rgba(0,0,0,0.35),
+            0 4px 10px rgba(0,0,0,0.35);
+            padding:4px;
+        ">
+        </div>
+
+        <!-- Intérieur ovale avec initiale -->
+        <div style="
+            position:absolute;
+            top:4px; left:4px;
+            width:calc(100% - 8px);
+            height:calc(100% - 8px);
+            border-radius:50% / 58%;
+            display:flex; align-items:center; justify-content:center;
+            background:#fff;
+            color:#111827;
+            font-weight:700;
+            font-size:1.3rem;
+        ">
+        {% if user.first_name %}
+            {{ user.first_name[0]|upper }}
+        {% else %}
+            {{ user.email[0]|upper }}
+        {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+
+    <div>
+      <div style="font-size:1.1rem; font-weight:600; color:var(--text-main);">
+        {% if user.first_name or user.last_name %}
+          {{ user.first_name or "" }} {{ user.last_name or "" }}
+        {% else %}
+          {{ user.email }}
+        {% endif %}
+      </div>
+      <div style="font-size:0.9rem; color:var(--text-muted); margin-top:2px;">
+        Profil utilisateur · id={{ user.id }}
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex; gap:8px;">
+    <!-- Bouton secondaire (Dashboard) -->
+    <a href="/ui/user/{{ user.id }}"
+       style="display:inline-flex;align-items:center;gap:6px;
+              padding:10px 16px;font-size:.95rem;font-weight:600;
+              border-radius:2px;border:1px solid #cbd5e1;
+              background:#ffffff;color:var(--text-main);
+              text-decoration:none;box-shadow:0 3px 10px rgba(2,6,23,.05);
+              transition:filter .15s ease,transform .06s ease;"
+       onmouseover="this.style.background='#f8fafc'"
+       onmouseout="this.style.background='#ffffff'">⬅️ Dashboard</a>
+
+    <!-- Bouton principal (Déconnexion) -->
+    <a href="/ui/login"
+       style="display:inline-flex;align-items:center;gap:6px;
+              padding:10px 16px;font-size:.95rem;font-weight:600;
+              border-radius:2px;border:1px solid transparent;
+              background:var(--grad-accent);color:#fff;
+              text-decoration:none;box-shadow:0 6px 16px rgba(37,99,235,.25);
+              transition:filter .15s ease,transform .06s ease;"
+       onmouseover="this.style.filter='brightness(1.03)'"
+       onmouseout="this.style.filter='none'"
+       onmousedown="this.style.transform='translateY(1px)'"
+       onmouseup="this.style.transform='none'">🚪 Déconnexion</a>
+  </div>
+</div>
+
+
+<!-- ========================================================= -->
+<!-- Layout à deux colonnes : gauche = profil, droite = connexions -->
+<!-- ========================================================= -->
+<div style="display:grid;grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr);gap:16px;">
+  <!-- ================== COLONNE GAUCHE : Profil ================== -->
+  <div>
+    <div class="card" style="padding:16px 18px;">
+      <h2 style="font-size:1rem; font-weight:600; margin-bottom:4px;">Informations de profil</h2>
+      <p class="muted" style="margin-top:0; font-size:0.85rem; color:#6b7280;">Modifie les informations de base et les données physiologiques.</p>
+
+      <form method="post" action="/ui/user/{{ user.id }}/profile" enctype="multipart/form-data" style="margin-top: 10px;">
+
+        <!-- Bloc identité -->
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;">
+          <div><label>Prénom</label><input type="text" name="first_name" value="{{ user.first_name or '' }}"></div>
+          <div><label>Nom</label><input type="text" name="last_name" value="{{ user.last_name or '' }}"></div>
+          <div><label>Localisation</label><input type="text" name="location" value="{{ user.location or '' }}" placeholder="Ex: Aix-les-Bains"></div>
+          <div>
+            <label>Photo de profil</label>
+            <input type="file" name="profile_image" accept="image/*">
+            {% if user.profile_image_url %}
+              <div style="margin-top:6px; display:flex; align-items:center; gap:8px;">
+                <img src="{{ user.profile_image_url }}" alt="Photo de profil" style="width:48px; height:48px; border-radius:999px; object-fit:cover; border:1px solid #e5e7eb;">
+                <span style="font-size:0.8rem; color:#6b7280;">Image actuelle</span>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div style="margin-top:10px;">
+          <label style="display:block; font-size:0.8rem; color:#4b5563; margin-bottom:2px;">Localisation</label>
+          <input type="text" name="location" value="{{ user.location or '' }}" placeholder="Ex: Aix-les-Bains">
+        </div>
+
+        <hr style="margin:16px 0; border:none; border-top:1px solid #e5e7eb;">
+
+        <!-- Bloc physiologie -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px;">
+          <div>
+            <label style="display:block; font-size:0.8rem; color:#4b5563; margin-bottom:2px;">Date de naissance</label>
+            <input type="date" name="birthdate" value="{{ user.birthdate if user.birthdate is not none }}">
+          </div>
+          <div>
+            <label style="display:block; font-size:0.8rem; color:#4b5563; margin-bottom:2px;">Sexe</label>
+            <select name="sex">
+              <option value="" {% if not user.sex %}selected{% endif %}>Non renseigné</option>
+              <option value="male" {% if user.sex == 'male' %}selected{% endif %}>Homme</option>
+              <option value="female" {% if user.sex == 'female' %}selected{% endif %}>Femme</option>
+              <option value="other" {% if user.sex == 'other' %}selected{% endif %}>Autre</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block; font-size:0.8rem; color:#4b5563; margin-bottom:2px;">FC max (bpm)</label>
+            <input type="number" name="max_heartrate" min="80" max="230" value="{{ user.max_heartrate or '' }}" placeholder="Ex: 190">
+          </div>
+          <div>
+            <label style="display:block; font-size:0.8rem; color:#4b5563; margin-bottom:2px;">Taille (cm)</label>
+            <input type="number" step="0.1" name="height_cm" value="{{ user.height_cm or '' }}" placeholder="Ex: 175">
+          </div>
+          <div>
+            <label style="display:block; font-size:0.8rem; color:#4b5563; margin-bottom:2px;">Poids (kg)</label>
+            <input type="number" step="0.1" name="weight_kg" value="{{ user.weight_kg or '' }}" placeholder="Ex: 70.5">
+          </div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem; color:#374151;">
+            <input type="checkbox" name="is_pro" value="1" {% if user.is_pro %}checked{% endif %}> Abonné à la version Pro
+          </label>
+        </div>
+
+        <!-- ========================================================= -->
+        <!-- Préférences d’enrichissement Strava (dans le MÊME form) -->
+        <!-- ========================================================= -->
+        <div class="card" style="margin-top:16px; padding:12px 14px;">
+          <h3 style="font-size:0.95rem; font-weight:600; margin:0 0 6px;">Préférences description Strava</h3>
+          <p class="muted" style="margin:0 0 10px; font-size:0.85rem; color:#6b7280;">
+            Les sections seront affichées dans l'ordre : <strong>VAM → Allure → Cadence → Glycémie</strong>.
+          </p>
+
+          <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px;">
+            <label style="display:flex; align-items:center; gap:8px;">
+                <input type="checkbox" name="desc_include_vam"
+                    {% if include_vam %}checked{% endif %}>
+              VAM
+            </label>
+
+            <label style="display:flex; align-items:center; gap:8px;">
+                <input type="checkbox" name="desc_include_pace"
+                     {% if include_pace %}checked{% endif %}>
+              Allure / vitesse
+            </label>
+
+            <label style="display:flex; align-items:center; gap:8px;">
+                <input type="checkbox" name="desc_include_cadence"
+                     {% if include_cad %}checked{% endif %}>
+              Cadence
+            </label>
+
+            <label style="display:flex; align-items:center; gap:8px;">
+                <input type="checkbox" name="desc_include_glycemia"
+                    {% if include_gly %}checked{% endif %}>
+              Glycémie
+            </label>
+          </div>
+        </div>
+
+        <div style="margin-top:16px; display:flex; justify-content:flex-end;">
+          <button type="submit" style="padding:6px 16px;font-size:0.9rem;border-radius:4px;border:1px solid transparent;background:#fc4c02;color:#fff;">
+            Enregistrer les modifications
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================== COLONNE DROITE : Connexions ================== -->
+  <div>
+    <div class="card" style="padding:16px 18px;">
+      <h2 style="font-size:1rem; font-weight:600; margin-bottom:4px;">Connexions</h2>
+      <p class="muted" style="margin-top:0; font-size:0.85rem; color:#6b7280;">Comptes reliés à cet utilisateur.</p>
+
+      <div style="display:flex; flex-direction:column; gap:16px; margin-top:10px;">
+        <!-- ================= STRAVA ================= -->
+        <div style="border:1px solid #e5e7eb; border-radius:4px; padding:10px 12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:0.95rem; font-weight:600; color:#111827;">Strava</div>
+              {% if has_strava %}
+                <div style="font-size:0.85rem; color:#16a34a; margin-top:2px;">
+                  ✅ Connecté
+                  {% if strava_athlete_id %} · Athlete ID <strong>{{ strava_athlete_id }}</strong>{% endif %}
+                </div>
+              {% else %}
+                <div style="font-size:0.85rem; color:#dc2626; margin-top:2px;">⚠️ Non connecté</div>
+              {% endif %}
+            </div>
+
+            {% if has_strava %}
+              <form method="post" action="/ui/user/{{ user.id }}/strava/disconnect">
+                <button type="submit" style="padding:4px 10px;font-size:0.8rem;border-radius:4px;border:1px solid #dc2626;background:#fff;color:#b91c1c;">
+                  Déconnecter
+                </button>
+              </form>
+            {% else %}
+              <a href="/auth/strava?user_id={{ user.id }}" style="padding:4px 10px;font-size:0.8rem;border-radius:4px;border:1px solid #fc4c02;color:#fc4c02;text-decoration:none;">
+                Connecter Strava
+              </a>
+            {% endif %}
+          </div>
+        </div>
+
+        <div style="border-top:1px dashed #e5e7eb; margin-top:4px;"></div>
+        <div>
+          <div style="font-size:0.95rem; font-weight:600; color:#111827; margin-bottom:4px;">Capteurs de glycémie</div>
+          <p style="margin:0; font-size:0.8rem; color:#6b7280;">Un seul capteur de glycémie peut être connecté à la fois (LibreLinkUp ou Dexcom).</p>
+        </div>
+
+        <!-- ================= LIBRELINKUP ================= -->
+        <div id="libre" style="border:1px solid #e5e7eb; border-radius:4px; padding:10px 12px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+            <div style="flex:1;">
+              <div style="font-size:0.95rem; font-weight:600; color:#111827;">LibreLinkUp</div>
+
+              {% if has_libre %}
+                <div style="font-size:0.85rem; color:#16a34a; margin-top:2px;">
+                  ✅ Connecté · <strong>{{ libre_email }}</strong> ({{ libre_region }})
+                </div>
+
+                <details style="margin-top:8px;">
+                  <summary style="cursor:pointer; font-size:0.85rem; color:#fc4c02;">Modifier les identifiants</summary>
+                  <form method="post" action="/ui/user/{{ user.id }}/libre/credentials" style="margin-top:8px;">
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:8px;">
+                      <div><label style="display:block; font-size:0.8rem; color:#4b5563;">Email LibreLinkUp</label><input type="email" name="email" value="{{ libre_email or '' }}" required></div>
+                      <div>
+                        <label style="display:block; font-size:0.8rem; color:#4b5563;">Mot de passe</label>
+                        <div style="position:relative;">
+                          <input type="password" name="password" id="libre-password-edit" required style="padding-right:32px;">
+                          <button type="button" onclick="togglePassword('libre-password-edit', this)" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);border:none;background:transparent;cursor:pointer;font-size:0.9rem;">👁️</button>
+                        </div>
+                      </div>
+                      <div>
+                        <label style="display:block; font-size:0.8rem; color:#4b5563;">Région</label>
+                        <select name="region">
+                          <option value="fr" {% if libre_region == "fr" %}selected{% endif %}>France / Europe (fr)</option>
+                          <option value="eu" {% if libre_region == "eu" %}selected{% endif %}>Europe (eu)</option>
+                          <option value="us" {% if libre_region == "us" %}selected{% endif %}>USA (us)</option>
+                          <option value="de" {% if libre_region == "de" %}selected{% endif %}>Allemagne (de)</option>
+                          <option value="it" {% if libre_region == "it" %}selected{% endif %}>Italie (it)</option>
+                        </select>
+                      </div>
+                    </div>
+                    <button type="submit" style="margin-top:10px;padding:4px 12px;font-size:0.85rem;border-radius:4px;border:1px solid transparent;background:#fc4c02;color:#fff;">
+                      Mettre à jour LibreLinkUp
+                    </button>
+                  </form>
+                </details>
+
+              {% elif has_dexcom %}
+                <div style="font-size:0.85rem; color:#9ca3af; margin-top:2px;">🔒 LibreLinkUp désactivé car Dexcom est déjà connecté.</div>
+                <p style="margin-top:6px; font-size:0.8rem; color:#6b7280;">Déconnecte Dexcom si tu veux utiliser LibreLinkUp comme capteur.</p>
+
+              {% else %}
+                <div style="font-size:0.85rem; color:#dc2626; margin-top:2px;">⚠️ Aucun compte LibreLinkUp connecté</div>
+                <p style="margin-top:6px; font-size:0.85rem; color:#4b5563;">Renseigne ton compte LibreLinkUp pour récupérer les données de glycémie.</p>
+
+                <form method="post" action="/ui/user/{{ user.id }}/libre/credentials" style="margin-top:8px;">
+                  <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:8px;">
+                    <div><label style="display:block; font-size:0.8rem; color:#4b5563;">Email LibreLinkUp</label><input type="email" name="email" value="{{ libre_email or '' }}" required></div>
+                    <div>
+                      <label style="display:block; font-size:0.8rem; color:#4b5563;">Mot de passe</label>
+                      <div style="position:relative;">
+                        <input type="password" name="password" id="libre-password-new" required style="padding-right:32px;">
+                        <button type="button" onclick="togglePassword('libre-password-new', this)" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);border:none;background:transparent;cursor:pointer;font-size:0.9rem;">👁️</button>
+                      </div>
+                    </div>
+                    <div>
+                      <label style="display:block; font-size:0.8rem; color:#4b5563;">Région</label>
+                      <select name="region">
+                        <option value="fr" {% if libre_region == "fr" %}selected{% endif %}>France / Europe (fr)</option>
+                        <option value="eu" {% if libre_region == "eu" %}selected{% endif %}>Europe (eu)</option>
+                        <option value="us" {% if libre_region == "us" %}selected{% endif %}>USA (us)</option>
+                        <option value="de" {% if libre_region == "de" %}selected{% endif %}>Allemagne (de)</option>
+                        <option value="it" {% if libre_region == "it" %}selected{% endif %}>Italie (it)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button type="submit" style="margin-top:10px;padding:4px 12px;font-size:0.85rem;border-radius:4px;border:1px solid transparent;background:#fc4c02;color:#fff;">
+                    Connecter LibreLinkUp
+                  </button>
+                  <p class="muted" style="margin-top:4px; font-size:0.75rem; color:#9ca3af;">
+                    Les identifiants sont stockés localement et utilisés uniquement pour interroger l'API LibreLinkUp.
+                  </p>
+                </form>
+              {% endif %}
+            </div>
+
+            {% if has_libre %}
+              <form method="post" action="/ui/user/{{ user.id }}/libre/disconnect">
+                <button type="submit" style="padding:4px 10px;font-size:0.8rem;border-radius:4px;border:1px solid #dc2626;background:#fff;color:#b91c1c;">
+                  Déconnecter
+                </button>
+              </form>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- ================= DEXCOM ================= -->
+        <div id="dexcom" style="border:1px solid #e5e7eb; border-radius:4px; padding:10px 12px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+            <div style="flex:1;">
+              <div style="font-size:0.95rem; font-weight:600; color:#111827;">Dexcom</div>
+
+              {% if has_dexcom %}
+                <div style="font-size:0.85rem; color:#16a34a; margin-top:2px;">✅ Connecté à Dexcom</div>
+                <p style="margin-top:6px; font-size:0.8rem; color:#4b5563;">Les tokens d'accès Dexcom sont stockés localement pour récupérer tes valeurs de glycémie.</p>
+              {% elif has_libre %}
+                <div style="font-size:0.85rem; color:#9ca3af; margin-top:2px;">🔒 Dexcom désactivé car LibreLinkUp est déjà connecté.</div>
+                <p style="margin-top:6px; font-size:0.8rem; color:#6b7280;">Déconnecte LibreLinkUp si tu veux utiliser Dexcom comme capteur.</p>
+              {% else %}
+                <div style="font-size:0.85rem; color:#dc2626; margin-top:2px;">⚠️ Aucun compte Dexcom connecté</div>
+                <p style="margin-top:6px; font-size:0.8rem; color:#4b5563;">Connecte ton compte Dexcom pour récupérer les données CGM via l'API Dexcom.</p>
+              {% endif %}
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+              {% if has_dexcom %}
+                <form method="post" action="/ui/user/{{ user.id }}/dexcom/disconnect">
+                  <button type="submit" style="padding:4px 10px;font-size:0.8rem;border-radius:4px;border:1px solid #dc2626;background:#fff;color:#b91c1c;">
+                    Déconnecter
+                  </button>
+                </form>
+                <a href="/auth/dexcom?user_id={{ user.id }}" style="padding:4px 10px;font-size:0.8rem;border-radius:4px;border:1px solid #111827;color:#111827;text-decoration:none;background:#f9fafb;">
+                  Reconnecter Dexcom
+                </a>
+              {% elif not has_libre %}
+                <a href="/auth/dexcom?user_id={{ user.id }}" style="padding:4px 10px;font-size:0.8rem;border-radius:4px;border:1px solid #111827;color:#111827;text-decoration:none;background:#f9fafb;">
+                  Connecter Dexcom
+                </a>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- (⚠️ plus de formulaire séparé "Enregistrer les préférences") -->
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function togglePassword(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    const isPassword = input.type === 'password';
+    input.type = isPassword ? 'text' : 'password';
+    btn.textContent = isPassword ? '🙈' : '👁️';
+  }
+</script>
+
+{% endblock %}

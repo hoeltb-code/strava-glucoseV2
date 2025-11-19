@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Connexion Strava{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 420px; margin: 40px auto; text-align:center;">
+  <h1 style="font-size:1.1rem; margin-bottom:8px;">Connexion Strava réussie ✅</h1>
+  <p class="muted" style="font-size:0.9rem; margin-bottom:16px;">
+    Les tokens Strava ont bien été enregistrés pour l'utilisateur
+    <strong>id={{ user_id }}</strong>.
+  </p>
+
+  <button
+    onclick="window.location.href='/ui/user/{{ user_id }}'"
+    style="padding:8px 18px; border-radius:999px; border:none; background:#fc4c02; color:white; cursor:pointer; font-size:0.9rem;">
+    OK
+  </button>
+</div>
+{% endblock %}

@@ -1202,9 +1202,7 @@ def set_libre_credentials(
 # MINI INTERFACE WEB
 # -----------------------------------------------------------------------------
 
-@app.get("/", response_class=HTMLResponse)
-def home_redirect():
-    return RedirectResponse(url="/ui")
+
 
 @app.get("/ui", response_class=HTMLResponse)
 def ui_home(request: Request):
@@ -1227,6 +1225,9 @@ def ui_home(request: Request):
         {"request": request, "users": ui_users},
     )
 
+@app.get("/", response_class=HTMLResponse)
+def home_redirect():
+    return RedirectResponse(url="/ui")
 
 @app.post("/ui/enrich-last", response_class=HTMLResponse)
 async def ui_enrich_last(request: Request, user_id: int = Form(...)):

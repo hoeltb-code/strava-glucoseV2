@@ -1197,6 +1197,70 @@ def set_libre_credentials(
     finally:
         db.close()
 
+from fastapi import Form  # tu l'as déjà importé en haut normalement
+
+# -----------------------------------------------------------------------------
+# UI : Enregistrer les identifiants LibreLinkUp pour un utilisateur
+# -----------------------------------------------------------------------------
+@app.post("/ui/user/{user_id}/libre/credentials", response_class=HTMLResponse)
+def ui_set_libre_credentials(
+    request: Request,
+    user_id: int,
+    email: str = Form(...),
+    password: str = Form(...),
+    region: str = Form("fr"),
+):
+    """
+    Enregistre (ou met à jour) les identifiants LibreLinkUp pour un utilisateur
+    à partir du formulaire HTML de /ui/user/{user_id}/profile.
+    """
+    db = SessionLocal()
+    try:
+        user = db.query(User).get(user_id)
+        if not user:
+            return templates.TemplateResponse(
+                "error.html",
+                {
+                    "request": request,
+                    "title": "Utilisateur introuvable",
+                    "message": f"Aucun utilisateur avec id={user_id}",
+                    "back_url": "/ui/login",
+                },
+                status_code=404,
+            )
+
+        cred = (
+            db.query(LibreCredentials)
+            .filter(LibreCredentials.user_id == user_id)
+            .first()
+        )
+
+        if cred:
+            cred.email = email
+            cred.password_encrypted = password
+            cred.region = region
+        else:
+            cred = LibreCredentials(
+                user_id=user_id,
+                email=email,
+                password_encrypted=password,
+                region=region,
+            )
+            db.add(cred)
+
+        db.commit()
+        db.refresh(cred)
+
+    finally:
+        db.close()
+
+    # Une fois les identifiants enregistrés, on revient sur la page profil
+    return RedirectResponse(
+        url=f"/ui/user/{user_id}/profile",
+        status_code=302,
+    )
+
+
 
 # -----------------------------------------------------------------------------
 # MINI INTERFACE WEB

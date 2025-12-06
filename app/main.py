@@ -1142,64 +1142,6 @@ def load_glucose_graph_from_db(db, user_id: int, start: dt.datetime, end: dt.dat
     return out
 
 # -----------------------------------------------------------------------------
-# API LibreLinkUp : credentials par utilisateur
-# -----------------------------------------------------------------------------
-
-@app.post("/libre/credentials")
-def set_libre_credentials(
-    user_id: int,
-    email: str,
-    password: str,
-    region: str = "fr",
-):
-    """
-    Enregistre (ou met à jour) les identifiants LibreLinkUp pour un utilisateur.
-
-    ⚠️ Local/dev uniquement :
-    - password est stocké tel quel dans password_encrypted.
-    - Plus tard, on pourra chiffrer ce champ.
-    """
-    db = SessionLocal()
-    try:
-        user = db.query(User).get(user_id)
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-
-        cred = (
-            db.query(LibreCredentials)
-            .filter(LibreCredentials.user_id == user_id)
-            .first()
-        )
-
-        if cred:
-            cred.email = email
-            cred.password_encrypted = password
-            cred.region = region
-        else:
-            cred = LibreCredentials(
-                user_id=user_id,
-                email=email,
-                password_encrypted=password,
-                region=region,
-            )
-            db.add(cred)
-
-        db.commit()
-        db.refresh(cred)
-
-        return {
-            "message": "LibreLinkUp credentials saved",
-            "user_id": user_id,
-            "email": cred.email,
-            "region": cred.region,
-        }
-
-    finally:
-        db.close()
-
-from fastapi import Form  # tu l'as déjà importé en haut normalement
-
-# -----------------------------------------------------------------------------
 # UI : Enregistrer les identifiants LibreLinkUp pour un utilisateur
 # -----------------------------------------------------------------------------
 @app.post("/ui/user/{user_id}/libre/credentials", response_class=HTMLResponse)
@@ -1210,10 +1152,6 @@ def ui_set_libre_credentials(
     password: str = Form(...),
     region: str = Form("fr"),
 ):
-    """
-    Enregistre (ou met à jour) les identifiants LibreLinkUp pour un utilisateur
-    à partir du formulaire HTML de /ui/user/{user_id}/profile.
-    """
     db = SessionLocal()
     try:
         user = db.query(User).get(user_id)
@@ -1254,11 +1192,11 @@ def ui_set_libre_credentials(
     finally:
         db.close()
 
-    # Une fois les identifiants enregistrés, on revient sur la page profil
     return RedirectResponse(
         url=f"/ui/user/{user_id}/profile",
         status_code=302,
     )
+
 
 
 

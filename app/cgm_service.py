@@ -174,21 +174,25 @@ def poll_glucose_once():
                     }
                 )
 
-            # 2.3 On prend le dernier point (le plus récent)
-            last = max(normalized_points, key=lambda p: p["ts"])
-            ts = last["ts"]
-            mgdl = last["mgdl"]
-            trend = last.get("trend")
+            # 2.3 Tri des points par timestamp (croissant)
+            normalized_points.sort(key=lambda p: p["ts"])
 
-            print(f"[CGM] user={user_id} -> dernier point ts={ts}, mgdl={mgdl}, trend={trend}")
+            # 2.4 Insertion de TOUS les nouveaux points
+            new_count = 0
+            for p in normalized_points:
+                ts = p["ts"]
+                mgdl = p["mgdl"]
+                trend = p.get("trend")
 
-            # 2.4 Insertion si le point n'existe pas déjà
-            existing = (
-                db.query(GlucosePoint)
-                .filter(GlucosePoint.user_id == user_id, GlucosePoint.ts == ts)
-                .one_or_none()
-            )
-            if not existing:
+                # Vérifier si ce timestamp existe déjà pour cet utilisateur
+                existing = (
+                    db.query(GlucosePoint)
+                    .filter(GlucosePoint.user_id == user_id, GlucosePoint.ts == ts)
+                    .one_or_none()
+                )
+                if existing:
+                    continue
+
                 gp = GlucosePoint(
                     user_id=user_id,
                     ts=ts,          # ts naïf UTC
@@ -199,9 +203,19 @@ def poll_glucose_once():
                     source="realtime",
                 )
                 db.add(gp)
-                print(f"[CGM] user={user_id} -> nouveau point realtime inséré (source={source_label}).")
+                new_count += 1
+
+            if new_count:
+                print(
+                    f"[CGM] user={user_id} -> {new_count} nouveaux points realtime "
+                    f"insérés (source={source_label})."
+                )
             else:
-                print(f"[CGM] user={user_id} -> point déjà présent en base, rien à insérer.")
+                print(
+                    f"[CGM] user={user_id} -> aucun nouveau point CGM à insérer "
+                    f"(tout déjà en base)."
+                )
+
 
             # 2.5 Rétention : suppression des points "realtime" de plus de REALTIME_RETENTION_HOURS
             cutoff = dt.datetime.utcnow() - dt.timedelta(hours=REALTIME_RETENTION_HOURS)

@@ -116,6 +116,8 @@ def poll_glucose_once():
     Récupère une fois les données CGM pour tous les utilisateurs qui ont
     une source CGM disponible (LibreCredentials et/ou DexcomToken).
     """
+    now = dt.datetime.utcnow().isoformat()
+    print(f"[CGM] poll_glucose_once() appelé à {now}")
 
     # 1️⃣ Récupération des users concernés (au moins une source CGM)
     db = SessionLocal()

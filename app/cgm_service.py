@@ -31,8 +31,13 @@ from app.models import User, LibreCredentials, GlucosePoint, DexcomToken
 from app.libre_client import read_graph
 from app.dexcom_client import DexcomClient
 
-POLL_INTERVAL_SECONDS = 180          # intervalle de polling
-REALTIME_RETENTION_HOURS = 48       # on garde 48h de données
+POLL_INTERVAL_SECONDS = 300          # intervalle de polling (en secondes)
+REALTIME_RETENTION_HOURS = 48        # on garde 48h de données
+
+# Flag global pour gérer le rate limit LibreLinkUp :
+# si on reçoit un 429 / Error 1015, on n'appelle plus Libre jusqu'à LIBRE_RATE_LIMIT_UNTIL
+LIBRE_RATE_LIMIT_UNTIL = None
+LIBRE_RATE_LIMIT_COOLDOWN_MINUTES = 60  # durée du "ban" après un 429
 
 
 def _get_realtime_points_for_user(db, user: User):
@@ -47,19 +52,47 @@ def _get_realtime_points_for_user(db, user: User):
       - points : liste de dicts {"ts": datetime, "mgdl": int, "trend": str|None}
       - source_label : "libre", "dexcom" ou None si aucune source dispo
     """
+    global LIBRE_RATE_LIMIT_UNTIL
+
     user_id = user.id
 
     def try_libre():
+        global LIBRE_RATE_LIMIT_UNTIL
+
         # Si l'utilisateur n'a pas d'identifiants Libre, on skip
         if not user.libre_credentials:
             return []
+
+        now_utc = dt.datetime.utcnow()
+
+        # Si on est encore dans la période de rate-limit, on n'appelle même pas l'API
+        if LIBRE_RATE_LIMIT_UNTIL and now_utc < LIBRE_RATE_LIMIT_UNTIL:
+            print(
+                f"[CGM] user={user_id} -> LibreLinkUp est en cooldown jusqu'à "
+                f"{LIBRE_RATE_LIMIT_UNTIL}, on saute l'appel."
+            )
+            return []
+
         try:
             pts = read_graph(user_id=user_id) or []
             if pts:
                 print(f"[CGM] user={user_id} -> {len(pts)} points LibreLinkUp (polling)")
             return pts
         except Exception as e:
-            print(f"[CGM] user={user_id} -> erreur LibreLinkUp (polling) : {e}")
+            msg = str(e)
+            print(f"[CGM] user={user_id} -> erreur LibreLinkUp (polling) : {msg}")
+
+            # Si on détecte un rate limit (429 / Error 1015), on enclenche le cooldown global
+            if "429" in msg or "Error 1015" in msg or "rate limited" in msg.lower():
+                LIBRE_RATE_LIMIT_UNTIL = now_utc + dt.timedelta(
+                    minutes=LIBRE_RATE_LIMIT_COOLDOWN_MINUTES
+                )
+                print(
+                    f"[CGM] LibreLinkUp rate-limité (erreur 429/1015). "
+                    f"On désactive les appels Libre jusqu'à {LIBRE_RATE_LIMIT_UNTIL}."
+                )
+
+            # On retourne [] pour permettre le fallback Dexcom éventuel
             return []
 
     def try_dexcom():
@@ -215,7 +248,6 @@ def poll_glucose_once():
                     f"[CGM] user={user_id} -> aucun nouveau point CGM à insérer "
                     f"(tout déjà en base)."
                 )
-
 
             # 2.5 Rétention : suppression des points "realtime" de plus de REALTIME_RETENTION_HOURS
             cutoff = dt.datetime.utcnow() - dt.timedelta(hours=REALTIME_RETENTION_HOURS)

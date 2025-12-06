@@ -329,9 +329,9 @@ def startup_event():
     print("[DB] Tables vérifiées/créées.")
 
     # 2) Démarrer le polling CGM dans un thread séparé
-    #t = threading.Thread(target=run_polling_loop, daemon=True)
-    #t.start()
-    #print("[CGM] Thread de polling lancé.")
+    t = threading.Thread(target=run_polling_loop, daemon=True)
+    t.start()
+    print("[CGM] Thread de polling lancé.")
 
 
 # -----------------------------------------------------------------------------

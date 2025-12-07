@@ -1677,6 +1677,126 @@ def ui_runner_profile(
         ("S40p",   ">40%"),
     ]
 
+    # 6) Stats glycémie (temps passé dans les zones sur différentes fenêtres)
+    glucose_zone_defs = [
+        ("G1", "Zone 1", "Hypo", "< 70 mg/dL", None, 70),
+        ("G2", "Zone 2", "Bas", "70–100 mg/dL", 70, 100),
+        ("G3", "Zone 3", "Cible basse", "100–140 mg/dL", 100, 140),
+        ("G4", "Zone 4", "Cible haute", "140–180 mg/dL", 140, 180),
+        ("G5", "Zone 5", "Élevée", "> 180 mg/dL", 180, None),
+    ]
+
+    def _format_duration_local(sec: float) -> str:
+        s = int(round(sec))
+        if s <= 0:
+            return "–"
+        h = s // 3600
+        m = (s % 3600) // 60
+        if h > 0:
+            return f"{h}h{m:02d}"
+        if m > 0:
+            return f"{m} min"
+        return f"{s}s"
+
+    def _compute_glucose_zones(duration_days: int):
+        start_ts = now_utc - dt.timedelta(days=duration_days)
+        points = (
+            db.query(GlucosePoint)
+            .filter(GlucosePoint.user_id == user_id)
+            .filter(GlucosePoint.ts >= start_ts)
+            .order_by(GlucosePoint.ts.asc())
+            .all()
+        )
+
+        valid_points = [p for p in points if p.mgdl is not None and p.ts is not None]
+        zone_time = {zid: 0.0 for (zid, *_rest) in glucose_zone_defs}
+
+        def find_zone_id(glu: float | None) -> str | None:
+            if glu is None:
+                return None
+            for zid, _name, _desc, _range_label, zmin, zmax in glucose_zone_defs:
+                if (zmin is None or glu >= zmin) and (zmax is None or glu < zmax):
+                    return zid
+            return None
+
+        for i in range(len(valid_points) - 1):
+            curr = valid_points[i]
+            nxt = valid_points[i + 1]
+            dt_seconds = (nxt.ts - curr.ts).total_seconds()
+            if dt_seconds <= 0:
+                continue
+            zid = find_zone_id(curr.mgdl)
+            if not zid:
+                continue
+            zone_time[zid] += dt_seconds
+
+        total = sum(zone_time.values())
+        rows = []
+        for zid, name, desc, range_label, _zmin, _zmax in glucose_zone_defs:
+            t = zone_time.get(zid, 0.0)
+            pct = round(t * 100.0 / total) if total > 0 else 0
+            rows.append(
+                {
+                    "id": zid,
+                    "name": name,
+                    "description": desc,
+                    "range": range_label,
+                    "time_sec": t,
+                    "time_str": _format_duration_local(t),
+                    "percent": pct,
+                }
+            )
+
+        return {
+            "rows": rows,
+            "has_data": total > 0,
+            "total_time_str": _format_duration_local(total),
+        }
+
+    glucose_zone_summary = [
+        {
+            "key": "1d",
+            "label": "Dernières 24 h",
+            **_compute_glucose_zones(1),
+        },
+        {
+            "key": "7d",
+            "label": "7 derniers jours",
+            **_compute_glucose_zones(7),
+        },
+        {
+            "key": "14d",
+            "label": "14 derniers jours",
+            **_compute_glucose_zones(14),
+        },
+    ]
+
+    # Série temporelle détaillée sur 24h pour affichage graphique
+    points_24h = (
+        db.query(GlucosePoint)
+        .filter(GlucosePoint.user_id == user_id)
+        .filter(GlucosePoint.ts >= now_utc - dt.timedelta(days=1))
+        .order_by(GlucosePoint.ts.asc())
+        .all()
+    )
+
+    def _ts_iso(ts: dt.datetime | None) -> str | None:
+        if ts is None:
+            return None
+        aware = _safe_dt(ts)
+        if aware.tzinfo is None:
+            aware = aware.replace(tzinfo=dt.timezone.utc)
+        return aware.isoformat()
+
+    glucose_chart_24h = [
+        {
+            "ts": _ts_iso(p.ts),
+            "mgdl": float(p.mgdl),
+        }
+        for p in points_24h
+        if p.mgdl is not None and p.ts is not None
+    ]
+
     return templates.TemplateResponse(
         "runner_profile.html",
         {
@@ -1690,6 +1810,8 @@ def ui_runner_profile(
             "tab": tab,
             "fatigue_profile": fatigue_profile,
             "hr_zone_fatigue": hr_zone_fatigue,
+            "glucose_zone_summary": glucose_zone_summary,
+            "glucose_chart_24h": glucose_chart_24h,
         },
     )
 

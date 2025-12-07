@@ -1049,6 +1049,7 @@ def compute_and_store_zone_slope_aggs(db: Session, activity: models.Activity, us
     points = (
         db.query(models.ActivityStreamPoint)
         .filter(models.ActivityStreamPoint.activity_id == activity.id)
+        .order_by(models.ActivityStreamPoint.idx.asc())
         .all()
     )
     if not points:
@@ -1077,7 +1078,7 @@ def compute_and_store_zone_slope_aggs(db: Session, activity: models.Activity, us
 
     aggs = {}  # (hr_zone, slope_band) → stats
 
-    for p in points:
+    for idx, p in enumerate(points):
         if not p.hr_zone or p.slope_percent is None:
             continue
 
@@ -1106,8 +1107,15 @@ def compute_and_store_zone_slope_aggs(db: Session, activity: models.Activity, us
                 "sum_vel": 0.0,
             }
 
-        # 1 sec entre points approché
-        aggs[key]["duration_sec"] += 1
+        # Durée réelle basée sur l'intervalle temporel avec le point suivant (fallback=1s)
+        dt_sec = 1.0
+        if idx + 1 < len(points):
+            next_pt = points[idx + 1]
+            if p.elapsed_time is not None and next_pt.elapsed_time is not None:
+                delta = float(next_pt.elapsed_time) - float(p.elapsed_time)
+                if delta > 0:
+                    dt_sec = delta
+        aggs[key]["duration_sec"] += dt_sec
         aggs[key]["num_points"] += 1
 
         if p.distance:
@@ -1430,11 +1438,12 @@ def build_fatigue_profile(
         {"id": "ultra",  "label": "≥ 10h",    "min_h": 10.0, "max_h": None},
     ]
 
-    # 1) Charger toutes les lignes agrégées + la durée de l’activité
+    # 1) Charger toutes les lignes agrégées + la durée de l’activité (pour filtres période)
     q = (
         db.query(
             models.ActivityZoneSlopeAgg,
             models.Activity.elapsed_time,
+            models.Activity.start_date,
         )
         .join(models.Activity, models.ActivityZoneSlopeAgg.activity_id == models.Activity.id)
         .filter(
@@ -1468,6 +1477,15 @@ def build_fatigue_profile(
             "by_slope": {},
         }
 
+    activity_dur_sum: dict[int, float] = defaultdict(float)
+    activity_elapsed_map: dict[int, float] = {}
+    for row, elapsed_time, _start_date in rows:
+        if row.activity_id is None:
+            continue
+        activity_dur_sum[row.activity_id] += float(row.duration_sec or 0)
+        if elapsed_time:
+            activity_elapsed_map[row.activity_id] = float(elapsed_time)
+
     # 2) Agrégation en mémoire
     # Structure : by_slope[slope_band][bucket_id] = {...}
     by_slope: dict[str, dict[str, dict]] = {}
@@ -1480,15 +1498,22 @@ def build_fatigue_profile(
                 return b["id"]
         return None
 
-    for row, elapsed_time in rows:
+    for row, _elapsed_time, _start_date in rows:
         slope_band = row.slope_band
         if slope_band is None:
             continue
 
-        # durée de la sortie en heures (basée sur Activity.elapsed_time)
-        if not elapsed_time or elapsed_time <= 0:
+        zone_duration_sec = float(row.duration_sec or 0)
+        if row.activity_id is not None:
+            total_dur = activity_dur_sum.get(row.activity_id)
+            activity_elapsed = activity_elapsed_map.get(row.activity_id)
+            if total_dur and activity_elapsed and total_dur > 0:
+                scale = activity_elapsed / total_dur
+                if scale > 1.2:  # corrige les anciens agrégats 1s/point
+                    zone_duration_sec *= scale
+        if zone_duration_sec <= 0:
             continue
-        hours = float(elapsed_time) / 3600.0
+        hours = zone_duration_sec / 3600.0
         bucket_id = _find_bucket_id(hours)
         if bucket_id is None:
             continue
@@ -1503,7 +1528,7 @@ def build_fatigue_profile(
             },
         )
 
-        dur_sec = float(row.duration_sec or 0)
+        dur_sec = zone_duration_sec
         pace = row.avg_pace_s_per_km
         if pace is not None and dur_sec > 0:
             b_dict["sum_pace_x_dur"] += float(pace) * dur_sec
@@ -1543,9 +1568,3 @@ def build_fatigue_profile(
         "buckets": buckets,
         "by_slope": by_slope,
     }
-
-
-
-
-
-

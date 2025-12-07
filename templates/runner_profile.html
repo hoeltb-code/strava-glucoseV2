@@ -199,6 +199,20 @@
        ">
       Fatigue / durée de course
     </a>
+
+    <!-- Onglet Glycémie -->
+    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=glucose&hr_zone_fatigue={{ hr_zone_fatigue }}"
+       style="
+         display:block; padding:8px 10px; border-radius:4px;
+         text-decoration:none;
+         {% if tab == 'glucose' %}
+           background:#0f172a; color:#f9fafb; font-weight:600;
+         {% else %}
+           color:#111827;
+         {% endif %}
+       ">
+      Glycémie (temps dans la zone)
+    </a>
   </aside>
 
   <!-- 🧩 Colonne droite : contenu selon l’onglet -->
@@ -509,9 +523,152 @@
 
     {% endif %} {# fin tab == 'fatigue' #}
 
+    {# ════════════ ONGLET GLYCÉMIE ════════════ #}
+    {% if tab == 'glucose' %}
+
+      <div class="card" style="padding:14px;">
+        <h3 style="margin:0 0 6px 0; font-size:0.95rem;">
+          Temps passé dans chaque zone glycémie
+        </h3>
+        <p class="muted" style="margin:0 0 12px 0; font-size:0.8rem;">
+          Distribution calculée sur les 24 dernières heures, 7 jours et 14 jours.
+        </p>
+
+        <div style="display:grid; gap:12px; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));">
+          {% for summary in glucose_zone_summary %}
+            <div style="border:1px solid #e5e7eb; border-radius:6px; padding:10px; background:#fdfdfd;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <strong style="font-size:0.9rem;">{{ summary.label }}</strong>
+                <span class="muted" style="font-size:0.75rem;">Total : {{ summary.total_time_str }}</span>
+              </div>
+              <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                <thead>
+                  <tr style="border-bottom:1px solid #e5e7eb;">
+                    <th style="text-align:left; padding:4px 2px;">Zone</th>
+                    <th style="text-align:left; padding:4px 2px;">Plage</th>
+                    <th style="text-align:right; padding:4px 2px;">Temps</th>
+                    <th style="text-align:right; padding:4px 2px;">% </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in summary.rows %}
+                    <tr style="border-bottom:1px solid #f3f4f6;">
+                      <td style="padding:4px 2px; font-weight:600;">{{ row.name }}</td>
+                      <td style="padding:4px 2px; color:#6b7280;">{{ row.range }}</td>
+                      <td style="padding:4px 2px; text-align:right;">{{ row.time_str }}</td>
+                      <td style="padding:4px 2px; text-align:right;">{{ row.percent }}%</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% endfor %}
+        </div>
+
+        {% set periods_with_data = glucose_zone_summary | selectattr('has_data') | list %}
+        {% if periods_with_data|length == 0 %}
+          <p class="muted" style="margin-top:12px;">
+            Aucune donnée glycémie disponible sur ces périodes pour l’instant.
+          </p>
+        {% endif %}
+      </div>
+
+      <div class="card" style="padding:14px; margin-top:14px;">
+        <h3 style="margin:0 0 6px 0; font-size:0.95rem;">
+          Courbe glycémie – dernières 24 h
+        </h3>
+        <p class="muted" style="margin:0 0 12px 0; font-size:0.8rem;">
+          Visualise l’évolution détaillée point par point.
+        </p>
+
+        {% if glucose_chart_24h and glucose_chart_24h|length > 1 %}
+          <div style="height:260px;">
+            <canvas id="glucose24hChart" height="240"></canvas>
+          </div>
+        {% else %}
+          <p class="muted" style="margin:0;">
+            Pas assez de points récents pour dessiner la courbe.
+          </p>
+        {% endif %}
+      </div>
+
+      {% if glucose_chart_24h and glucose_chart_24h|length > 1 %}
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+        <script>
+          (function() {
+            const rawPoints = {{ glucose_chart_24h | tojson | safe }};
+            if (!rawPoints || rawPoints.length === 0) return;
+
+            const series = rawPoints.map(pt => ({
+              x: new Date(pt.ts),
+              y: pt.mgdl,
+            }));
+
+            const ctx = document.getElementById('glucose24hChart').getContext('2d');
+
+            new Chart(ctx, {
+              type: 'line',
+              data: {
+                datasets: [{
+                  label: 'Glycémie (mg/dL)',
+                  data: series,
+                  borderColor: '#dc2626',
+                  backgroundColor: 'rgba(220,38,38,0.12)',
+                  tension: 0.2,
+                  pointRadius: 0,
+                  borderWidth: 2,
+                  fill: true,
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                  legend: { display: false },
+                  tooltip: {
+                    callbacks: {
+                      title: items => {
+                        const point = items[0].raw;
+                        return new Date(point.x).toLocaleString('fr-FR');
+                      },
+                      label: item => `${item.raw.y.toFixed(0)} mg/dL`,
+                    }
+                  }
+                },
+                scales: {
+                  x: {
+                    type: 'time',
+                    time: {
+                      unit: 'hour',
+                      displayFormats: {
+                        hour: 'HH:mm',
+                      },
+                    },
+                    ticks: { maxTicksLimit: 8 },
+                    grid: { display: false },
+                  },
+                  y: {
+                    suggestedMin: 60,
+                    suggestedMax: 220,
+                    grid: { color: '#e5e7eb' },
+                    title: {
+                      display: true,
+                      text: 'mg/dL',
+                      color: '#6b7280',
+                    },
+                  }
+                }
+              }
+            });
+          })();
+        </script>
+      {% endif %}
+
+    {% endif %} {# fin tab == 'glucose' #}
+
   </main>
 </div>
 
 {% endblock %}
-
-

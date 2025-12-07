@@ -189,8 +189,10 @@
       <span>Strava x Glucose</span>
     </div>
     <nav>
-      <a href="/ui">Dashboard</a>
-      <a href="/docs" target="_blank">API Docs</a>
+      {% if request.session.get('user_id') == 1 %}
+        <a href="/ui">Dashboard</a>
+        <a href="/docs" target="_blank">API Docs</a>
+      {% endif %}
     </nav>
   </header>
 

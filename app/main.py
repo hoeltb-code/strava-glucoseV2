@@ -105,6 +105,7 @@ from fastapi import (
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 
 from .logic import (
     select_window,
@@ -120,6 +121,7 @@ from .logic import (
     compute_difficulty_and_level,   # 👈 AJOUT
     build_runner_profile,
     build_fatigue_profile,
+    compute_best_dplus_windows,
     HR_ZONES,
 )
 from .settings import settings
@@ -156,12 +158,38 @@ def _safe_dt(ts):
     return ts if (ts is None or ts.tzinfo is not None) else ts.replace(tzinfo=dt.timezone.utc)
 
 
-# -----------------------------------------------------------------------------
-# Instance FastAPI + static + templates
-# -----------------------------------------------------------------------------
-app = FastAPI()
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+def _get_session_user_id(request: Request) -> int | None:
+    if not hasattr(request, "session"):
+        return None
+    raw = request.session.get("user_id")
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        request.session.clear()
+        return None
+
+
+def _guard_user_route(request: Request, user_id: int | None = None):
+    session_user_id = _get_session_user_id(request)
+    if session_user_id is None:
+        return RedirectResponse(url="/ui/login", status_code=302)
+
+    if user_id is not None and session_user_id != int(user_id):
+        return RedirectResponse(url=f"/ui/user/{session_user_id}", status_code=302)
+
+    return None
+
+
+def _guard_admin(request: Request):
+    session_user_id = _get_session_user_id(request)
+    if session_user_id is None:
+        return RedirectResponse(url="/ui/login", status_code=302)
+    if session_user_id != 1:
+        return RedirectResponse(url=f"/ui/user/{session_user_id}", status_code=302)
+    return None
+
 
 # -----------------------------------------------------------------------------
 # Instance FastAPI + static + templates
@@ -169,6 +197,7 @@ templates = Jinja2Templates(directory="templates")
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY, same_site="lax")
 
 # -----------------------------------------------------------------------------
 # Routers
@@ -1152,6 +1181,10 @@ def ui_set_libre_credentials(
     password: str = Form(...),
     region: str = Form("fr"),
 ):
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+
     db = SessionLocal()
     try:
         user = db.query(User).get(user_id)
@@ -1208,6 +1241,10 @@ def ui_set_libre_credentials(
 
 @app.get("/ui", response_class=HTMLResponse)
 def ui_home(request: Request):
+    guard = _guard_admin(request)
+    if guard:
+        return guard
+
     db = SessionLocal()
     try:
         users = db.query(User).all()
@@ -1228,8 +1265,13 @@ def ui_home(request: Request):
     )
 
 @app.get("/", response_class=HTMLResponse)
-def home_redirect():
-    return RedirectResponse(url="/ui")
+def home_redirect(request: Request):
+    session_user_id = _get_session_user_id(request)
+    if session_user_id == 1:
+        return RedirectResponse(url="/ui")
+    if session_user_id:
+        return RedirectResponse(url=f"/ui/user/{session_user_id}")
+    return RedirectResponse(url="/ui/login")
 
 @app.post("/ui/enrich-last", response_class=HTMLResponse)
 async def ui_enrich_last(request: Request, user_id: int = Form(...)):
@@ -1239,6 +1281,10 @@ async def ui_enrich_last(request: Request, user_id: int = Form(...)):
     - lance enrich_activity dessus
     - affiche un petit message de résultat
     """
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+
     cli = StravaClient(user_id=user_id)
     try:
         acts = await cli.list_activities(per_page=1)
@@ -1295,6 +1341,7 @@ def ui_signup_form(request: Request):
 
 @app.post("/ui/signup", response_class=HTMLResponse)
 def ui_signup(
+    request: Request,
     email: str = Form(...),
     password: str = Form(...),
     first_name: str = Form(""),
@@ -1340,6 +1387,7 @@ def ui_signup(
         db.close()
 
     # 👉 Après inscription, on passe par une page "welcome" qui propose Strava
+    request.session["user_id"] = int(user.id)
     return RedirectResponse(url=f"/ui/user/{user.id}/welcome", status_code=302)
 
 
@@ -1350,6 +1398,10 @@ def ui_user_welcome(user_id: int, request: Request):
     - propose de connecter Strava
     - ou de passer et aller au dashboard
     """
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+
     db = SessionLocal()
     try:
         user = db.query(User).get(user_id)
@@ -1388,6 +1440,10 @@ from app.models import User, UserSettings  # make sure this import exists
 
 @app.get("/ui/user/{user_id}/profile", response_class=HTMLResponse)
 def ui_user_profile(user_id: int, request: Request):
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+
     db = SessionLocal()
     try:
         user = db.query(User).get(user_id)
@@ -1492,6 +1548,10 @@ def ui_user_profile_update(
     - gère l'upload de la photo de profil (stockée dans static/avatars)
     - met à jour les préférences de description Strava (gly/VAM/pace/cadence)
     """
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+
     db = SessionLocal()
     try:
         user = db.query(User).get(user_id)
@@ -1607,7 +1667,7 @@ def ui_runner_profile(
     user_id: int,
     sport: str = Query("run"),
     period: str = Query("all"),           # "all" ou "last_12_months"
-    tab: str = Query("overview"),         # "overview" ou "fatigue"
+    tab: str = Query("ascent"),         # "ascent", "vam", "pace", ...
     hr_zone_fatigue: str = Query("all"),  # filtre zone cardio pour la fatigue
     db: Session = Depends(get_db),
 ):
@@ -1616,6 +1676,10 @@ def ui_runner_profile(
     - tab=overview  : profil cardio × pente × VAM × allure × cadence
     - tab=fatigue   : dégradation de l’allure selon la durée de la sortie
     """
+
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
 
     # 1) Récupérer l'utilisateur
     user = db.query(models.User).get(user_id)
@@ -1747,10 +1811,15 @@ def ui_runner_profile(
                 }
             )
 
+        avg_mgdl = None
+        if valid_points:
+            avg_mgdl = sum(float(p.mgdl) for p in valid_points) / len(valid_points)
+
         return {
             "rows": rows,
             "has_data": total > 0,
             "total_time_str": _format_duration_local(total),
+            "avg_mgdl": avg_mgdl,
         }
 
     glucose_zone_summary = [
@@ -1797,6 +1866,15 @@ def ui_runner_profile(
         if p.mgdl is not None and p.ts is not None
     ]
 
+    # 7) D+ max sur fenêtres glissantes
+    best_dplus_windows = compute_best_dplus_windows(
+        db,
+        user_id=user_id,
+        sport=sport,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
     return templates.TemplateResponse(
         "runner_profile.html",
         {
@@ -1812,6 +1890,7 @@ def ui_runner_profile(
             "hr_zone_fatigue": hr_zone_fatigue,
             "glucose_zone_summary": glucose_zone_summary,
             "glucose_chart_24h": glucose_chart_24h,
+            "best_dplus_windows": best_dplus_windows,
         },
     )
 
@@ -1854,6 +1933,7 @@ def ui_login(request: Request, email: str = Form(...), password: str = Form(...)
             status_code=401
         )
 
+    request.session["user_id"] = int(user.id)
     return RedirectResponse(url=f"/ui/user/{user.id}", status_code=302)
 
 #-----------------------------------------------------------------------------
@@ -1868,6 +1948,10 @@ def ui_user_dashboard(user_id: int, request: Request):
     - montre les 2 (ici 5) dernières activités avec stats clés + mini-carte
     - + records VAM et tableau VAM par bandes de pente (option hr_zone=?)
     """
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+
     db = SessionLocal()
 
     # ✅ variables par défaut (sécurité en cas d'erreur intermédiaire)
@@ -1922,7 +2006,7 @@ def ui_user_dashboard(user_id: int, request: Request):
         recent = (
             db.query(Activity)
             .filter(Activity.user_id == user_id)
-            .order_by(desc(Activity.id))
+            .order_by(desc(Activity.start_date))
             .limit(5)
             .all()
         )
@@ -2100,6 +2184,9 @@ def ui_user_dashboard(user_id: int, request: Request):
 
 @app.get("/ui/user/{user_id}/activity/{activity_id}", response_class=HTMLResponse)
 async def ui_user_activity_detail(user_id: int, activity_id: int, request: Request):
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
 
     db = SessionLocal()
     try:
@@ -2135,6 +2222,7 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
 
         # Par défaut : aucune ligne
         glucose_zone_rows = []
+        glucose_chart_points = []
 
         if has_glucose:
             # Définition des zones (à ajuster si tu veux plus tard)
@@ -2170,15 +2258,15 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
 
                 if p.elapsed_time is None or n.elapsed_time is None:
                     continue
-                dt = float(n.elapsed_time) - float(p.elapsed_time)
-                if dt <= 0:
+                dt_sec = float(n.elapsed_time) - float(p.elapsed_time)
+                if dt_sec <= 0:
                     continue
 
                 zid = find_zone_id(p.glucose_mgdl)
                 if zid is None:
                     continue
 
-                zone_time[zid] += dt
+                zone_time[zid] += dt_sec
 
             total_time = sum(zone_time.values())
 
@@ -2210,6 +2298,21 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
                     "time_str": format_duration(t) if t > 0 else "–",
                     "percent": pct,
                 })
+
+            start_dt = _safe_dt(activity.start_date)
+            for p in glucose_points_sorted:
+                if p.glucose_mgdl is None or p.elapsed_time is None:
+                    continue
+                ts_iso = None
+                if start_dt is not None:
+                    ts_iso = (start_dt + dt.timedelta(seconds=float(p.elapsed_time))).isoformat()
+                glucose_chart_points.append({
+                    "elapsed_sec": float(p.elapsed_time),
+                    "ts": ts_iso,
+                    "mgdl": float(p.glucose_mgdl),
+                })
+        else:
+            glucose_chart_points = []
 
 
 
@@ -2341,8 +2444,8 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
             if p.elapsed_time is None or n.elapsed_time is None:
                 continue
 
-            dt = float(n.elapsed_time) - float(p.elapsed_time)
-            if dt <= 0:
+            dt_sec = float(n.elapsed_time) - float(p.elapsed_time)
+            if dt_sec <= 0:
                 continue
 
             # ❌ on ignore les sections où ça ne monte pas assez
@@ -2358,12 +2461,12 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
                 continue
 
             # toutes zones cardiaques
-            vam_zone_time["ALL"][zid] += dt
+            vam_zone_time["ALL"][zid] += dt_sec
 
             # zone cardio spécifique si dispo
             hz = p.hr_zone
             if hz in hr_zones:
-                vam_zone_time[hz][zid] += dt
+                vam_zone_time[hz][zid] += dt_sec
 
 
         # Sélection de la zone cardio pour le filtre (query param)
@@ -3012,6 +3115,7 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
             "tab": tab,
             "has_glucose": has_glucose,
             "glucose_zone_rows": glucose_zone_rows,
+            "glucose_chart_points": glucose_chart_points,
             "has_vam": has_vam,
             "vam_zone_rows": vam_zone_rows,
             "vam_hr_filter": vam_hr_filter,             # 🔸 on envoie l’onglet au template
@@ -3029,11 +3133,15 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
 # SUPPRESSION D’UNE ACTIVITÉ
 #-------------------------------------------------------------------------------
 @app.post("/ui/user/{user_id}/activity/{activity_id}/delete", response_class=HTMLResponse)
-def ui_user_activity_delete(user_id: int, activity_id: int):
+def ui_user_activity_delete(request: Request, user_id: int, activity_id: int):
     """
     Supprime une activité (et ses points de stream) pour un utilisateur donné,
     puis redirige vers le dashboard utilisateur.
     """
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+
     db = SessionLocal()
     try:
         activity = (
@@ -3074,11 +3182,15 @@ def ui_user_activity_delete(user_id: int, activity_id: int):
 # -----------------------------------------------------------------------------
 
 @app.post("/ui/user/{user_id}/strava/disconnect")
-def ui_strava_disconnect(user_id: int):
+def ui_strava_disconnect(request: Request, user_id: int):
     """
     Supprime les tokens Strava pour cet utilisateur
     et le considère comme 'non connecté à Strava'.
     """
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+
     db = SessionLocal()
     try:
         db.query(StravaToken).filter(StravaToken.user_id == user_id).delete()
@@ -3093,11 +3205,15 @@ def ui_strava_disconnect(user_id: int):
 
 
 @app.post("/ui/user/{user_id}/libre/disconnect")
-def ui_libre_disconnect(user_id: int):
+def ui_libre_disconnect(request: Request, user_id: int):
     """
     Supprime les identifiants LibreLinkUp pour cet utilisateur.
     L'historique glycémie (glucose_points) est conservé pour l'instant.
     """
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+
     db = SessionLocal()
     try:
         db.query(LibreCredentials).filter(LibreCredentials.user_id == user_id).delete()
@@ -3112,12 +3228,16 @@ def ui_libre_disconnect(user_id: int):
 
 
 @app.post("/ui/user/{user_id}/dexcom/disconnect")
-def ui_dexcom_disconnect(user_id: int):
+def ui_dexcom_disconnect(request: Request, user_id: int):
     """
     Supprime les tokens Dexcom pour cet utilisateur.
     L'historique glycémie (glucose_points) est conservé.
     Si l'utilisateur avait cgm_source='dexcom', on bascule en mode Auto (None).
     """
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+
     db = SessionLocal()
     try:
         db.query(DexcomToken).filter(DexcomToken.user_id == user_id).delete()

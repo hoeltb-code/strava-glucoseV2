@@ -1411,6 +1411,190 @@ def build_runner_profile(
 
 
 #---------------------------------------------------------------------------
+def compute_best_dplus_windows(
+    db: Session,
+    *,
+    user_id: int,
+    sport: str = "run",
+    date_from: dt.datetime | None = None,
+    date_to: dt.datetime | None = None,
+) -> list[dict]:
+    """Retourne le meilleur D+ cumulé sur des fenêtres glissantes (1h,2h,5h,10h,24h)."""
+
+    window_defs = [
+        {"id": "1h", "label": "1 h", "seconds": 3600},
+        {"id": "2h", "label": "2 h", "seconds": 7200},
+        {"id": "5h", "label": "5 h", "seconds": 5 * 3600},
+        {"id": "10h", "label": "10 h", "seconds": 10 * 3600},
+        {"id": "24h", "label": "24 h", "seconds": 24 * 3600},
+    ]
+
+    # Prépare les placeholders de résultat
+    results = {
+        w["id"]: {
+            "window_id": w["id"],
+            "label": w["label"],
+            "seconds": w["seconds"],
+            "gain_m": 0.0,
+            "activity": None,
+            "start_offset_sec": None,
+            "end_offset_sec": None,
+            "duration_sec": None,
+            "loss_m": 0.0,
+            "distance_m": 0.0,
+        }
+        for w in window_defs
+    }
+
+    activities_q = db.query(models.Activity).filter(
+        models.Activity.user_id == user_id,
+        models.Activity.sport == sport,
+    )
+
+    if date_from is not None:
+        if date_from.tzinfo is not None:
+            date_from = date_from.astimezone(dt.timezone.utc).replace(tzinfo=None)
+        activities_q = activities_q.filter(models.Activity.start_date >= date_from)
+
+    if date_to is not None:
+        if date_to.tzinfo is not None:
+            date_to = date_to.astimezone(dt.timezone.utc).replace(tzinfo=None)
+        activities_q = activities_q.filter(models.Activity.start_date < date_to)
+
+    activities = activities_q.order_by(models.Activity.start_date.desc()).all()
+    if not activities:
+        return list(results.values())
+
+    for activity in activities:
+        points = (
+            db.query(
+                models.ActivityStreamPoint.elapsed_time,
+                models.ActivityStreamPoint.altitude,
+                models.ActivityStreamPoint.distance,
+            )
+            .filter(models.ActivityStreamPoint.activity_id == activity.id)
+            .order_by(models.ActivityStreamPoint.idx.asc())
+            .all()
+        )
+
+        if not points or len(points) < 2:
+            continue
+
+        times = []
+        cum_dplus = []
+        cum_dminus = []
+        cum_distance = []
+        cumulative = 0.0
+        cumulative_loss = 0.0
+        current_distance = 0.0
+        prev_alt = None
+        last_distance_val = None
+
+        for p in points:
+            if p.elapsed_time is None:
+                continue
+
+            alt = float(p.altitude) if p.altitude is not None else None
+            if alt is not None and prev_alt is not None:
+                delta = alt - prev_alt
+                if delta > 0:
+                    cumulative += delta
+                elif delta < 0:
+                    cumulative_loss += -delta
+            if alt is not None:
+                prev_alt = alt
+
+            if p.distance is not None:
+                current_distance = float(p.distance)
+                last_distance_val = current_distance
+            elif last_distance_val is not None:
+                current_distance = last_distance_val
+
+            times.append(float(p.elapsed_time))
+            cum_dplus.append(cumulative)
+            cum_dminus.append(cumulative_loss)
+            cum_distance.append(current_distance)
+
+        if len(times) < 2:
+            continue
+
+        for win in window_defs:
+            win_res = results[win["id"]]
+            win_sec = win["seconds"]
+            start_idx = 0
+            for idx, t in enumerate(times):
+                while start_idx < idx and (t - times[start_idx]) > win_sec:
+                    start_idx += 1
+                gain = cum_dplus[idx] - cum_dplus[start_idx]
+                loss = cum_dminus[idx] - cum_dminus[start_idx]
+                dist = cum_distance[idx] - cum_distance[start_idx]
+                if gain > win_res["gain_m"]:
+                    start_time = times[start_idx]
+                    end_time = t
+                    duration = max(end_time - start_time, 1e-6)
+                    win_res.update(
+                        {
+                            "gain_m": gain,
+                            "loss_m": max(loss, 0.0),
+                            "distance_m": max(dist, 0.0),
+                            "activity": activity,
+                            "start_offset_sec": start_time,
+                            "end_offset_sec": end_time,
+                            "duration_sec": duration,
+                        }
+                    )
+
+    formatted = []
+    for win in window_defs:
+        res = results[win["id"]]
+        activity = res["activity"]
+        if activity and res["duration_sec"]:
+            start_dt = activity.start_date
+            if start_dt is not None:
+                start_dt = _safe_dt(start_dt)
+            start_point = start_dt + dt.timedelta(seconds=res["start_offset_sec"]) if (start_dt and res["start_offset_sec"] is not None) else None
+            end_point = start_dt + dt.timedelta(seconds=res["end_offset_sec"]) if (start_dt and res["end_offset_sec"] is not None) else None
+            gain_per_hour = res["gain_m"] * 3600.0 / max(res["duration_sec"], 1.0)
+            formatted.append(
+                {
+                    "window_id": res["window_id"],
+                    "label": res["label"],
+                    "seconds": res["seconds"],
+                    "gain_m": res["gain_m"],
+                    "loss_m": res.get("loss_m") or 0.0,
+                    "distance_km": (res.get("distance_m") or 0.0) / 1000.0,
+                    "activity_id": activity.id,
+                    "activity_name": activity.name,
+                    "activity_date": activity.start_date,
+                    "start_datetime": start_point,
+                    "end_datetime": end_point,
+                    "duration_sec": res["duration_sec"],
+                    "gain_per_hour": gain_per_hour,
+                }
+            )
+        else:
+            formatted.append(
+                {
+                    "window_id": res["window_id"],
+                    "label": res["label"],
+                    "seconds": res["seconds"],
+                    "gain_m": 0.0,
+                    "loss_m": 0.0,
+                    "distance_km": 0.0,
+                    "activity_id": None,
+                    "activity_name": None,
+                    "activity_date": None,
+                    "start_datetime": None,
+                    "end_datetime": None,
+                    "duration_sec": None,
+                    "gain_per_hour": None,
+                }
+            )
+
+    return formatted
+
+
+#---------------------------------------------------------------------------
 # Construction du profil de fatigue à partir des agrégats zone×pente
 #---------------------------------------------------------------------------
 def build_fatigue_profile(
@@ -1498,7 +1682,9 @@ def build_fatigue_profile(
                 return b["id"]
         return None
 
-    for row, _elapsed_time, _start_date in rows:
+    combined_by_activity: dict[tuple[int, str], dict[str, float]] = {}
+
+    for row, elapsed_time, _start_date in rows:
         slope_band = row.slope_band
         if slope_band is None:
             continue
@@ -1513,6 +1699,29 @@ def build_fatigue_profile(
                     zone_duration_sec *= scale
         if zone_duration_sec <= 0:
             continue
+
+        if hr_zone is None:
+            if row.activity_id is None:
+                continue
+            key = (row.activity_id, slope_band)
+            stats = combined_by_activity.setdefault(
+                key,
+                {
+                    "duration_sec": 0.0,
+                    "sum_pace_x_dur": 0.0,
+                    "dur_for_pace": 0.0,
+                    "elapsed_time": float(elapsed_time or 0.0),
+                },
+            )
+            stats["duration_sec"] += zone_duration_sec
+            pace = row.avg_pace_s_per_km
+            if pace is not None:
+                stats["sum_pace_x_dur"] += float(pace) * zone_duration_sec
+                stats["dur_for_pace"] += zone_duration_sec
+            if elapsed_time:
+                stats["elapsed_time"] = float(elapsed_time)
+            continue
+
         hours = zone_duration_sec / 3600.0
         bucket_id = _find_bucket_id(hours)
         if bucket_id is None:
@@ -1533,6 +1742,31 @@ def build_fatigue_profile(
         if pace is not None and dur_sec > 0:
             b_dict["sum_pace_x_dur"] += float(pace) * dur_sec
             b_dict["dur_for_pace"] += dur_sec
+            b_dict["count"] += 1
+
+    if hr_zone is None:
+        for (activity_id, slope_band), stats in combined_by_activity.items():
+            elapsed_sec = stats.get("elapsed_time", 0.0)
+            if elapsed_sec <= 0:
+                continue
+            hours_total = elapsed_sec / 3600.0
+            bucket_id = _find_bucket_id(hours_total)
+            if bucket_id is None:
+                continue
+
+            slope_dict = by_slope.setdefault(slope_band, {})
+            b_dict = slope_dict.setdefault(
+                bucket_id,
+                {
+                    "sum_pace_x_dur": 0.0,
+                    "dur_for_pace": 0.0,
+                    "count": 0,
+                },
+            )
+
+            if stats["dur_for_pace"] > 0:
+                b_dict["sum_pace_x_dur"] += stats["sum_pace_x_dur"]
+                b_dict["dur_for_pace"] += stats["dur_for_pace"]
             b_dict["count"] += 1
 
     # 3) Calcul des moyennes et de la dégradation vs "short"

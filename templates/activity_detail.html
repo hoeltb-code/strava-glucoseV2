@@ -831,6 +831,97 @@
 
       </div>
 
+      {% if glucose_chart_points and glucose_chart_points|length > 1 %}
+      <div class="card" style="margin-top:16px; border-radius:4px; padding:16px;">
+        <h3 style="margin:0 0 10px 0; font-size:0.95rem;">
+          Courbe de glycémie pendant l’activité
+        </h3>
+        <p class="muted" style="margin:0 0 12px 0; font-size:0.8rem;">
+          Graphe temporel basé sur les points CGM synchronisés avec ta sortie.
+        </p>
+        <div style="height:260px;">
+          <canvas id="glucoseActivityChart" height="240"></canvas>
+        </div>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+      <script>
+        (function() {
+          const rawPoints = {{ glucose_chart_points | tojson | safe }};
+          if (!rawPoints || rawPoints.length === 0) return;
+
+          const useTimeAxis = rawPoints.every(pt => !!pt.ts);
+          const series = rawPoints.map(pt => ({
+            x: useTimeAxis ? new Date(pt.ts) : pt.elapsed_sec / 60,
+            y: pt.mgdl
+          }));
+
+          const labels = useTimeAxis ? undefined : series.map(pt => pt.x.toFixed(1));
+
+          const ctx = document.getElementById('glucoseActivityChart').getContext('2d');
+          new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels,
+              datasets: [{
+                label: 'Glycémie (mg/dL)',
+                data: useTimeAxis ? series : series.map(pt => pt.y),
+                borderColor: '#dc2626',
+                backgroundColor: 'rgba(220,38,38,0.12)',
+                borderWidth: 2,
+                pointRadius: 0,
+                tension: 0.15,
+                fill: true,
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: { mode: 'index', intersect: false },
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    title: items => {
+                      const idx = items[0].dataIndex;
+                      const raw = rawPoints[idx];
+                      if (raw.ts) {
+                        return new Date(raw.ts).toLocaleString('fr-FR');
+                      }
+                      const minutes = (raw.elapsed_sec / 60).toFixed(1);
+                      return `${minutes} min depuis le départ`;
+                    },
+                    label: item => `${item.formattedValue} mg/dL`,
+                  }
+                }
+              },
+              scales: {
+                x: useTimeAxis
+                  ? {
+                      type: 'time',
+                      time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } },
+                      ticks: { maxTicksLimit: 8 },
+                      grid: { display: false },
+                    }
+                  : {
+                      title: { display: true, text: 'Temps (min)' },
+                      ticks: { maxTicksLimit: 8 },
+                      grid: { display: false },
+                    },
+                y: {
+                  suggestedMin: 60,
+                  suggestedMax: 220,
+                  grid: { color: '#e5e7eb' },
+                  title: { display: true, text: 'mg/dL' },
+                }
+              }
+            }
+          });
+        })();
+      </script>
+      {% endif %}
+
     {% endif %}
 
 

@@ -98,7 +98,7 @@
         Profil coureur – {{ sport }}
       </h2>
       <p class="muted" style="margin:0; font-size:0.85rem;">
-        Choisis un onglet : VAM, allure, cadence, ou dégradation avec la durée.
+        Choisis un onglet : D+ max, VAM, allure, cadence, fatigue ou glycémie.
       </p>
     </div>
 
@@ -143,6 +143,20 @@
     </div>
 
     {% set base_url = request.url.path %}
+
+    <!-- Onglet D+ -->
+    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=ascent&hr_zone_fatigue={{ hr_zone_fatigue }}"
+       style="
+         display:block; padding:8px 10px; border-radius:4px;
+         text-decoration:none; margin-bottom:4px;
+         {% if tab == 'ascent' %}
+           background:#0f172a; color:#f9fafb; font-weight:600;
+         {% else %}
+           color:#111827;
+         {% endif %}
+       ">
+      D+ max (fenêtres)
+    </a>
 
     <!-- Onglet VAM -->
     <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=vam&hr_zone_fatigue={{ hr_zone_fatigue }}"
@@ -217,6 +231,77 @@
 
   <!-- 🧩 Colonne droite : contenu selon l’onglet -->
   <main>
+
+    {# ════════════ ONGLET D+ ════════════ #}
+    {% if tab == 'ascent' %}
+
+      <div class="card" style="padding:14px;">
+        <h3 style="margin:0 0 6px 0; font-size:0.95rem;">Meilleurs D+ par fenêtre glissante</h3>
+        <p class="muted" style="margin:0 0 12px 0; font-size:0.8rem;">
+          On parcourt toutes les activités pour trouver l’heure, les 2h, 5h, 10h et 24h où tu as
+          grimpé le plus de dénivelé positif (plutôt qu’une simple activité entière).
+        </p>
+
+        <div style="display:grid; gap:12px; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));">
+          {% for window in best_dplus_windows %}
+            <div style="border:1px solid #e5e7eb; border-radius:6px; padding:12px; background:#fdfdfd;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <strong>{{ window.label }}</strong>
+                <span class="muted" style="font-size:0.75rem;">{{ (window.seconds/3600)|round(0)|int }}h max</span>
+              </div>
+
+              {% if window.gain_m and window.gain_m > 0 %}
+                <div style="font-size:1.4rem; font-weight:700; color:#065f46;">
+                  +{{ window.gain_m|round(0)|int }} m
+                </div>
+                <div class="muted" style="font-size:0.8rem;">
+                  {% if window.gain_per_hour %}
+                    soit {{ window.gain_per_hour|round(0)|int }} m/h
+                  {% else %}
+                    –
+                  {% endif %}
+                </div>
+                <div class="muted" style="font-size:0.78rem;">
+                  D- : -{{ window.loss_m|round(0)|int }} m · Distance ~ {{ window.distance_km|round(1) }} km
+                </div>
+
+                <div style="margin-top:10px; font-size:0.8rem; line-height:1.4;">
+                  <div>Durée couverte :
+                    {% if window.duration_sec %}
+                      {{ (window.duration_sec/3600)|round(2) }} h
+                    {% else %}
+                      –
+                    {% endif %}
+                  </div>
+                  {% if window.activity_id %}
+                    <div>
+                      Activité :
+                      <a href="/ui/user/{{ user.id }}/activity/{{ window.activity_id }}"
+                         style="color:#2563eb; text-decoration:none;">
+                        {{ window.activity_name or ('Activité #' ~ window.activity_id) }}
+                      </a>
+                    </div>
+                    <div>
+                      Fenêtre :
+                      {% if window.start_datetime and window.end_datetime %}
+                        {{ window.start_datetime.strftime('%d/%m %H:%M') }} → {{ window.end_datetime.strftime('%H:%M') }}
+                      {% else %}
+                        –
+                      {% endif %}
+                    </div>
+                  {% endif %}
+                </div>
+              {% else %}
+                <p class="muted" style="margin:0; font-size:0.8rem;">
+                  Pas encore assez de segments avec altitude pour cette fenêtre.
+                </p>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+    {% endif %}
 
     {# ════════════ ONGLET VAM ════════════ #}
     {% if tab == 'vam' %}
@@ -508,9 +593,17 @@
           </table>
 
           <p class="muted" style="margin-top:10px; font-size:0.75rem;">
-            Exemple de lecture : si sur les pentes 10–15% tu es à 6:00/km sur les sorties
-            &lt;2h mais à 6:45/km sur les sorties 5–10h (+12%), cela montre à quel point
-            ton allure moyenne se dégrade quand la durée augmente dans cette zone cardio.
+            Comment lire ce tableau ?
+            <br>• La colonne &lt;2h sert de référence : elle affiche l’allure moyenne sur les portions
+            10–15&nbsp;% (ou autre pente) couvertes pendant des sorties courtes.
+            <br>• Les colonnes 2–5h, 5–10h, ≥10h montrent l’allure quand la sortie dure plus longtemps.
+              En mode «&nbsp;Toutes les zones&nbsp;», on additionne toutes les zones cardio d’une même
+              activité avant de déterminer le bucket. Quand tu filtres une zone (ex. Zone 3), on ne
+              regarde que le temps passé dans cette zone.
+            <br>• La ligne grise indique la dégradation en % vs la colonne &lt;2h. Exemple : si tu es à
+            6:00/km sur les pentes 10–15&nbsp;% en &lt;2h mais à 6:45/km sur les sorties 5–10h (+12&nbsp;%),
+            tu sais que tu perds 12&nbsp;% de vitesse moyenne quand la durée augmente dans ces
+            conditions.
           </p>
 
         {% else %}
@@ -561,6 +654,13 @@
                   {% endfor %}
                 </tbody>
               </table>
+              <div style="margin-top:8px; font-size:0.85rem; font-weight:600; color:#065f46; background:#d1fae5; padding:6px 8px; border-radius:4px;">
+                {% if summary.avg_mgdl %}
+                  Glycémie moyenne : {{ summary.avg_mgdl|round(0)|int }} mg/dL
+                {% else %}
+                  Glycémie moyenne : –
+                {% endif %}
+              </div>
             </div>
           {% endfor %}
         </div>

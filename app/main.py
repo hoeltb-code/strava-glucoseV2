@@ -1266,11 +1266,10 @@ def ui_home(request: Request):
 
 @app.get("/", response_class=HTMLResponse)
 def home_redirect(request: Request):
-    session_user_id = _get_session_user_id(request)
-    if session_user_id == 1:
-        return RedirectResponse(url="/ui")
-    if session_user_id:
-        return RedirectResponse(url=f"/ui/user/{session_user_id}")
+    """
+    Page d’accueil publique : toujours la landing / login,
+    même si une session est active (le header offre un lien déconnexion).
+    """
     return _render_login_page(request)
 
 

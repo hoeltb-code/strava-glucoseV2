@@ -193,6 +193,9 @@
         <a href="/ui">Dashboard</a>
         <a href="/docs" target="_blank">API Docs</a>
       {% endif %}
+      {% if request.session.get('user_id') %}
+        <a href="/logout">Se déconnecter</a>
+      {% endif %}
     </nav>
   </header>
 

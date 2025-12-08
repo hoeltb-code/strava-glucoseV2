@@ -1273,6 +1273,15 @@ def home_redirect(request: Request):
         return RedirectResponse(url=f"/ui/user/{session_user_id}")
     return _render_login_page(request)
 
+
+@app.get("/logout")
+def ui_logout(request: Request):
+    """
+    Déconnecte l'utilisateur courant en vidant la session, puis renvoie vers la page de connexion.
+    """
+    request.session.clear()
+    return RedirectResponse(url="/ui/login", status_code=303)
+
 @app.post("/ui/enrich-last", response_class=HTMLResponse)
 async def ui_enrich_last(request: Request, user_id: int = Form(...)):
     """

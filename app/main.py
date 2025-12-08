@@ -1271,7 +1271,7 @@ def home_redirect(request: Request):
         return RedirectResponse(url="/ui")
     if session_user_id:
         return RedirectResponse(url=f"/ui/user/{session_user_id}")
-    return RedirectResponse(url="/ui/login")
+    return _render_login_page(request)
 
 @app.post("/ui/enrich-last", response_class=HTMLResponse)
 async def ui_enrich_last(request: Request, user_id: int = Form(...)):
@@ -1901,15 +1901,42 @@ def ui_runner_profile(
 # UI : Login
 # -----------------------------------------------------------------------------
 
+def _render_login_page(request: Request):
+    hero_points = [
+        {
+            "title": "Fusion Strava × CGM",
+            "detail": "Superpose fréquence cardiaque, puissance et glycémie sur chaque activité.",
+        },
+        {
+            "title": "Alertes hypo / hyper",
+            "detail": "Repère instantanément les passages critiques pendant tes sorties.",
+        },
+        {
+            "title": "Coaching data-driven",
+            "detail": "Analyse les montées, splits, VAM et temps en zone glycémie.",
+        },
+    ]
+    onboarding_steps = [
+        "Se connecter ou créer un compte Strava Glucose",
+        "Lier Strava et ton capteur Dexcom / Libre",
+        "Laisser l’appli enrichir automatiquement chaque activité",
+    ]
+    return templates.TemplateResponse(
+        "login.html",
+        {
+            "request": request,
+            "hero_points": hero_points,
+            "onboarding_steps": onboarding_steps,
+        },
+    )
+
+
 @app.get("/ui/login", response_class=HTMLResponse)
 def ui_login_form(request: Request):
     """
     Page de connexion (UI).
     """
-    return templates.TemplateResponse(
-        "login.html",
-        {"request": request}
-    )
+    return _render_login_page(request)
 
 
 @app.post("/ui/login", response_class=HTMLResponse)
@@ -2188,6 +2215,34 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
     if guard:
         return guard
 
+    def format_duration_short(sec: float | None) -> str:
+        if sec is None or sec <= 0:
+            return "–"
+        s = int(round(sec))
+        h = s // 3600
+        m = (s % 3600) // 60
+        if h > 0:
+            return f"{h}h{m:02d}"
+        if m > 0:
+            return f"{m} min"
+        return f"{s}s"
+
+    def build_summary(label: str, detail: str, tone: str = "neutral") -> dict:
+        palette = {
+            "positive": ("#dcfce7", "#166534"),
+            "warning": ("#fef3c7", "#b45309"),
+            "danger": ("#fee2e2", "#b91c1c"),
+            "neutral": ("#e2e8f0", "#334155"),
+        }
+        bg, fg = palette.get(tone, palette["neutral"])
+        return {
+            "label": label,
+            "detail": detail,
+            "bg_color": bg,
+            "fg_color": fg,
+            "tone": tone,
+        }
+
     db = SessionLocal()
     try:
         # --- 1) USER + ACTIVITY ---
@@ -2212,6 +2267,8 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
         )
         has_streams = len(points) > 1
 
+        hr_zones = ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"]
+
         # --- 3bis) GGLYCÉMIE : distribution par zones ---
         # On regarde si on a au moins quelques points de glycémie valides
         glucose_points = [
@@ -2223,6 +2280,11 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
         # Par défaut : aucune ligne
         glucose_zone_rows = []
         glucose_chart_points = []
+        glucose_zone_vs_hr_rows = []
+        glucose_hr_columns = []
+        glucose_profile_summary = None
+        hr_zone_summary = []
+        activity_type_summary = None
 
         if has_glucose:
             # Définition des zones (à ajuster si tu veux plus tard)
@@ -2237,6 +2299,10 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
 
             # Temps cumulé par zone (en secondes)
             zone_time = {zid: 0.0 for (zid, *_rest) in glucose_zone_defs}
+            glucose_hr_time = {
+                zid: {hz: 0.0 for hz in hr_zones}
+                for (zid, *_rest) in glucose_zone_defs
+            }
 
             # Fonction utilitaire : trouver la zone à partir d'une valeur
             def find_zone_id(glu: float | None) -> str | None:
@@ -2267,37 +2333,85 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
                     continue
 
                 zone_time[zid] += dt_sec
+                hz = p.hr_zone if p.hr_zone in hr_zones else None
+                if hz:
+                    glucose_hr_time[zid][hz] += dt_sec
 
             total_time = sum(zone_time.values())
-
-            # Formatage du temps façon "Strava-like simple"
-            def format_duration(sec: float) -> str:
-                s = int(round(sec))
-                h = s // 3600
-                m = (s % 3600) // 60
-                if h > 0:
-                    return f"{h}h{m:02d}"
-                if m > 0:
-                    return f"{m} min"
-                return f"{s}s"
+            hr_time_from_glucose = {
+                hz: sum(glucose_hr_time[zid][hz] for zid in glucose_hr_time)
+                for hz in hr_zones
+            }
 
             # Construction des lignes pour le tableau du template
-            for zid, name, desc, range_label, _zmin, _zmax in glucose_zone_defs:
+            for idx, (zid, name, desc, range_label, _zmin, _zmax) in enumerate(glucose_zone_defs, start=1):
                 t = zone_time.get(zid, 0.0)
-                if total_time > 0:
-                    pct = round(t * 100.0 / total_time)
-                else:
-                    pct = 0
+                pct = round(t * 100.0 / total_time) if total_time > 0 else 0
+
+                hr_cells = []
+                for hz in hr_zones:
+                    cell_time = glucose_hr_time[zid][hz]
+                    hr_cells.append({
+                        "hr_zone": hz,
+                        "time_sec": cell_time,
+                        "time_str": format_duration_short(cell_time),
+                        "percent_of_hr": round(cell_time * 100.0 / hr_time_from_glucose[hz]) if hr_time_from_glucose[hz] > 0 else 0,
+                    })
 
                 glucose_zone_rows.append({
                     "id": zid,
+                    "zone_index": idx,
                     "name": name,
                     "description": desc,
                     "range": range_label,
                     "time_sec": t,
-                    "time_str": format_duration(t) if t > 0 else "–",
+                    "time_str": format_duration_short(t),
                     "percent": pct,
                 })
+
+                glucose_zone_vs_hr_rows.append({
+                    "id": zid,
+                    "name": name,
+                    "description": desc,
+                    "range": range_label,
+                    "hr_cells": hr_cells,
+                })
+
+            for hz in hr_zones:
+                column_time = hr_time_from_glucose[hz]
+                glucose_hr_columns.append({
+                    "zone": hz,
+                    "time_sec": column_time,
+                    "time_str": format_duration_short(column_time),
+                    "percent_of_total": round(column_time * 100.0 / total_time) if total_time > 0 else 0,
+                })
+
+            if total_time > 0:
+                hypo_ratio = zone_time.get("G1", 0.0) / total_time
+                hyper_ratio = zone_time.get("G5", 0.0) / total_time
+                in_range_sec = sum(zone_time.get(zid, 0.0) for zid in ("G2", "G3", "G4"))
+                hyper_pct = round(hyper_ratio * 100)
+                hypo_pct = round(hypo_ratio * 100)
+                in_range_pct = round(in_range_sec * 100.0 / total_time)
+
+                if hyper_ratio >= 0.25 and hyper_ratio >= hypo_ratio + 0.05:
+                    glucose_profile_summary = build_summary(
+                        "Profil hyperglycémie",
+                        f"{hyper_pct}% du temps > 180 mg/dL. Pense à réduire les apports rapides.",
+                        "warning",
+                    )
+                elif hypo_ratio >= 0.2 and hypo_ratio >= hyper_ratio + 0.05:
+                    glucose_profile_summary = build_summary(
+                        "Profil hypoglycémie",
+                        f"{hypo_pct}% du temps < 70 mg/dL. Prévoir une recharge glucidique en amont.",
+                        "danger",
+                    )
+                else:
+                    glucose_profile_summary = build_summary(
+                        "Profil stable",
+                        f"{in_range_pct}% du temps entre 70 et 180 mg/dL.",
+                        "positive",
+                    )
 
             start_dt = _safe_dt(activity.start_date)
             for p in glucose_points_sorted:
@@ -2313,6 +2427,73 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
                 })
         else:
             glucose_chart_points = []
+
+        # --- 3) Synthèse cardio pour typologie séance ---
+        hr_zone_time = {z: 0.0 for z in hr_zones}
+        hr_points = [
+            p for p in points
+            if p.elapsed_time is not None and p.hr_zone in hr_zones
+        ]
+        hr_points_sorted = sorted(hr_points, key=lambda p: p.elapsed_time or 0)
+
+        for i in range(len(hr_points_sorted) - 1):
+            p = hr_points_sorted[i]
+            n = hr_points_sorted[i + 1]
+            if p.elapsed_time is None or n.elapsed_time is None:
+                continue
+            dt_sec = float(n.elapsed_time) - float(p.elapsed_time)
+            if dt_sec <= 0:
+                continue
+            hr_zone_time[p.hr_zone] += dt_sec
+
+        total_hr_time = sum(hr_zone_time.values())
+
+        if total_hr_time > 0:
+            for hz in hr_zones:
+                sec = hr_zone_time.get(hz, 0.0)
+                hr_zone_summary.append({
+                    "zone": hz,
+                    "time_sec": sec,
+                    "time_str": format_duration_short(sec),
+                    "percent": round(sec * 100.0 / total_hr_time),
+                })
+
+            endurance_sec = sum(hr_zone_time.get(z, 0.0) for z in hr_zones[:3])
+            threshold_sec = hr_zone_time.get("Zone 4", 0.0)
+            sprint_sec = hr_zone_time.get("Zone 5", 0.0)
+
+            endurance_ratio = endurance_sec / total_hr_time
+            threshold_ratio = threshold_sec / total_hr_time
+            sprint_ratio = sprint_sec / total_hr_time
+
+            endurance_pct = round(endurance_ratio * 100)
+            threshold_pct = round(threshold_ratio * 100)
+            sprint_pct = round(sprint_ratio * 100)
+
+            if sprint_ratio >= 0.15:
+                activity_type_summary = build_summary(
+                    "Séance fractionnée (Z5)",
+                    f"{sprint_pct}% du temps en Zone 5. Travail explosif / sprints.",
+                    "warning",
+                )
+            elif threshold_ratio >= 0.25:
+                activity_type_summary = build_summary(
+                    "Séance seuil (Z4)",
+                    f"{threshold_pct}% du temps en Zone 4. Accent sur le travail au seuil.",
+                    "warning",
+                )
+            else:
+                activity_type_summary = build_summary(
+                    "Séance endurance (Z1-Z3)",
+                    f"{endurance_pct}% cumulés en Zones 1 à 3.",
+                    "positive",
+                )
+        else:
+            activity_type_summary = build_summary(
+                "Type d’effort indéterminé",
+                "Pas assez de points cardio pour classer la séance.",
+                "neutral",
+            )
 
 
 
@@ -2358,8 +2539,6 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
             ("S20_30",    "20% à 30%"),
             ("S30p",      "> 30%"),
         ]
-
-        hr_zones = ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"]
 
         # --- 6a) VAM : mapping des bandes 5% BDD -> bandes larges POSITIVES ---
         VAM_DB_TO_GROUP = {
@@ -3116,6 +3295,11 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
             "has_glucose": has_glucose,
             "glucose_zone_rows": glucose_zone_rows,
             "glucose_chart_points": glucose_chart_points,
+            "glucose_zone_vs_hr_rows": glucose_zone_vs_hr_rows,
+            "glucose_hr_columns": glucose_hr_columns,
+            "glucose_profile_summary": glucose_profile_summary,
+            "hr_zone_summary": hr_zone_summary,
+            "activity_type_summary": activity_type_summary,
             "has_vam": has_vam,
             "vam_zone_rows": vam_zone_rows,
             "vam_hr_filter": vam_hr_filter,             # 🔸 on envoie l’onglet au template
@@ -3249,6 +3433,54 @@ def ui_dexcom_disconnect(request: Request, user_id: int):
         db.close()
 
     return RedirectResponse(url=f"/ui/user/{user_id}/profile", status_code=303)
+
+
+@app.post("/ui/user/{user_id}/delete-account", response_class=HTMLResponse)
+def ui_user_delete_account(request: Request, user_id: int):
+    """
+    Supprime définitivement le compte utilisateur et toutes ses données associées.
+    """
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).get(user_id)
+        if not user:
+            return templates.TemplateResponse(
+                "error.html",
+                {
+                    "request": request,
+                    "title": "Utilisateur introuvable",
+                    "message": f"Aucun utilisateur avec id={user_id}",
+                    "back_url": "/ui/login",
+                },
+                status_code=404,
+            )
+
+        activities = db.query(Activity).filter(Activity.user_id == user_id).all()
+        for activity in activities:
+            db.delete(activity)
+
+        db.query(StravaToken).filter(StravaToken.user_id == user_id).delete()
+        db.query(LibreCredentials).filter(LibreCredentials.user_id == user_id).delete()
+        db.query(DexcomToken).filter(DexcomToken.user_id == user_id).delete()
+        db.query(GlucosePoint).filter(GlucosePoint.user_id == user_id).delete()
+        db.query(UserSettings).filter(UserSettings.user_id == user_id).delete()
+        db.query(models.UserVamPR).filter(models.UserVamPR.user_id == user_id).delete()
+        db.query(ActivityVamPeak).filter(ActivityVamPeak.user_id == user_id).delete()
+
+        db.delete(user)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+    request.session.clear()
+    return RedirectResponse(url="/ui/login", status_code=303)
 
 #-------------------------------------------------------------------------------
 # IMPORT D’UNE ACTIVITÉ (API)

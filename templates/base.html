@@ -19,9 +19,9 @@
       --bg-header: #ffffff;        /* header blanc */
       --bg-card: #ffffff;          /* cartes blanches */
 
-      --accent: #2563eb;           /* bleu vif (primary) */
-      --accent-dark: #1e40af;      /* bleu foncé pour hover */
-      --accent-2: #06b6d4;         /* cyan pour touches secondaires */
+      --accent: #0d6efd;           /* bleu vif (primary) */
+      --accent-dark: #0b5ed7;      /* bleu foncé pour hover */
+      --accent-2: #0d6efd;         /* cyan pour touches secondaires */
 
       --text-main: #0f172a;        /* presque noir bleuté */
       --text-muted: #64748b;       /* gris bleuté */
@@ -30,7 +30,7 @@
       --ring: 0 0 0 3px rgba(37, 99, 235, 0.18);
 
       /* dégradés utiles */
-      --grad-accent: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+      --grad-accent: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
       --link: #2563eb;
       --link-hover: #1d4ed8;
     }
@@ -151,9 +151,9 @@
     button {
       cursor:pointer; padding:10px 16px; border-radius:2px;
       border:1px solid transparent; font-size:.95rem; font-weight:600;
-      background: var(--grad-accent); color:#fff;
+      background:#0d6efd; color:#fff;
       transition: transform .06s ease, filter .15s ease, box-shadow .15s ease;
-      box-shadow: 0 6px 16px rgba(37, 99, 235, .25);
+      box-shadow: 0 6px 16px rgba(13, 110, 253, .3);
     }
     button:hover { filter: brightness(1.03); }
     button:active { transform: translateY(1px); }

@@ -62,8 +62,8 @@
       <button type="submit"
         style="display:inline-flex; align-items:center; gap:6px;
                padding:10px 16px; font-size:.95rem; font-weight:600; border-radius:2px;
-               border:1px solid transparent; background:#dc2626; color:#fff;
-               text-decoration:none; box-shadow:0 6px 16px rgba(220,38,38,.25);
+               border:1px solid transparent; background:#0d6efd; color:#fff;
+               text-decoration:none; box-shadow:0 6px 16px rgba(13,110,253,.25);
                transition:filter .15s ease, transform .06s ease; cursor:pointer;"
         onmouseover="this.style.filter='brightness(1.08)'"
         onmouseout="this.style.filter='none'"
@@ -830,6 +830,123 @@
         </p>
 
       </div>
+
+      {% if glucose_zone_vs_hr_rows %}
+      <div class="card" style="margin-top:16px; border-radius:4px; padding:16px;">
+        <h3 style="margin:0 0 10px 0; font-size:0.95rem;">
+          Couplage cardio × glycémie
+        </h3>
+
+        <div style="
+          display:grid;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap:12px;
+          margin:8px 0 16px 0;
+        ">
+          {% if glucose_profile_summary %}
+          <div style="
+            border-radius:6px;
+            padding:12px;
+            background:{{ glucose_profile_summary.bg_color }};
+            color:{{ glucose_profile_summary.fg_color }};
+          ">
+            <div style="font-size:0.7rem; text-transform:uppercase; letter-spacing:.05em;">
+              Profil glycémie
+            </div>
+            <div style="font-weight:600; font-size:1rem; margin-top:4px;">
+              {{ glucose_profile_summary.label }}
+            </div>
+            <div style="font-size:0.85rem; margin-top:6px;">
+              {{ glucose_profile_summary.detail }}
+            </div>
+          </div>
+          {% endif %}
+
+          {% if activity_type_summary %}
+          <div style="
+            border-radius:6px;
+            padding:12px;
+            background:{{ activity_type_summary.bg_color }};
+            color:{{ activity_type_summary.fg_color }};
+          ">
+            <div style="font-size:0.7rem; text-transform:uppercase; letter-spacing:.05em;">
+              Type d’effort
+            </div>
+            <div style="font-weight:600; font-size:1rem; margin-top:4px;">
+              {{ activity_type_summary.label }}
+            </div>
+            <div style="font-size:0.85rem; margin-top:6px;">
+              {{ activity_type_summary.detail }}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        <div style="width:100%; overflow-x:auto;">
+          <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+            <thead>
+              <tr>
+                <th style="border:none;"></th>
+                <th style="border:none;"></th>
+                <th colspan="{{ glucose_hr_columns|length }}"
+                    style="
+                      text-align:center;
+                      font-size:0.85rem;
+                      font-weight:600;
+                      color:#0f172a;
+                      padding-bottom:6px;
+                    ">
+                  Colonnes = zones cardio
+                </th>
+              </tr>
+              <tr style="border-bottom:1px solid #e5e7eb;">
+                <th style="text-align:left;">Zone glycémie</th>
+                <th style="text-align:left;">Plage</th>
+                {% for col in glucose_hr_columns %}
+                <th style="text-align:center; font-weight:400;">
+                  {{ col.zone }}
+                  <div class="muted" style="font-size:0.7rem;">
+                    {{ col.time_str }} · {{ col.percent_of_total }}%
+                  </div>
+                </th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in glucose_zone_vs_hr_rows %}
+              <tr style="border-bottom:1px solid #f3f4f6;">
+                <td>{{ row.name }}</td>
+                <td>{{ row.range }}</td>
+                {% for cell in row.hr_cells %}
+                <td style="text-align:center; padding:6px 4px;">
+                  <div style="font-weight:600;">{{ cell.time_str }}</div>
+                  <div class="muted" style="font-size:0.7rem;">
+                    {% if cell.time_sec > 0 %}
+                      {{ cell.percent_of_hr }}% de {{ cell.hr_zone }}
+                    {% else %}
+                      –
+                    {% endif %}
+                  </div>
+                </td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        {% if hr_zone_summary %}
+        <div style="margin-top:14px; font-size:0.75rem; color:#475569;">
+          {% for zone in hr_zone_summary %}
+          <span style="display:inline-block; margin-right:12px;">
+            <strong>{{ zone.zone }}</strong>&nbsp;{{ zone.time_str }}
+            ({{ zone.percent }}%)
+          </span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
 
       {% if glucose_chart_points and glucose_chart_points|length > 1 %}
       <div class="card" style="margin-top:16px; border-radius:4px; padding:16px;">

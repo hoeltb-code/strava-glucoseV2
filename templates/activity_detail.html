@@ -26,6 +26,16 @@
     width:100%;
     overflow-x:auto;
   }
+  .activity-tab {
+    display:none;
+    margin-bottom:16px;
+  }
+  .activity-tab.is-active {
+    display:block;
+  }
+  .overview-vam {
+    border-top:1px solid #e5e7eb;
+  }
   .vam-table th:first-child,
   .vam-table td:first-child {
     width:70px;
@@ -56,18 +66,10 @@
       flex-wrap:wrap;
     }
     .activity-layout {
-      grid-template-columns:1fr;
+      display:block;
     }
     .activity-sidebar {
-      display:flex;
-      gap:8px;
-      overflow-x:auto;
-      padding:10px;
-    }
-    .activity-sidebar a {
-      flex:1;
-      white-space:nowrap;
-      text-align:center;
+      display:none;
     }
     .card h3 {
       font-size:1rem;
@@ -88,11 +90,20 @@
       font-size:0.8rem;
       min-width:100%;
     }
+    .activity-tab {
+      display:block !important;
+    }
   }
 
   @media (min-width: 721px) {
     .table-responsive table {
       min-width:unset;
+    }
+    .activity-tab {
+      display:none;
+    }
+    .activity-tab.is-active {
+      display:block;
     }
   }
 </style>
@@ -322,18 +333,13 @@
   <main>
 
     {# ════════════ ONGLET 1 : VUE D’ENSEMBLE ════════════ #}
-    {% if tab == 'overview' %}
-
-      <!-- Carte + VAM -->
+    <div class="activity-tab {% if tab == 'overview' %}is-active{% endif %}" data-tab="overview">
       <div class="card" style="padding:0; overflow:hidden;">
-
         <div class="overview-layout" style="
           display:grid;
           grid-template-columns: minmax(0,0.9fr) 1px minmax(0,1.1fr);
           min-height:260px;
         ">
-
-          <!-- 🗺️ Colonne Carte -->
           <div class="overview-map-container" style="padding:16px;">
             {% if has_gps %}
               <div id="map" class="overview-map" style="width:100%;height:260px;border-radius:2px;"></div>
@@ -352,64 +358,50 @@
               <p class="muted">Pas de GPS.</p>
             {% endif %}
           </div>
-
-          <!-- Trait vertical -->
           <div class="overview-divider" style="background:#e5e7eb;"></div>
-
-          <!-- ⛰️ Colonne VAM -->
           <div class="overview-vam" style="padding:16px;">
-
             <h3 style="margin-top:0; margin-bottom:10px; font-size:0.9rem;">
               VAM (m/h) par % de pente et zone cardio
             </h3>
-
             <div class="table-responsive">
-            <table class="vam-table" style="width:100%; border-collapse:collapse; font-size:0.75rem; min-width:420px;">
-              <thead>
-                <tr style="border-bottom:1px solid #e5e7eb;">
-                  <th style="text-align:left;">Pente</th>
-                  {% for z in hr_zones %}
-                  <th style="text-align:right;">{{ z }}</th>
-                  {% endfor %}
-                </tr>
-              </thead>
-
-              <tbody>
-              {% for slope_id, slope_label in slopes_order %}
-                {% if not slope_id.startswith('Sneg') %}
-                <tr style="border-bottom:1px solid #f3f4f6;">
-                  <td style="padding:4px 0;">{{ slope_label }}</td>
-
-                  {% for z in hr_zones %}
-                  {% set v = vam_by_slope_zone[slope_id][z] %}
-                  <td style="text-align:right; padding:4px 0;">
-                    {% if v is not none %}
-                      {{ v|round(0) }}
-                    {% else %}
-                      –
-                    {% endif %}
-                  </td>
-                  {% endfor %}
-                </tr>
-                {% endif %}
-              {% endfor %}
-              </tbody>
-            </table>
+              <table class="vam-table" style="width:100%; border-collapse:collapse; font-size:0.75rem; min-width:420px;">
+                <thead>
+                  <tr style="border-bottom:1px solid #e5e7eb;">
+                    <th style="text-align:left;">Pente</th>
+                    {% for z in hr_zones %}
+                    <th style="text-align:right;">{{ z }}</th>
+                    {% endfor %}
+                  </tr>
+                </thead>
+                <tbody>
+                {% for slope_id, slope_label in slopes_order %}
+                  {% if not slope_id.startswith('Sneg') %}
+                  <tr style="border-bottom:1px solid #f3f4f6;">
+                    <td style="padding:4px 0;">{{ slope_label }}</td>
+                    {% for z in hr_zones %}
+                    {% set v = vam_by_slope_zone[slope_id][z] %}
+                    <td style="text-align:right; padding:4px 0;">
+                      {% if v is not none %}
+                        {{ v|round(0) }}
+                      {% else %}
+                        –
+                      {% endif %}
+                    </td>
+                    {% endfor %}
+                  </tr>
+                  {% endif %}
+                {% endfor %}
+                </tbody>
+              </table>
             </div>
-
-
           </div>
-
         </div>
       </div>
-
-
-
-    {% endif %} {# fin tab == overview #}
+    </div>
 
 
     {# ════════════ ONGLET 2 : SEGMENTS ════════════ #}
-    {% if tab == 'segments' %}
+    <div class="activity-tab {% if tab == 'segments' %}is-active{% endif %}" data-tab="segments">
 
       {# Sélecteur du nombre de tronçons spécifique à l’onglet SEGMENTS #}
       <form method="get"
@@ -602,12 +594,12 @@
 
       </div>
 
-    {% endif %} {# fin tab == segments #}
+    </div> {# fin onglet segments #}
 
 
 
     {# ════════════ ONGLET 3 : MONTÉES ════════════ #}
-    {% if tab == 'climbs' %}
+    <div class="activity-tab {% if tab == 'climbs' %}is-active{% endif %}" data-tab="climbs">
 
       <!-- Montées remarquables -->
       <div id="climbs-section"
@@ -861,10 +853,11 @@
         </script>
       {% endif %}
 
-    {% endif %} {# fin tab == climbs #}
+    </div> {# fin onglet climbs #}
 
     {# ════════════ ONGLET 4 : GLYCÉMIE ════════════ #}
-    {% if tab == 'glycemia' and has_glucose %}
+    {% if has_glucose %}
+    <div class="activity-tab {% if tab == 'glycemia' %}is-active{% endif %}" data-tab="glycemia">
 
       <div class="card"
           style="margin-top:0; border-radius:4px; padding:16px;">
@@ -1135,11 +1128,13 @@
       </script>
       {% endif %}
 
+    </div>
     {% endif %}
 
 
     {# ════════════ ONGLET 5 : VITESSE ASCENSIONNELLE ════════════ #}
-    {% if tab == 'vam' and has_vam %}
+    {% if has_vam %}
+    <div class="activity-tab {% if tab == 'vam' %}is-active{% endif %}" data-tab="vam">
 
       <div class="card"
           style="margin-top:0; border-radius:4px; padding:16px;">
@@ -1221,10 +1216,11 @@
         </p>
       </div>
 
+    </div>
     {% endif %}
 
 {# ════════════ ONGLET 6 : SPLITS ════════════ #}
-{% if tab == 'splits' %}
+<div class="activity-tab {% if tab == 'splits' %}is-active{% endif %}" data-tab="splits">
 
   <div class="card"
       style="margin-top:0; border-radius:4px; padding:16px;">
@@ -1361,7 +1357,7 @@
 
   </div>
 
-{% endif %}
+</div>
 
 
 
@@ -1372,6 +1368,3 @@
 </div>
 
 {% endblock %}
-  .overview-vam {
-    border-top:1px solid #e5e7eb;
-  }

@@ -1,6 +1,51 @@
 {% extends "base.html" %}
 {% block title %}Profil coureur · {{ user.first_name or user.email }}{% endblock %}
 
+{% block extra_head %}
+<style>
+  .runner-layout {
+    display:grid;
+    grid-template-columns:210px minmax(0,1fr);
+    gap:16px;
+    align-items:flex-start;
+  }
+  .runner-sidebar a {
+    display:block;
+    padding:8px 10px;
+    border-radius:4px;
+    text-decoration:none;
+    margin-bottom:4px;
+  }
+  .runner-section {
+    display:none;
+  }
+  .runner-section.is-active {
+    display:block;
+  }
+  @media (max-width: 900px) {
+    .runner-layout {
+      grid-template-columns:1fr;
+    }
+    .runner-sidebar {
+      display:none;
+    }
+    .runner-section {
+      display:block !important;
+      margin-bottom:16px;
+    }
+  }
+
+  @media (min-width: 901px) {
+    .runner-section {
+      display:none;
+    }
+    .runner-section.is-active {
+      display:block;
+    }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 
 <!-- ╔══════════════════════════════╗ -->
@@ -128,15 +173,10 @@
 <!-- ╔══════════════════════════════╗ -->
 <!--   ⬅️ Menu latéral / contenu     -->
 <!-- ╚══════════════════════════════╝ -->
-<div style="
-  display:grid;
-  grid-template-columns: 210px minmax(0, 1fr);
-  gap:16px;
-  align-items:flex-start;
-">
+<div class="runner-layout">
 
   <!-- 🧭 Colonne gauche : menu onglets -->
-  <aside class="card" style="padding:12px; font-size:0.9rem;">
+  <aside class="card runner-sidebar" style="padding:12px; font-size:0.9rem;">
     <div style="font-weight:600; font-size:0.85rem; margin-bottom:8px;
                 text-transform:uppercase; color:#6b7280;">
       Profil coureur
@@ -229,13 +269,10 @@
     </a>
   </aside>
 
-  <!-- 🧩 Colonne droite : contenu selon l’onglet -->
+  <!-- 🧩 Colonne droite : contenu -->
   <main>
 
-    {# ════════════ ONGLET D+ ════════════ #}
-    {% if tab == 'ascent' %}
-
-      <div class="card" style="padding:14px;">
+    <div class="card runner-section {% if tab == 'ascent' %}is-active{% endif %}" style="padding:14px;" data-section="ascent">
         <h3 style="margin:0 0 6px 0; font-size:0.95rem;">Meilleurs D+ par fenêtre glissante</h3>
         <p class="muted" style="margin:0 0 12px 0; font-size:0.8rem;">
           On parcourt toutes les activités pour trouver l’heure, les 2h, 5h, 10h et 24h où tu as
@@ -301,12 +338,7 @@
         </div>
       </div>
 
-    {% endif %}
-
-    {# ════════════ ONGLET VAM ════════════ #}
-    {% if tab == 'vam' %}
-
-      <div class="card" style="padding:14px;">
+    <div class="card runner-section {% if tab == 'vam' %}is-active{% endif %}" style="padding:14px;" data-section="vam">
         {% if profile.zones and profile.zones|length > 0 %}
           <h3 style="margin:0 0 10px 0; font-size:0.95rem;">
             VAM (m/h) par % de pente et zone cardio
@@ -361,12 +393,7 @@
         {% endif %}
       </div>
 
-    {% endif %} {# fin tab == 'vam' #}
-
-    {# ════════════ ONGLET ALLURE ════════════ #}
-    {% if tab == 'pace' %}
-
-      <div class="card" style="padding:14px;">
+    <div class="card runner-section {% if tab == 'pace' %}is-active{% endif %}" style="padding:14px;" data-section="pace">
         {% if profile.zones and profile.zones|length > 0 %}
           <h3 style="margin:0 0 10px 0; font-size:0.95rem;">
             Allure moyenne (min/km) par % de pente et zone cardio
@@ -423,12 +450,7 @@
         {% endif %}
       </div>
 
-    {% endif %} {# fin tab == 'pace' #}
-
-    {# ════════════ ONGLET CADENCE ════════════ #}
-    {% if tab == 'cadence' %}
-
-      <div class="card" style="padding:14px;">
+    <div class="card runner-section {% if tab == 'cadence' %}is-active{% endif %}" style="padding:14px;" data-section="cadence">
         {% if profile.zones and profile.zones|length > 0 %}
           <h3 style="margin:0 0 10px 0; font-size:0.95rem;">
             Cadence de pas (pas/min) par % de pente et zone cardio
@@ -481,12 +503,7 @@
         {% endif %}
       </div>
 
-    {% endif %} {# fin tab == 'cadence' #}
-
-    {# ════════════ ONGLET FATIGUE ════════════ #}
-    {% if tab == 'fatigue' %}
-
-      <div class="card" style="padding:14px;">
+    <div class="card runner-section {% if tab == 'fatigue' %}is-active{% endif %}" style="padding:14px;" data-section="fatigue">
 
         {% if fatigue_profile and fatigue_profile.by_slope %}
 
@@ -614,10 +631,7 @@
 
       </div>
 
-    {% endif %} {# fin tab == 'fatigue' #}
-
-    {# ════════════ ONGLET GLYCÉMIE ════════════ #}
-    {% if tab == 'glucose' %}
+    <div class="runner-section {% if tab == 'glucose' %}is-active{% endif %}" data-section="glucose">
 
       <div class="card" style="padding:14px;">
         <h3 style="margin:0 0 6px 0; font-size:0.95rem;">
@@ -765,8 +779,7 @@
           })();
         </script>
       {% endif %}
-
-    {% endif %} {# fin tab == 'glucose' #}
+    </div>
 
   </main>
 </div>

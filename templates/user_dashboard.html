@@ -2,6 +2,16 @@
 
 {% block title %}Dashboard · {{ user.email }}{% endblock %}
 
+{% block extra_head %}
+<style>
+  @media (max-width: 720px) {
+    .mobile-hide-dashboard {
+      display: none !important;
+    }
+  }
+  </style>
+{% endblock %}
+
 {% block content %}
 
 <!-- ========================================================= -->
@@ -135,46 +145,48 @@
   </div>
 </div>
 
+<div class="card mobile-hide-dashboard" style="margin-top:12px;">
+  <h2 style="font-size:1rem; font-weight:600; margin-bottom:6px;">🏃 Activités enregistrées</h2>
+  ...
+</div>
+
 
 
 
 <!-- ========================================================= -->
-<!-- Layout 2 colonnes : gauche = profil coureur, droite = activités -->
+<!-- Profil coureur plein largeur + bloc activités (desktop only) -->
 <!-- ========================================================= -->
-<div style="display:grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 2fr); gap:4px;">
+<div class="dashboard-grid">
 
-  <!-- COLONNE GAUCHE : Profil coureur -->
-  <div>
-    <div class="card">
-      <h2 style="font-size:1rem; font-weight:600; margin-bottom:7px;">🏃 Profil coureur</h2>
-      <p class="muted" style="margin-top:0; font-size:0.85rem;">
-        Voir ton profil cardio × pente × VAM × cadence × allure.
-      </p>
+  <div class="card">
+    <h2 style="font-size:1rem; font-weight:600; margin-bottom:7px;">🏃 Profil coureur</h2>
+    <p class="muted" style="margin-top:0; font-size:0.85rem;">
+      Voir ton profil cardio × pente × VAM × cadence × allure.
+    </p>
 
-      <div style="margin-top:12px; text-align:right;">
-        <a href="/ui/user/{{ user.id }}/runner-profile"
-          style="
-              display:inline-block;
-              padding:10px 16px;
-              background:var(--grad-accent);
-              color:white;
-              text-decoration:none;
-              border-radius:4px;
-              font-weight:600;
-              box-shadow:0 6px 16px rgba(37,99,235,.25);
-              transition:filter .15s ease;
-          "
-          onmouseover="this.style.filter='brightness(1.05)'"
-          onmouseout="this.style.filter='none'">
-          📈 Voir le profil coureur
-        </a>
-      </div>
+    <div style="margin-top:12px; text-align:right;">
+      <a href="/ui/user/{{ user.id }}/runner-profile"
+        style="
+            display:inline-block;
+            padding:10px 16px;
+            background:var(--grad-accent);
+            color:white;
+            text-decoration:none;
+            border-radius:4px;
+            font-weight:600;
+            box-shadow:0 6px 16px rgba(37,99,235,.25);
+            transition:filter .15s ease;
+        "
+        onmouseover="this.style.filter='brightness(1.05)'"
+        onmouseout="this.style.filter='none'">
+        📈 Voir le profil coureur
+      </a>
     </div>
   </div>
 
-  <!-- COLONNE DROITE : Liste des activités -->
-  <div>
-    <div class="card">
+<!-- Bloc activités (desktop uniquement) -->
+<div class="mobile-hide-dashboard">
+  <div class="card">
       <div id="anchor-vam" style="position:relative; top:-80px;"></div>
 
       <h2 style="font-size:1rem; font-weight:600; margin-bottom:6px;">🏃 Activités enregistrées</h2>
@@ -216,7 +228,7 @@
 <!-- ========================================================= -->
 <!-- BLOC SÉPARÉ EN DESSOUS : Import GPX / FIT -->
 <!-- ========================================================= -->
-<div style="margin-top:20px;">
+<div class="mobile-hide-dashboard" style="margin-top:20px;">
   <div class="card">
 
     <h2 style="font-size:1rem; font-weight:600; margin-bottom:7px;">📤 Import d’activité (GPX / FIT)</h2>
@@ -273,6 +285,17 @@
 </div>
 
 
+<style>
+  @media (max-width: 720px) {
+    .vam-grid {
+      display:block !important;
+    }
+    .vam-grid > .card {
+      margin-bottom:12px;
+    }
+  }
+</style>
+
 <script>
 function startImport() {
   const fileInput = document.getElementById('file-input');
@@ -302,7 +325,7 @@ function startImport() {
 <!-- ========================================================= -->
 <!-- 2 blocs côte à côte : Records VAM | Tableau VAM par pente -->
 <!-- ========================================================= -->
-<div style="margin-top:1px; display:grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap:4px;">
+<div class="vam-grid" style="margin-top:1px; display:grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap:4px;">
 
   <!-- 🏆 Records VAM -->
   <div class="card">

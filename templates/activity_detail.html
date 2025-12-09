@@ -1,12 +1,109 @@
 {% extends "base.html" %}
 {% block title %}Activité · {{ activity.name or "Sans titre" }}{% endblock %}
 
+{% block extra_head %}
+<style>
+  .activity-header-actions {
+    display:flex;
+    gap:10px;
+  }
+  .activity-stats-grid {
+    display:grid;
+    grid-template-columns:repeat(6,1fr);
+    gap:12px;
+  }
+  .activity-layout {
+    display:grid;
+    grid-template-columns:210px minmax(0,1fr);
+    gap:16px;
+    align-items:flex-start;
+  }
+  .activity-sidebar {
+    padding:12px;
+    font-size:0.9rem;
+  }
+  .table-responsive {
+    width:100%;
+    overflow-x:auto;
+  }
+  .vam-table th:first-child,
+  .vam-table td:first-child {
+    width:70px;
+    white-space:nowrap;
+  }
+  .vam-table th:not(:first-child),
+  .vam-table td:not(:first-child) {
+    width:65px;
+    text-align:right;
+  }
+  @media (max-width: 900px) {
+    .activity-stats-grid {
+      grid-template-columns:repeat(auto-fit, minmax(140px,1fr));
+    }
+    .overview-map {
+      height:220px;
+    }
+  }
+  @media (max-width: 720px) {
+    .activity-header {
+      flex-direction:column;
+      align-items:flex-start;
+      gap:12px;
+    }
+    .activity-header-actions {
+      width:100%;
+      justify-content:space-between;
+      flex-wrap:wrap;
+    }
+    .activity-layout {
+      grid-template-columns:1fr;
+    }
+    .activity-sidebar {
+      display:flex;
+      gap:8px;
+      overflow-x:auto;
+      padding:10px;
+    }
+    .activity-sidebar a {
+      flex:1;
+      white-space:nowrap;
+      text-align:center;
+    }
+    .card h3 {
+      font-size:1rem;
+    }
+  .overview-layout {
+    grid-template-columns:1fr !important;
+  }
+  .overview-layout .overview-divider {
+    display:none;
+  }
+  .overview-map-container {
+    padding:12px !important;
+  }
+    .overview-map {
+      height:200px;
+    }
+    .table-responsive table {
+      font-size:0.8rem;
+      min-width:100%;
+    }
+  }
+
+  @media (min-width: 721px) {
+    .table-responsive table {
+      min-width:unset;
+    }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 
 <!-- ╔══════════════════════════════╗ -->
 <!--   🧍 Header utilisateur + actions  -->
 <!-- ╚══════════════════════════════╝ -->
-<div style="
+<div class="activity-header" style="
   display:flex; align-items:center; justify-content:space-between;
   padding:16px 0 12px; border-bottom:1px solid var(--border-soft);
   margin-bottom:16px;
@@ -43,7 +140,7 @@
     </div>
   </div>
 
-  <div style="display:flex; gap:10px;">
+  <div class="activity-header-actions">
 
     <!-- Bouton secondaire : Retour Dashboard -->
     <a href="/ui/user/{{ user.id }}"
@@ -108,7 +205,7 @@
     {{ activity.name or "Activité sans nom" }}
   </h2>
 
-  <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;">
+  <div class="activity-stats-grid">
     <div><div class="tile-k">Distance</div><div class="tile-v">{{ dist_km }} km</div></div>
     <div><div class="tile-k">D+</div><div class="tile-v">{{ dplus }} m</div></div>
     <div><div class="tile-k">Durée</div>
@@ -129,19 +226,10 @@
 <!-- ╔══════════════════════════════╗ -->
 <!--      ⬅️ Menu latéral / contenu  -->
 <!-- ╚══════════════════════════════╝ -->
-<div style="
-  display:grid;
-  grid-template-columns: 210px minmax(0, 1fr);
-  gap:16px;
-  align-items:flex-start;
-">
+<div class="activity-layout">
 
   <!-- 🧭 Colonne gauche : petit menu "à la Strava" -->
-  <aside class="card" style="padding:12px; font-size:0.9rem;">
-    <div style="font-weight:600; font-size:0.85rem; margin-bottom:8px; text-transform:uppercase; color:#6b7280;">
-      Analyse
-    </div>
-
+  <aside class="card activity-sidebar">
     {% set base_url = request.url.path %}
 
     <a href="{{ base_url }}?tab=overview"
@@ -239,16 +327,16 @@
       <!-- Carte + VAM -->
       <div class="card" style="padding:0; overflow:hidden;">
 
-        <div style="
+        <div class="overview-layout" style="
           display:grid;
-          grid-template-columns: minmax(0,1.2fr) 1px minmax(0,1fr);
+          grid-template-columns: minmax(0,0.9fr) 1px minmax(0,1.1fr);
           min-height:260px;
         ">
 
           <!-- 🗺️ Colonne Carte -->
-          <div style="padding:16px;">
+          <div class="overview-map-container" style="padding:16px;">
             {% if has_gps %}
-              <div id="map" style="width:100%;height:260px;border-radius:2px;"></div>
+              <div id="map" class="overview-map" style="width:100%;height:260px;border-radius:2px;"></div>
               <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
               <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
               <script>
@@ -266,16 +354,17 @@
           </div>
 
           <!-- Trait vertical -->
-          <div style="background:#e5e7eb;"></div>
+          <div class="overview-divider" style="background:#e5e7eb;"></div>
 
           <!-- ⛰️ Colonne VAM -->
-          <div style="padding:16px;">
+          <div class="overview-vam" style="padding:16px;">
 
             <h3 style="margin-top:0; margin-bottom:10px; font-size:0.9rem;">
               VAM (m/h) par % de pente et zone cardio
             </h3>
 
-            <table style="width:100%; border-collapse:collapse; font-size:0.75rem;">
+            <div class="table-responsive">
+            <table class="vam-table" style="width:100%; border-collapse:collapse; font-size:0.75rem; min-width:420px;">
               <thead>
                 <tr style="border-bottom:1px solid #e5e7eb;">
                   <th style="text-align:left;">Pente</th>
@@ -306,6 +395,7 @@
               {% endfor %}
               </tbody>
             </table>
+            </div>
 
 
           </div>
@@ -372,7 +462,8 @@
           Vue globale par tronçon
         </h3>
 
-        <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+        <div class="table-responsive">
+        <table style="width:100%;border-collapse:collapse;font-size:0.85rem; min-width:620px;">
           <thead>
             <tr style="border-bottom:1px solid #e5e7eb;">
               <th style="text-align:left;">Tronçon</th>
@@ -450,6 +541,7 @@
 
           </tbody>
         </table>
+        </div>
       </div>
 
       <!-- Cadence & Mouvement -->
@@ -457,7 +549,8 @@
 
         <h3 style="margin:0 0 10px 0;">Cadence de pas par % de pente par tronçons</h3>
 
-        <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+        <div class="table-responsive">
+        <table style="width:100%;border-collapse:collapse;font-size:0.85rem; min-width:620px;">
           <thead>
             <tr style="border-bottom:1px solid #e5e7eb;">
               <th style="text-align:left;">Pente</th>
@@ -505,6 +598,7 @@
             {% endfor %}
           </tbody>
         </table>
+        </div>
 
       </div>
 
@@ -779,7 +873,8 @@
           Distribution de la glycémie pendant la sortie
         </h3>
 
-        <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+        <div class="table-responsive">
+        <table style="width:100%; border-collapse:collapse; font-size:0.85rem; min-width:560px;">
           <thead>
             <tr style="border-bottom:1px solid #e5e7eb;">
               <th style="text-align:left;">Zone</th>
@@ -823,6 +918,7 @@
             {% endfor %}
           </tbody>
         </table>
+        </div>
 
         <p style="margin-top:10px; font-size:0.7rem; color:#6b7280;">
           Zones actuelles : &lt;70, 70–100, 100–140, 140–180, &gt;180 mg/dL.
@@ -882,7 +978,7 @@
           {% endif %}
         </div>
 
-        <div style="width:100%; overflow-x:auto;">
+        <div class="table-responsive" style="width:100%; overflow-x:auto;">
           <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
             <thead>
               <tr>
@@ -1276,3 +1372,6 @@
 </div>
 
 {% endblock %}
+  .overview-vam {
+    border-top:1px solid #e5e7eb;
+  }

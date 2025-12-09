@@ -95,28 +95,9 @@
 
     /* ===== Layout ===== */
     .container {
-
-    /* Largeur figée */
-    width: 1100px;
-
-    /* Marges lissées :
-        - diminue progressivement quand la fenêtre rétrécit
-        - ne devient jamais négative
-        - tombe à 0 pile quand 100vw < 900px
-    */
-    margin-left: max(0px, calc((100vw - 1100px) / 2));
-    margin-right: max(0px, calc((100vw - 1100px) / 2));
-
-    padding: 2px 1px 3px;
-    }
-
-    /* Lorsque la fenêtre devient plus petite que 900px,
-    on annule le centrage → contenu collé à gauche */
-    @media (max-width: 1100px) {
-    .container {
-        margin-left: 0;
-        margin-right: 0;
-    }
+      width: min(1100px, 100%);
+      margin: 0 auto;
+      padding: 2px 1px 3px;
     }
 
     /* ===== Cards ===== */

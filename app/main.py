@@ -1204,40 +1204,51 @@ def ui_set_libre_credentials(
                 status_code=404,
             )
 
-        cred = (
+        existing_cred = (
             db.query(LibreCredentials)
             .filter(LibreCredentials.user_id == user_id)
             .first()
         )
 
-        if cred:
-            cred.email = email
-            cred.password_encrypted = password
-            cred.region = region
-        else:
-            cred = LibreCredentials(
-                user_id=user_id,
-                email=email,
-                password_encrypted=password,
-                region=region,
-            )
-            db.add(cred)
+        client_version = (
+            existing_cred.client_version if existing_cred and existing_cred.client_version
+            else os.getenv("LIBRE_CLIENT_VERSION", "4.16.0")
+        )
 
-        db.commit()
-        db.refresh(cred)
-
-        # Test immédiat des identifiants pour prévenir l'utilisateur en cas d'erreur
-        client_version = cred.client_version or os.getenv("LIBRE_CLIENT_VERSION", "4.16.0")
         try:
             test_status, test_msg = test_libre_credentials(
-                email=cred.email,
-                password=cred.password_encrypted,
-                region=cred.region or "fr",
+                email=email,
+                password=password,
+                region=region or "fr",
                 client_version=client_version,
             )
         except Exception as e:
             test_status = "error"
             test_msg = f"Erreur de vérification LibreLinkUp : {e}"
+
+        if test_status == "error":
+            # On supprime les credentials pour éviter un faux statut connecté
+            if existing_cred:
+                db.delete(existing_cred)
+                db.commit()
+        else:
+            if existing_cred:
+                cred = existing_cred
+                cred.email = email
+                cred.password_encrypted = password
+                cred.region = region
+                cred.client_version = client_version
+            else:
+                cred = LibreCredentials(
+                    user_id=user_id,
+                    email=email,
+                    password_encrypted=password,
+                    region=region,
+                    client_version=client_version,
+                )
+                db.add(cred)
+            db.commit()
+            db.refresh(cred)
 
     finally:
         db.close()

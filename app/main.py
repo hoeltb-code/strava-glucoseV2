@@ -758,14 +758,18 @@ async def process_activity_core(
                 .one()
             )
             avg_cad = agg[0] if agg and agg[0] is not None else None
-            cad_section_lines.append(f"🔁 Cadence moy : {round(avg_cad)} spm" if avg_cad else "🔁 Cadence : n/a")
+            if avg_cad:
+                display_cad = round(avg_cad * 2)
+                cad_section_lines.append(f"🔁 Cadence moy : {display_cad} spm")
+            else:
+                cad_section_lines.append("🔁 Cadence : n/a")
 
-        # Assemblage final (VAM → Allure → Cadence → Gly)
+        # Assemblage final (Glycémie → VAM → Allure → Cadence)
         blocks_ordered = []
+        if gly_section_lines:  blocks_ordered.append("\n".join(gly_section_lines))
         if vam_section_lines:  blocks_ordered.append("\n".join(vam_section_lines))
         if pace_section_lines: blocks_ordered.append("\n".join(pace_section_lines))
         if cad_section_lines:  blocks_ordered.append("\n".join(cad_section_lines))
-        if gly_section_lines:  blocks_ordered.append("\n".join(gly_section_lines))
 
         # Ajoute la signature uniquement s'il y a du contenu
         if blocks_ordered:
@@ -1516,7 +1520,10 @@ def ui_user_profile(user_id: int, request: Request):
         include_vam = bool(settings.desc_include_vam) if settings else False
         include_pace = bool(settings.desc_include_pace) if settings else False
         include_cad  = bool(settings.desc_include_cadence) if settings else False
-        include_gly  = bool(settings.desc_include_glycemia) if settings else False
+        if settings and settings.desc_include_glycemia is not None:
+            include_gly = bool(settings.desc_include_glycemia)
+        else:
+            include_gly = True
 
         libre_status = request.query_params.get("libre_status")
         libre_status_message = request.query_params.get("libre_msg")

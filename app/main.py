@@ -85,6 +85,7 @@ import shutil
 from datetime import datetime, timedelta
 from collections import Counter
 import re
+from urllib.parse import quote_plus
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
@@ -126,7 +127,7 @@ from .logic import (
 )
 from .settings import settings
 from .strava_client import StravaClient
-from .libre_client import read_graph
+from .libre_client import read_graph, test_libre_credentials
 from .dexcom_client import DexcomClient
 from app.database import SessionLocal, init_db, get_db
 from app.models import (
@@ -1185,6 +1186,9 @@ def ui_set_libre_credentials(
     if guard:
         return guard
 
+    test_ok = False
+    test_msg = ""
+
     db = SessionLocal()
     try:
         user = db.query(User).get(user_id)
@@ -1222,11 +1226,29 @@ def ui_set_libre_credentials(
         db.commit()
         db.refresh(cred)
 
+        # Test immédiat des identifiants pour prévenir l'utilisateur en cas d'erreur
+        client_version = cred.client_version or os.getenv("LIBRE_CLIENT_VERSION", "4.16.0")
+        try:
+            test_ok, test_msg = test_libre_credentials(
+                email=cred.email,
+                password=cred.password_encrypted,
+                region=cred.region or "fr",
+                client_version=client_version,
+            )
+        except Exception as e:
+            test_ok = False
+            test_msg = f"Erreur de vérification LibreLinkUp : {e}"
+
     finally:
         db.close()
 
+    status = "ok" if test_ok else "error"
+    params = f"?libre_status={status}"
+    if test_msg:
+        params += f"&libre_msg={quote_plus(test_msg)}"
+
     return RedirectResponse(
-        url=f"/ui/user/{user_id}/profile",
+        url=f"/ui/user/{user_id}/profile{params}#libre",
         status_code=302,
     )
 
@@ -1485,6 +1507,9 @@ def ui_user_profile(user_id: int, request: Request):
         include_cad  = bool(settings.desc_include_cadence) if settings else False
         include_gly  = bool(settings.desc_include_glycemia) if settings else False
 
+        libre_status = request.query_params.get("libre_status")
+        libre_status_message = request.query_params.get("libre_msg")
+
         # On rend la page en passant des primitives (pas d’accès lazy après fermeture)
         ctx = {
             "request": request,
@@ -1501,6 +1526,8 @@ def ui_user_profile(user_id: int, request: Request):
             "include_pace": include_pace,
             "include_cad": include_cad,
             "include_gly": include_gly,
+            "libre_status": libre_status,
+            "libre_status_message": libre_status_message,
         }
         return templates.TemplateResponse("user_profile.html", ctx)
 

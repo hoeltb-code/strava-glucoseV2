@@ -18,11 +18,11 @@ if (!username || !password) {
 }
 
 try {
-  const { readRaw } = LibreLinkUpClient({ username, password, clientVersion });
+  const client = LibreLinkUpClient({ username, password, clientVersion });
+  const { readRaw } = client;
 
   // 1️⃣ Appel /graph via readRaw()
   const raw = await readRaw();
-
   const connection = raw?.connection || raw?.data?.connection || null;
   const graphData = raw?.graphData || raw?.data?.graphData || [];
 

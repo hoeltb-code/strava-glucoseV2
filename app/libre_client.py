@@ -59,6 +59,83 @@ def _get_user_libre_credentials(user_id: int) -> Optional[LibreCredentials]:
         db.close()
 
 
+def _run_libre_helper(email: str, password: str, region: str, client_version: str):
+    """Appelle le helper Node et retourne (success, stdout, error_message)."""
+    script = pathlib.Path(__file__).resolve().parents[1] / "libre_node" / "reader.mjs"
+    if not script.exists():
+        msg = f"Helper Node manquant : {script} (aucune donnée LibreLinkUp)."
+        print(f"⚠️ {msg}")
+        return False, "", msg
+
+    env = os.environ.copy()
+    env.update(
+        {
+            "LIBRE_EMAIL": email,
+            "LIBRE_PASSWORD": password,
+            "LIBRE_REGION": region,
+            "LIBRE_CLIENT_VERSION": client_version or "4.16.0",
+        }
+    )
+
+    try:
+        proc = subprocess.run(
+            ["node", str(script)],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=25,
+        )
+    except FileNotFoundError:
+        msg = "Node.js introuvable. Installe Node (ex: brew install node)."
+        print(f"⚠️ {msg}")
+        return False, "", msg
+    except Exception as e:
+        msg = f"Erreur inattendue lors de l'exécution du helper Node : {e}"
+        print(f"⚠️ {msg}")
+        return False, "", msg
+
+    stdout = proc.stdout.strip()
+    stderr = (proc.stderr or "").strip()
+
+    if proc.returncode != 0:
+        err = stderr or stdout or f"Code retour : {proc.returncode}"
+        print(
+            "⚠️ Helper Node a échoué (LibreLinkUp). Erreur ignorée pour ne pas casser le webhook.\n"
+            f"Code retour : {proc.returncode}\n"
+            f"Message : {err}"
+        )
+        return False, stdout, err
+
+    return True, stdout, ""
+
+
+def test_libre_credentials(
+    email: str,
+    password: str,
+    region: str = "fr",
+    client_version: Optional[str] = None,
+):
+    """Teste les identifiants fournis et retourne (success, message)."""
+    client_version = client_version or os.getenv("LIBRE_CLIENT_VERSION", "4.16.0")
+    ok, stdout, err = _run_libre_helper(email, password, region, client_version)
+    if not ok:
+        return False, err or "Connexion LibreLinkUp impossible"
+
+    nb_points = 0
+    if stdout:
+        try:
+            data = json.loads(stdout)
+            if isinstance(data, list):
+                nb_points = len(data)
+        except Exception:
+            pass
+
+    msg = "Connexion LibreLinkUp OK"
+    if nb_points:
+        msg += f" ({nb_points} points récupérés)"
+    return True, msg
+
+
 def read_graph(user_id: Optional[int] = None) -> List[Dict[str, Any]]:
     """
     Appelle le helper Node et retourne une liste de points :
@@ -106,49 +183,10 @@ def read_graph(user_id: Optional[int] = None) -> List[Dict[str, Any]]:
         region = settings.LIBRE_REGION or "fr"
         client_version = os.getenv("LIBRE_CLIENT_VERSION", "4.16.0")
 
-    # 1️⃣ Localisation du script Node
-    project_root = pathlib.Path(__file__).resolve().parents[1]
-    script = project_root / "libre_node" / "reader.mjs"
-    if not script.exists():
-        print(f"⚠️ Helper Node manquant : {script} (aucune donnée LibreLinkUp).")
+    ok, stdout, _ = _run_libre_helper(email, password, region, client_version)
+    if not ok:
         return []
 
-    # 2️⃣ Préparation de l'environnement pour le process Node
-    env = os.environ.copy()
-    env.update({
-        "LIBRE_EMAIL": email,
-        "LIBRE_PASSWORD": password,
-        "LIBRE_REGION": region,
-        "LIBRE_CLIENT_VERSION": client_version,
-    })
-
-    # 3️⃣ Appel du script Node
-    try:
-        proc = subprocess.run(
-            ["node", str(script)],
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=25,
-        )
-    except FileNotFoundError:
-        print("⚠️ Node.js introuvable. Installe Node (ex: brew install node).")
-        return []
-    except Exception as e:
-        print(f"⚠️ Erreur inattendue lors de l'exécution du helper Node : {e}")
-        return []
-
-    # 4️⃣ Gestion des erreurs du helper Node (ex: 403/430 LibreLinkUp)
-    if proc.returncode != 0:
-        err = (proc.stderr or proc.stdout or "").strip()
-        print(
-            "⚠️ Helper Node a échoué (LibreLinkUp). Erreur ignorée pour ne pas casser le webhook.\n"
-            f"Code retour : {proc.returncode}\n"
-            f"Message : {err}"
-        )
-        return []
-
-    stdout = proc.stdout.strip()
     if not stdout:
         print("⚠️ Helper Node a renvoyé une sortie vide (aucune donnée LibreLinkUp).")
         return []

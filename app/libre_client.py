@@ -46,6 +46,19 @@ class LibreError(RuntimeError):
     pass
 
 
+LAST_LIBRE_STATUS: dict[int, Tuple[str, str]] = {}
+
+
+def set_libre_status_flag(user_id: Optional[int], status: str, message: str):
+    if user_id is None:
+        return
+    LAST_LIBRE_STATUS[user_id] = (status, message)
+
+
+def get_last_libre_status(user_id: int) -> Optional[Tuple[str, str]]:
+    return LAST_LIBRE_STATUS.get(user_id)
+
+
 def _get_user_libre_credentials(user_id: int) -> Optional[LibreCredentials]:
     """
     Récupère les identifiants LibreLinkUp pour un utilisateur donné.
@@ -143,6 +156,8 @@ def test_libre_credentials(
     password: str,
     region: str = "fr",
     client_version: Optional[str] = None,
+    *,
+    user_id: Optional[int] = None,
 ) -> Tuple[str, str]:
     """Teste les identifiants fournis et retourne (status, message).
 
@@ -155,7 +170,9 @@ def test_libre_credentials(
     client_version = client_version or os.getenv("LIBRE_CLIENT_VERSION", "4.16.0")
     ok, stdout, err = _run_libre_helper(email, password, region, client_version)
     if not ok:
-        return _classify_libre_error(stdout, err)
+        status, msg = _classify_libre_error(stdout, err)
+        set_libre_status_flag(user_id, status, msg)
+        return status, msg
 
     nb_points = 0
     if stdout:
@@ -171,6 +188,7 @@ def test_libre_credentials(
         msg += f" ({nb_points} points récupérés)."
     else:
         msg += "."
+    set_libre_status_flag(user_id, "ok", msg)
     return "ok", msg
 
 
@@ -221,12 +239,15 @@ def read_graph(user_id: Optional[int] = None) -> List[Dict[str, Any]]:
         region = settings.LIBRE_REGION or "fr"
         client_version = os.getenv("LIBRE_CLIENT_VERSION", "4.16.0")
 
-    ok, stdout, _ = _run_libre_helper(email, password, region, client_version)
+    ok, stdout, err = _run_libre_helper(email, password, region, client_version)
     if not ok:
+        status, msg = _classify_libre_error(stdout, err)
+        set_libre_status_flag(user_id, status, msg)
         return []
 
     if not stdout:
         print("⚠️ Helper Node a renvoyé une sortie vide (aucune donnée LibreLinkUp).")
+        set_libre_status_flag(user_id, "warn", "Connexion LibreLinkUp OK mais aucun point n'a été renvoyé.")
         return []
 
     # 5️⃣ Parsing JSON
@@ -270,4 +291,6 @@ def read_graph(user_id: Optional[int] = None) -> List[Dict[str, Any]]:
 
     # 7️⃣ Tri défensif par timestamp
     out.sort(key=lambda x: x["ts"])
+    if user_id is not None:
+        set_libre_status_flag(user_id, "ok", "Connexion LibreLinkUp opérationnelle.")
     return out

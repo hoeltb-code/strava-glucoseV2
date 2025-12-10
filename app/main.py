@@ -127,7 +127,7 @@ from .logic import (
 )
 from .settings import settings
 from .strava_client import StravaClient
-from .libre_client import read_graph, test_libre_credentials
+from .libre_client import read_graph, test_libre_credentials, get_last_libre_status
 from .dexcom_client import DexcomClient
 from app.database import SessionLocal, init_db, get_db
 from app.models import (
@@ -1225,17 +1225,13 @@ def ui_set_libre_credentials(
                 password=password,
                 region=region or "fr",
                 client_version=client_version,
+                user_id=user_id,
             )
         except Exception as e:
             test_status = "error"
             test_msg = f"Erreur de vérification LibreLinkUp : {e}"
 
-        if test_status == "error":
-            # On supprime les credentials pour éviter un faux statut connecté
-            if existing_cred:
-                db.delete(existing_cred)
-                db.commit()
-        else:
+        if test_status != "error":
             if existing_cred:
                 cred = existing_cred
                 cred.email = email
@@ -1527,6 +1523,10 @@ def ui_user_profile(user_id: int, request: Request):
 
         libre_status = request.query_params.get("libre_status")
         libre_status_message = request.query_params.get("libre_msg")
+        if libre_status is None and has_libre:
+            status_flag = get_last_libre_status(user_id)
+            if status_flag:
+                libre_status, libre_status_message = status_flag
 
         # On rend la page en passant des primitives (pas d’accès lazy après fermeture)
         ctx = {

@@ -306,6 +306,10 @@
                 <div style="margin-top:6px; padding:6px 8px; border-radius:4px; background:#dcfce7; color:#166534; font-size:0.8rem;">
                   ✅ {{ libre_status_message or "Connexion LibreLinkUp vérifiée." }}
                 </div>
+              {% elif libre_status == "warn" %}
+                <div style="margin-top:6px; padding:6px 8px; border-radius:4px; background:#fef3c7; color:#92400e; font-size:0.8rem;">
+                  ⚠️ {{ libre_status_message or "Identifiants enregistrés, mais LibreLinkUp limite temporairement cet IP." }}
+                </div>
               {% elif libre_status == "error" %}
                 <div style="margin-top:6px; padding:6px 8px; border-radius:4px; background:#fee2e2; color:#991b1b; font-size:0.8rem;">
                   ⚠️ {{ libre_status_message or "Impossible de vérifier les identifiants LibreLinkUp." }}

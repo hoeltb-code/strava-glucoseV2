@@ -1186,7 +1186,7 @@ def ui_set_libre_credentials(
     if guard:
         return guard
 
-    test_ok = False
+    test_status = "error"
     test_msg = ""
 
     db = SessionLocal()
@@ -1229,20 +1229,20 @@ def ui_set_libre_credentials(
         # Test immédiat des identifiants pour prévenir l'utilisateur en cas d'erreur
         client_version = cred.client_version or os.getenv("LIBRE_CLIENT_VERSION", "4.16.0")
         try:
-            test_ok, test_msg = test_libre_credentials(
+            test_status, test_msg = test_libre_credentials(
                 email=cred.email,
                 password=cred.password_encrypted,
                 region=cred.region or "fr",
                 client_version=client_version,
             )
         except Exception as e:
-            test_ok = False
+            test_status = "error"
             test_msg = f"Erreur de vérification LibreLinkUp : {e}"
 
     finally:
         db.close()
 
-    status = "ok" if test_ok else "error"
+    status = test_status or "error"
     params = f"?libre_status={status}"
     if test_msg:
         params += f"&libre_msg={quote_plus(test_msg)}"

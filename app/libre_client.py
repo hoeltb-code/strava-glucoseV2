@@ -34,7 +34,7 @@ import json
 import subprocess
 import pathlib
 import datetime as dt
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 from .settings import settings
 from app.database import SessionLocal
@@ -109,17 +109,53 @@ def _run_libre_helper(email: str, password: str, region: str, client_version: st
     return True, stdout, ""
 
 
+def _classify_libre_error(raw_stdout: str, err: str) -> Tuple[str, str]:
+    text = " ".join(filter(None, [err or "", raw_stdout or ""]))
+    text_lower = text.lower()
+
+    if "429" in text or "1015" in text_lower or "rate limited" in text_lower:
+        return (
+            "warn",
+            "Identifiants enregistrés, mais LibreLinkUp limite temporairement cet IP (HTTP 429). "
+            "Nous réessaierons automatiquement dans environ une heure."
+        )
+
+    if "bad credentials" in text_lower or "invalid" in text_lower:
+        return (
+            "error",
+            "Identifiants LibreLinkUp invalides (email ou mot de passe incorrect)."
+        )
+
+    if "missing libre_email" in text_lower or "missing libre_password" in text_lower:
+        return (
+            "error",
+            "Formulaire incomplet : email ou mot de passe LibreLinkUp manquant."
+        )
+
+    return (
+        "error",
+        "Impossible de contacter LibreLinkUp pour l'instant. Vérifie l'app officielle puis réessaie."
+    )
+
+
 def test_libre_credentials(
     email: str,
     password: str,
     region: str = "fr",
     client_version: Optional[str] = None,
-):
-    """Teste les identifiants fournis et retourne (success, message)."""
+) -> Tuple[str, str]:
+    """Teste les identifiants fournis et retourne (status, message).
+
+    status ∈ {"ok", "warn", "error"} :
+      - ok   → identifiants valides, points reçus.
+      - warn → identifiants enregistrés mais LibreLinkUp rate-limit (HTTP 429/1015).
+      - error→ identifiants invalides ou autre incident.
+    """
+
     client_version = client_version or os.getenv("LIBRE_CLIENT_VERSION", "4.16.0")
     ok, stdout, err = _run_libre_helper(email, password, region, client_version)
     if not ok:
-        return False, err or "Connexion LibreLinkUp impossible"
+        return _classify_libre_error(stdout, err)
 
     nb_points = 0
     if stdout:
@@ -130,10 +166,12 @@ def test_libre_credentials(
         except Exception:
             pass
 
-    msg = "Connexion LibreLinkUp OK"
+    msg = "Connexion LibreLinkUp vérifiée"
     if nb_points:
-        msg += f" ({nb_points} points récupérés)"
-    return True, msg
+        msg += f" ({nb_points} points récupérés)."
+    else:
+        msg += "."
+    return "ok", msg
 
 
 def read_graph(user_id: Optional[int] = None) -> List[Dict[str, Any]]:

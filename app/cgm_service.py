@@ -4,7 +4,7 @@
 # LibreLinkUp et Dexcom, afin de disposer d’un historique local, plus précis
 # et résilient que les seules données archivées par les plateformes.
 #
-# Il exécute un *polling* périodique (toutes les 180 secondes par défaut) pour
+# Il exécute un *polling* périodique (toutes les 300 secondes par défaut) pour
 # chaque utilisateur disposant d’une source CGM (Libre ou Dexcom) :
 #
 # 🔹 Pour chaque utilisateur :
@@ -32,7 +32,7 @@ from app.models import User, LibreCredentials, GlucosePoint, DexcomToken
 from app.libre_client import read_graph
 from app.dexcom_client import DexcomClient
 
-POLL_INTERVAL_SECONDS = int(os.getenv("CGM_POLL_INTERVAL_SECONDS", "180") or "180")
+POLL_INTERVAL_SECONDS = int(os.getenv("CGM_POLL_INTERVAL_SECONDS", "300") or "300")
 REALTIME_RETENTION_HOURS = int(os.getenv("CGM_REALTIME_RETENTION_HOURS", "48") or "48")
 
 # Pour éviter d'inonder les APIs quand le nombre d'utilisateurs grossit,
@@ -41,9 +41,9 @@ REALTIME_RETENTION_HOURS = int(os.getenv("CGM_REALTIME_RETENTION_HOURS", "48") o
 #   • par utilisateur (MIN_SECONDS_BETWEEN_POLLS_PER_USER)
 #   • global entre deux appels CGM toute source confondue
 MAX_USERS_PER_POLL = int(os.getenv("CGM_MAX_USERS_PER_POLL", "1") or "1")
-MIN_SECONDS_BETWEEN_POLLS_PER_USER = int(os.getenv("CGM_MIN_SECONDS_PER_USER", "180") or "180")
+MIN_SECONDS_BETWEEN_POLLS_PER_USER = int(os.getenv("CGM_MIN_SECONDS_PER_USER", "300") or "300")
 MIN_SECONDS_BETWEEN_GLOBAL_CALLS = int(
-    os.getenv("CGM_MIN_SECONDS_BETWEEN_GLOBAL_CALLS", "180") or "180"
+    os.getenv("CGM_MIN_SECONDS_BETWEEN_GLOBAL_CALLS", "300") or "300"
 )
 
 # Flag global pour gérer le rate limit LibreLinkUp :

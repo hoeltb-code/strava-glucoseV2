@@ -23,6 +23,7 @@
 #    (voir `main.py`, événement `startup`).
 # -----------------------------------------------------------------------------
 
+import os
 import time
 import datetime as dt
 
@@ -31,13 +32,94 @@ from app.models import User, LibreCredentials, GlucosePoint, DexcomToken
 from app.libre_client import read_graph
 from app.dexcom_client import DexcomClient
 
-POLL_INTERVAL_SECONDS = 300          # intervalle de polling (en secondes)
-REALTIME_RETENTION_HOURS = 48        # on garde 48h de données
+POLL_INTERVAL_SECONDS = int(os.getenv("CGM_POLL_INTERVAL_SECONDS", "180") or "180")
+REALTIME_RETENTION_HOURS = int(os.getenv("CGM_REALTIME_RETENTION_HOURS", "48") or "48")
+
+# Pour éviter d'inonder les APIs quand le nombre d'utilisateurs grossit,
+# on traite les utilisateurs par très petits groupes (1 par défaut) et on
+# impose deux types de délais :
+#   • par utilisateur (MIN_SECONDS_BETWEEN_POLLS_PER_USER)
+#   • global entre deux appels CGM toute source confondue
+MAX_USERS_PER_POLL = int(os.getenv("CGM_MAX_USERS_PER_POLL", "1") or "1")
+MIN_SECONDS_BETWEEN_POLLS_PER_USER = int(os.getenv("CGM_MIN_SECONDS_PER_USER", "180") or "180")
+MIN_SECONDS_BETWEEN_GLOBAL_CALLS = int(
+    os.getenv("CGM_MIN_SECONDS_BETWEEN_GLOBAL_CALLS", "180") or "180"
+)
 
 # Flag global pour gérer le rate limit LibreLinkUp :
 # si on reçoit un 429 / Error 1015, on n'appelle plus Libre jusqu'à LIBRE_RATE_LIMIT_UNTIL
 LIBRE_RATE_LIMIT_UNTIL = None
 LIBRE_RATE_LIMIT_COOLDOWN_MINUTES = 60  # durée du "ban" après un 429
+
+# Pointeur sur le prochain utilisateur à traiter quand on limite la taille des lots
+USER_POLL_CURSOR = 0
+
+# Historique des tentatives de polling par utilisateur (en mémoire)
+LAST_POLL_ATTEMPTS = {}
+
+# Empêche deux appels CGM successifs à moins de MIN_SECONDS_BETWEEN_GLOBAL_CALLS
+LAST_GLOBAL_CGM_CALL = None
+
+
+def _global_throttle_allows_call():
+    """Retourne (True, None) si on peut interroger une CGM tout de suite."""
+    if MIN_SECONDS_BETWEEN_GLOBAL_CALLS <= 0:
+        return True, None
+
+    now = dt.datetime.utcnow()
+    if LAST_GLOBAL_CGM_CALL is None:
+        return True, None
+
+    delta = (now - LAST_GLOBAL_CGM_CALL).total_seconds()
+    if delta >= MIN_SECONDS_BETWEEN_GLOBAL_CALLS:
+        return True, None
+
+    remaining = int(MIN_SECONDS_BETWEEN_GLOBAL_CALLS - delta)
+    return False, remaining
+
+
+def _mark_global_call():
+    global LAST_GLOBAL_CGM_CALL
+    LAST_GLOBAL_CGM_CALL = dt.datetime.utcnow()
+
+
+def _should_skip_user_poll(db, user_id: int):
+    """Retourne (True, raison) si l'utilisateur a été interrogé trop récemment."""
+    if MIN_SECONDS_BETWEEN_POLLS_PER_USER <= 0:
+        return False, None
+
+    now = dt.datetime.utcnow()
+
+    last_attempt = LAST_POLL_ATTEMPTS.get(user_id)
+    if last_attempt:
+        since_last_attempt = (now - last_attempt).total_seconds()
+        if since_last_attempt < MIN_SECONDS_BETWEEN_POLLS_PER_USER:
+            remaining = int(MIN_SECONDS_BETWEEN_POLLS_PER_USER - since_last_attempt)
+            return True, f"tentative API il y a {int(since_last_attempt)}s (reste {remaining}s)"
+
+    latest_ts = (
+        db.query(GlucosePoint.ts)
+        .filter(
+            GlucosePoint.user_id == user_id,
+            GlucosePoint.source == "realtime",
+        )
+        .order_by(GlucosePoint.ts.desc())
+        .limit(1)
+        .scalar()
+    )
+
+    if latest_ts:
+        if latest_ts.tzinfo is not None:
+            latest_naive = latest_ts.astimezone(dt.timezone.utc).replace(tzinfo=None)
+        else:
+            latest_naive = latest_ts
+
+        age_seconds = (now - latest_naive).total_seconds()
+        if age_seconds < MIN_SECONDS_BETWEEN_POLLS_PER_USER:
+            remaining = int(MIN_SECONDS_BETWEEN_POLLS_PER_USER - age_seconds)
+            return True, f"dernières données en base âgée de {int(age_seconds)}s (reste {remaining}s)"
+
+    return False, None
 
 
 def _get_realtime_points_for_user(db, user: User):
@@ -148,11 +230,15 @@ def poll_glucose_once():
     """
     Récupère une fois les données CGM pour tous les utilisateurs qui ont
     une source CGM disponible (LibreCredentials et/ou DexcomToken).
+    Le passage est batché (MAX_USERS_PER_POLL) et saute un utilisateur qui a
+    déjà été interrogé récemment afin d'éviter un ban côté API.
     """
     now = dt.datetime.utcnow().isoformat()
     print(f"[CGM] poll_glucose_once() appelé à {now}")
 
     # 1️⃣ Récupération des users concernés (au moins une source CGM)
+    global USER_POLL_CURSOR
+
     db = SessionLocal()
     try:
         users = (
@@ -162,6 +248,7 @@ def poll_glucose_once():
             .filter(
                 (LibreCredentials.user_id != None) | (DexcomToken.user_id != None)
             )
+            .order_by(User.id)
             .all()
         )
     finally:
@@ -171,8 +258,27 @@ def poll_glucose_once():
         print("[CGM] Aucun utilisateur avec une source CGM (Libre/Dexcom) en base.")
         return
 
+    total_users = len(users)
+    batch_limit = MAX_USERS_PER_POLL if MAX_USERS_PER_POLL > 0 else total_users
+
+    if total_users > batch_limit:
+        start_idx = USER_POLL_CURSOR % total_users
+        users_to_process = []
+        idx = start_idx
+        while len(users_to_process) < batch_limit:
+            users_to_process.append(users[idx])
+            idx = (idx + 1) % total_users
+        USER_POLL_CURSOR = idx
+        print(
+            f"[CGM] {total_users} utilisateurs CGM détectés, traitement par lots de "
+            f"{batch_limit} par cycle (offset={start_idx}→{idx})."
+        )
+    else:
+        users_to_process = users
+        USER_POLL_CURSOR = 0
+
     # 2️⃣ Boucle sur chaque utilisateur
-    for user in users:
+    for user in users_to_process:
         user_id = user.id
         db = SessionLocal()
         try:
@@ -181,7 +287,21 @@ def poll_glucose_once():
             if not user_db:
                 continue
 
+            skip_poll, reason = _should_skip_user_poll(db, user_id)
+            if skip_poll:
+                print(f"[CGM] user={user_id} -> on saute le polling ({reason}).")
+                continue
+
+            can_call_now, remaining = _global_throttle_allows_call()
+            if not can_call_now:
+                print(
+                    f"[CGM] user={user_id} -> on saute le polling (quota global, +{remaining}s)."
+                )
+                continue
+
             # 2.1 Points CGM selon la source prioritaire de l'utilisateur
+            LAST_POLL_ATTEMPTS[user_id] = dt.datetime.utcnow()
+            _mark_global_call()
             points, source_label = _get_realtime_points_for_user(db, user_db)
 
             if not points or not source_label:

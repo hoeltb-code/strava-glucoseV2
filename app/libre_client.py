@@ -227,11 +227,9 @@ def read_graph(user_id: Optional[int] = None) -> List[Dict[str, Any]]:
             region = cred.region or "fr"
             client_version = cred.client_version or "4.16.0"
         else:
-            print(f"⚠️ Aucun LibreCredentials trouvé pour user_id={user_id}, on utilise les valeurs globales.")
-            email = settings.LIBRE_EMAIL or ""
-            password = settings.LIBRE_PASSWORD or ""
-            region = settings.LIBRE_REGION or "fr"
-            client_version = os.getenv("LIBRE_CLIENT_VERSION", "4.16.0")
+            print(f"⚠️ Aucun LibreCredentials trouvé pour user_id={user_id}, appel LibreLinkUp annulé.")
+            set_libre_status_flag(user_id, "warn", "Aucun compte LibreLinkUp configuré pour cet utilisateur.")
+            return []
     else:
         # Comportement historique : variables globales .env
         email = settings.LIBRE_EMAIL or ""

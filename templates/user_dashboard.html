@@ -4,12 +4,31 @@
 
 {% block extra_head %}
 <style>
+  .dashboard-grid {
+    display:grid;
+    grid-template-columns:minmax(0, 1fr);
+    gap:16px;
+    margin-bottom:20px;
+  }
+  .dashboard-activities-grid {
+    display:grid;
+    grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);
+    gap:16px;
+  }
+  @media (max-width: 1100px) {
+    .dashboard-activities-grid {
+      grid-template-columns:minmax(0, 1fr);
+    }
+  }
   @media (max-width: 720px) {
     .mobile-hide-dashboard {
       display: none !important;
     }
+    .dashboard-activities-grid {
+      grid-template-columns:1fr;
+    }
   }
-  </style>
+</style>
 {% endblock %}
 
 {% block content %}
@@ -194,234 +213,8 @@
 </div>
 
 
-
-<!-- ========================================================= -->
-<!-- BLOC SÉPARÉ EN DESSOUS : Import GPX / FIT -->
-<!-- ========================================================= -->
-<div class="mobile-hide-dashboard" style="margin-top:20px;">
-  <div class="card">
-
-    <h2 style="font-size:1rem; font-weight:600; margin-bottom:7px;">📤 Import d’activité (GPX / FIT)</h2>
-    <p class="muted" style="margin-top:0; font-size:0.85rem;">
-      Dépose un fichier GPX ou FIT pour enrichir ton historique et lancer l’orchestrateur.
-    </p>
-
-    <!-- Zone de drop -->
-    <div id="dropzone"
-      style="
-        margin-top:12px;
-        padding:30px;
-        border:2px dashed #ccc;
-        border-radius:6px;
-        text-align:center;
-        color:#777;
-        cursor:pointer;
-        transition:0.2s border-color ease;
-      "
-      ondragover="this.style.borderColor='var(--accent)'; event.preventDefault();"
-      ondragleave="this.style.borderColor='#ccc';"
-      onclick="document.getElementById('file-input').click();">
-      📁 <strong>Glisse ton fichier ici</strong><br>
-      <span style="font-size:0.8rem;">ou clique pour choisir un fichier</span>
-    </div>
-
-    <!-- Input fichier invisible -->
-    <input id="file-input" type="file" accept=".gpx,.fit" style="display:none;"
-      onchange="document.getElementById('selected-file').textContent = this.files[0].name;">
-
-    <!-- Nom du fichier -->
-    <p id="selected-file"
-      style="font-size:0.85rem; color:#444; margin-top:10px; min-height:18px;">
-    </p>
-
-    <!-- Bouton lancer orchestrateur -->
-    <div style="margin-top:12px; text-align:right;">
-      <button onclick="startImport()"
-        style="
-          padding:10px 16px;
-          background:var(--grad-accent);
-          color:white;
-          border:none;
-          border-radius:4px;
-          font-weight:600;
-          box-shadow:0 6px 16px rgba(37,99,235,.25);
-          cursor:pointer;
-        ">
-        ⚙️ Lancer l'orchestrateur
-      </button>
-    </div>
-
-  </div>
-</div>
-
-
-<style>
-  @media (max-width: 720px) {
-    .vam-grid {
-      display:block !important;
-    }
-    .vam-grid > .card {
-      margin-bottom:12px;
-    }
-  }
-</style>
-
-<script>
-function startImport() {
-  const fileInput = document.getElementById('file-input');
-  if (!fileInput.files.length) {
-    alert("Merci de sélectionner un fichier GPX ou FIT !");
-    return;
-  }
-  
-  const formData = new FormData();
-  formData.append("file", fileInput.files[0]);
-
-  fetch("/api/import-activity", {
-    method: "POST",
-    body: formData
-  })
-  .then(r => r.json())
-  .then(data => {
-    alert("Import lancé ! L'orchestrateur traite l'activité 🔧");
-  })
-  .catch(err => {
-    console.error(err);
-    alert("Erreur lors de l'import.");
-  });
-}
-</script>
-
-<!-- ========================================================= -->
-<!-- 2 blocs côte à côte : Records VAM | Tableau VAM par pente -->
-<!-- ========================================================= -->
-<div class="vam-grid" style="margin-top:1px; display:grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap:4px;">
-
-  <!-- 🏆 Records VAM -->
-  <div class="card">
-    <h2 style="font-size:1rem; font-weight:600; margin-bottom:4px;">🏆 Records VAM (5/15/30)</h2>
-    <p class="muted" style="margin-top:0; font-size:0.85rem;">
-      La VAM (Vitesse Ascensionnelle Moyenne) en m/hr mesurée sur ta meilleure sortie sur une période de 5, 15 & 30 minutes.
-    </p>
-    {% if user_prs and user_prs|length > 0 %}
-      <table cellpadding="6" cellspacing="0" style="width:100%; border-collapse:collapse; font-size:0.9rem;">
-        <thead>
-          <tr style="border-bottom:1px solid #e5e7eb;">
-            <th style="text-align:left;">Sport</th>
-            <th style="text-align:center;">Fenêtre</th>
-            <th style="text-align:right;">VAM (m/hr)</th>
-            <th style="text-align:center;">Activité</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for pr in user_prs %}
-          <tr style="border-bottom:1px solid #f3f4f6;">
-            <td>{{ pr.sport }}</td>
-            <td style="text-align:center;">{{ pr.window_min }} min</td>
-            <td style="text-align:right;">
-              {% if pr.vam_m_per_h is not none %}{{ pr.vam_m_per_h|round(0)|int }} m/hr{% else %}n/a{% endif %}
-            </td>
-            <td style="text-align:center;">{{ pr.date_str }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    {% else %}
-      <p class="muted">Aucun record disponible.</p>
-    {% endif %}
-  </div>
-
-
-<!-- 📊 Tableau VAM par pente + filtre zone -->
-<div class="card" id="vam-by-slope">
-
-
-  <h2 style="font-size:1rem; font-weight:600; margin-bottom:4px;">📊 VAM (en m/hr) par % de pente</h2>
-
-  <!-- Filtre zone cardiaque (navigation fluide sans retour en haut) -->
-  <div style="margin-bottom:10px;">
-    <label for="hr_zone">Zone cardiaque :</label>
-    <select id="hr_zone" name="hr_zone">
-      <option value="all" {{ 'selected' if hr_zone_filter == 'all' }}>Toutes</option>
-      {% for z in ['Zone 1','Zone 2','Zone 3','Zone 4','Zone 5'] %}
-        <option value="{{ z }}" {{ 'selected' if hr_zone_filter == z }}>{{ z }}</option>
-      {% endfor %}
-    </select>
-  </div>
-
-  {% if vam_by_slope and vam_by_slope|length > 0 %}
-    {# Ordre voulu + labels lisibles #}
-    {% set order = ['S0_5','S5_10','S10_15','S15_20','S20_25','S25_30','S30_40','S40p'] %}
-    {% set labels = {
-      'S0_5':'0–5%',
-      'S5_10':'5–10%',
-      'S10_15':'10–15%',
-      'S15_20':'15–20%',
-      'S20_25':'20–25%',
-      'S25_30':'25–30%',
-      'S30_40':'30–40%',
-      'S40p':'>40%'
-    } %}
-
-    {# Indexer les lignes par clé slope_band #}
-    {% set bykey = {} %}
-    {% for r in vam_by_slope %}
-      {% set _ = bykey.update({ r.slope_band: r }) %}
-    {% endfor %}
-
-    <table cellpadding="6" cellspacing="0" style="width:100%; border-collapse:collapse; font-size:0.9rem;">
-      <thead>
-        <tr style="border-bottom:1px solid #e5e7eb;">
-          <th style="text-align:left;">Pente</th>
-          <th style="text-align:right;">VAM min</th>
-          <th style="text-align:right;">VAM moy</th>
-          <th style="text-align:right;">VAM max</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for k in order %}
-          {% set row = bykey.get(k) %}
-          {% if row %}
-            <tr style="border-bottom:1px solid #f3f4f6;">
-              <td>{{ labels.get(k, k) }}</td>
-              <td style="text-align:right;">
-                {% if row.vam_min is not none %}{{ row.vam_min|round(0)|int }}{% else %}n/a{% endif %}
-              </td>
-              <td style="text-align:right;">
-                {% if row.vam_avg is not none %}{{ row.vam_avg|round(0)|int }}{% else %}n/a{% endif %}
-              </td>
-              <td style="text-align:right;">
-                {% if row.vam_max is not none %}{{ row.vam_max|round(0)|int }}{% else %}n/a{% endif %}
-              </td>
-            </tr>
-          {% endif %}
-        {% endfor %}
-      </tbody>
-    </table>
-  {% else %}
-    <p class="muted">Aucune donnée disponible pour ce filtre.</p>
-  {% endif %}
-</div>
-
-<script>
-  (function(){
-    const sel = document.getElementById('hr_zone');
-    if (!sel) return;
-    sel.addEventListener('change', function(){
-      const url = new URL(window.location);
-      url.searchParams.set('hr_zone', this.value);
-      url.hash = 'anchor-vam';             // cible l’ancre un peu plus haut
-      window.location.replace(url);        // recharge sans empiler l’historique
-    });
-  })();
-</script>
-
-
-
-
-</div>
-
 <!-- ================== DERNIÈRES ACTIVITÉS (split map | VAM) ================== -->
+<div class="dashboard-activities-grid">
 {% for a in last_activities %}
   <div class="card"
      style="
@@ -556,6 +349,7 @@ function startImport() {
     </script>
   </div>
 {% endfor %}
+</div>
 
 <script>
   try {

@@ -1957,21 +1957,21 @@ def ui_runner_profile(
 def _render_login_page(request: Request):
     hero_points = [
         {
-            "title": "Fusion Strava × CGM",
-            "detail": "Superpose fréquence cardiaque, puissance et glycémie sur chaque activité.",
+            "title": "Projection chrono & VAM",
+            "detail": "Compare tes VAM, cadences et allures selon le pourcentage de pente pour anticiper tes chronos.",
         },
         {
-            "title": "Alertes hypo / hyper",
-            "detail": "Repère instantanément les passages critiques pendant tes sorties.",
+            "title": "Lecture fine du terrain",
+            "detail": "Visualise l’enchaînement de montées, splits et temps en zones pour optimiser ton D+.",
         },
         {
-            "title": "Coaching data-driven",
-            "detail": "Analyse les montées, splits, VAM et temps en zone glycémie.",
+            "title": "CGM en option",
+            "detail": "Connecte Dexcom / FreeStyle Libre pour suivre glycémie et énergie en parallèle de tes efforts.",
         },
     ]
     onboarding_steps = [
         "Se connecter ou créer un compte Strava Glucose",
-        "Lier Strava et ton capteur Dexcom / Libre",
+        "Lier Strava (et optionnellement ton capteur Dexcom / Libre)",
         "Laisser l’appli enrichir automatiquement chaque activité",
     ]
     return templates.TemplateResponse(
@@ -2174,24 +2174,8 @@ def ui_user_dashboard(user_id: int, request: Request):
             .all()
         )
 
-        user_prs = []
-        for (w, v, s, aid, start_dt) in user_prs_rows:
-            if start_dt:
-                date_str = start_dt.strftime("%d-%m-%Y")  # ← format JJ-MM-AAAA sans heure
-            else:
-                date_str = "n/a"
-            user_prs.append({
-                "window_min": w,
-                "vam_m_per_h": float(v) if v is not None else None,
-                "sport": s,
-                "activity_id": aid,
-                "date_str": date_str,
-            })
-
-
         # ---------------------------
-        # ⛰️ Tableau VAM par bandes de pente (min / moy / max)
-        #     - filtre facultatif par zone cardio via ?hr_zone=all|Zone%201|...
+        # (supprimé) Tableau VAM par bandes de pente — on ne charge plus cette section
         # ---------------------------
         hr_zone_filter = request.query_params.get("hr_zone", "all")
 
@@ -2212,7 +2196,8 @@ def ui_user_dashboard(user_id: int, request: Request):
             q = q.filter(models.ActivityZoneSlopeAgg.hr_zone == hr_zone_filter)
 
         vam_by_slope_rows = (
-            q.group_by(models.ActivityZoneSlopeAgg.slope_band)
+            q.add_columns(models.ActivityZoneSlopeAgg.sport.label("sport"))
+             .group_by(models.ActivityZoneSlopeAgg.slope_band, models.ActivityZoneSlopeAgg.sport)
              .order_by(models.ActivityZoneSlopeAgg.slope_band.asc())
              .all()
         )
@@ -2230,6 +2215,7 @@ def ui_user_dashboard(user_id: int, request: Request):
                 "vam_max": vmax,
                 "duration_sec": int(row.duration_sec or 0),
                 "num_points": int(row.num_points or 0),
+                "sport": row.sport or "run",
             })
 
     finally:

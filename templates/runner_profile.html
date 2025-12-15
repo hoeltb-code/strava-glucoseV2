@@ -279,42 +279,44 @@
                 <div style="font-size:1.4rem; font-weight:700; color:#065f46;">
                   +{{ window.gain_m|round(0)|int }} m
                 </div>
-                <div class="muted" style="font-size:0.8rem;">
-                  {% if window.gain_per_hour %}
-                    soit {{ window.gain_per_hour|round(0)|int }} m/h
-                  {% else %}
-                    –
-                  {% endif %}
-                </div>
-                <div class="muted" style="font-size:0.78rem;">
-                  D- : -{{ window.loss_m|round(0)|int }} m · Distance ~ {{ window.distance_km|round(1) }} km
-                </div>
-
                 <div style="margin-top:10px; font-size:0.8rem; line-height:1.4;">
-                  <div>Durée couverte :
-                    {% if window.duration_sec %}
-                      {{ (window.duration_sec/3600)|round(2) }} h
-                    {% else %}
-                      –
-                    {% endif %}
-                  </div>
-                  {% if window.activity_id %}
+                  <span class="toggle-detail" onclick="toggleDplusDetails(this)">Voir le détail →</span>
+                  <div class="dplus-details" style="display:none; margin-top:8px;">
                     <div>
-                      Activité :
-                      <a href="/ui/user/{{ user.id }}/activity/{{ window.activity_id }}"
-                         style="color:#2563eb; text-decoration:none;">
-                        {{ window.activity_name or ('Activité #' ~ window.activity_id) }}
-                      </a>
-                    </div>
-                    <div>
-                      Fenêtre :
-                      {% if window.start_datetime and window.end_datetime %}
-                        {{ window.start_datetime.strftime('%d/%m %H:%M') }} → {{ window.end_datetime.strftime('%H:%M') }}
+                      {% if window.gain_per_hour %}
+                        {{ window.gain_per_hour|round(0)|int }} m/h
                       {% else %}
                         –
                       {% endif %}
                     </div>
-                  {% endif %}
+                    <div>
+                      D- : -{{ window.loss_m|round(0)|int }} m · Distance ~ {{ window.distance_km|round(1) }} km
+                    </div>
+                    <div>Durée couverte :
+                      {% if window.duration_sec %}
+                        {{ (window.duration_sec/3600)|round(2) }} h
+                      {% else %}
+                        –
+                      {% endif %}
+                    </div>
+                    {% if window.activity_id %}
+                      <div>
+                        Activité :
+                        <a href="/ui/user/{{ user.id }}/activity/{{ window.activity_id }}"
+                           style="color:#2563eb; text-decoration:none;">
+                          {{ window.activity_name or ('Activité #' ~ window.activity_id) }}
+                        </a>
+                      </div>
+                      <div>
+                        Fenêtre :
+                        {% if window.start_datetime and window.end_datetime %}
+                          {{ window.start_datetime.strftime('%d/%m %H:%M') }} → {{ window.end_datetime.strftime('%H:%M') }}
+                        {% else %}
+                          –
+                        {% endif %}
+                      </div>
+                    {% endif %}
+                  </div>
                 </div>
               {% else %}
                 <p class="muted" style="margin:0; font-size:0.8rem;">
@@ -771,5 +773,15 @@
 
   </main>
 </div>
+
+<script>
+  function toggleDplusDetails(btn) {
+    const details = btn.parentElement.querySelector('.dplus-details');
+    if (!details) return;
+    const show = details.style.display === 'none' || !details.style.display;
+    details.style.display = show ? 'block' : 'none';
+    btn.textContent = show ? 'Masquer ←' : 'Voir le détail →';
+  }
+</script>
 
 {% endblock %}

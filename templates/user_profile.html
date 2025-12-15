@@ -236,6 +236,35 @@
           </button>
         </div>
       </form>
+
+      <div class="card" style="margin-top:20px; padding:14px 16px;">
+        <h3 style="font-size:1rem; font-weight:600; margin:0 0 6px;">📤 Importer des activités passées</h3>
+        <p class="muted" style="margin:0 0 10px; font-size:0.85rem;">
+          Strava ne renvoie que les activités créées après ton inscription sur Strava Glucose. Pour compléter ton historique,
+          exporte un fichier GPX ou FIT depuis Strava, puis dépose-le ici pour lancer l’orchestrateur.
+        </p>
+
+        <div id="profile-dropzone"
+          style="margin-top:12px;padding:24px;border:2px dashed #cbd5e1;border-radius:6px;text-align:center;color:#475569;cursor:pointer;transition:0.2s border-color ease;"
+          ondragover="this.style.borderColor='var(--accent)'; event.preventDefault();"
+          ondragleave="this.style.borderColor='#cbd5e1';"
+          onclick="document.getElementById('profile-file-input').click();">
+          📁 <strong>Clique ici pour choisir ton fichier</strong><br>
+          <span style="font-size:0.8rem;">Formats acceptés : GPX / FIT</span>
+        </div>
+
+        <input id="profile-file-input" type="file" accept=".gpx,.fit" style="display:none;"
+          onchange="document.getElementById('profile-selected-file').textContent = this.files[0].name;">
+
+        <p id="profile-selected-file" style="font-size:0.85rem; color:#444; margin-top:10px; min-height:18px;"></p>
+
+        <div style="margin-top:12px; text-align:right;">
+          <button type="button" onclick="startProfileImport()"
+            style="padding:10px 16px;background:var(--grad-accent);color:white;border:none;border-radius:4px;font-weight:600;box-shadow:0 6px 16px rgba(37,99,235,.25);cursor:pointer;">
+            ⚙️ Lancer l'orchestrateur
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -464,6 +493,30 @@
     const isPassword = input.type === 'password';
     input.type = isPassword ? 'text' : 'password';
     btn.textContent = isPassword ? '🙈' : '👁️';
+  }
+
+  function startProfileImport() {
+    const fileInput = document.getElementById('profile-file-input');
+    if (!fileInput || !fileInput.files.length) {
+      alert("Merci de sélectionner un fichier GPX ou FIT.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
+
+    fetch("/api/import-activity", {
+      method: "POST",
+      body: formData,
+    })
+      .then((r) => r.json())
+      .then(() => {
+        alert("Import lancé ! L'orchestrateur va traiter l'activité.");
+      })
+      .catch((err) => {
+        console.error(err);
+        alert("Erreur lors de l'import.");
+      });
   }
 </script>
 

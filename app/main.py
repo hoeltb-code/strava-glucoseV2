@@ -773,7 +773,7 @@ async def process_activity_core(
 
         # Ajoute la signature uniquement s'il y a du contenu
         if blocks_ordered:
-            blocks_ordered.append("—> Made with ❤️ by Benoit")
+            blocks_ordered.append("—> Join us : https://strava-glucosev2.onrender.com/")
 
         full_block = "\n".join(blocks_ordered)
 

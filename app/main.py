@@ -145,6 +145,147 @@ from app.models import (
 
 GLOBAL_DPLUS_CACHE = {}
 GLOBAL_DPLUS_CACHE_TTL_SECONDS = 600
+SLOPE_BANDS_DEF = [
+    (-999, -40, "Sneg40p", "<-40%"),
+    (-40, -30, "Sneg30_40", "-40 à -30%"),
+    (-30, -25, "Sneg25_30", "-30 à -25%"),
+    (-25, -20, "Sneg20_25", "-25 à -20%"),
+    (-20, -15, "Sneg15_20", "-20 à -15%"),
+    (-15, -10, "Sneg10_15", "-15 à -10%"),
+    (-10, -5, "Sneg5_10", "-10 à -5%"),
+    (-5, 0, "Sneg0_5", "-5 à 0%"),
+    (0, 5, "S0_5", "0–5%"),
+    (5, 10, "S5_10", "5–10%"),
+    (10, 15, "S10_15", "10–15%"),
+    (15, 20, "S15_20", "15–20%"),
+    (20, 25, "S20_25", "20–25%"),
+    (25, 30, "S25_30", "25–30%"),
+    (30, 40, "S30_40", "30–40%"),
+    (40, 999, "S40p", ">40%"),
+]
+SLOPE_LABELS = {band_id: label for _min, _max, band_id, label in SLOPE_BANDS_DEF}
+SLOPE_ORDER = [(band_id, label) for _min, _max, band_id, label in SLOPE_BANDS_DEF]
+SLOPE_ORDER_INDEX = {band_id: index for index, (band_id, _label) in enumerate(SLOPE_ORDER)}
+
+
+def _slope_band_center(min_v: float, max_v: float) -> float:
+    if max_v > 500:   # bornes ouvertes sur +inf
+        return min_v + 10.0
+    if min_v < -500:  # bornes ouvertes sur -inf
+        return max_v - 10.0
+    return (min_v + max_v) / 2.0
+
+
+SLOPE_BAND_CENTER = {
+    band_id: _slope_band_center(min_v, max_v)
+    for min_v, max_v, band_id, _label in SLOPE_BANDS_DEF
+}
+
+
+def _build_pace_lookup_from_profile(profile_data: dict | None, hr_zone_names: list[str] | None) -> dict:
+    """
+    Construit un lookup slope→zone→allure (s/km) et comble les trous en appliquant
+    un facteur de -7% par zone manquante ou par pente adjacente quand aucune zone n’est renseignée.
+    """
+
+    pace_lookup: dict[str, dict[str, float]] = {}
+    if not profile_data:
+        return pace_lookup
+
+    zones_data = profile_data.get("zones") or {}
+    if not zones_data:
+        return pace_lookup
+
+    for zone_name, slopes in zones_data.items():
+        if not slopes:
+            continue
+        for slope_id, cell in slopes.items():
+            if not cell:
+                continue
+            pace_val = cell.get("avg_pace_s_per_km")
+            if pace_val is None or pace_val <= 0:
+                continue
+            slope_entry = pace_lookup.setdefault(slope_id, {})
+            slope_entry[zone_name] = float(pace_val)
+
+    _fill_missing_zone_paces(pace_lookup, hr_zone_names or [])
+    return pace_lookup
+
+
+def _fill_missing_zone_paces(pace_lookup: dict[str, dict[str, float]], hr_zone_names: list[str]):
+    """Applique les règles de fallback (-7% par zone ou par pente adjacente)."""
+    if not pace_lookup or not hr_zone_names:
+        return
+
+    slope_ids = [band_id for band_id, _label in SLOPE_ORDER]
+    zone_factor = 0.93  # -7 %
+
+    for slope_id in slope_ids:
+        zone_map = pace_lookup.setdefault(slope_id, {})
+
+        prev_idx = None
+        prev_val = None
+        for idx, zone in enumerate(hr_zone_names):
+            val = zone_map.get(zone)
+            if val and val > 0:
+                prev_idx = idx
+                prev_val = val
+                continue
+            if prev_val:
+                steps = idx - prev_idx
+                zone_map[zone] = prev_val * (zone_factor ** steps)
+
+        next_idx = None
+        next_val = None
+        for idx in range(len(hr_zone_names) - 1, -1, -1):
+            zone = hr_zone_names[idx]
+            val = zone_map.get(zone)
+            if val and val > 0:
+                next_idx = idx
+                next_val = val
+                continue
+            if next_val:
+                steps = next_idx - idx
+                zone_map[zone] = next_val / (zone_factor ** steps)
+
+    def _neighbor_value(current_idx: int, zone_name: str) -> float | None:
+        current_slope_id = slope_ids[current_idx]
+        current_intensity = abs(SLOPE_BAND_CENTER.get(current_slope_id, 0.0))
+        for offset in range(1, len(slope_ids)):
+            candidates = []
+            left_idx = current_idx - offset
+            if left_idx >= 0:
+                candidates.append(left_idx)
+            right_idx = current_idx + offset
+            if right_idx < len(slope_ids):
+                candidates.append(right_idx)
+
+            for neighbor_idx in candidates:
+                neighbor_id = slope_ids[neighbor_idx]
+                neighbor = pace_lookup.get(neighbor_id, {})
+                val = neighbor.get(zone_name)
+                if not (val and val > 0):
+                    continue
+
+                neighbor_intensity = abs(SLOPE_BAND_CENTER.get(neighbor_id, 0.0))
+                if current_intensity and neighbor_intensity:
+                    if current_intensity >= neighbor_intensity:
+                        return val / (zone_factor ** offset)
+                    else:
+                        return val * (zone_factor ** offset)
+                return val
+        return None
+
+    for idx, slope_id in enumerate(slope_ids):
+        zone_map = pace_lookup.setdefault(slope_id, {})
+        for zone in hr_zone_names:
+            val = zone_map.get(zone)
+            if val and val > 0:
+                continue
+            neighbor_val = _neighbor_value(idx, zone)
+            if neighbor_val and neighbor_val > 0:
+                zone_map[zone] = neighbor_val
+
 from app import auth
 from app import models
 from app.auth import pwd_context
@@ -160,6 +301,15 @@ import os
 # Helper pour s'assurer que les datetime sont bien tz-aware
 def _safe_dt(ts):
     return ts if (ts is None or ts.tzinfo is not None) else ts.replace(tzinfo=dt.timezone.utc)
+
+
+def _format_pace(pace_seconds: float | None) -> str | None:
+    if pace_seconds is None or pace_seconds <= 0:
+        return None
+    s = int(round(pace_seconds))
+    minutes = s // 60
+    seconds = s % 60
+    return f"{minutes}:{seconds:02d} /km"
 
 
 def _get_global_dplus_window_stats(db: Session, sport: str) -> dict:
@@ -211,6 +361,73 @@ def _get_global_dplus_window_stats(db: Session, sport: str) -> dict:
     GLOBAL_DPLUS_CACHE[sport] = {"ts": now, "data": stats}
     return stats
 
+
+def _slope_band_from_grade(grade_percent: float | None) -> str | None:
+    if grade_percent is None:
+        return None
+    for min_v, max_v, band_id, _label in SLOPE_BANDS_DEF:
+        if min_v <= grade_percent < max_v:
+            return band_id
+    return None
+
+
+def _compute_slope_distribution_from_gpx(content: bytes) -> tuple[dict[str, float], float]:
+    try:
+        root = ET.fromstring(content)
+    except ET.ParseError as exc:
+        raise ValueError(f"GPX invalide ({exc})")
+
+    ns = {'gpx': 'http://www.topografix.com/GPX/1/1'}
+    points = []
+    for trkpt in root.findall(".//gpx:trkpt", ns):
+        lat = trkpt.get("lat")
+        lon = trkpt.get("lon")
+        ele_node = trkpt.find("gpx:ele", ns)
+        if lat is None or lon is None:
+            continue
+        try:
+            lat_f = float(lat)
+            lon_f = float(lon)
+        except ValueError:
+            continue
+        ele = None
+        if ele_node is not None and ele_node.text:
+            try:
+                ele = float(ele_node.text)
+            except ValueError:
+                pass
+        points.append((lat_f, lon_f, ele))
+
+    if len(points) < 2:
+        raise ValueError("GPX nécessite au moins deux points pour calculer la pente.")
+
+    dist_by_band: dict[str, float] = {}
+    total_distance = 0.0
+    prev = points[0]
+
+    for idx in range(1, len(points)):
+        lat1, lon1, ele1 = prev
+        lat2, lon2, ele2 = points[idx]
+        d = _haversine_m(lat1, lon1, lat2, lon2)
+        if d <= 0.5:
+            prev = points[idx]
+            continue
+
+        total_distance += d
+        grade = None
+        if ele1 is not None and ele2 is not None:
+            grade = ((ele2 - ele1) / d) * 100.0
+
+        band = _slope_band_from_grade(grade)
+        if band:
+            dist_by_band[band] = dist_by_band.get(band, 0.0) + d
+
+        prev = points[idx]
+
+    if not dist_by_band:
+        raise ValueError("Impossible de déterminer les pentes (altitudes manquantes ?).")
+
+    return dist_by_band, total_distance
 def _get_session_user_id(request: Request) -> int | None:
     if not hasattr(request, "session"):
         return None
@@ -1824,26 +2041,8 @@ def ui_runner_profile(
 
     # 5) Ordre des zones cardio + pentes (positives et négatives)
     hr_zone_names = [name for (name, _, _) in HR_ZONES]
-
-    slopes_order = [
-        ("Sneg40p",   "<-40%"),
-        ("Sneg30_40", "-40 à -30%"),
-        ("Sneg25_30", "-30 à -25%"),
-        ("Sneg20_25", "-25 à -20%"),
-        ("Sneg15_20", "-20 à -15%"),
-        ("Sneg10_15", "-15 à -10%"),
-        ("Sneg5_10",  "-10 à -5%"),
-        ("Sneg0_5",   "-5 à 0%"),
-
-        ("S0_5",   "0–5%"),
-        ("S5_10",  "5–10%"),
-        ("S10_15", "10–15%"),
-        ("S15_20", "15–20%"),
-        ("S20_25", "20–25%"),
-        ("S25_30", "25–30%"),
-        ("S30_40", "30–40%"),
-        ("S40p",   ">40%"),
-    ]
+    pace_lookup_by_slope = _build_pace_lookup_from_profile(profile, hr_zone_names)
+    slopes_order = SLOPE_ORDER
 
     # 6) Stats glycémie (temps passé dans les zones sur différentes fenêtres)
     glucose_zone_defs = [
@@ -2080,6 +2279,7 @@ def ui_runner_profile(
             "hr_zones": hr_zone_names,
             "slopes_order": slopes_order,
             "profile": profile,
+            "pace_lookup_by_slope": pace_lookup_by_slope,
             "sport": sport,
             "period": period,
             "tab": tab,
@@ -2094,6 +2294,43 @@ def ui_runner_profile(
         },
     )
 
+
+@app.post("/ui/user/{user_id}/runner-profile/pace-projection", response_class=JSONResponse)
+async def ui_runner_profile_pace_projection(
+    request: Request,
+    user_id: int,
+    sport: str = Form("run"),
+    period: str = Form("all"),
+    gpx_file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+
+    file_bytes = await gpx_file.read()
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="Merci de fournir un fichier GPX.")
+
+    try:
+        dist_by_band, total_distance = _compute_slope_distribution_from_gpx(file_bytes)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return {
+        "total_distance_km": total_distance / 1000.0,
+        "slope_distribution": [
+            {
+                "slope_id": slope_id,
+                "label": SLOPE_LABELS.get(slope_id, slope_id),
+                "distance_km": distance_m / 1000.0,
+            }
+            for slope_id, distance_m in sorted(
+                dist_by_band.items(),
+                key=lambda item: SLOPE_ORDER_INDEX.get(item[0], 0),
+            )
+        ],
+    }
 
 
 

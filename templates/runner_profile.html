@@ -450,6 +450,31 @@
             Aucune donnée d’agrégats trouvée pour ce profil (sport={{ sport }}, période={{ period }}).
           </p>
         {% endif %}
+
+        <div class="card" style="margin-top:14px; padding:14px; border:1px solid #e5e7eb; background:#f9fafb;">
+          <h3 style="margin:0 0 6px 0; font-size:0.95rem;">🗺️ Analyse d'une trace GPX</h3>
+          <p class="muted" style="margin:0 0 10px 0; font-size:0.8rem;">
+            Charge une trace GPX (temporaire, non stockée) pour visualiser la répartition des kilomètres par % de pente.
+          </p>
+
+          <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+            <input type="file"
+                   id="projection-gpx"
+                   accept=".gpx"
+                   style="flex:1; min-width:200px;"
+                   onchange='runSlopeAnalysis({{ user.id }}, {{ sport|tojson }}, {{ period|tojson }})'>
+
+            <button type="button"
+                    onclick='runSlopeAnalysis({{ user.id }}, {{ sport|tojson }}, {{ period|tojson }})'
+                    style="padding:8px 14px; border-radius:4px; border:1px solid transparent; background:#0d6efd; color:#fff; font-weight:600;">
+              Analyser la trace
+            </button>
+          </div>
+
+          <div id="projection-feedback" style="font-size:0.8rem; color:#6b7280; margin-top:6px;"></div>
+
+          <div id="projection-result" style="margin-top:12px;"></div>
+        </div>
       </div>
 
     <div class="card runner-section {% if tab == 'cadence' %}is-active{% endif %}" style="padding:14px;" data-section="cadence">
@@ -998,12 +1023,147 @@
 </div>
 
 <script>
+  const runnerHrZones = {{ hr_zones | tojson | safe }} || [];
+  const runnerPaceLookup = {{ pace_lookup_by_slope | default({}) | tojson | safe }} || {};
+
+  function formatProjectionDuration(seconds) {
+    if (!seconds || !isFinite(seconds) || seconds <= 0) {
+      return "–";
+    }
+    const total = Math.round(seconds);
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const secs = total % 60;
+    if (hours > 0) {
+      return `${hours}h${minutes.toString().padStart(2, "0")}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, "0")}`;
+  }
+
   function toggleDplusDetails(btn) {
     const details = btn.parentElement.querySelector('.dplus-details');
     if (!details) return;
     const show = details.style.display === 'none' || !details.style.display;
     details.style.display = show ? 'block' : 'none';
     btn.textContent = show ? 'Masquer ←' : 'Voir le détail →';
+  }
+
+  async function runSlopeAnalysis(userId, sport, period) {
+    const fileInput = document.getElementById('projection-gpx');
+    const feedback = document.getElementById('projection-feedback');
+    const resultBox = document.getElementById('projection-result');
+
+    feedback.textContent = '';
+    resultBox.innerHTML = '';
+
+    if (!fileInput || !fileInput.files.length) {
+      feedback.textContent = "Merci de sélectionner un fichier GPX.";
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("gpx_file", fileInput.files[0]);
+    formData.append("sport", sport);
+    formData.append("period", period);
+
+    feedback.textContent = "Calcul en cours...";
+
+    try {
+      const response = await fetch(`/ui/user/${userId}/runner-profile/pace-projection`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || data.error || "Erreur inconnue");
+      }
+
+      if (data.slope_distribution && data.slope_distribution.length) {
+        const paceLookup = runnerPaceLookup || {};
+        const zoneTotals = {};
+        let totalDistance = typeof data.total_distance_km === "number" ? data.total_distance_km : 0;
+        if (!totalDistance) {
+          totalDistance = data.slope_distribution.reduce(
+            (acc, row) => acc + (typeof row.distance_km === "number" ? row.distance_km : 0),
+            0
+          );
+        }
+
+        let html = `
+          <h4 style="margin:0 0 4px 0; font-size:0.85rem;">Distance & temps estimés par % de pente</h4>
+          <p class="muted" style="margin:0 0 8px 0; font-size:0.75rem;">
+            Estimation basée sur tes allures moyennes par pente × zone cardio.
+          </p>
+          <table style="width:100%; border-collapse:collapse; font-size:0.75rem; margin-bottom:10px;">
+            <thead>
+              <tr style="border-bottom:1px solid #e5e7eb;">
+                <th style="text-align:left; padding:4px;">Pente</th>
+                <th style="text-align:right; padding:4px;">Distance</th>`;
+        runnerHrZones.forEach(zone => {
+          html += `
+                <th style="text-align:right; padding:4px;">
+                  ${zone}<br>
+                  <span style="font-weight:400; font-size:0.65rem;">Temps estimé</span>
+                </th>`;
+        });
+        html += `
+              </tr>
+            </thead>
+            <tbody>
+        `;
+        data.slope_distribution.forEach(row => {
+          const dist = typeof row.distance_km === "number" ? row.distance_km : 0;
+          html += `
+            <tr style="border-bottom:1px solid #f3f4f6;">
+              <td style="padding:4px;">${row.label}</td>
+              <td style="padding:4px; text-align:right;">${dist.toFixed(2)} km</td>
+          `;
+          runnerHrZones.forEach(zone => {
+            const slopeInfo = paceLookup[row.slope_id] || {};
+            const pace = slopeInfo[zone];
+            let cellSeconds = null;
+            if (pace && dist > 0) {
+              cellSeconds = Number(pace) * dist;
+              if (cellSeconds > 0) {
+                zoneTotals[zone] = (zoneTotals[zone] || 0) + cellSeconds;
+              }
+            }
+            html += `
+              <td style="padding:4px; text-align:right;">${formatProjectionDuration(cellSeconds)}</td>
+            `;
+          });
+          html += `
+            </tr>
+          `;
+        });
+
+        html += `
+            <tr style="border-top:2px solid #d1d5db; font-weight:600;">
+              <td style="padding:4px;">Total</td>
+              <td style="padding:4px; text-align:right;">${totalDistance.toFixed(2)} km</td>
+        `;
+        runnerHrZones.forEach(zone => {
+          const totalSec = zoneTotals[zone];
+          html += `
+              <td style="padding:4px; text-align:right;">${formatProjectionDuration(totalSec)}</td>
+          `;
+        });
+        html += `
+            </tr>
+            </tbody>
+          </table>
+        `;
+        resultBox.innerHTML = html;
+      } else {
+        resultBox.innerHTML = `<p class="muted" style="margin:0;">Aucune portion exploitable sur ce GPX.</p>`;
+      }
+
+      feedback.textContent = "";
+    } catch (err) {
+      feedback.textContent = err.message || "Erreur pendant le calcul.";
+      resultBox.innerHTML = "";
+    }
   }
 </script>
 

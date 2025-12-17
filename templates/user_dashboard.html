@@ -6,9 +6,14 @@
 <style>
   .dashboard-grid {
     display:grid;
-    grid-template-columns:minmax(0, 1fr);
+    grid-template-columns:repeat(2, minmax(0, 1fr));
     gap:16px;
     margin-bottom:20px;
+  }
+  @media (max-width: 900px) {
+    .dashboard-grid {
+      grid-template-columns:1fr;
+    }
   }
   .dashboard-activities-grid {
     display:grid;
@@ -21,9 +26,6 @@
     }
   }
   @media (max-width: 720px) {
-    .mobile-hide-dashboard {
-      display: none !important;
-    }
     .dashboard-activities-grid {
       grid-template-columns:1fr;
     }
@@ -53,7 +55,7 @@
           {{ user.email }}
         {% endif %}
       </div>
-      <div style="font-size:0.9rem; color:var(--text-muted); margin-top:2px;">Dashboard · id={{ user.id }}</div>
+      <!-- div style="font-size:0.9rem; color:var(--text-muted); margin-top:2px;">Dashboard · id={{ user.id }}</div> -->
       <div style="font-size:0.8rem; color:#9ca3af; margin-top:2px;">
         {% if user.location %}{{ user.location }}{% else %}Localisation non renseignée{% endif %}
       </div>
@@ -94,45 +96,32 @@
     </div>
   </div>
 
-<!-- Bloc activités (desktop uniquement) -->
-<div class="mobile-hide-dashboard">
   <div class="card">
-      <div id="anchor-vam" style="position:relative; top:-80px;"></div>
-
-      <h2 style="font-size:1rem; font-weight:600; margin-bottom:6px;">🏃 Activités enregistrées</h2>
-
-      {% if activities %}
-        <p class="muted" style="margin-top:0; font-size:0.85rem;">
-          Choisis une activité pour afficher les détails, les courbes et le tracé GPS.
-        </p>
-
-        <label style="margin-bottom:4px;">Activité :</label>
-        <select id="activitySelect" style="min-width: 100%; max-width:100%;">
-          {% for a in activities %}
-            <option value="{{ a.id }}">{{ a.label }}</option>
-          {% endfor %}
-        </select>
-
-        <div style="margin-top:10px; display:flex; justify-content:flex-end; gap:8px;">
-          <button type="button" onclick="
-            const sel = document.getElementById('activitySelect');
-            const id = sel.value;
-            if (id) window.location.href = `/ui/user/{{ user.id }}/activity/${id}`;
-          ">
-            Voir cette activité
-          </button>
-        </div>
-
-      {% else %}
-        <p class="muted" style="margin-top:8px;">Aucune activité enregistrée pour cet utilisateur pour le moment.</p>
-        <p class="muted" style="margin-top:4px; font-size:0.85rem;">
-          Utilise le bouton “📥 Import Strava” pour récupérer ta première activité.
-        </p>
-      {% endif %}
+    <div id="anchor-vam" style="position:relative; top:-80px;"></div>
+    <h2 style="font-size:1rem; font-weight:600; margin-bottom:6px;">📚 Activités</h2>
+    <p class="muted" style="margin-top:0; font-size:0.85rem;">
+      Consulte les 30 dernières activités enrichies : distance, D+/D-, fenêtres D+ et glycémie.
+    </p>
+    <div style="margin-top:12px; text-align:right;">
+      <a href="/ui/user/{{ user.id }}/activities"
+         style="
+           display:inline-block;
+           padding:10px 16px;
+           background:var(--grad-accent);
+           color:white;
+           text-decoration:none;
+           border-radius:4px;
+           font-weight:600;
+           box-shadow:0 6px 16px rgba(37,99,235,.25);
+           transition:filter .15s ease;
+         "
+         onmouseover="this.style.filter='brightness(1.05)'"
+         onmouseout="this.style.filter='none'">
+        📄 Accéder aux activités
+      </a>
     </div>
   </div>
 </div>
-
 
 <!-- ================== DERNIÈRES ACTIVITÉS (split map | VAM) ================== -->
 <div class="dashboard-activities-grid">

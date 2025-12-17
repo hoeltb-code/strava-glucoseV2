@@ -1422,6 +1422,10 @@ def compute_best_dplus_windows(
     """Retourne le meilleur D+ cumulé sur des fenêtres glissantes (1h,2h,5h,10h,24h)."""
 
     window_defs = [
+        {"id": "1m", "label": "1 min", "seconds": 60},
+        {"id": "5m", "label": "5 min", "seconds": 5 * 60},
+        {"id": "15m", "label": "15 min", "seconds": 15 * 60},
+        {"id": "30m", "label": "30 min", "seconds": 30 * 60},
         {"id": "1h", "label": "1 h", "seconds": 3600},
         {"id": "2h", "label": "2 h", "seconds": 7200},
         {"id": "5h", "label": "5 h", "seconds": 5 * 3600},

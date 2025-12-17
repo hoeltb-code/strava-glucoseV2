@@ -86,7 +86,7 @@ from datetime import datetime, timedelta
 from collections import Counter
 import re
 from urllib.parse import quote_plus
-from sqlalchemy import desc, func
+from sqlalchemy import desc, func, and_
 from sqlalchemy.orm import Session
 
 from dotenv import load_dotenv
@@ -142,6 +142,9 @@ from app.models import (
     ActivityVamPeak,
     ActivityZoneSlopeAgg
 )
+
+GLOBAL_DPLUS_CACHE = {}
+GLOBAL_DPLUS_CACHE_TTL_SECONDS = 600
 from app import auth
 from app import models
 from app.auth import pwd_context
@@ -158,6 +161,55 @@ import os
 def _safe_dt(ts):
     return ts if (ts is None or ts.tzinfo is not None) else ts.replace(tzinfo=dt.timezone.utc)
 
+
+def _get_global_dplus_window_stats(db: Session, sport: str) -> dict:
+    """
+    Calcule (avec cache) la moyenne / min / max du meilleur D+ sur chaque fenêtre
+    pour tous les utilisateurs ayant des activités du sport donné.
+    """
+    now = dt.datetime.utcnow()
+    cache_entry = GLOBAL_DPLUS_CACHE.get(sport)
+    if cache_entry and (now - cache_entry["ts"]).total_seconds() < GLOBAL_DPLUS_CACHE_TTL_SECONDS:
+        return cache_entry["data"]
+
+    aggregated: dict[str, list[float]] = {}
+
+    user_ids = (
+        db.query(User.id)
+        .join(Activity, Activity.user_id == User.id)
+        .filter(Activity.sport == sport)
+        .distinct()
+        .all()
+    )
+
+    for (uid,) in user_ids:
+        windows = compute_best_dplus_windows(
+            db,
+            user_id=uid,
+            sport=sport,
+            date_from=None,
+            date_to=None,
+        )
+        for window in windows:
+            win_id = window.get("window_id")
+            gain = window.get("gain_m")
+            if not win_id or not gain or gain <= 0:
+                continue
+            aggregated.setdefault(win_id, []).append(float(gain))
+
+    stats = {}
+    for win_id, values in aggregated.items():
+        if not values:
+            continue
+        stats[win_id] = {
+            "avg": sum(values) / len(values),
+            "min": min(values),
+            "max": max(values),
+            "count": len(values),
+        }
+
+    GLOBAL_DPLUS_CACHE[sport] = {"ts": now, "data": stats}
+    return stats
 
 def _get_session_user_id(request: Request) -> int | None:
     if not hasattr(request, "session"):
@@ -499,7 +551,6 @@ def compute_and_store_vam_peaks(db, activity, user_id: int):
             )
             .one_or_none()
         )
-
         if peak is None:
             peak = models.ActivityVamPeak(
                 user_id=user_id,
@@ -1919,6 +1970,98 @@ def ui_runner_profile(
         if p.mgdl is not None and p.ts is not None
     ]
 
+    # 6bis) Historique glycémie par activité (20 dernières activités avec données)
+    recent_glucose_activities = []
+    glucose_activity_chart = {
+        "labels": [],
+        "start": [],
+        "avg": [],
+        "tir": [],
+    }
+
+    activities_with_glucose = (
+        db.query(models.Activity)
+        .filter(models.Activity.user_id == user_id)
+        .filter(models.Activity.sport == sport)
+        .order_by(models.Activity.start_date.desc())
+        .limit(20)
+        .all()
+    )
+
+    if activities_with_glucose:
+        activity_ids = [a.id for a in activities_with_glucose]
+
+        subq = (
+            db.query(
+                ActivityStreamPoint.activity_id.label("activity_id"),
+                func.min(ActivityStreamPoint.elapsed_time).label("min_elapsed"),
+            )
+            .filter(ActivityStreamPoint.activity_id.in_(activity_ids))
+            .filter(ActivityStreamPoint.glucose_mgdl.isnot(None))
+            .group_by(ActivityStreamPoint.activity_id)
+            .subquery()
+        )
+
+        start_points = {}
+        if activity_ids:
+            rows = (
+                db.query(
+                    ActivityStreamPoint.activity_id,
+                    ActivityStreamPoint.glucose_mgdl,
+                )
+                .join(
+                    subq,
+                    and_(
+                        ActivityStreamPoint.activity_id == subq.c.activity_id,
+                        ActivityStreamPoint.elapsed_time == subq.c.min_elapsed,
+                    ),
+                )
+                .all()
+            )
+            for row in rows:
+                if row.glucose_mgdl is not None:
+                    start_points[row.activity_id] = float(row.glucose_mgdl)
+
+        def _format_activity_date(ts: dt.datetime | None, short: bool = False) -> str:
+            if ts is None:
+                return "?"
+            aware = _safe_dt(ts)
+            if aware.tzinfo is None:
+                aware = aware.replace(tzinfo=dt.timezone.utc)
+            local_str = aware.strftime("%d/%m") if short else aware.strftime("%d %b %Y · %H:%M")
+            return local_str
+
+        # Tableau (trié activités les plus récentes en premier)
+        for activity in activities_with_glucose:
+            start_dt = _safe_dt(activity.start_date)
+            distance_km = float(activity.distance) / 1000.0 if activity.distance else None
+            elevation_gain = float(activity.total_elevation_gain) if activity.total_elevation_gain else None
+            recent_glucose_activities.append(
+                {
+                    "id": activity.id,
+                    "name": activity.name or f"Activité {activity.id}",
+                    "start_label": _format_activity_date(start_dt),
+                    "distance_km": distance_km,
+                    "elevation_gain_m": elevation_gain,
+                    "duration_str": _format_duration(activity.elapsed_time) if activity.elapsed_time else None,
+                    "start_glucose": start_points.get(activity.id),
+                    "avg_glucose": float(activity.avg_glucose) if activity.avg_glucose is not None else None,
+                    "tir_percent": float(activity.time_in_range_percent) if activity.time_in_range_percent is not None else None,
+                }
+            )
+
+        # Graphiques (ordre chronologique ascendant pour lecture)
+        for activity in reversed(activities_with_glucose):
+            start_dt = _safe_dt(activity.start_date)
+            glucose_activity_chart["labels"].append(_format_activity_date(start_dt, short=True))
+            glucose_activity_chart["start"].append(start_points.get(activity.id))
+            glucose_activity_chart["avg"].append(
+                float(activity.avg_glucose) if activity.avg_glucose is not None else None
+            )
+            glucose_activity_chart["tir"].append(
+                float(activity.time_in_range_percent) if activity.time_in_range_percent is not None else None
+            )
+
     # 7) D+ max sur fenêtres glissantes
     best_dplus_windows = compute_best_dplus_windows(
         db,
@@ -1927,6 +2070,7 @@ def ui_runner_profile(
         date_from=date_from,
         date_to=date_to,
     )
+    global_dplus_stats = _get_global_dplus_window_stats(db, sport=sport)
 
     return templates.TemplateResponse(
         "runner_profile.html",
@@ -1943,7 +2087,10 @@ def ui_runner_profile(
             "hr_zone_fatigue": hr_zone_fatigue,
             "glucose_zone_summary": glucose_zone_summary,
             "glucose_chart_24h": glucose_chart_24h,
+            "glucose_activity_chart": glucose_activity_chart,
+            "glucose_activity_table": recent_glucose_activities,
             "best_dplus_windows": best_dplus_windows,
+            "global_dplus_stats": global_dplus_stats,
         },
     )
 
@@ -2241,6 +2388,126 @@ def ui_user_dashboard(user_id: int, request: Request):
         },
     )
 
+
+#-----------------------------------------------------------------------------
+#-------------------UI : Liste des activités -----------------------
+#-----------------------------------------------------------------------------
+@app.get("/ui/user/{user_id}/activities", response_class=HTMLResponse)
+def ui_user_activities(user_id: int, request: Request):
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+
+    db = SessionLocal()
+
+    WINDOW_DEFS = [
+        {"id": "15m", "label": "15 min", "seconds": 15 * 60},
+        {"id": "1h", "label": "1 h", "seconds": 60 * 60},
+        {"id": "2h", "label": "2 h", "seconds": 2 * 60 * 60},
+        {"id": "5h", "label": "5 h", "seconds": 5 * 60 * 60},
+    ]
+
+    def _build_activity_row(activity: Activity) -> dict:
+        distance_km = float(activity.distance) / 1000.0 if activity.distance else None
+        elevation_gain = float(activity.total_elevation_gain) if activity.total_elevation_gain is not None else None
+        elevation_loss = None
+        duration_str = _format_duration(activity.elapsed_time) if activity.elapsed_time else None
+        start_dt = _safe_dt(activity.start_date)
+        start_label = start_dt.strftime("%d %b %Y · %H:%M") if start_dt else "—"
+
+        window_values = {w["id"]: None for w in WINDOW_DEFS}
+
+        points = (
+            db.query(
+                ActivityStreamPoint.elapsed_time,
+                ActivityStreamPoint.altitude,
+            )
+            .filter(ActivityStreamPoint.activity_id == activity.id)
+            .order_by(ActivityStreamPoint.idx.asc())
+            .all()
+        )
+
+        if points:
+            times = []
+            cum_gain = []
+            cum_loss = []
+            total_gain_calc = 0.0
+            total_loss_calc = 0.0
+            prev_alt = None
+
+            for pt in points:
+                if pt.elapsed_time is None:
+                    continue
+                alt = float(pt.altitude) if pt.altitude is not None else None
+                if alt is not None and prev_alt is not None:
+                    delta = alt - prev_alt
+                    if delta > 0:
+                        total_gain_calc += delta
+                    elif delta < 0:
+                        total_loss_calc += -delta
+                if alt is not None:
+                    prev_alt = alt
+
+                times.append(float(pt.elapsed_time))
+                cum_gain.append(total_gain_calc)
+                cum_loss.append(total_loss_calc)
+
+            if times:
+                if total_gain_calc > 0:
+                    elevation_gain = total_gain_calc
+                if total_loss_calc > 0:
+                    elevation_loss = total_loss_calc
+
+                for win in WINDOW_DEFS:
+                    best_gain = 0.0
+                    seconds = win["seconds"]
+                    start_idx = 0
+                    for idx, t in enumerate(times):
+                        while start_idx < idx and (t - times[start_idx]) > seconds:
+                            start_idx += 1
+                        gain_window = cum_gain[idx] - cum_gain[start_idx]
+                        if gain_window > best_gain:
+                            best_gain = gain_window
+                    window_values[win["id"]] = best_gain if best_gain > 0 else 0.0
+
+        return {
+            "id": activity.id,
+            "name": activity.name or f"Activité {activity.id}",
+            "start_label": start_label,
+            "distance_km": distance_km,
+            "elevation_gain_m": elevation_gain,
+            "elevation_loss_m": elevation_loss,
+            "duration_str": duration_str,
+            "dplus_windows": window_values,
+        }
+
+    try:
+        user = db.query(User).get(user_id)
+        if not user:
+            return HTMLResponse(status_code=404, content="Utilisateur introuvable")
+
+        activities = (
+            db.query(Activity)
+            .filter(Activity.user_id == user_id)
+            .order_by(desc(Activity.start_date))
+            .limit(30)
+            .all()
+        )
+
+        activity_rows = [_build_activity_row(act) for act in activities]
+
+    finally:
+        db.close()
+
+    return templates.TemplateResponse(
+        "user_activities.html",
+        {
+            "request": request,
+            "user": user,
+            "activities": activity_rows,
+            "window_defs": WINDOW_DEFS,
+        },
+    )
 
 
 

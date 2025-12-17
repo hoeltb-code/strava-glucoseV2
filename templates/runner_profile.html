@@ -43,7 +43,29 @@
       display:block;
     }
   }
+
+  .dplus-table th,
+  .dplus-table td {
+    padding:6px 4px;
+    border-bottom:1px solid #e5e7eb;
+    white-space:nowrap;
+  }
+
+  @media (max-width: 720px) {
+    .dplus-table {
+      font-size:0.7rem;
+    }
+    .dplus-table th,
+    .dplus-table td {
+      padding:4px 2px;
+    }
+  }
 </style>
+{% set needs_chart_js = (glucose_chart_24h and glucose_chart_24h|length > 1) or (glucose_activity_chart.labels and glucose_activity_chart.labels|length > 0) %}
+{% if needs_chart_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -197,7 +219,7 @@
     <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=glucose&hr_zone_fatigue={{ hr_zone_fatigue }}"
        style="
          display:block; padding:8px 10px; border-radius:4px;
-         text-decoration:none;
+         text-decoration:none; margin-bottom:4px;
          {% if tab == 'glucose' %}
            background:#0f172a; color:#f9fafb; font-weight:600;
          {% else %}
@@ -205,6 +227,20 @@
          {% endif %}
        ">
       Glycémie (temps dans la zone)
+    </a>
+
+    <!-- Onglet Glycémie + activités -->
+    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=glucose_activities&hr_zone_fatigue={{ hr_zone_fatigue }}"
+       style="
+         display:block; padding:8px 10px; border-radius:4px;
+         text-decoration:none;
+         {% if tab == 'glucose_activities' %}
+           background:#0f172a; color:#f9fafb; font-weight:600;
+         {% else %}
+           color:#111827;
+         {% endif %}
+       ">
+      Glycémie & activités
     </a>
   </aside>
 
@@ -218,64 +254,89 @@
           grimpé le plus de dénivelé positif (plutôt qu’une simple activité entière).
         </p>
 
-        <div style="display:grid; gap:12px; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));">
-          {% for window in best_dplus_windows %}
-            <div style="border:1px solid #e5e7eb; border-radius:6px; padding:12px; background:#fdfdfd;">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                <strong>{{ window.label }}</strong>
-                <span class="muted" style="font-size:0.75rem;">{{ (window.seconds/3600)|round(0)|int }}h max</span>
-              </div>
-
-              {% if window.gain_m and window.gain_m > 0 %}
-                <div style="font-size:1.4rem; font-weight:700; color:#065f46;">
-                  +{{ window.gain_m|round(0)|int }} m
-                </div>
-                <div style="margin-top:10px; font-size:0.8rem; line-height:1.4;">
-                  <span class="toggle-detail" onclick="toggleDplusDetails(this)">Voir le détail →</span>
-                  <div class="dplus-details" style="display:none; margin-top:8px;">
-                    <div>
-                      {% if window.gain_per_hour %}
-                        {{ window.gain_per_hour|round(0)|int }} m/h
-                      {% else %}
-                        –
-                      {% endif %}
-                    </div>
-                    <div>
-                      D- : -{{ window.loss_m|round(0)|int }} m · Distance ~ {{ window.distance_km|round(1) }} km
-                    </div>
-                    <div>Durée couverte :
-                      {% if window.duration_sec %}
-                        {{ (window.duration_sec/3600)|round(2) }} h
-                      {% else %}
-                        –
-                      {% endif %}
-                    </div>
-                    {% if window.activity_id %}
-                      <div>
-                        Activité :
-                        <a href="/ui/user/{{ user.id }}/activity/{{ window.activity_id }}"
-                           style="color:#2563eb; text-decoration:none;">
-                          {{ window.activity_name or ('Activité #' ~ window.activity_id) }}
-                        </a>
-                      </div>
-                      <div>
-                        Fenêtre :
-                        {% if window.start_datetime and window.end_datetime %}
-                          {{ window.start_datetime.strftime('%d/%m %H:%M') }} → {{ window.end_datetime.strftime('%H:%M') }}
-                        {% else %}
-                          –
-                        {% endif %}
-                      </div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+            <thead>
+              <tr style="border-bottom:1px solid #e5e7eb;">
+                <th style="text-align:left; padding:8px 4px;">Fenêtre</th>
+                <th style="text-align:right; padding:8px 4px;">D+ toi</th>
+                <th style="text-align:right; padding:8px 4px;">D+ moy</th>
+                <th style="text-align:right; padding:8px 4px;">D+ min</th>
+                <th style="text-align:right; padding:8px 4px;">D+ max</th>
+                <th style="text-align:right; padding:8px 4px;">D-</th>
+                <th style="text-align:right; padding:8px 4px;">Distance</th>
+                <th style="text-align:right; padding:8px 4px;">D+/h</th>
+                <th style="text-align:left; padding:8px 4px;">Activité</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for window in best_dplus_windows %}
+                {% set global_stats = global_dplus_stats.get(window.window_id) if global_dplus_stats else None %}
+                <tr style="border-bottom:1px solid #f3f4f6;">
+                  <td style="padding:8px 4px;">{{ window.label }}</td>
+                  <td style="padding:8px 4px; text-align:right;">
+                    {% if window.gain_m and window.gain_m > 0 %}
+                      +{{ window.gain_m|round(0)|int }} m
+                    {% else %}
+                      –
                     {% endif %}
-                  </div>
-                </div>
-              {% else %}
-                <p class="muted" style="margin:0; font-size:0.8rem;">
-                  Pas encore assez de segments avec altitude pour cette fenêtre.
-                </p>
-              {% endif %}
-            </div>
-          {% endfor %}
+                  </td>
+                  <td style="padding:8px 4px; text-align:right;">
+                    {% if global_stats %}
+                      {{ global_stats.avg|round(0)|int }} m
+                    {% else %}
+                      –
+                    {% endif %}
+                  </td>
+                  <td style="padding:8px 4px; text-align:right;">
+                    {% if global_stats %}
+                      {{ global_stats.min|round(0)|int }} m
+                    {% else %}
+                      –
+                    {% endif %}
+                  </td>
+                  <td style="padding:8px 4px; text-align:right;">
+                    {% if global_stats %}
+                      {{ global_stats.max|round(0)|int }} m
+                    {% else %}
+                      –
+                    {% endif %}
+                  </td>
+                  <td style="padding:8px 4px; text-align:right;">
+                    {% if window.loss_m %}
+                      -{{ window.loss_m|round(0)|int }} m
+                    {% else %}
+                      –
+                    {% endif %}
+                  </td>
+                  <td style="padding:8px 4px; text-align:right;">
+                    {% if window.distance_km %}
+                      {{ window.distance_km|round(1) }} km
+                    {% else %}
+                      –
+                    {% endif %}
+                  </td>
+                  <td style="padding:8px 4px; text-align:right;">
+                    {% if window.gain_per_hour %}
+                      {{ window.gain_per_hour|round(0)|int }} m/h
+                    {% else %}
+                      –
+                    {% endif %}
+                  </td>
+                  <td style="padding:8px 4px;">
+                    {% if window.activity_id %}
+                      <a href="/ui/user/{{ user.id }}/activity/{{ window.activity_id }}"
+                         style="color:#2563eb; text-decoration:none;">
+                        Détail →
+                      </a>
+                    {% else %}
+                      –
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -648,8 +709,6 @@
       </div>
 
       {% if glucose_chart_24h and glucose_chart_24h|length > 1 %}
-        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
         <script>
           (function() {
             const rawPoints = {{ glucose_chart_24h | tojson | safe }};
@@ -716,6 +775,219 @@
                   }
                 }
               }
+            });
+          })();
+        </script>
+      {% endif %}
+    </div>
+
+    <div class="runner-section {% if tab == 'glucose_activities' %}is-active{% endif %}" data-section="glucose-activities">
+      <div class="card" style="padding:14px;">
+        <h3 style="margin:0 0 6px 0; font-size:0.95rem;">Glycémie sur les 20 dernières activités</h3>
+        <p class="muted" style="margin:0 0 12px 0; font-size:0.8rem;">
+          Compare la glycémie au départ, la moyenne sur l’activité et le temps passé dans la cible
+          (100–180 mg/dL) pour tes 20 dernières sorties {{ sport }} avec données CGM.
+        </p>
+
+        {% if glucose_activity_chart.labels and glucose_activity_chart.labels|length > 0 %}
+          <div style="display:flex; flex-direction:column; gap:16px;">
+            <div style="border:1px solid #e5e7eb; border-radius:6px; padding:12px;">
+              <div style="font-weight:600; margin-bottom:6px;">Glycémie au départ</div>
+              <div style="height:220px;">
+                <canvas id="glucoseStartChart" style="width:100%; height:100%;"></canvas>
+              </div>
+            </div>
+            <div style="border:1px solid #e5e7eb; border-radius:6px; padding:12px;">
+              <div style="font-weight:600; margin-bottom:6px;">Glycémie moyenne</div>
+              <div style="height:220px;">
+                <canvas id="glucoseAvgChart" style="width:100%; height:100%;"></canvas>
+              </div>
+            </div>
+            <div style="border:1px solid #e5e7eb; border-radius:6px; padding:12px;">
+              <div style="font-weight:600; margin-bottom:6px;">Temps dans la cible</div>
+              <div style="height:220px;">
+                <canvas id="glucoseTirChart" style="width:100%; height:100%;"></canvas>
+              </div>
+            </div>
+          </div>
+        {% else %}
+          <p class="muted" style="margin:0;">Pas encore de données CGM sur les 20 dernières activités.</p>
+        {% endif %}
+      </div>
+
+      <div class="card" style="padding:14px; margin-top:14px;">
+        <h3 style="margin:0 0 6px 0; font-size:0.95rem;">Activités (max 20 affichées)</h3>
+        <p class="muted" style="margin:0 0 12px 0; font-size:0.8rem;">
+          Titre, distance, D+, durée et indicateurs glycémie (départ, moyenne, temps dans la cible).
+        </p>
+
+        {% if glucose_activity_table %}
+          <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+              <thead>
+                <tr style="border-bottom:1px solid #e5e7eb; text-align:left;">
+                  <th style="padding:6px 4px;">Activité</th>
+                  <th style="padding:6px 4px;">Distance</th>
+                  <th style="padding:6px 4px;">D+</th>
+                  <th style="padding:6px 4px;">Durée</th>
+                  <th style="padding:6px 4px;">Départ</th>
+                  <th style="padding:6px 4px;">Moyenne</th>
+                  <th style="padding:6px 4px;">Temps cible</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in glucose_activity_table %}
+                  <tr style="border-bottom:1px solid #f3f4f6;">
+                    <td style="padding:6px 4px;">
+                      <div style="font-weight:600;">{{ row.name }}</div>
+                      <div class="muted" style="font-size:0.75rem;">{{ row.start_label }}</div>
+                    </td>
+                    <td style="padding:6px 4px;">
+                      {% if row.distance_km is not none %}
+                        {{ "%.1f"|format(row.distance_km) }} km
+                      {% else %}–{% endif %}
+                    </td>
+                    <td style="padding:6px 4px;">
+                      {% if row.elevation_gain_m is not none %}
+                        {{ row.elevation_gain_m|round(0)|int }} m
+                      {% else %}–{% endif %}
+                    </td>
+                    <td style="padding:6px 4px;">{{ row.duration_str or "–" }}</td>
+                    <td style="padding:6px 4px;">
+                      {% if row.start_glucose is not none %}
+                        {{ row.start_glucose|round(0)|int }} mg/dL
+                      {% else %}–{% endif %}
+                    </td>
+                    <td style="padding:6px 4px;">
+                      {% if row.avg_glucose is not none %}
+                        {{ row.avg_glucose|round(0)|int }} mg/dL
+                      {% else %}–{% endif %}
+                    </td>
+                    <td style="padding:6px 4px;">
+                      {% if row.tir_percent is not none %}
+                        {{ row.tir_percent|round(0)|int }} %
+                      {% else %}–{% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="muted" style="margin:0;">Aucune activité enrichie avec glycémie pour l’instant.</p>
+        {% endif %}
+      </div>
+
+      {% if glucose_activity_chart.labels and glucose_activity_chart.labels|length > 0 %}
+        <script>
+          (function() {
+            const chartData = {{ glucose_activity_chart | tojson | safe }};
+            if (!chartData || !chartData.labels || chartData.labels.length === 0) return;
+
+            const baseConfig = {
+              type: 'line',
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { display: false } },
+                scales: {
+                  x: {
+                    ticks: { maxRotation: 0 },
+                    grid: { display: false },
+                  },
+                },
+              },
+            };
+
+            const startCanvas = document.getElementById('glucoseStartChart');
+            const avgCanvas = document.getElementById('glucoseAvgChart');
+            const tirCanvas = document.getElementById('glucoseTirChart');
+
+            if (!startCanvas || !avgCanvas || !tirCanvas) return;
+
+            const startCtx = startCanvas.getContext('2d');
+            const avgCtx = avgCanvas.getContext('2d');
+            const tirCtx = tirCanvas.getContext('2d');
+
+            new Chart(startCtx, {
+              ...baseConfig,
+              data: {
+                labels: chartData.labels,
+                datasets: [{
+                  label: 'Départ',
+                  data: chartData.start,
+                  borderColor: '#2563eb',
+                  backgroundColor: 'rgba(37,99,235,0.12)',
+                  tension: 0.2,
+                  fill: true,
+                  spanGaps: true,
+                }],
+              },
+              options: {
+                ...baseConfig.options,
+                scales: {
+                  ...baseConfig.options.scales,
+                  y: {
+                    title: { display: true, text: 'mg/dL' },
+                    grid: { color: '#e5e7eb' },
+                  },
+                },
+              },
+            });
+
+            new Chart(avgCtx, {
+              ...baseConfig,
+              data: {
+                labels: chartData.labels,
+                datasets: [{
+                  label: 'Moyenne',
+                  data: chartData.avg,
+                  borderColor: '#dc2626',
+                  backgroundColor: 'rgba(220,38,38,0.12)',
+                  tension: 0.2,
+                  fill: true,
+                  spanGaps: true,
+                }],
+              },
+              options: {
+                ...baseConfig.options,
+                scales: {
+                  ...baseConfig.options.scales,
+                  y: {
+                    title: { display: true, text: 'mg/dL' },
+                    grid: { color: '#e5e7eb' },
+                  },
+                },
+              },
+            });
+
+            new Chart(tirCtx, {
+              ...baseConfig,
+              data: {
+                labels: chartData.labels,
+                datasets: [{
+                  label: 'Temps dans la cible',
+                  data: chartData.tir,
+                  borderColor: '#059669',
+                  backgroundColor: 'rgba(5,150,105,0.12)',
+                  tension: 0.2,
+                  fill: true,
+                  spanGaps: true,
+                }],
+              },
+              options: {
+                ...baseConfig.options,
+                scales: {
+                  ...baseConfig.options.scales,
+                  y: {
+                    title: { display: true, text: '%' },
+                    min: 0,
+                    max: 100,
+                    grid: { color: '#e5e7eb' },
+                  },
+                },
+              },
             });
           })();
         </script>

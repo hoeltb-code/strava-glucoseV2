@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Activités · {{ user.first_name or user.email }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  .activities-table {
+    width:100%;
+    border-collapse:collapse;
+    font-size:0.9rem;
+  }
+  .activities-table th,
+  .activities-table td {
+    padding:8px 6px;
+    border-bottom:1px solid #e5e7eb;
+    text-align:left;
+    white-space:nowrap;
+  }
+  .activities-table th {
+    background:#f8fafc;
+    font-weight:600;
+  }
+  .activities-table td:last-child,
+  .activities-table th:last-child {
+    text-align:center;
+  }
+  .table-wrapper {
+    overflow-x:auto;
+  }
+  @media (max-width: 720px) {
+    .activities-table th,
+    .activities-table td {
+      white-space:normal;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+  <div>
+    <h1 style="margin:0; font-size:1.2rem;">📚 Activités récentes</h1>
+    <p class="muted" style="margin:4px 0 0 0;">
+      Les 30 dernières activités de {{ user.first_name or user.email }} avec distance, D+/D- et fenêtres D+.
+    </p>
+  </div>
+  <a href="/ui/user/{{ user.id }}"
+     style="text-decoration:none; font-weight:600; color:#0f172a;">
+    ← Retour au dashboard
+  </a>
+</div>
+
+<div class="card" style="padding:16px;">
+  {% if activities %}
+    <div class="table-wrapper">
+      <table class="activities-table">
+        <thead>
+          <tr>
+            <th>Activité</th>
+            <th>Date</th>
+            <th>Distance</th>
+            <th>D+</th>
+            <th>D-</th>
+            <th>Durée</th>
+            {% for win in window_defs %}
+              <th>D+ {{ win.label }}</th>
+            {% endfor %}
+            <th>Détails</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in activities %}
+            <tr>
+              <td>
+                <strong>{{ row.name|truncate(30, True, '…') }}</strong>
+              </td>
+              <td>{{ row.start_label }}</td>
+              <td>
+                {% if row.distance_km is not none %}
+                  {{ '%.1f'|format(row.distance_km) }} km
+                {% else %}–{% endif %}
+              </td>
+              <td>
+                {% if row.elevation_gain_m is not none %}
+                  {{ row.elevation_gain_m|round(0)|int }} m
+                {% else %}–{% endif %}
+              </td>
+              <td>
+                {% if row.elevation_loss_m is not none %}
+                  {{ row.elevation_loss_m|round(0)|int }} m
+                {% else %}–{% endif %}
+              </td>
+              <td>{{ row.duration_str or "–" }}</td>
+              {% for win in window_defs %}
+                {% set value = row.dplus_windows.get(win.id) if row.dplus_windows else None %}
+                <td>
+                  {% if value is not none %}
+                    {{ value|round(0)|int }} m
+                  {% else %}–{% endif %}
+                </td>
+              {% endfor %}
+              <td>
+                <a href="/ui/user/{{ user.id }}/activity/{{ row.id }}" style="text-decoration:none; color:#2563eb;">
+                  Voir
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="muted" style="margin:0;">
+      Aucune activité disponible pour cet utilisateur.
+    </p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -289,7 +289,9 @@
     {% endif %}
 
     <h3 style="margin:0;">
-      <a href="/ui/user/{{ user.id }}/activity/{{ a.id }}">{{ a.name }}</a>
+      <a href="/ui/user/{{ user.id }}/activity/{{ a.id }}">
+        {{ (a.name or ('Activité #' ~ a.id))|truncate(60, True, '…') }}
+      </a>
     </h3>
     <p class="muted" style="margin:4px 0 12px;">
       {{ a.date_str }} · {{ a.dist_km }} km · D+ {{ a.dplus }} m ·

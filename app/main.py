@@ -3524,8 +3524,8 @@ def ui_user_delete_account(request: Request, user_id: int):
 #-------------------------------------------------------------------------------
 # IMPORT D’UNE ACTIVITÉ (API)
 #-------------------------------------------------------------------------------
-@app.post("/api/import-activity")
-async def import_activity(file: UploadFile = File(...)):
+@app.post("/api/users/{user_id}/import-activity")
+async def import_activity(user_id: int, file: UploadFile = File(...)):
     # 1) Sauvegarder le fichier dans /tmp
     temp_dir = "/tmp"
     os.makedirs(temp_dir, exist_ok=True)
@@ -3537,8 +3537,7 @@ async def import_activity(file: UploadFile = File(...)):
     # 2) Pour l'instant : on gère uniquement les fichiers .gpx
     if file.filename.lower().endswith(".gpx"):
         try:
-            # user_id en dur = 1 pour commencer
-            await enrich_activity_from_gpx(filepath, user_id=1)
+            await enrich_activity_from_gpx(filepath, user_id=user_id)
         except ValueError as e:
             # Erreurs type "GPX sans <time>" etc.
             raise HTTPException(status_code=400, detail=str(e))

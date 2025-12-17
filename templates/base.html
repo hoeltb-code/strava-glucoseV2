@@ -216,6 +216,10 @@
           <span class="nav-icon">👤</span>
           <span class="nav-label">Profil</span>
         </a>
+        <a class="nav-link" href="/ui/user/{{ session_user_id }}/activities">
+          <span class="nav-icon">🏃</span>
+          <span class="nav-label">Activités</span>
+        </a>
       {% endif %}
       {% if session_user_id == 1 %}
         <a class="nav-link" href="/ui">

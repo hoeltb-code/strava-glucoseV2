@@ -1109,6 +1109,32 @@
 <script>
   const runnerHrZones = {{ hr_zones | tojson | safe }} || [];
   const runnerPaceLookup = {{ pace_lookup_by_slope | default({}) | tojson | safe }} || {};
+  const runnerZoneColors = {
+    "Zone 1": "#16a34a",
+    "Zone 2": "#22c55e",
+    "Zone 3": "#f97316",
+    "Zone 4": "#facc15",
+    "Zone 5": "#dc2626",
+  };
+  let projectionKmChart = null;
+  const runnerAvgZonePace = (() => {
+    const result = {};
+    runnerHrZones.forEach(zone => {
+      let sum = 0;
+      let count = 0;
+      Object.values(runnerPaceLookup || {}).forEach(zoneMap => {
+        const pace = zoneMap ? zoneMap[zone] : null;
+        if (pace && pace > 0) {
+          sum += pace;
+          count += 1;
+        }
+      });
+      if (count) {
+        result[zone] = sum / count;
+      }
+    });
+    return result;
+  })();
 
   function formatProjectionDuration(seconds) {
     if (!seconds || !isFinite(seconds) || seconds <= 0) {
@@ -1122,6 +1148,132 @@
       return `${hours}h${minutes.toString().padStart(2, "0")}`;
     }
     return `${minutes}:${secs.toString().padStart(2, "0")}`;
+  }
+
+  function formatMeters(value) {
+    if (value === null || value === undefined || !isFinite(value)) return "–";
+    return `${Math.round(value)} m`;
+  }
+
+  function formatKilometers(value) {
+    if (value === null || value === undefined || !isFinite(value)) return "0.00 km";
+    return `${value.toFixed(2)} km`;
+  }
+
+  function computeZoneTimesForSplit(segment, paceLookup) {
+    const times = {};
+    runnerHrZones.forEach(zone => {
+      times[zone] = 0;
+    });
+    if (!segment) return times;
+    const pieces = Array.isArray(segment.slope_distribution)
+      ? segment.slope_distribution
+      : [];
+    let processedKm = 0;
+    pieces.forEach(piece => {
+      const distKm = typeof piece.distance_km === 'number' ? piece.distance_km : 0;
+      if (!distKm || !piece.slope_id) return;
+      processedKm += distKm;
+      const slopePaces = paceLookup[piece.slope_id] || {};
+      runnerHrZones.forEach(zone => {
+        const pace = slopePaces[zone];
+        if (pace && pace > 0) {
+          times[zone] += pace * distKm;
+        }
+      });
+    });
+
+    const totalKm = typeof segment.distance_km === 'number' ? segment.distance_km : 0;
+    const remainingKm = Math.max(0, totalKm - processedKm);
+    if (remainingKm > 1e-4) {
+      runnerHrZones.forEach(zone => {
+        const fallback = runnerAvgZonePace[zone];
+        if (fallback && fallback > 0) {
+          times[zone] += fallback * remainingKm;
+        }
+      });
+    }
+    return times;
+  }
+
+  function renderProjectionKmChart(kmSplits, paceLookup) {
+    if (!kmSplits || !kmSplits.length || typeof Chart === "undefined") return;
+    const canvas = document.getElementById('projectionKmChart');
+    if (!canvas) return;
+
+    const labels = kmSplits.map(seg => `Km ${seg.km_index ?? ''}`);
+    const datasets = runnerHrZones.map(zone => {
+      const color = runnerZoneColors[zone] || '#2563eb';
+      const data = kmSplits.map(segment => {
+        const zoneTimes = computeZoneTimesForSplit(segment, paceLookup);
+        return (zoneTimes[zone] && segment.distance_km)
+          ? zoneTimes[zone]
+          : null;
+      });
+      const hasData = data.some(v => v && v > 0);
+      if (!hasData) return null;
+      return {
+        label: zone,
+        data,
+        borderColor: color,
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        tension: 0.25,
+        spanGaps: true,
+      };
+    }).filter(Boolean);
+
+    datasets.forEach(dataset => {
+      dataset.pointRadius = 0;
+      dataset.pointHoverRadius = 4;
+      dataset.pointHitRadius = 6;
+    });
+
+    if (!datasets.length) return;
+
+    if (projectionKmChart) {
+      projectionKmChart.destroy();
+    }
+
+    projectionKmChart = new Chart(canvas.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets,
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+          y: {
+            title: { display: true, text: 'Temps estimé par km (s)' },
+            ticks: {
+              callback: (value) => formatProjectionDuration(value),
+            },
+            grid: { color: '#e5e7eb' },
+          },
+          x: {
+            ticks: { autoSkip: true, maxRotation: 0 },
+            grid: { display: false },
+          },
+        },
+        plugins: {
+          legend: {
+            position: 'bottom',
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const zone = context.dataset.label;
+                const seconds = context.parsed.y;
+                return `${zone}: ${formatProjectionDuration(seconds)}`;
+              },
+            },
+          },
+        },
+      },
+    });
   }
 
   function toggleDplusDetails(btn) {
@@ -1165,6 +1317,7 @@
 
       if (data.slope_distribution && data.slope_distribution.length) {
         const paceLookup = runnerPaceLookup || {};
+        const kmSplits = Array.isArray(data.km_splits) ? data.km_splits : [];
         const zoneTotals = {};
         let totalDistance = typeof data.total_distance_km === "number" ? data.total_distance_km : 0;
         if (!totalDistance) {
@@ -1179,7 +1332,7 @@
           <p class="muted" style="margin:0 0 8px 0; font-size:0.75rem;">
             Estimation basée sur tes allures moyennes par pente × zone cardio.
           </p>
-          <table style="width:100%; border-collapse:collapse; font-size:0.75rem; margin-bottom:10px;">
+          <table style="width:100%; border-collapse:collapse; font-size:0.75rem; margin-bottom:16px;">
             <thead>
               <tr style="border-bottom:1px solid #e5e7eb;">
                 <th style="text-align:left; padding:4px;">Pente</th>
@@ -1238,7 +1391,97 @@
             </tbody>
           </table>
         `;
+
+        if (kmSplits.length) {
+          const kmZoneTotals = {};
+          runnerHrZones.forEach(zone => {
+            kmZoneTotals[zone] = 0;
+          });
+          const totalGain = kmSplits.reduce((acc, seg) => acc + (seg.elevation_gain_m || 0), 0);
+          const totalLoss = kmSplits.reduce((acc, seg) => acc + (seg.elevation_loss_m || 0), 0);
+          const totalKmDistance = kmSplits.reduce((acc, seg) => acc + (seg.distance_km || 0), 0);
+
+          html += `
+            <h4 style="margin:0 0 4px 0; font-size:0.85rem;">Projection km par km</h4>
+            <p class="muted" style="margin:0 0 8px 0; font-size:0.75rem;">
+              Chaque ligne représente un kilomètre de la trace. On calcule le D+ / D- réel et on applique tes allures par zone cardio pour simuler le temps sur ce kilomètre.
+            </p>
+            <div style="overflow-x:auto;">
+              <table style="width:100%; border-collapse:collapse; font-size:0.75rem; margin-bottom:12px; min-width:520px;">
+                <thead>
+                  <tr style="border-bottom:1px solid #e5e7eb;">
+                    <th style="text-align:left; padding:4px;">Km</th>
+                    <th style="text-align:right; padding:4px;">Km cumul</th>
+                    <th style="text-align:right; padding:4px;">Dist.</th>
+                    <th style="text-align:right; padding:4px;">D+</th>
+                    <th style="text-align:right; padding:4px;">D-</th>`;
+          runnerHrZones.forEach(zone => {
+            html += `
+                    <th style="text-align:right; padding:4px;">${zone}</th>`;
+          });
+          html += `
+                  </tr>
+                </thead>
+                <tbody>
+          `;
+
+          kmSplits.forEach(segment => {
+            const zoneTimes = computeZoneTimesForSplit(segment, paceLookup);
+            runnerHrZones.forEach(zone => {
+              kmZoneTotals[zone] = (kmZoneTotals[zone] || 0) + (zoneTimes[zone] || 0);
+            });
+            const gainVal = segment.elevation_gain_m ?? 0;
+            const lossVal = segment.elevation_loss_m ?? 0;
+            html += `
+              <tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:4px;">${segment.km_index ?? ''}</td>
+                <td style="padding:4px; text-align:right;">${formatKilometers(segment.cumulative_km || 0)}</td>
+                <td style="padding:4px; text-align:right;">${formatKilometers(segment.distance_km || 0)}</td>
+                <td style="padding:4px; text-align:right;">${formatMeters(gainVal)}</td>
+                <td style="padding:4px; text-align:right;">${formatMeters(lossVal)}</td>
+            `;
+            runnerHrZones.forEach(zone => {
+              html += `
+                <td style="padding:4px; text-align:right;">${formatProjectionDuration(zoneTimes[zone])}</td>
+              `;
+            });
+            html += `
+              </tr>
+            `;
+          });
+
+          html += `
+              <tr style="border-top:2px solid #d1d5db; font-weight:600;">
+                <td style="padding:4px;">Total</td>
+                <td style="padding:4px; text-align:right;">${formatKilometers(totalKmDistance)}</td>
+                <td style="padding:4px; text-align:right;">${formatKilometers(totalKmDistance)}</td>
+                <td style="padding:4px; text-align:right;">${formatMeters(totalGain)}</td>
+                <td style="padding:4px; text-align:right;">${formatMeters(totalLoss)}</td>
+          `;
+          runnerHrZones.forEach(zone => {
+            html += `
+                <td style="padding:4px; text-align:right;">${formatProjectionDuration(kmZoneTotals[zone])}</td>
+            `;
+          });
+          html += `
+              </tr>
+            </tbody>
+          </table>
+          </div>
+          <div style="margin-top:16px; border:1px solid #e5e7eb; border-radius:6px; padding:12px;">
+            <div style="font-weight:600; margin-bottom:6px;">Temps estimé km par km</div>
+            <div style="height:320px;">
+              <canvas id="projectionKmChart"></canvas>
+            </div>
+          </div>
+          <p class="muted" style="margin:8px 0 0 0; font-size:0.7rem;">La ligne Total doit correspondre au chrono estimé dans le tableau par pentes.</p>
+          `;
+        }
+
         resultBox.innerHTML = html;
+        if (kmSplits.length) {
+          renderProjectionKmChart(kmSplits, paceLookup);
+        }
       } else {
         resultBox.innerHTML = `<p class="muted" style="margin:0;">Aucune portion exploitable sur ce GPX.</p>`;
       }

@@ -397,7 +397,7 @@ def _slope_band_from_grade(grade_percent: float | None) -> str | None:
     return None
 
 
-def _compute_slope_distribution_from_gpx(content: bytes) -> tuple[dict[str, float], float]:
+def _compute_slope_distribution_from_gpx(content: bytes) -> tuple[dict[str, float], float, list[dict]]:
     try:
         root = ET.fromstring(content)
     except ET.ParseError as exc:
@@ -431,6 +431,24 @@ def _compute_slope_distribution_from_gpx(content: bytes) -> tuple[dict[str, floa
     total_distance = 0.0
     prev = points[0]
 
+    km_segments: list[dict] = []
+
+    def _get_km_segment(idx: int) -> dict:
+        while len(km_segments) <= idx:
+            km_segments.append(
+                {
+                    "km_index": len(km_segments) + 1,
+                    "start_distance_m": len(km_segments) * 1000.0,
+                    "distance_m": 0.0,
+                    "elevation_gain_m": 0.0,
+                    "elevation_loss_m": 0.0,
+                    "slope_dist": {},
+                }
+            )
+        return km_segments[idx]
+
+    cumulative_distance = 0.0
+
     for idx in range(1, len(points)):
         lat1, lon1, ele1 = prev
         lat2, lon2, ele2 = points[idx]
@@ -439,21 +457,50 @@ def _compute_slope_distribution_from_gpx(content: bytes) -> tuple[dict[str, floa
             prev = points[idx]
             continue
 
+        if d <= 0:
+            prev = points[idx]
+            continue
+
         total_distance += d
         grade = None
         if ele1 is not None and ele2 is not None:
             grade = ((ele2 - ele1) / d) * 100.0
 
+        delta_ele = 0.0
+        if ele1 is not None and ele2 is not None:
+            delta_ele = ele2 - ele1
+        gain = max(delta_ele, 0.0)
+        loss = max(-delta_ele, 0.0)
+
         band = _slope_band_from_grade(grade)
         if band:
             dist_by_band[band] = dist_by_band.get(band, 0.0) + d
+
+        remaining = d
+        while remaining > 0:
+            km_idx = int(cumulative_distance // 1000)
+            segment = _get_km_segment(km_idx)
+            next_boundary = (km_idx + 1) * 1000.0
+            room = next_boundary - cumulative_distance
+            take = min(remaining, room)
+            fraction = take / d
+            segment["distance_m"] += take
+            if gain > 0:
+                segment["elevation_gain_m"] += gain * fraction
+            if loss > 0:
+                segment["elevation_loss_m"] += loss * fraction
+            if band:
+                slope_dist = segment["slope_dist"]
+                slope_dist[band] = slope_dist.get(band, 0.0) + take
+            remaining -= take
+            cumulative_distance += take
 
         prev = points[idx]
 
     if not dist_by_band:
         raise ValueError("Impossible de déterminer les pentes (altitudes manquantes ?).")
 
-    return dist_by_band, total_distance
+    return dist_by_band, total_distance, km_segments
 def _get_session_user_id(request: Request) -> int | None:
     if not hasattr(request, "session"):
         return None
@@ -2402,9 +2449,32 @@ async def ui_runner_profile_pace_projection(
         raise HTTPException(status_code=400, detail="Merci de fournir un fichier GPX.")
 
     try:
-        dist_by_band, total_distance = _compute_slope_distribution_from_gpx(file_bytes)
+        dist_by_band, total_distance, km_segments = _compute_slope_distribution_from_gpx(file_bytes)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+    km_rows = []
+    cumulative_m = 0.0
+    for segment in km_segments:
+        dist_m = segment.get("distance_m", 0.0)
+        cumulative_m += dist_m
+        km_rows.append(
+            {
+                "km_index": segment.get("km_index"),
+                "distance_km": dist_m / 1000.0 if dist_m else 0.0,
+                "cumulative_km": cumulative_m / 1000.0,
+                "elevation_gain_m": segment.get("elevation_gain_m", 0.0),
+                "elevation_loss_m": segment.get("elevation_loss_m", 0.0),
+                "slope_distribution": [
+                    {
+                        "slope_id": slope_id,
+                        "distance_km": distance_m / 1000.0,
+                    }
+                    for slope_id, distance_m in (segment.get("slope_dist") or {}).items()
+                    if distance_m > 0
+                ],
+            }
+        )
 
     return {
         "total_distance_km": total_distance / 1000.0,
@@ -2419,6 +2489,7 @@ async def ui_runner_profile_pace_projection(
                 key=lambda item: SLOPE_ORDER_INDEX.get(item[0], 0),
             )
         ],
+        "km_splits": km_rows,
     }
 
 

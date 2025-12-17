@@ -83,7 +83,7 @@ import statistics
 import threading
 import shutil
 from datetime import datetime, timedelta
-from collections import Counter
+from collections import Counter, defaultdict
 import re
 from urllib.parse import quote_plus
 from sqlalchemy import desc, func, and_
@@ -285,6 +285,32 @@ def _fill_missing_zone_paces(pace_lookup: dict[str, dict[str, float]], hr_zone_n
             neighbor_val = _neighbor_value(idx, zone)
             if neighbor_val and neighbor_val > 0:
                 zone_map[zone] = neighbor_val
+
+
+def _classify_activity_profile(zone_durations: dict[str, float]) -> str | None:
+    total = sum(zone_durations.values())
+    if total <= 0:
+        return None
+
+    z1 = zone_durations.get("Zone 1", 0.0)
+    z2 = zone_durations.get("Zone 2", 0.0)
+    z3 = zone_durations.get("Zone 3", 0.0)
+    z4 = zone_durations.get("Zone 4", 0.0)
+    z5 = zone_durations.get("Zone 5", 0.0)
+
+    z5_ratio = z5 / total if total else 0.0
+    if z5_ratio >= 0.12 or z5 >= 600:
+        return "fractionne"
+
+    threshold_ratio = (z3 + z4) / total if total else 0.0
+    if threshold_ratio >= 0.5:
+        return "seuil"
+
+    endurance_ratio = (z1 + z2 + z3) / total if total else 0.0
+    if endurance_ratio >= 0.45:
+        return "endurance"
+
+    return "seuil"
 
 from app import auth
 from app import models
@@ -2187,6 +2213,13 @@ def ui_runner_profile(
         .all()
     )
 
+    glucose_activity_profile_radar = {
+        "labels": ["Endurance", "Seuil", "Fractionné"],
+        "values": [None, None, None],
+        "counts": [0, 0, 0],
+        "has_data": False,
+    }
+
     if activities_with_glucose:
         activity_ids = [a.id for a in activities_with_glucose]
 
@@ -2220,6 +2253,28 @@ def ui_runner_profile(
             for row in rows:
                 if row.glucose_mgdl is not None:
                     start_points[row.activity_id] = float(row.glucose_mgdl)
+
+        zone_mix: dict[int, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+        if activity_ids:
+            zone_rows = (
+                db.query(
+                    ActivityZoneSlopeAgg.activity_id,
+                    ActivityZoneSlopeAgg.hr_zone,
+                    func.sum(ActivityZoneSlopeAgg.duration_sec).label("duration_sec"),
+                )
+                .filter(ActivityZoneSlopeAgg.activity_id.in_(activity_ids))
+                .group_by(ActivityZoneSlopeAgg.activity_id, ActivityZoneSlopeAgg.hr_zone)
+                .all()
+            )
+
+            for row in zone_rows:
+                zone_mix[row.activity_id][row.hr_zone] += float(row.duration_sec or 0)
+
+        radar_acc = {
+            "endurance": {"label": "Endurance", "sum": 0.0, "count": 0},
+            "seuil": {"label": "Seuil", "sum": 0.0, "count": 0},
+            "fractionne": {"label": "Fractionné", "sum": 0.0, "count": 0},
+        }
 
         def _format_activity_date(ts: dt.datetime | None, short: bool = False) -> str:
             if ts is None:
@@ -2261,6 +2316,39 @@ def ui_runner_profile(
                 float(activity.time_in_range_percent) if activity.time_in_range_percent is not None else None
             )
 
+            avg_glucose = activity.avg_glucose
+            if avg_glucose is None:
+                continue
+            zone_distribution = zone_mix.get(activity.id) or {}
+            profile_key = _classify_activity_profile(zone_distribution)
+            if not profile_key:
+                continue
+            bucket = radar_acc.get(profile_key)
+            if not bucket:
+                continue
+            bucket["sum"] += float(avg_glucose)
+            bucket["count"] += 1
+
+        radar_labels = [radar_acc[k]["label"] for k in ("endurance", "seuil", "fractionne")]
+        radar_values = []
+        radar_counts = []
+        has_data = False
+        for key in ("endurance", "seuil", "fractionne"):
+            bucket = radar_acc[key]
+            avg_val = None
+            if bucket["count"] > 0:
+                avg_val = bucket["sum"] / bucket["count"]
+                has_data = True
+            radar_values.append(avg_val)
+            radar_counts.append(bucket["count"])
+
+        glucose_activity_profile_radar = {
+            "labels": radar_labels,
+            "values": radar_values,
+            "counts": radar_counts,
+            "has_data": has_data,
+        }
+
     # 7) D+ max sur fenêtres glissantes
     best_dplus_windows = compute_best_dplus_windows(
         db,
@@ -2289,6 +2377,7 @@ def ui_runner_profile(
             "glucose_chart_24h": glucose_chart_24h,
             "glucose_activity_chart": glucose_activity_chart,
             "glucose_activity_table": recent_glucose_activities,
+            "glucose_activity_profile_radar": glucose_activity_profile_radar,
             "best_dplus_windows": best_dplus_windows,
             "global_dplus_stats": global_dplus_stats,
         },

@@ -386,9 +386,15 @@ def merge_desc(existing: str, block: str) -> str:
         "⛰️ VAM :",                     # entête VAM
         "🏃 Allure",                    # entête allure
         "🔁 Cadence",                   # entête cadence
+        "⚡ Allures max",               # nouveau bloc allures
+        "⚡ Vitesse moy",               # bloc vitesses pour ski
+        "🎿 D+ max",                    # bloc ski D+
+        "⛰️ D+ max",                    # bloc run D+
+        "⛰️ VAM max",                  # nouveau bloc VAM
         "Cardio moy",                   # bloc cardio
         "Zone 1 :", "Zone 2 :", "Zone 3 :", "Zone 4 :", "Zone 5 :",  # zones FC
         "—> Made with ❤️ by Benoit",    # signature historique
+        "—> Join us : https://strava-glucosev2.onrender.com/",
     ]
 
     # Cherche le premier marqueur (le plus tôt dans le texte)

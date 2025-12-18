@@ -354,7 +354,16 @@ def _align_stream_pairs(time_stream, value_stream):
     return pairs
 
 
-def _compute_best_pace_windows(time_stream, distance_stream, windows_sec: list[int]) -> dict[int, dict]:
+def _max_speed_cap_for_sport(sport_label: str | None) -> float | None:
+    sport = (sport_label or "").lower()
+    if sport == "run":
+        return 6.0  # ~3:20 /km
+    if sport in {"ski_alpine", "ski_nordic"}:
+        return 15.0  # ~54 km/h
+    return None
+
+
+def _compute_best_pace_windows(time_stream, distance_stream, windows_sec: list[int], max_speed_mps: float | None = None) -> dict[int, dict]:
     pairs = _align_stream_pairs(time_stream, distance_stream)
     if len(pairs) < 2:
         return {}
@@ -362,6 +371,23 @@ def _compute_best_pace_windows(time_stream, distance_stream, windows_sec: list[i
     times = [p[0] for p in pairs]
     dist = [p[1] for p in pairs]
     n = len(times)
+
+    if max_speed_mps is not None and n >= 2:
+        smoothed_dist = [dist[0]]
+        for i in range(1, n):
+            dt_s = times[i] - times[i - 1]
+            if dt_s <= 0:
+                smoothed_dist.append(smoothed_dist[-1])
+                continue
+            delta = dist[i] - dist[i - 1]
+            if delta < 0:
+                delta = 0.0
+            max_delta = max_speed_mps * dt_s
+            if delta > max_delta:
+                delta = max_delta
+            smoothed_dist.append(smoothed_dist[-1] + delta)
+        dist = smoothed_dist
+
     results: dict[int, dict] = {}
 
     for window in windows_sec:
@@ -1177,8 +1203,7 @@ async def process_activity_core(
             distance_stream = streams.get("distance", {}).get("data") or []
             cadence_stream = streams.get("cadence", {}).get("data") or []
 
-            best_gain_windows = _compute_best_gain_windows(time_stream_full, altitude_stream, [60, 300, 600])
-            best_pace_windows = _compute_best_pace_windows(time_stream_full, distance_stream, [15, 60, 300, 600])
+            best_gain_windows = _compute_best_gain_windows(time_stream_full, altitude_stream, [60, 300, 600, 900, 1800, 3600])
             cadence_buckets = _compute_cadence_buckets(time_stream_full, cadence_stream)
 
             def _last_valid_value(seq):
@@ -1213,6 +1238,21 @@ async def process_activity_core(
             blocks_ordered = []
             if stats and stats.get("block"):
                 blocks_ordered.append(stats["block"])
+
+            best_pace_windows = {}
+            pace_windows_needed: list[int] = []
+            if sport_norm == "run":
+                pace_windows_needed = [15, 60, 300, 600]
+            elif sport_norm in {"ski_alpine", "ski_nordic"}:
+                pace_windows_needed = [60, 300]
+            if pace_windows_needed:
+                max_speed_cap = _max_speed_cap_for_sport(sport_norm)
+                best_pace_windows = _compute_best_pace_windows(
+                    time_stream_full,
+                    distance_stream,
+                    pace_windows_needed,
+                    max_speed_mps=max_speed_cap,
+                )
 
             if sport_norm == "run":
                 run_lines = []
@@ -1262,10 +1302,22 @@ async def process_activity_core(
 
             elif sport_norm in {"ski_alpine", "ski_nordic"}:
                 ski_lines = []
-                if total_gain_m:
-                    ski_lines.append(f"🎿 D+ total : {round(float(total_gain_m))} m")
+                dplus_labels = {600: "10′", 1800: "30′", 3600: "1 h"}
+                dplus_parts = []
+                for window, label in dplus_labels.items():
+                    data = best_gain_windows.get(window)
+                    if not data:
+                        continue
+                    gain = round(data.get("gain_m", 0.0))
+                    if gain <= 0:
+                        continue
+                    dplus_parts.append(f"{label} : +{gain} m")
+                if dplus_parts:
+                    ski_lines.append("🎿 D+ max : " + " | ".join(dplus_parts))
+
+                vam_labels = {300: "5′", 900: "15′", 1800: "30′"}
                 vam_parts = []
-                for window, label in [(300, "5′"), (600, "10′")]:
+                for window, label in vam_labels.items():
                     data = best_gain_windows.get(window)
                     if not data:
                         continue
@@ -1275,6 +1327,7 @@ async def process_activity_core(
                     vam_parts.append(f"{label} : {vam} m/h")
                 if vam_parts:
                     ski_lines.append("⛰️ VAM max : " + " | ".join(vam_parts))
+
                 speed_labels = {60: "1′", 300: "5′"}
                 speed_parts = []
                 for window, label in speed_labels.items():

@@ -292,6 +292,7 @@ class UserSettings(Base):
     desc_include_vam = Column(Boolean, default=False)
     desc_include_pace = Column(Boolean, default=False)
     desc_include_cadence = Column(Boolean, default=False)
+    desc_enable_auto_block = Column(Boolean, default=True)
 
     desc_format = Column(String(32), default="gly_first")
     desc_max_lines = Column(Integer, nullable=True)
@@ -338,4 +339,3 @@ class GlucosePoint(Base):
     )
 
     user = relationship("User", backref="glucose_points")
-

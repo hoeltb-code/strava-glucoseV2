@@ -108,36 +108,17 @@
         <!-- Préférences d’enrichissement Strava (dans le MÊME form) -->
         <!-- ========================================================= -->
         <div class="card" style="margin-top:16px; padding:12px 14px;">
-          <h3 style="font-size:0.95rem; font-weight:600; margin:0 0 6px;">Préférences description Strava</h3>
+          <h3 style="font-size:0.95rem; font-weight:600; margin:0 0 6px;">Description Strava automatique</h3>
           <p class="muted" style="margin:0 0 10px; font-size:0.85rem; color:#6b7280;">
-            Les sections seront affichées dans l'ordre : <strong>Glycémie → VAM → Allure → Cadence</strong>.
+            Active l’enrichissement automatique des activités Strava : glycémie, VAM, allure ou cadence seront ajoutées
+            selon le type de sortie.
           </p>
 
-          <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px;">
-            <label style="display:flex; align-items:center; gap:8px;">
-                <input type="checkbox" name="desc_include_vam"
-                    {% if include_vam %}checked{% endif %}>
-              VAM
-            </label>
-
-            <label style="display:flex; align-items:center; gap:8px;">
-                <input type="checkbox" name="desc_include_pace"
-                     {% if include_pace %}checked{% endif %}>
-              Allure / vitesse
-            </label>
-
-            <label style="display:flex; align-items:center; gap:8px;">
-                <input type="checkbox" name="desc_include_cadence"
-                     {% if include_cad %}checked{% endif %}>
-              Cadence
-            </label>
-
-            <label style="display:flex; align-items:center; gap:8px;">
-                <input type="checkbox" name="desc_include_glycemia"
-                    {% if include_gly %}checked{% endif %}>
-              Glycémie
-            </label>
-          </div>
+          <label style="display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" name="desc_enable_auto_block"
+                   {% if auto_block_enabled %}checked{% endif %}>
+            Publier automatiquement les stats Strava
+          </label>
         </div>
 
         <div style="margin-top:16px; display:flex; justify-content:flex-end;">

@@ -86,6 +86,7 @@ from datetime import datetime, timedelta
 from collections import Counter, defaultdict
 import re
 from urllib.parse import quote_plus
+from bisect import bisect_left
 from sqlalchemy import desc, func, and_
 from sqlalchemy.orm import Session
 
@@ -336,6 +337,124 @@ def _format_pace(pace_seconds: float | None) -> str | None:
     minutes = s // 60
     seconds = s % 60
     return f"{minutes}:{seconds:02d} /km"
+
+
+def _align_stream_pairs(time_stream, value_stream):
+    pairs = []
+    n = min(len(time_stream or []), len(value_stream or []))
+    for i in range(n):
+        t = time_stream[i]
+        v = value_stream[i]
+        if t is None or v is None:
+            continue
+        try:
+            pairs.append((float(t), float(v)))
+        except (TypeError, ValueError):
+            continue
+    return pairs
+
+
+def _compute_best_pace_windows(time_stream, distance_stream, windows_sec: list[int]) -> dict[int, dict]:
+    pairs = _align_stream_pairs(time_stream, distance_stream)
+    if len(pairs) < 2:
+        return {}
+
+    times = [p[0] for p in pairs]
+    dist = [p[1] for p in pairs]
+    n = len(times)
+    results: dict[int, dict] = {}
+
+    for window in windows_sec:
+        best_entry = None
+        best_pace = None
+        for i in range(n - 1):
+            t0 = times[i]
+            target = t0 + window
+            j = bisect_left(times, target, i + 1, n)
+            if j >= n:
+                continue
+            for idx in range(j, min(j + 3, n)):
+                duration = times[idx] - t0
+                if duration <= 0:
+                    continue
+                distance_gain = dist[idx] - dist[i]
+                if distance_gain <= 0:
+                    continue
+                pace_sec_per_km = (duration / distance_gain) * 1000.0
+                if pace_sec_per_km <= 0:
+                    continue
+                if best_pace is None or pace_sec_per_km < best_pace:
+                    best_pace = pace_sec_per_km
+                    best_entry = {
+                        "duration": duration,
+                        "distance": distance_gain,
+                        "pace_sec_per_km": pace_sec_per_km,
+                    }
+        if best_entry:
+            results[window] = best_entry
+    return results
+
+
+def _compute_best_gain_windows(time_stream, altitude_stream, windows_sec: list[int]) -> dict[int, dict]:
+    pairs = _align_stream_pairs(time_stream, altitude_stream)
+    if len(pairs) < 2:
+        return {}
+
+    times = [p[0] for p in pairs]
+    alts = [p[1] for p in pairs]
+    n = len(times)
+    results: dict[int, dict] = {}
+
+    for window in windows_sec:
+        best_entry = None
+        best_gain = 0.0
+        for i in range(n - 1):
+            t0 = times[i]
+            target = t0 + window
+            j = bisect_left(times, target, i + 1, n)
+            if j >= n:
+                continue
+            for idx in range(j, min(j + 3, n)):
+                duration = times[idx] - t0
+                if duration <= 0:
+                    continue
+                gain = alts[idx] - alts[i]
+                if gain <= 0:
+                    continue
+                if gain > best_gain:
+                    vam = (gain / duration) * 3600.0
+                    best_gain = gain
+                    best_entry = {
+                        "gain_m": gain,
+                        "duration": duration,
+                        "vam_m_per_h": vam,
+                    }
+        if best_entry:
+            results[window] = best_entry
+    return results
+
+
+def _compute_cadence_buckets(time_stream, cadence_stream) -> dict[str, float]:
+    pairs = _align_stream_pairs(time_stream, cadence_stream)
+    if len(pairs) < 2:
+        return {}
+
+    buckets = {"walk": 0.0, "trot": 0.0, "run": 0.0}
+    for i in range(len(pairs) - 1):
+        t0, cad = pairs[i]
+        t1 = pairs[i + 1][0]
+        duration = t1 - t0
+        if duration <= 0:
+            continue
+        cadence_spm = float(cad) * 2.0
+        if cadence_spm < 120:
+            bucket = "walk"
+        elif cadence_spm <= 150:
+            bucket = "trot"
+        else:
+            bucket = "run"
+        buckets[bucket] += duration
+    return buckets
 
 
 def _get_global_dplus_window_stats(db: Session, sport: str) -> dict:
@@ -1041,89 +1160,150 @@ async def process_activity_core(
         except Exception as e:
             print("⚠️ Erreur compute_and_store_zone_slope_aggs :", e)
 
-        # 6) Sections dans l'ordre imposé : Gly → VAM → Allure → Cadence
+        # 6) Sections dynamiques selon le type d'activité
         # -----------------------------------------------------------------
         settings = db.query(UserSettings).filter(UserSettings.user_id == user_id).one_or_none()
         if settings is None:
             class _S:
-                desc_include_glycemia = True
-                desc_include_vam = False
-                desc_include_pace = False
-                desc_include_cadence = False
+                desc_enable_auto_block = True
             settings = _S()
 
-        # Glycémie
-        gly_section_lines = []
-        if settings.desc_include_glycemia:
-            if stats:
-                gly_section_lines.append(stats["block"])
-            else:
-                gly_section_lines.append(
-                    "🔬Glycémie : Aucune donnée disponible sur cette période\n"
-                    "(Les données CGM ne couvrent peut-être pas la fenêtre de l'activité.)"
-                )
+        auto_block_enabled = getattr(settings, "desc_enable_auto_block", True)
+        full_block = ""
 
-        # VAM (lire les max déjà stockés sur l'activité)
-        vam_section_lines = []
-        if settings.desc_include_vam:
-            a = db.query(Activity).get(activity_obj.id)
-            l = []
-            if a and a.max_vam_5m:  l.append(f"5′ : {round(a.max_vam_5m)} m/h")
-            if a and a.max_vam_15m: l.append(f"15′ : {round(a.max_vam_15m)} m/h")
-            if a and a.max_vam_30m: l.append(f"30′ : {round(a.max_vam_30m)} m/h")
-            vam_section_lines.append("⛰️ VAM : " + (" | ".join(l) if l else "n/a"))
+        if auto_block_enabled:
+            time_stream_full = streams.get("time", {}).get("data") or []
+            altitude_stream = streams.get("altitude", {}).get("data") or []
+            distance_stream = streams.get("distance", {}).get("data") or []
+            cadence_stream = streams.get("cadence", {}).get("data") or []
 
-        # Allure / vitesse (moyenne simple)
-        pace_section_lines = []
-        if settings.desc_include_pace:
-            agg = (
-                db.query(func.avg(ActivityStreamPoint.velocity))
-                .filter(ActivityStreamPoint.activity_id == activity_obj.id)
-                .one()
-            )
-            avg_v_ms = agg[0] if agg and agg[0] is not None else None
-            if avg_v_ms and avg_v_ms > 0:
-                pace_s_per_km = 1000.0 / float(avg_v_ms)
-                m = int(pace_s_per_km // 60)
-                s = int(round(pace_s_per_km % 60))
-                pace_section_lines.append(f"🏃 Allure moy : {m}:{s:02d} /km (v={avg_v_ms:.2f} m/s)")
-            else:
-                pace_section_lines.append("🏃 Allure : n/a")
+            best_gain_windows = _compute_best_gain_windows(time_stream_full, altitude_stream, [60, 300, 600])
+            best_pace_windows = _compute_best_pace_windows(time_stream_full, distance_stream, [15, 60, 300, 600])
+            cadence_buckets = _compute_cadence_buckets(time_stream_full, cadence_stream)
 
-        # Cadence (moyenne simple)
-        cad_section_lines = []
-        if settings.desc_include_cadence:
-            agg = (
-                db.query(func.avg(ActivityStreamPoint.cadence))
-                .filter(ActivityStreamPoint.activity_id == activity_obj.id)
-                .one()
-            )
-            avg_cad = agg[0] if agg and agg[0] is not None else None
-            if avg_cad:
-                display_cad = round(avg_cad * 2)
-                cad_section_lines.append(f"🔁 Cadence moy : {display_cad} spm")
-            else:
-                cad_section_lines.append("🔁 Cadence : n/a")
+            def _last_valid_value(seq):
+                if not seq:
+                    return None
+                for val in reversed(seq):
+                    if val is None:
+                        continue
+                    try:
+                        return float(val)
+                    except (TypeError, ValueError):
+                        continue
+                return None
 
-        # Assemblage final (Glycémie → VAM → Allure → Cadence)
-        blocks_ordered = []
-        if gly_section_lines:  blocks_ordered.append("\n".join(gly_section_lines))
-        if vam_section_lines:  blocks_ordered.append("\n".join(vam_section_lines))
-        if pace_section_lines: blocks_ordered.append("\n".join(pace_section_lines))
-        if cad_section_lines:  blocks_ordered.append("\n".join(cad_section_lines))
+            total_distance_m = activity_obj.distance or act.get("distance") or _last_valid_value(distance_stream)
+            moving_time_sec = act.get("moving_time") or activity_obj.elapsed_time or _last_valid_value(time_stream_full)
+            total_gain_m = activity_obj.total_elevation_gain or act.get("total_elevation_gain")
 
-        # Ajoute la signature uniquement s'il y a du contenu
-        if blocks_ordered:
-            blocks_ordered.append("—> Join us : https://strava-glucosev2.onrender.com/")
+            overall_pace_sec = None
+            avg_speed_kmh = None
+            if total_distance_m and moving_time_sec and float(total_distance_m) > 0:
+                overall_pace_sec = (float(moving_time_sec) / float(total_distance_m)) * 1000.0
+                if moving_time_sec and float(moving_time_sec) > 0:
+                    avg_speed_kmh = (float(total_distance_m) / float(moving_time_sec)) * 3.6
+            overall_pace_str = _format_pace(overall_pace_sec)
 
-        full_block = "\n".join(blocks_ordered)
+            sport_norm = (activity_obj.sport or "").lower()
+            has_significant_climb = False
+            if total_distance_m and total_gain_m and float(total_distance_m) > 0:
+                has_significant_climb = (float(total_gain_m) / float(total_distance_m)) >= 0.02
+
+            blocks_ordered = []
+            if stats and stats.get("block"):
+                blocks_ordered.append(stats["block"])
+
+            if sport_norm == "run":
+                run_lines = []
+                gain_labels = {60: "1′", 300: "5′", 600: "10′"}
+
+                if has_significant_climb:
+                    dplus_parts = []
+                    for window in [60, 300, 600]:
+                        data = best_gain_windows.get(window)
+                        if not data:
+                            continue
+                        gain = round(data.get("gain_m", 0.0))
+                        vam = round(data.get("vam_m_per_h", 0.0))
+                        if gain <= 0 or vam <= 0:
+                            continue
+                        dplus_parts.append(f"{gain_labels[window]} : +{gain} m ({vam} m/h)")
+                    if dplus_parts:
+                        run_lines.append("⛰️ D+ max : " + " | ".join(dplus_parts))
+
+                pace_labels = {15: "15s", 60: "1′", 300: "5′", 600: "10′"}
+                pace_parts = []
+                for window in [15, 60, 300, 600]:
+                    data = best_pace_windows.get(window)
+                    if not data:
+                        continue
+                    pace_str = _format_pace(data.get("pace_sec_per_km"))
+                    if pace_str:
+                        pace_parts.append(f"{pace_labels[window]} : {pace_str}")
+                if pace_parts:
+                    run_lines.append("⚡ Allures max : " + " | ".join(pace_parts))
+
+                if not has_significant_climb:
+                    walk_time = cadence_buckets.get("walk", 0.0)
+                    trot_time = cadence_buckets.get("trot", 0.0)
+                    run_time = cadence_buckets.get("run", 0.0)
+                    total_cad_time = walk_time + trot_time + run_time
+                    if total_cad_time > 0:
+                        run_lines.append(
+                            "🔁 Cadence : "
+                            f"<120 PPM {_format_duration(walk_time)} | "
+                            f"120-150 PPM {_format_duration(trot_time)} | "
+                            f">150 PPM {_format_duration(run_time)}"
+                        )
+
+                if run_lines:
+                    blocks_ordered.append("\n".join(run_lines))
+
+            elif sport_norm in {"ski_alpine", "ski_nordic"}:
+                ski_lines = []
+                if total_gain_m:
+                    ski_lines.append(f"🎿 D+ total : {round(float(total_gain_m))} m")
+                vam_parts = []
+                for window, label in [(300, "5′"), (600, "10′")]:
+                    data = best_gain_windows.get(window)
+                    if not data:
+                        continue
+                    vam = round(data.get("vam_m_per_h", 0.0))
+                    if vam <= 0:
+                        continue
+                    vam_parts.append(f"{label} : {vam} m/h")
+                if vam_parts:
+                    ski_lines.append("⛰️ VAM max : " + " | ".join(vam_parts))
+                speed_labels = {60: "1′", 300: "5′"}
+                speed_parts = []
+                for window, label in speed_labels.items():
+                    data = best_pace_windows.get(window)
+                    if not data:
+                        continue
+                    pace_sec = data.get("pace_sec_per_km")
+                    if pace_sec and pace_sec > 0:
+                        speed_kmh = 3600.0 / pace_sec
+                        speed_parts.append(f"{label} : {speed_kmh:.1f} km/h")
+                if speed_parts:
+                    ski_lines.append("⚡ Vitesse moy : " + " | ".join(speed_parts))
+                if ski_lines:
+                    blocks_ordered.append("\n".join(ski_lines))
+
+            elif stats and stats.get("block"):
+                # Pour les autres sports, on laisse uniquement le bloc glycémie s'il existe.
+                pass
+
+            if blocks_ordered:
+                blocks_ordered.append("—> Join us : https://strava-glucosev2.onrender.com/")
+                full_block = "\n".join(blocks_ordered)
 
         # 7) Mise à jour Strava + persistance du block (optionnel)
-        if update_strava_description and cli is not None and activity_id is not None:
+        if auto_block_enabled and full_block and update_strava_description and cli is not None and activity_id is not None:
             new_desc = merge_desc(act.get("description") or "", full_block)
             await cli.update_activity_description(activity_id, new_desc)
 
-        activity_obj.glucose_summary_block = full_block
+        activity_obj.glucose_summary_block = full_block or None
         db.add(activity_obj)
         db.commit()
 
@@ -1852,15 +2032,12 @@ def ui_user_profile(user_id: int, request: Request):
         strava_athlete_id = user.strava_tokens[0].athlete_id if user.strava_tokens else None
         cgm_source = user.cgm_source or ""
 
-        # ✅ EAGER: lire les préférences et créer des bools simples
+        # ✅ EAGER: lire les préférences et créer un bool simple
         settings = db.query(UserSettings).filter(UserSettings.user_id == user_id).one_or_none()
-        include_vam = bool(settings.desc_include_vam) if settings else False
-        include_pace = bool(settings.desc_include_pace) if settings else False
-        include_cad  = bool(settings.desc_include_cadence) if settings else False
-        if settings and settings.desc_include_glycemia is not None:
-            include_gly = bool(settings.desc_include_glycemia)
+        if settings and settings.desc_enable_auto_block is not None:
+            auto_block_enabled = bool(settings.desc_enable_auto_block)
         else:
-            include_gly = True
+            auto_block_enabled = True
 
         libre_status = request.query_params.get("libre_status")
         libre_status_message = request.query_params.get("libre_msg")
@@ -1880,11 +2057,7 @@ def ui_user_profile(user_id: int, request: Request):
             "libre_region": libre_region,
             "strava_athlete_id": strava_athlete_id,
             "cgm_source": cgm_source,
-            # flags pour la template
-            "include_vam": include_vam,
-            "include_pace": include_pace,
-            "include_cad": include_cad,
-            "include_gly": include_gly,
+            "auto_block_enabled": auto_block_enabled,
             "libre_status": libre_status,
             "libre_status_message": libre_status_message,
         }
@@ -1927,11 +2100,7 @@ def ui_user_profile_update(
     cgm_source: str = Form(""),      # "", "libre", "dexcom" (Auto/libre/Dexcom)
     profile_image: UploadFile | None = File(None),  # 👈 fichier uploadé
 
-    # 👇 NEW : cases à cocher "Description Strava"
-    desc_include_glycemia: bool = Form(False),
-    desc_include_vam: bool = Form(False),
-    desc_include_pace: bool = Form(False),
-    desc_include_cadence: bool = Form(False),
+    desc_enable_auto_block: bool = Form(True),
 ):
     """
     Traite le formulaire de profil utilisateur :
@@ -2035,10 +2204,7 @@ def ui_user_profile_update(
             settings = UserSettings(user_id=user_id)
             db.add(settings)
 
-        settings.desc_include_glycemia = bool(desc_include_glycemia)
-        settings.desc_include_vam      = bool(desc_include_vam)
-        settings.desc_include_pace     = bool(desc_include_pace)
-        settings.desc_include_cadence  = bool(desc_include_cadence)
+        settings.desc_enable_auto_block = bool(desc_enable_auto_block)
 
         db.commit()
         db.refresh(user)

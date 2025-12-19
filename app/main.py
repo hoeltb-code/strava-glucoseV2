@@ -1460,7 +1460,7 @@ async def process_activity_core(
                 pass
 
             if blocks_ordered:
-                blocks_ordered.append("—> Join us : https://strava-glucosev2.onrender.com/")
+                blocks_ordered.append("Pour tous les fans de data —> Join us : https://strava-glucosev2.onrender.com/")
                 full_block = "\n".join(blocks_ordered)
 
         # 7) Mise à jour Strava + persistance du block (optionnel)
@@ -1974,6 +1974,8 @@ def ui_home(request: Request):
                 "email": u.email,
                 "has_strava": bool(u.strava_tokens),
                 "libre_email": u.libre_credentials.email if u.libre_credentials else None,
+                "has_dexcom": bool(u.dexcom_tokens),
+                "cgm_source": (u.cgm_source or "").upper() if u.cgm_source else None,
             })
     finally:
         db.close()

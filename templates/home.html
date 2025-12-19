@@ -6,7 +6,7 @@
   <div class="card">
     <h2>👥 Utilisateurs</h2>
     <p style="color: var(--text-muted); margin-top: -4px;">
-      Statut des connexions Strava et LibreLinkUp
+      Statut des connexions Strava / LibreLinkUp / Dexcom
     </p>
 
     {% if users %}
@@ -17,6 +17,7 @@
             <th style="text-align:left; padding: 6px;">Utilisateur</th>
             <th style="text-align:left; padding: 6px;">Strava</th>
             <th style="text-align:left; padding: 6px;">LibreLinkUp</th>
+            <th style="text-align:left; padding: 6px;">Dexcom</th>
             <th style="text-align:right; padding: 6px;">Actions</th>
           </tr>
         </thead>
@@ -35,8 +36,17 @@
               <td style="padding: 6px;">
                 {% if u.libre_email %}
                   <span style="color: #4ade80;">{{ u.libre_email }}</span>
+                {% elif u.has_dexcom %}
+                  <span style="color: #facc15;">Dexcom actif</span>
                 {% else %}
                   <span style="color: #f87171;">Non configuré</span>
+                {% endif %}
+              </td>
+              <td style="padding: 6px;">
+                {% if u.has_dexcom %}
+                  <span style="color: #4ade80;">Connecté</span>
+                {% else %}
+                  <span style="color: #f87171;">Non connecté</span>
                 {% endif %}
               </td>
               <td style="text-align:right; padding: 6px;">

@@ -200,6 +200,20 @@
 
     <h3 style="margin:0;">
       <a href="/ui/user/{{ user.id }}/activity/{{ a.id }}">
+        {% set sport = (a.sport or '')|lower %}
+        {% if sport in ['run', 'trailrun', 'trail run'] %}
+          🏃
+        {% elif sport in ['ride', 'virtualride', 'ebikeride', 'gravelride', 'mountainbike', 'mtb'] %}
+          🚴
+        {% elif sport in ['ski_alpine', 'ski', 'alpineski', 'backcountryski'] %}
+          🎿
+        {% elif sport in ['ski_nordic', 'rollerski'] %}
+          ⛷️
+        {% elif sport in ['hike', 'walk'] %}
+          🚶
+        {% else %}
+          ⚪
+        {% endif %}
         {{ (a.name or ('Activité #' ~ a.id))|truncate(60, True, '…') }}
       </a>
     </h3>

@@ -55,6 +55,7 @@
       <table class="activities-table">
         <thead>
           <tr>
+            <th></th>
             <th>Activité</th>
             <th>Date</th>
             <th>Distance</th>
@@ -70,6 +71,22 @@
         <tbody>
           {% for row in activities %}
             <tr>
+              <td style="font-size:1.2rem; text-align:center;">
+                {% set sport = (row.sport or '')|lower %}
+                {% if sport in ['run', 'trailrun', 'trail run'] %}
+                  🏃
+                {% elif sport in ['ride', 'virtualride', 'ebikeride', 'gravelride', 'mountainbike', 'mtb'] %}
+                  🚴
+                {% elif sport in ['ski_alpine', 'ski', 'alpineski', 'backcountryski'] %}
+                  🎿
+                {% elif sport in ['ski_nordic', 'rollerski'] %}
+                  ⛷️
+                {% elif sport in ['hike', 'walk'] %}
+                  🚶
+                {% else %}
+                  ⚪
+                {% endif %}
+              </td>
               <td>
                 <strong>{{ row.name|truncate(30, True, '…') }}</strong>
               </td>

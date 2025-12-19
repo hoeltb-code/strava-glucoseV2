@@ -3049,6 +3049,7 @@ def ui_user_dashboard(user_id: int, request: Request):
                 "gps": gps,  # JSON-serializable
                 "level": level,
                 "level_color": level_color,
+                "sport": a.sport or (a.activity_type or "").lower(),
                 "summary_block": summary_block,
                 "summary_block_clean": clean_block,
             })
@@ -3236,6 +3237,7 @@ def ui_user_activities(user_id: int, request: Request):
             "elevation_loss_m": elevation_loss,
             "duration_str": duration_str,
             "dplus_windows": window_values,
+            "sport": activity.sport or (activity.activity_type or "").lower(),
         }
 
     try:

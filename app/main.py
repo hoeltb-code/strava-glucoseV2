@@ -358,6 +358,8 @@ def _max_speed_cap_for_sport(sport_label: str | None) -> float | None:
     sport = (sport_label or "").lower()
     if sport == "run":
         return 6.0  # ~3:20 /km
+    if sport == "ride":
+        return 25.0  # ~90 km/h
     if sport in {"ski_alpine", "ski_nordic"}:
         return 15.0  # ~54 km/h
     return None
@@ -481,6 +483,74 @@ def _compute_cadence_buckets(time_stream, cadence_stream) -> dict[str, float]:
             bucket = "run"
         buckets[bucket] += duration
     return buckets
+
+
+def _resample_series(time_stream, value_stream, step_sec: float = 1.0) -> list[float]:
+    pairs = _align_stream_pairs(time_stream, value_stream)
+    if len(pairs) < 2 or step_sec <= 0:
+        return []
+    step = max(0.5, float(step_sec))
+    start = pairs[0][0]
+    end = pairs[-1][0]
+    if end <= start:
+        return []
+    num_steps = int((end - start) / step) + 1
+    values: list[float] = []
+    idx = 0
+    current_val = pairs[0][1]
+    t = start
+    for _ in range(num_steps):
+        while idx + 1 < len(pairs) and pairs[idx + 1][0] <= t:
+            idx += 1
+            current_val = pairs[idx][1]
+        values.append(current_val)
+        t += step
+    return values
+
+
+def _compute_avg_value_windows(time_stream, value_stream, windows_sec: list[int]) -> dict[int, float]:
+    samples = _resample_series(time_stream, value_stream, step_sec=1.0)
+    if not samples:
+        return {}
+    cum = [0.0]
+    for val in samples:
+        cum.append(cum[-1] + float(val))
+    n = len(samples)
+    results: dict[int, float] = {}
+    for window in windows_sec:
+        size = int(round(window))
+        if size <= 0 or size > n:
+            continue
+        best_avg = None
+        for i in range(0, n - size + 1):
+            total = cum[i + size] - cum[i]
+            avg = total / size
+            if best_avg is None or avg > best_avg:
+                best_avg = avg
+        if best_avg is not None:
+            results[window] = best_avg
+    return results
+
+
+def _compute_time_weighted_avg_and_max(time_stream, value_stream) -> tuple[float | None, float | None]:
+    pairs = _align_stream_pairs(time_stream, value_stream)
+    if len(pairs) < 2:
+        return None, None
+    total = 0.0
+    duration = 0.0
+    max_val = None
+    for i in range(len(pairs) - 1):
+        t0, v = pairs[i]
+        t1 = pairs[i + 1][0]
+        dt = t1 - t0
+        if dt <= 0:
+            continue
+        total += float(v) * dt
+        duration += dt
+        if max_val is None or v > max_val:
+            max_val = float(v)
+    avg = (total / duration) if duration > 0 else None
+    return avg, max_val
 
 
 def _get_global_dplus_window_stats(db: Session, sport: str) -> dict:
@@ -1144,7 +1214,7 @@ async def process_activity_core(
 
         # select_window utilise start/end -> on passe AWARE UTC
         samples = select_window(graph_db, start_aw, end_aw, buffer_min=5)
-        stats = compute_stats(samples)
+        stats = compute_stats(samples, activity_start=start_aw, activity_end=end_aw)
 
         activity_obj = upsert_activity_record(
             db=db,
@@ -1243,6 +1313,8 @@ async def process_activity_core(
             pace_windows_needed: list[int] = []
             if sport_norm == "run":
                 pace_windows_needed = [15, 60, 300, 600]
+            elif sport_norm == "ride":
+                pace_windows_needed = [900, 1800, 3600]
             elif sport_norm in {"ski_alpine", "ski_nordic"}:
                 pace_windows_needed = [60, 300]
             if pace_windows_needed:
@@ -1343,8 +1415,48 @@ async def process_activity_core(
                 if ski_lines:
                     blocks_ordered.append("\n".join(ski_lines))
 
+            elif sport_norm == "ride":
+                ride_lines = []
+                avg_cad, max_cad = _compute_time_weighted_avg_and_max(time_stream_full, cadence_stream)
+                cadence_parts = []
+                if avg_cad:
+                    cadence_parts.append(f"moy {round(avg_cad)} rpm")
+                if max_cad:
+                    cadence_parts.append(f"max {round(max_cad)} rpm")
+                if cadence_parts:
+                    ride_lines.append("🔁 Cadence vélo : " + " | ".join(cadence_parts))
+
+                power_stream = streams.get("watts", {}).get("data") or []
+                power_windows = _compute_avg_value_windows(time_stream_full, power_stream, [300, 900, 1800])
+                if power_windows:
+                    label_map = {300: "5′", 900: "15′", 1800: "30′"}
+                    pw_parts = []
+                    for window in [300, 900, 1800]:
+                        avg_power = power_windows.get(window)
+                        if avg_power is None:
+                            continue
+                        pw_parts.append(f"{label_map[window]} : {round(avg_power)} W")
+                    if pw_parts:
+                        ride_lines.append("⚡ Puissance moy : " + " | ".join(pw_parts))
+
+                speed_parts = []
+                speed_labels = {900: "15′", 1800: "30′", 3600: "1 h"}
+                for window in [900, 1800, 3600]:
+                    data = best_pace_windows.get(window)
+                    if not data:
+                        continue
+                    pace_sec = data.get("pace_sec_per_km")
+                    if pace_sec and pace_sec > 0:
+                        speed_kmh = 3600.0 / pace_sec
+                        speed_parts.append(f"{speed_labels[window]} : {speed_kmh:.1f} km/h")
+                if speed_parts:
+                    ride_lines.append("⚡ Vitesse moy : " + " | ".join(speed_parts))
+
+                if ride_lines:
+                    blocks_ordered.append("\n".join(ride_lines))
+
             elif stats and stats.get("block"):
-                # Pour les autres sports, on laisse uniquement le bloc glycémie s'il existe.
+                # Autres sports : on ne garde que la glycémie si disponible
                 pass
 
             if blocks_ordered:

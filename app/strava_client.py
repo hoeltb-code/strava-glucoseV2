@@ -182,7 +182,7 @@ class StravaClient:
     async def get_streams(
         self,
         activity_id: int,
-        keys: str = "time,latlng,altitude,heartrate,cadence,velocity_smooth,moving,distance",
+        keys: str = "time,latlng,altitude,heartrate,cadence,velocity_smooth,moving,distance,watts,grade_smooth,temp",
         key_by_type: bool = True,
     ) -> Dict[str, Any]:
         """
@@ -191,4 +191,3 @@ class StravaClient:
         """
         params = {"keys": keys, "key_by_type": "true" if key_by_type else "false"}
         return await self._get(f"/activities/{activity_id}/streams", params=params)
-

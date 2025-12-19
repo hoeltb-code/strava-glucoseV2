@@ -225,7 +225,7 @@ def _build_bar(pct_hypo: float, pct_in_range: float, pct_hyper: float) -> str:
 #----------------------------------------------------------------------------
 # Calcul des stats glycémiques
 #----------------------------------------------------------------------------
-def compute_stats(samples):
+def compute_stats(samples, activity_start: dt.datetime | None = None, activity_end: dt.datetime | None = None):
     if not samples:
         return None
 
@@ -251,10 +251,54 @@ def compute_stats(samples):
     avg_r = round(avg)
     pct_zone_r = round(pct_in_range)
 
+    pairs_with_ts = []
+    for s in samples:
+        val = s.get("mgdl")
+        ts = s.get("ts")
+        if val is None or ts is None:
+            continue
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=dt.timezone.utc)
+        pairs_with_ts.append((ts, val))
+    pairs_with_ts.sort(key=lambda x: x[0])
+
+    def _value_at_start(pairs, target):
+        if not pairs:
+            return None
+        if target is None:
+            return pairs[0][1]
+        for ts, val in pairs:
+            if ts >= target:
+                return val
+        return pairs[-1][1]
+
+    def _value_at_end(pairs, target):
+        if not pairs:
+            return None
+        if target is None:
+            return pairs[-1][1]
+        for ts, val in reversed(pairs):
+            if ts <= target:
+                return val
+        return pairs[0][1]
+
+    start_val = _value_at_start(pairs_with_ts, activity_start)
+    end_val = _value_at_end(pairs_with_ts, activity_end)
+
     lines = []
     lines.append(f"🔬Glycémie : Moy : {avg_r} mg/dL | {TARGET_MIN}-{TARGET_MAX} : {pct_zone_r}%")
     lines.append(bar)
-    lines.append(f"Max : {vmax} mg/dL | Min : {vmin} mg/dL")
+    if start_val is not None or end_val is not None:
+        start_str = f"{round(start_val)} mg/dL" if start_val is not None else "n/a"
+        end_str = f"{round(end_val)} mg/dL" if end_val is not None else "n/a"
+        lines.append(f"Départ : {start_str} | Arrivée : {end_str}")
+    def _fmt(v):
+        if v is None:
+            return "n/a"
+        if isinstance(v, (int, float)):
+            return str(int(round(v)))
+        return str(v)
+    lines.append(f"Max : {_fmt(vmax)} mg/dL | Min : {_fmt(vmin)} mg/dL")
     block = "\n".join(lines)
 
     h = hashlib.sha1(block.encode()).hexdigest()
@@ -273,6 +317,8 @@ def compute_stats(samples):
         "bar": bar,
         "block": block,
         "hash": h,
+        "start_mgdl": start_val,
+        "end_mgdl": end_val,
     }
 
 #---------------------------------------------------------------------------
@@ -388,9 +434,11 @@ def merge_desc(existing: str, block: str) -> str:
         "🔁 Cadence",                   # entête cadence
         "⚡ Allures max",               # nouveau bloc allures
         "⚡ Vitesse moy",               # bloc vitesses pour ski
+        "⚡ Puissance moy",             # bloc puissance vélo
         "🎿 D+ max",                    # bloc ski D+
         "⛰️ D+ max",                    # bloc run D+
         "⛰️ VAM max",                  # nouveau bloc VAM
+        "🔁 Cadence vélo",             # bloc cadence vélo
         "Cardio moy",                   # bloc cardio
         "Zone 1 :", "Zone 2 :", "Zone 3 :", "Zone 4 :", "Zone 5 :",  # zones FC
         "—> Made with ❤️ by Benoit",    # signature historique

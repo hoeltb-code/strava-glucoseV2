@@ -213,36 +213,17 @@
       <!-- Carte à gauche -->
       <div id="map-{{ a.id }}" style="height: 240px; border:1px solid #eee; border-radius:2px;"></div>
 
-      <!-- ⛰️ VAM de l’activité -->
+      <!-- 📤 Bloc envoyé sur Strava -->
       <div style="margin-top:12px;">
-        <h4 style="margin:0 0 6px 0;">⛰️ VAM de l’activité</h4>
-        <p class="muted" style="margin:0 0 10px 0; font-size:0.85rem;">
-          Vitesse Ascensionnelle Maximale (VAM) : meilleur rythme vertical moyen
-          atteint sur une fenêtre glissante de 5, 15 et 30 minutes.
-        </p>
-
-        <div style="display:grid; grid-template-columns: 1fr auto; row-gap:4px;">
-          <div>5 min</div>
-          <div style="text-align:right;">
-            {% if a.vam_5 is not none %}
-              {{ a.vam_5|round(0)|int }} m/hr
-            {% else %} n/a {% endif %}
-          </div>
-
-          <div>15 min</div>
-          <div style="text-align:right;">
-            {% if a.vam_15 is not none %}
-              {{ a.vam_15|round(0)|int }} m/hr
-            {% else %} n/a {% endif %}
-          </div>
-
-          <div>30 min</div>
-          <div style="text-align:right;">
-            {% if a.vam_30 is not none %}
-              {{ a.vam_30|round(0)|int }} m/hr
-            {% else %} n/a {% endif %}
-          </div>
-        </div>
+        {% if a.summary_block_clean %}
+          <pre style="background:#ffffff; color:#0f172a; padding:10px; border-radius:4px;
+                      border:1px solid #e5e7eb; font-size:0.8rem; line-height:1.5;
+                      white-space:pre-wrap; max-height:220px; overflow:auto;">
+{{ a.summary_block_clean }}
+          </pre>
+        {% else %}
+          <div style="font-size:0.85rem; color:#9ca3af;">Aucun bloc généré pour cette activité.</div>
+        {% endif %}
       </div>
     </div>
 

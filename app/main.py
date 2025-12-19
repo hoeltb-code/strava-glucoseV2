@@ -3013,6 +3013,31 @@ def ui_user_dashboard(user_id: int, request: Request):
             elif level == 5:
                 level_color = "#eab308"   # or
 
+            summary_block = a.glucose_summary_block or ""
+
+            def _strip_signature(block: str) -> str:
+                if not block:
+                    return ""
+                lines = block.splitlines()
+                signature_tokens = [
+                    "join us",
+                    "made with ❤️",
+                    "made with love",
+                    "https://strava-glucosev2.onrender.com",
+                ]
+                while lines:
+                    last = lines[-1].strip().lower()
+                    if not last:
+                        lines.pop()
+                        continue
+                    if any(token in last for token in signature_tokens):
+                        lines.pop()
+                        continue
+                    break
+                return "\n".join(lines).strip()
+
+            clean_block = _strip_signature(summary_block)
+
             last_activities.append({
                 "id": a.id,
                 "name": a.name or f"Activité {a.strava_activity_id}",
@@ -3024,6 +3049,8 @@ def ui_user_dashboard(user_id: int, request: Request):
                 "gps": gps,  # JSON-serializable
                 "level": level,
                 "level_color": level_color,
+                "summary_block": summary_block,
+                "summary_block_clean": clean_block,
             })
 
         # VAM 5/15/30 des dernières activités (via caches Activity)

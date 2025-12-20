@@ -1356,19 +1356,6 @@ async def process_activity_core(
                 if pace_parts:
                     run_lines.append("⚡ Allures max : " + " | ".join(pace_parts))
 
-                if not has_significant_climb:
-                    walk_time = cadence_buckets.get("walk", 0.0)
-                    trot_time = cadence_buckets.get("trot", 0.0)
-                    run_time = cadence_buckets.get("run", 0.0)
-                    total_cad_time = walk_time + trot_time + run_time
-                    if total_cad_time > 0:
-                        run_lines.append(
-                            "🔁 Cadence : "
-                            f"<120 PPM {_format_duration(walk_time)} | "
-                            f"120-150 PPM {_format_duration(trot_time)} | "
-                            f">150 PPM {_format_duration(run_time)}"
-                        )
-
                 if run_lines:
                     blocks_ordered.append("\n".join(run_lines))
 

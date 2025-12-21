@@ -1206,15 +1206,53 @@ async def process_activity_core(
         streams["glucose_trend"]  = {"data": g_trends}
         streams["glucose_source"] = {"data": g_sources}
 
+        def _first_valid(seq):
+            for v in seq:
+                if v is not None:
+                    return v
+            return None
+
+        def _last_valid(seq):
+            for v in reversed(seq):
+                if v is not None:
+                    return v
+            return None
+
+        aligned_samples = []
+        if start_aw and time_stream:
+            for idx, val in enumerate(g_vals):
+                if val is None:
+                    continue
+                if idx >= len(time_stream):
+                    break
+                t = time_stream[idx]
+                if t is None:
+                    continue
+                try:
+                    ts = start_aw + dt.timedelta(seconds=float(t))
+                except Exception:
+                    continue
+                aligned_samples.append({"ts": ts, "mgdl": float(val)})
+
         # 4) Upsert activité + stats
         athlete_id = act.get("athlete", {}).get("id")
         if athlete_id is None:
             print("⚠️ athlete_id manquant, arrêt.")
             return
 
-        # select_window utilise start/end -> on passe AWARE UTC
-        samples = select_window(graph_db, start_aw, end_aw, buffer_min=5)
-        stats = compute_stats(samples, activity_start=start_aw, activity_end=end_aw)
+        # Prépare les samples pour les stats (priorité à la série alignée)
+        if len(aligned_samples) >= 2:
+            samples = aligned_samples
+        else:
+            samples = select_window(graph_db, start_aw, end_aw, buffer_min=0)
+
+        stats = compute_stats(
+            samples,
+            activity_start=start_aw,
+            activity_end=end_aw,
+            start_value_hint=_first_valid(g_vals),
+            end_value_hint=_last_valid(g_vals),
+        )
 
         activity_obj = upsert_activity_record(
             db=db,

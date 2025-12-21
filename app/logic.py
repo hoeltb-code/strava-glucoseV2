@@ -225,7 +225,13 @@ def _build_bar(pct_hypo: float, pct_in_range: float, pct_hyper: float) -> str:
 #----------------------------------------------------------------------------
 # Calcul des stats glycémiques
 #----------------------------------------------------------------------------
-def compute_stats(samples, activity_start: dt.datetime | None = None, activity_end: dt.datetime | None = None):
+def compute_stats(
+    samples,
+    activity_start: dt.datetime | None = None,
+    activity_end: dt.datetime | None = None,
+    start_value_hint: float | None = None,
+    end_value_hint: float | None = None,
+):
     if not samples:
         return None
 
@@ -284,6 +290,11 @@ def compute_stats(samples, activity_start: dt.datetime | None = None, activity_e
 
     start_val = _value_at_start(pairs_with_ts, activity_start)
     end_val = _value_at_end(pairs_with_ts, activity_end)
+
+    if start_value_hint is not None:
+        start_val = start_value_hint
+    if end_value_hint is not None:
+        end_val = end_value_hint
 
     lines = []
     lines.append(f"🔬Glycémie : Moy : {avg_r} mg/dL | {TARGET_MIN}-{TARGET_MAX} : {pct_zone_r}%")

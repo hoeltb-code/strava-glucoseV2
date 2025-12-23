@@ -118,7 +118,7 @@
 
     <form method="get"
           action="{{ request.url.path }}"
-          style="display:flex; gap:8px; align-items:center; font-size:0.85rem;">
+          style="display:flex; gap:8px; align-items:center; font-size:0.85rem; flex-wrap:wrap;">
 
       <input type="hidden" name="sport" value="{{ sport }}">
       <input type="hidden" name="tab" value="{{ tab }}">
@@ -127,7 +127,7 @@
       <label for="period" style="white-space:nowrap;">Période :</label>
       <select id="period" name="period"
               onchange="this.form.submit()"
-              style="padding:4px 6px; border-radius:4px; border:1px solid #d1d5db;">
+              style="padding:4px 6px; border-radius:4px; border:1px solid #d1d5db; min-width:150px;">
         <option value="all" {% if period == 'all' %}selected{% endif %}>
           Tout l’historique
         </option>

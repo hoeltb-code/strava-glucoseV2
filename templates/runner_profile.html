@@ -103,10 +103,15 @@
   <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
     <div>
       <h2 style="margin:0 0 4px 0; font-size:1.05rem; font-weight:600;">
-        Profil coureur – {{ sport }}
+        {% if sport|lower == 'run' %}
+          Voici ton profil (running & trail)
+        {% else %}
+          Profil coureur – {{ sport }}
+        {% endif %}
       </h2>
       <p class="muted" style="margin:0; font-size:0.85rem;">
-        Choisis un onglet : D+ max, VAM, allure, cadence, fatigue ou glycémie.
+        Ce profil agrège toutes tes sorties pour estimer VAM, rythmes selon la pente et zones cardio,
+        projeter tes chronos à partir d’un GPX, et, si tu portes un CGM, afficher les analyses glycémie.
       </p>
     </div>
 

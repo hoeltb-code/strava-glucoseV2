@@ -261,10 +261,7 @@
             <thead>
               <tr style="border-bottom:1px solid #e5e7eb;">
                 <th style="text-align:left; padding:8px 4px;">Fenêtre</th>
-                <th style="text-align:right; padding:8px 4px;">D+ toi</th>
-                <th style="text-align:right; padding:8px 4px;">D+ moy</th>
-                <th style="text-align:right; padding:8px 4px;">D+ min</th>
-                <th style="text-align:right; padding:8px 4px;">D+ max</th>
+                <th style="text-align:right; padding:8px 4px;">D+</th>
                 <th style="text-align:right; padding:8px 4px;">D-</th>
                 <th style="text-align:right; padding:8px 4px;">Distance</th>
                 <th style="text-align:right; padding:8px 4px;">D+/h</th>
@@ -279,27 +276,6 @@
                   <td style="padding:8px 4px; text-align:right;">
                     {% if window.gain_m and window.gain_m > 0 %}
                       +{{ window.gain_m|round(0)|int }} m
-                    {% else %}
-                      –
-                    {% endif %}
-                  </td>
-                  <td style="padding:8px 4px; text-align:right;">
-                    {% if global_stats %}
-                      {{ global_stats.avg|round(0)|int }} m
-                    {% else %}
-                      –
-                    {% endif %}
-                  </td>
-                  <td style="padding:8px 4px; text-align:right;">
-                    {% if global_stats %}
-                      {{ global_stats.min|round(0)|int }} m
-                    {% else %}
-                      –
-                    {% endif %}
-                  </td>
-                  <td style="padding:8px 4px; text-align:right;">
-                    {% if global_stats %}
-                      {{ global_stats.max|round(0)|int }} m
                     {% else %}
                       –
                     {% endif %}

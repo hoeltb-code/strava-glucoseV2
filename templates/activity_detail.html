@@ -237,7 +237,11 @@
            color:#111827;
          {% endif %}
        ">
-      Marche ou course ?
+      {% if is_running_activity %}
+        Marche ou course ?
+      {% else %}
+        Cadence
+      {% endif %}
     </a>
 
     <a href="{{ base_url }}?tab=climbs"
@@ -508,7 +512,13 @@
       <!-- Cadence & Mouvement -->
       <div style="padding:16px; border-top:1px solid #e5e7eb; margin-top:16px; background:white; border-radius:4px;">
 
-        <h3 style="margin:0 0 10px 0;">Cadence de pas par % de pente par tronçons</h3>
+        <h3 style="margin:0 0 10px 0;">
+          {% if is_running_activity %}
+            Cadence de pas par % de pente par tronçons
+          {% else %}
+            Cadence par % de pente par tronçons
+          {% endif %}
+        </h3>
 
         <div class="table-responsive">
         <table style="width:100%;border-collapse:collapse;font-size:0.85rem; min-width:620px;">
@@ -531,23 +541,27 @@
                 {% set cell = progression_table[slope_id][idx] %}
 
                 {% set bg = "" %}
-                {% if cell.class == "MARCHE" %}
-                    {% set bg = "background:#fecaca;" %}
-                {% elif cell.class == "TROTTINAGE" %}
-                    {% set bg = "background:#fef9c3;" %}
-                {% elif cell.class == "COURSE" %}
-                    {% set bg = "background:#bbf7d0;" %}
+                {% if is_running_activity %}
+                  {% if cell.class == "MARCHE" %}
+                      {% set bg = "background:#fecaca;" %}
+                  {% elif cell.class == "TROTTINAGE" %}
+                      {% set bg = "background:#fef9c3;" %}
+                  {% elif cell.class == "COURSE" %}
+                      {% set bg = "background:#bbf7d0;" %}
+                  {% endif %}
                 {% endif %}
 
                 <td style="text-align:center; padding:4px 2px; {{ bg }}">
 
                   {% if cell.ppm is not none %}
-                    <div style="font-size:0.65rem; color:#4b5563;">
-                      {{ cell.ppm }} ppm
+                    <div style="font-size:{% if is_running_activity %}0.65rem{% else %}0.85rem{% endif %}; color:#4b5563; font-weight:{% if not is_running_activity %}600{% else %}400{% endif %};">
+                      {{ cell.ppm }} {% if is_running_activity %}ppm{% else %}rpm{% endif %}
                     </div>
-                    <div style="font-size:0.80rem; font-weight:700;">
-                      {{ cell.class }}
-                    </div>
+                    {% if is_running_activity and cell.class not in (None, "n/a") %}
+                      <div style="font-size:0.80rem; font-weight:700;">
+                        {{ cell.class }}
+                      </div>
+                    {% endif %}
                   {% else %}
                     <span style="opacity:0.3;">–</span>
                   {% endif %}

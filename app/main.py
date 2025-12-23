@@ -3348,6 +3348,9 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
         if not activity:
             return HTMLResponse("Activité introuvable", status_code=404)
 
+        sport_norm = (activity.sport or activity.activity_type or "").lower()
+        is_running_activity = sport_norm == "run"
+
         # --- 2) STREAM POINTS ---
         points = (
             db.query(ActivityStreamPoint)
@@ -3850,13 +3853,16 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
                         continue
 
                     if p.cadence is not None:
-                        cad_vals.append(p.cadence * 2)  # ppm
+                        if is_running_activity:
+                            cad_vals.append(p.cadence * 2)  # ppm (run = steps)
+                        else:
+                            cad_vals.append(p.cadence)      # garder rpm pour vélo etc.
 
                 if cad_vals:
-                    avg_ppm = round(sum(cad_vals) / len(cad_vals))
+                    avg_val = round(sum(cad_vals) / len(cad_vals))
                     progression_table[slope_key].append({
-                        "ppm": avg_ppm,
-                        "class": cadence_class(avg_ppm),
+                        "ppm": avg_val,
+                        "class": cadence_class(avg_val) if is_running_activity else None,
                     })
                 else:
                     progression_table[slope_key].append({
@@ -3881,6 +3887,12 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
             s = int(round(sec_per_km))
             m, s = divmod(s, 60)
             return f"{m:d}:{s:02d}/km"
+
+        def format_speed_kmh(sec_per_km: float | None) -> str | None:
+            if sec_per_km is None or sec_per_km <= 0:
+                return None
+            speed_kmh = 3600.0 / sec_per_km
+            return f"{speed_kmh:.1f} km/h"
 
         hr_by_segment = []
         pace_by_segment = []
@@ -3940,6 +3952,7 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
                     hr_by_segment.append(None)
 
                 pace_str = None
+                sec_per_km = None
                 if (
                     has_points
                     and first_dist is not None and last_dist is not None
@@ -3949,9 +3962,13 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
                 ):
                     dist_m = last_dist - first_dist
                     dur_sec = last_time - first_time
-                    sec_per_km = dur_sec / (dist_m / 1000.0)
-                    if sec_per_km > 0:
-                        pace_str = format_pace(sec_per_km)
+                    if dist_m > 0 and dur_sec > 0:
+                        sec_per_km = dur_sec / (dist_m / 1000.0)
+                        if sec_per_km > 0:
+                            pace_str = format_pace(sec_per_km)
+
+                if not is_running_activity:
+                    pace_str = format_speed_kmh(sec_per_km) if sec_per_km else None
 
                 pace_by_segment.append(pace_str)
 
@@ -4396,6 +4413,7 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
             "split_km": split_km,
             "split_km_options": split_km_options,
             "splits_rows": splits_rows,
+            "is_running_activity": is_running_activity,
 
         }
     )

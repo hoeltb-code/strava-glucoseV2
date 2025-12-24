@@ -182,6 +182,15 @@
         <option value="last_12_months" {% if period == 'last_12_months' %}selected{% endif %}>
           12 derniers mois
         </option>
+        <option value="last_6_months" {% if period == 'last_6_months' %}selected{% endif %}>
+          6 derniers mois
+        </option>
+        <option value="last_3_months" {% if period == 'last_3_months' %}selected{% endif %}>
+          3 derniers mois
+        </option>
+        <option value="last_1_month" {% if period == 'last_1_month' %}selected{% endif %}>
+          1 dernier mois
+        </option>
       </select>
     </form>
   </div>

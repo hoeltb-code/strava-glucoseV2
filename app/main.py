@@ -2451,9 +2451,16 @@ def ui_runner_profile(
     date_from = None
     date_to = None
 
-    if period == "last_12_months":
-        date_from = now_utc - dt.timedelta(days=365)
-        # on laisse date_to à None => jusqu’à maintenant
+    period_windows = {
+        "last_12_months": 365,
+        "last_6_months": 183,
+        "last_3_months": 92,
+        "last_1_month": 31,
+    }
+    days_window = period_windows.get(period)
+    if days_window:
+        date_from = now_utc - dt.timedelta(days=days_window)
+        # date_to reste None => jusqu’à maintenant
 
     # 3) Profil coureur (zones × pente)
     profile_start = time.perf_counter()

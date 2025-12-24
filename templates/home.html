@@ -75,6 +75,72 @@
     {% endif %}
   </div>
 
+  <div class="card" style="margin-top:20px;">
+    <h3>🕒 Dernières activités</h3>
+    <p style="color: var(--text-muted); margin-top:-4px;">
+      Les 30 dernières activités (tous utilisateurs) avec leur bloc Strava.
+    </p>
+
+    {% if recent_activities %}
+      <div style="overflow-x:auto; margin-top:12px;">
+        <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border); color:var(--text-muted);">
+              <th style="text-align:left; padding:6px;">Utilisateur</th>
+              <th style="text-align:left; padding:6px;">Activité</th>
+              <th style="text-align:left; padding:6px;">Date</th>
+              <th style="text-align:left; padding:6px;">Type</th>
+              <th style="text-align:right; padding:6px;">Distance</th>
+              <th style="text-align:right; padding:6px;">Durée</th>
+              <th style="text-align:right; padding:6px;">D+</th>
+              <th style="text-align:right; padding:6px;">D-</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in recent_activities %}
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.08);">
+                <td style="padding:6px; white-space:nowrap;">#{{ row.user_id }}<br>{{ row.user_email }}</td>
+                <td style="padding:6px;">
+                  <a href="/ui/user/{{ row.user_id }}/activity/{{ row.id }}"
+                     style="color:var(--accent); text-decoration:none;">
+                    {{ row.name|truncate(40, True, '…') }}
+                  </a>
+                </td>
+                <td style="padding:6px; white-space:nowrap;">{{ row.date_str }}</td>
+                <td style="padding:6px;">{{ row.sport }}</td>
+                <td style="padding:6px; text-align:right;">
+                  {% if row.distance_km is not none %}{{ row.distance_km }} km{% else %}–{% endif %}
+                </td>
+                <td style="padding:6px; text-align:right;">{{ row.duration_str or "–" }}</td>
+                <td style="padding:6px; text-align:right;">
+                  {% if row.dplus is not none %}{{ row.dplus }} m{% else %}–{% endif %}
+                </td>
+                <td style="padding:6px; text-align:right;">
+                  {% if row.dminus is not none %}{{ row.dminus }} m{% else %}–{% endif %}
+                </td>
+              </tr>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.08); background:#ffffff;">
+                <td colspan="8" style="padding:8px 6px;">
+                  {% if row.summary_block %}
+                    <div style="font-size:0.8rem; color:#0f172a; white-space:pre-line; max-height:180px; overflow:auto;">
+                      {{ row.summary_block }}
+                    </div>
+                  {% else %}
+                    <span style="color:#6b7280;">— Aucun commentaire Strava</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p style="margin-top:12px; color:var(--text-muted);">
+        Aucune activité récente.
+      </p>
+    {% endif %}
+  </div>
+
   <div class="card">
     <h3>ℹ️ Aide rapide</h3>
     <ul style="color: var(--text-muted); line-height: 1.5;">

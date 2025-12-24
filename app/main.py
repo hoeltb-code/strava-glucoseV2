@@ -1989,6 +1989,8 @@ def ui_home(request: Request):
     if guard:
         return guard
 
+    recent_activities = []
+
     db = SessionLocal()
     try:
         users = db.query(User).all()
@@ -2002,12 +2004,54 @@ def ui_home(request: Request):
                 "has_dexcom": bool(u.dexcom_tokens),
                 "cgm_source": (u.cgm_source or "").upper() if u.cgm_source else None,
             })
+
+        def _compute_dminus(act_id: int) -> int | None:
+            rows = (
+                db.query(ActivityStreamPoint.altitude)
+                .filter(ActivityStreamPoint.activity_id == act_id)
+                .order_by(ActivityStreamPoint.idx.asc())
+                .all()
+            )
+            prev_alt = None
+            total_loss = 0.0
+            for (alt,) in rows:
+                if alt is None:
+                    continue
+                alt_f = float(alt)
+                if prev_alt is not None and alt_f < prev_alt:
+                    total_loss += prev_alt - alt_f
+                prev_alt = alt_f
+            return int(round(total_loss)) if total_loss > 0 else None
+
+        recent_activities_rows = (
+            db.query(Activity, User)
+            .join(User, Activity.user_id == User.id)
+            .order_by(Activity.start_date.desc())
+            .limit(30)
+            .all()
+        )
+
+        recent_activities = []
+        for act, owner in recent_activities_rows:
+            recent_activities.append({
+                "id": act.id,
+                "user_id": owner.id,
+                "user_email": owner.email,
+                "name": act.name or f"Activité {act.id}",
+                "date_str": act.start_date.strftime("%Y-%m-%d %H:%M") if act.start_date else "n/a",
+                "distance_km": round((act.distance or 0) / 1000.0, 1) if act.distance else None,
+                "duration_str": _format_duration(act.elapsed_time) if act.elapsed_time else None,
+                "sport": act.sport or act.activity_type or "—",
+                "dplus": int(round(act.total_elevation_gain)) if act.total_elevation_gain is not None else None,
+                "dminus": _compute_dminus(act.id),
+                "summary_block": act.glucose_summary_block or "",
+            })
     finally:
         db.close()
 
     return templates.TemplateResponse(
         "home.html",
-        {"request": request, "users": ui_users},
+        {"request": request, "users": ui_users, "recent_activities": recent_activities},
     )
 
 @app.get("/", response_class=HTMLResponse)

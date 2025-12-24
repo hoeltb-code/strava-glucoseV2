@@ -4237,6 +4237,9 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
                         selected_climb = c
                         break
 
+        if selected_climb is None and climbs:
+            selected_climb = climbs[0]
+
         # --- 14 bis SPLITS : 1 / 5 / 10 / 20 km ---
 
         split_km_options = [1, 5, 10, 20]

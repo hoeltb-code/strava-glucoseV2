@@ -33,6 +33,27 @@
   .activity-tab.is-active {
     display:block;
   }
+  .activity-tab p,
+  .activity-tab .muted {
+    font-size:0.82rem !important;
+    color:#0f172a !important;
+  }
+  .activity-tab table {
+    width:100%;
+    border-collapse:collapse;
+    table-layout:auto;
+  }
+  .activity-tab table th,
+  .activity-tab table td {
+    padding:4px 3px !important;
+    font-size:0.8rem !important;
+    white-space:normal !important;
+  }
+  .activity-tab table th span {
+    display:block;
+    font-size:0.7rem !important;
+    line-height:1.2;
+  }
   .overview-vam {
     border-top:1px solid #e5e7eb;
   }
@@ -89,6 +110,18 @@
     .table-responsive table {
       font-size:0.8rem;
       min-width:100%;
+    }
+    .activity-tab table {
+      table-layout:fixed;
+    }
+    .activity-tab table th,
+    .activity-tab table td {
+      font-size:0.72rem !important;
+      padding:3px 2px !important;
+    }
+    .activity-tab p,
+    .activity-tab .muted {
+      font-size:0.72rem !important;
     }
     .activity-tab {
       display:block !important;
@@ -415,15 +448,9 @@
       </form>
 
       <!-- Vue globale par tronçon -->
-      <div class="card"
-          style="
-              margin-top:0;
-              border:3px solid #0f766e;
-              border-radius:4px;
-              padding:16px;
-          ">
+      <div class="card" style="margin-top:0; padding:16px;">
 
-        <h3 style="margin-top:0; color:#0f766e; font-weight:700;">
+        <h3 style="margin-top:0; margin-bottom:10px; font-size:0.95rem; font-weight:600; color:#0f172a;">
           Vue globale par tronçon
         </h3>
 

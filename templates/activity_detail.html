@@ -113,6 +113,19 @@
       font-size:0.8rem;
       min-width:100%;
     }
+    .vam-table th:first-child,
+    .vam-table td:first-child {
+      width:52px;
+      white-space:normal;
+    }
+    .vam-table th:not(:first-child),
+    .vam-table td:not(:first-child) {
+      width:48px;
+      word-break:break-word;
+    }
+    .vam-table th span {
+      font-size:0.6rem !important;
+    }
     .activity-tab table {
       table-layout:fixed;
     }
@@ -885,11 +898,11 @@
           <thead>
             <tr style="border-bottom:1px solid #e5e7eb;">
               <th style="text-align:left;">Zone</th>
-              <th style="text-align:left;">Description</th>
+              <th style="text-align:left;">Desc.</th>
               <th style="text-align:left;">Plage</th>
               <th style="text-align:right;">Temps</th>
               <th style="text-align:right;">% temps</th>
-              <th style="text-align:left; width:40%;">Répartition</th>
+              <th style="text-align:left; width:25%;">Répartition</th>
             </tr>
           </thead>
 
@@ -907,7 +920,7 @@
               <td style="text-align:right;">{{ row.time_str }}</td>
               <td style="text-align:right;">{{ row.percent }}%</td>
 
-              <td>
+              <td style="width:25%;">
                 <div style="
                   background:#e5e7eb;
                   border-radius:999px;
@@ -1003,7 +1016,7 @@
                 </th>
               </tr>
               <tr style="border-bottom:1px solid #e5e7eb;">
-                <th style="text-align:left;">Zone glycémie</th>
+                <th style="text-align:left;">Zone gly.</th>
                 <th style="text-align:left;">Plage</th>
                 {% for col in glucose_hr_columns %}
                 <th style="text-align:center; font-weight:400;">
@@ -1270,7 +1283,6 @@
     <table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-top:10px;">
       <thead>
         <tr style="border-bottom:1px solid #e5e7eb;">
-          <th style="text-align:left;">Split</th>
           <th style="text-align:right;">Dist.</th>
           <th style="text-align:right;">Temps</th>
           <th style="text-align:right;">Allure</th>
@@ -1282,7 +1294,6 @@
           <th style="text-align:right;">D+ cum.</th>
           <th style="text-align:right;">D- cum.</th>
           <th style="text-align:right;">VAM max 1'</th>
-          <th style="text-align:right;">VAM split</th>
         </tr>
       </thead>
 
@@ -1299,11 +1310,6 @@
               border-bottom:1px solid #e5e7eb;
             "
           >
-
-            <!-- Split size -->
-            <td style="text-align:center;">
-              {{ row.split_km|round(1) }} km
-            </td>
 
             <!-- Dist cumulée -->
             <td style="text-align:center;">
@@ -1350,20 +1356,11 @@
               {% endif %}
             </td>
 
-            <!-- VAM split -->
-            <td style="text-align:center;">
-              {% if row.vam_seg is not none %}
-                {{ row.vam_seg }}
-              {% else %}
-                –
-              {% endif %}
-            </td>
-
           </tr>
           {% endfor %}
         {% else %}
           <tr>
-            <td colspan="13" style="text-align:center; padding:8px; color:#9ca3af;">
+            <td colspan="11" style="text-align:center; padding:8px; color:#9ca3af;">
               Aucun split disponible pour cette activité.
             </td>
           </tr>

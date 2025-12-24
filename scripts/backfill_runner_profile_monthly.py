@@ -19,7 +19,7 @@ from sqlalchemy import func
 
 from app.database import SessionLocal
 from app import models
-from app.logic import compute_best_dplus_windows, build_fatigue_profile
+from app.logic import compute_best_dplus_windows
 
 
 def _month_start(ts: dt.datetime) -> dt.date:
@@ -147,7 +147,6 @@ def rebuild_runner_profile_monthly(db: SessionLocal, wipe_existing: bool = False
     Remplit successivement :
       - slope_zone (pente × zone cardio)
       - ascent_window (fenêtres D+)
-      - fatigue (allure par pente × durée)
     """
     if wipe_existing:
         deleted = db.query(models.RunnerProfileMonthly).delete()
@@ -157,7 +156,6 @@ def rebuild_runner_profile_monthly(db: SessionLocal, wipe_existing: bool = False
     total_inserted = 0
     total_inserted += _backfill_slope_zone(db)
     total_inserted += _backfill_ascent_windows(db)
-    total_inserted += _backfill_fatigue(db)
     total_inserted += _backfill_glucose_activity(db)
 
     print(f"Total rows inserted: {total_inserted}")
@@ -325,47 +323,6 @@ def _backfill_ascent_windows(db: SessionLocal) -> int:
     return inserted
 
 
-def _backfill_fatigue(db: SessionLocal) -> int:
-    inserted = 0
-    for user_id, sport, month in _iter_user_sport_months(db):
-        month_start, month_end = _month_bounds(month)
-        profile = build_fatigue_profile(
-            db,
-            user_id=user_id,
-            sport=sport,
-            date_from=month_start,
-            date_to=month_end,
-            hr_zone=None,
-        )
-        by_slope = profile.get("by_slope") or {}
-        for slope_band, buckets in by_slope.items():
-            for bucket_id, stats in buckets.items():
-                duration = float(stats.get("dur_for_pace") or 0.0)
-                if duration <= 0 and not stats.get("avg_pace_s_per_km"):
-                    continue
-                entry = models.RunnerProfileMonthly(
-                    user_id=user_id,
-                    sport=sport,
-                    year_month=month,
-                    metric_scope="fatigue",
-                    slope_band=slope_band,
-                    fatigue_bucket=bucket_id,
-                    total_duration_sec=duration,
-                    sum_pace_x_duration=float(stats.get("sum_pace_x_dur") or 0.0),
-                    pace_duration_sec=duration,
-                    avg_pace_s_per_km=stats.get("avg_pace_s_per_km"),
-                    extra={
-                        "count": stats.get("count"),
-                        "degradation_pct": stats.get("degradation_vs_short_pct"),
-                    },
-                )
-                db.add(entry)
-                inserted += 1
-    db.commit()
-    print(f"Inserted {inserted} monthly aggregates (scope=fatigue).")
-    return inserted
-
-
 def _backfill_glucose_activity(db: SessionLocal) -> int:
     inserted = 0
     for user_id, sport, month in _iter_user_sport_months(db):
@@ -410,6 +367,7 @@ def _backfill_glucose_activity(db: SessionLocal) -> int:
             activity_payload.append(
                 {
                     "activity_id": act.id,
+                    "name": act.name,
                     "start_mgdl": start_val,
                     "end_mgdl": end_val,
                     "avg_mgdl": avg_val,

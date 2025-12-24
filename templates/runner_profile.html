@@ -169,7 +169,6 @@
 
       <input type="hidden" name="sport" value="{{ sport }}">
       <input type="hidden" name="tab" value="{{ tab }}">
-      <input type="hidden" name="hr_zone_fatigue" value="{{ hr_zone_fatigue }}">
 
       <label for="period" style="white-space:nowrap;">Période :</label>
       <select id="period" name="period"
@@ -201,7 +200,7 @@
     {% set base_url = request.url.path %}
 
     <!-- Onglet D+ -->
-    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=ascent&hr_zone_fatigue={{ hr_zone_fatigue }}"
+    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=ascent"
        style="
          display:block; padding:8px 10px; border-radius:4px;
          text-decoration:none; margin-bottom:4px;
@@ -215,7 +214,7 @@
     </a>
 
     <!-- Onglet VAM -->
-    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=vam&hr_zone_fatigue={{ hr_zone_fatigue }}"
+    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=vam"
        style="
          display:block; padding:8px 10px; border-radius:4px;
          text-decoration:none; margin-bottom:4px;
@@ -229,7 +228,7 @@
     </a>
 
     <!-- Onglet Allure + projections -->
-    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=pace&hr_zone_fatigue={{ hr_zone_fatigue }}"
+    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=pace"
        style="
          display:block; padding:8px 10px; border-radius:4px;
          text-decoration:none; margin-bottom:4px;
@@ -243,7 +242,7 @@
     </a>
 
     <!-- Onglet Cadence -->
-    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=cadence&hr_zone_fatigue={{ hr_zone_fatigue }}"
+    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=cadence"
        style="
          display:block; padding:8px 10px; border-radius:4px;
          text-decoration:none; margin-bottom:4px;
@@ -256,22 +255,8 @@
       Cadence par pente × cardio
     </a>
 
-    <!-- Onglet Fatigue / durée -->
-    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=fatigue&hr_zone_fatigue={{ hr_zone_fatigue }}"
-       style="
-         display:block; padding:8px 10px; border-radius:4px;
-         text-decoration:none; margin-bottom:4px;
-         {% if tab == 'fatigue' %}
-           background:#0f172a; color:#f9fafb; font-weight:600;
-         {% else %}
-           color:#111827;
-         {% endif %}
-       ">
-      Fatigue / durée de course
-    </a>
-
     <!-- Onglet Glycémie -->
-    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=glucose&hr_zone_fatigue={{ hr_zone_fatigue }}"
+    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=glucose"
        style="
          display:block; padding:8px 10px; border-radius:4px;
          text-decoration:none; margin-bottom:4px;
@@ -285,7 +270,7 @@
     </a>
 
     <!-- Onglet Glycémie + activités -->
-    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=glucose_activities&hr_zone_fatigue={{ hr_zone_fatigue }}"
+    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=glucose_activities"
        style="
          display:block; padding:8px 10px; border-radius:4px;
          text-decoration:none;
@@ -554,134 +539,6 @@
             Aucune donnée d’agrégats trouvée pour ce profil (sport={{ sport }}, période={{ period }}).
           </p>
         {% endif %}
-      </div>
-
-    <div class="card runner-section {% if tab == 'fatigue' %}is-active{% endif %}" style="padding:14px;" data-section="fatigue">
-
-        {% if fatigue_profile and fatigue_profile.by_slope %}
-
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:8px;">
-            <div>
-              <h3 style="margin:0 0 4px 0; font-size:0.95rem;">
-                Dégradation de la performance selon la durée de la sortie
-              </h3>
-              <p class="muted" style="margin:0; font-size:0.8rem;">
-                {% if fatigue_profile.hr_zone %}
-                  Zone cardio analysée : <strong>{{ fatigue_profile.hr_zone }}</strong>.
-                {% else %}
-                  Toutes les zones cardiaques sont agrégées.
-                {% endif %}
-              </p>
-            </div>
-
-            <!-- 🎛 Filtre zone cardio pour la fatigue -->
-            <form method="get"
-                  action="{{ request.url.path }}"
-                  style="display:flex; gap:8px; align-items:center; font-size:0.8rem;">
-              <input type="hidden" name="sport" value="{{ sport }}">
-              <input type="hidden" name="period" value="{{ period }}">
-              <input type="hidden" name="tab" value="fatigue">
-
-              <label for="hr_zone_fatigue" style="white-space:nowrap;">Zone cardio :</label>
-              <select id="hr_zone_fatigue"
-                      name="hr_zone_fatigue"
-                      onchange="this.form.submit()
-                      "
-                      style="padding:4px 6px; border-radius:4px; border:1px solid #d1d5db;">
-                <option value="all" {% if hr_zone_fatigue == 'all' %}selected{% endif %}>
-                  Toutes
-                </option>
-                {% for z in hr_zones %}
-                  <option value="{{ z }}" {% if hr_zone_fatigue == z %}selected{% endif %}>
-                    {{ z }}
-                  </option>
-                {% endfor %}
-              </select>
-            </form>
-          </div>
-
-          {% set buckets = fatigue_profile.buckets %}
-
-          <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
-            <thead>
-              <tr style="border-bottom:1px solid #e5e7eb;">
-                <th style="text-align:left; padding:4px 2px;">Pente</th>
-                {% for b in buckets %}
-                  <th style="text-align:right; padding:4px 2px;">
-                    {{ b.label }}<br>
-                    <span style="font-weight:400; font-size:0.7rem;">Allure /km</span>
-                  </th>
-                {% endfor %}
-              </tr>
-            </thead>
-            <tbody>
-
-              {% for slope_id, slope_label in slopes_order %}
-                {% set slope_stats = fatigue_profile.by_slope.get(slope_id) %}
-                {% if slope_stats %}
-                  <tr style="border-bottom:1px solid #f3f4f6;">
-                    <td style="padding:4px 2px;">{{ slope_label }}</td>
-
-                    {% for b in buckets %}
-                      {% set bucket_id = b.id %}
-                      {% set bucket_stats = slope_stats.get(bucket_id) %}
-
-                      <td style="text-align:right; padding:4px 2px;">
-                        {% if bucket_stats and bucket_stats.avg_pace_s_per_km %}
-
-                          {% set pace_s = bucket_stats.avg_pace_s_per_km %}
-                          {% set m = (pace_s // 60)|int %}
-                          {% set s = (pace_s % 60)|int %}
-
-                          <div style="font-weight:600;">
-                            {{ "%d:%02d"|format(m, s) }} /km
-                          </div>
-
-                          {% set deg = bucket_stats.degradation_vs_short_pct %}
-                          {% if deg is not none and bucket_id != 'short' %}
-                            {% set sign = '+' if deg >= 0 else '' %}
-                            <div style="font-size:0.7rem; color:#0f172a;">
-                              {{ sign }}{{ deg|round(0)|int }}%
-                            </div>
-                          {% elif bucket_id == 'short' %}
-                            <div style="font-size:0.7rem; color:#0f172a;">
-                              Référence
-                            </div>
-                          {% endif %}
-
-                        {% else %}
-                          <span style="opacity:0.3;">–</span>
-                        {% endif %}
-                      </td>
-
-                    {% endfor %}
-                  </tr>
-                {% endif %}
-              {% endfor %}
-
-            </tbody>
-          </table>
-
-          <p class="muted" style="margin-top:10px; font-size:0.75rem;">
-            Comment lire ce tableau ?
-            <br>• La colonne &lt;2h sert de référence : elle affiche l’allure moyenne sur les portions
-            10–15&nbsp;% (ou autre pente) couvertes pendant des sorties courtes.
-            <br>• Les colonnes 2–5h, 5–10h, ≥10h montrent l’allure quand la sortie dure plus longtemps.
-              En mode «&nbsp;Toutes les zones&nbsp;», on additionne toutes les zones cardio d’une même
-              activité avant de déterminer le bucket. Quand tu filtres une zone (ex. Zone 3), on ne
-              regarde que le temps passé dans cette zone.
-            <br>• La ligne grise indique la dégradation en % vs la colonne &lt;2h. Exemple : si tu es à
-            6:00/km sur les pentes 10–15&nbsp;% en &lt;2h mais à 6:45/km sur les sorties 5–10h (+12&nbsp;%),
-            tu sais que tu perds 12&nbsp;% de vitesse moyenne quand la durée augmente dans ces
-            conditions.
-          </p>
-
-        {% else %}
-          <p class="muted" style="margin:0;">
-            Pas encore assez de données par durée pour calculer la dégradation.
-          </p>
-        {% endif %}
-
       </div>
 
     <div class="runner-section {% if tab == 'glucose' %}is-active{% endif %}" data-section="glucose">

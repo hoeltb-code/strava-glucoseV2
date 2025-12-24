@@ -88,57 +88,6 @@ def normalize_activity_type(strava_type: Optional[str]) -> str:
 
     return t
 
-# ---------------------------------------------------------------------------
-# Buckets de durée pour le "profil fatigue"
-# ---------------------------------------------------------------------------
-
-# (id, label, min_sec, max_sec)
-DURATION_BUCKETS = [
-    ("short",  "< 2 h",       0,          2 * 3600),   # 0 à 2h
-    ("medium", "2–5 h",       2 * 3600,   5 * 3600),   # 2 à 5h
-    ("long",   "5–10 h",      5 * 3600,   10 * 3600),  # 5 à 10h
-    ("ultra",  "10 h+",       10 * 3600,  None),       # 10h et plus
-]
-
-
-def _classify_duration_bucket(elapsed_sec: int | None) -> str | None:
-    """
-    Retourne l'identifiant du bucket de durée correspondant (short/medium/long/ultra)
-    ou None si la durée est invalide.
-    """
-    if elapsed_sec is None or elapsed_sec <= 0:
-        return None
-
-    for bucket_id, _label, mn, mx in DURATION_BUCKETS:
-        if mx is None:
-            # dernier bucket = [mn, +inf)
-            if elapsed_sec >= mn:
-                return bucket_id
-        else:
-            if mn <= elapsed_sec < mx:
-                return bucket_id
-
-    return None
-
-
-def _find_bucket_id_from_hours(hours: float | None) -> str | None:
-    if hours is None or hours < 0:
-        return None
-    seconds = hours * 3600.0
-    for bucket_id, _label, mn, mx in DURATION_BUCKETS:
-        if mx is None:
-            if seconds >= mn:
-                return bucket_id
-        else:
-            if mn <= seconds < mx:
-                return bucket_id
-    return None
-
-
-def _find_bucket_id_from_seconds(seconds: float | None) -> str | None:
-    if seconds is None:
-        return None
-    return _find_bucket_id_from_hours(seconds / 3600.0)
 
 
 def _month_floor_date(ts: dt.datetime | None) -> dt.date | None:
@@ -1775,7 +1724,6 @@ def _get_or_create_runner_profile_row(
     metric_scope: str,
     slope_band: str | None = None,
     hr_zone: str | None = None,
-    fatigue_bucket: str | None = None,
     window_label: str | None = None,
 ) -> models.RunnerProfileMonthly:
     row = (
@@ -1787,7 +1735,6 @@ def _get_or_create_runner_profile_row(
             models.RunnerProfileMonthly.metric_scope == metric_scope,
             models.RunnerProfileMonthly.slope_band == slope_band,
             models.RunnerProfileMonthly.hr_zone == hr_zone,
-            models.RunnerProfileMonthly.fatigue_bucket == fatigue_bucket,
             models.RunnerProfileMonthly.window_label == window_label,
         )
         .one_or_none()
@@ -1800,7 +1747,6 @@ def _get_or_create_runner_profile_row(
             metric_scope=metric_scope,
             slope_band=slope_band,
             hr_zone=hr_zone,
-            fatigue_bucket=fatigue_bucket,
             window_label=window_label,
             total_duration_sec=0.0,
             total_distance_m=0.0,
@@ -1884,65 +1830,6 @@ def _update_runner_profile_slope_zone(
         rpm.avg_cadence_spm = _safe_avg(rpm.sum_cadence_x_duration or 0.0, rpm.cadence_duration_sec or 0.0)
         rpm.avg_velocity_m_s = _safe_avg(rpm.sum_velocity_x_duration or 0.0, rpm.velocity_duration_sec or 0.0)
         rpm.avg_pace_s_per_km = _safe_avg(rpm.sum_pace_x_duration or 0.0, rpm.pace_duration_sec or 0.0)
-
-
-def _update_runner_profile_fatigue(
-    db: Session,
-    *,
-    activity: models.Activity,
-    sport: str,
-    month: dt.date,
-):
-    rows = (
-        db.query(models.ActivityZoneSlopeAgg)
-        .filter(models.ActivityZoneSlopeAgg.activity_id == activity.id)
-        .all()
-    )
-    if not rows:
-        return
-
-    bucket_id = _find_bucket_id_from_seconds(activity.elapsed_time)
-    if bucket_id is None:
-        return
-
-    slope_stats: dict[str, dict[str, float]] = {}
-    for agg in rows:
-        slope_band = agg.slope_band
-        if not slope_band:
-            continue
-        stats = slope_stats.setdefault(
-            slope_band,
-            {"duration": 0.0, "sum_pace": 0.0, "dur_for_pace": 0.0},
-        )
-        dur = float(agg.duration_sec or 0.0)
-        stats["duration"] += dur
-        if agg.avg_pace_s_per_km is not None:
-            stats["sum_pace"] += float(agg.avg_pace_s_per_km) * dur
-            stats["dur_for_pace"] += dur
-
-    def _safe_avg(sum_val: float, dur: float) -> float | None:
-        if dur <= 0:
-            return None
-        return sum_val / dur
-
-    for slope_band, stats in slope_stats.items():
-        rpm = _get_or_create_runner_profile_row(
-            db,
-            user_id=activity.user_id,
-            sport=sport,
-            month=month,
-            metric_scope="fatigue",
-            slope_band=slope_band,
-            fatigue_bucket=bucket_id,
-        )
-        rpm.total_duration_sec = (rpm.total_duration_sec or 0.0) + stats["duration"]
-        rpm.sum_pace_x_duration = (rpm.sum_pace_x_duration or 0.0) + stats["sum_pace"]
-        rpm.pace_duration_sec = (rpm.pace_duration_sec or 0.0) + stats["dur_for_pace"]
-        rpm.avg_pace_s_per_km = _safe_avg(rpm.sum_pace_x_duration or 0.0, rpm.pace_duration_sec or 0.0)
-
-        extra = rpm.extra or {}
-        extra["count"] = int(extra.get("count", 0)) + 1
-        rpm.extra = extra
 
 
 def _update_runner_profile_ascent_windows(
@@ -2072,6 +1959,7 @@ def _update_runner_profile_glucose_activity(
 
     entry = {
         "activity_id": activity.id,
+        "name": activity.name,
         "start_mgdl": stats.get("start_mgdl"),
         "end_mgdl": stats.get("end_mgdl"),
         "avg_mgdl": avg,
@@ -2122,9 +2010,72 @@ def update_runner_profile_monthly_from_activity(
         sport = "run"
 
     _update_runner_profile_slope_zone(db, activity=activity, sport=sport, month=month)
-    _update_runner_profile_fatigue(db, activity=activity, sport=sport, month=month)
     _update_runner_profile_ascent_windows(db, activity=activity, sport=sport, month=month)
     _update_runner_profile_glucose_activity(db, activity=activity, sport=sport, month=month, stats=stats)
+
+
+def get_cached_glucose_activity_summary(
+    db: Session,
+    *,
+    user_id: int,
+    sport: str = "run",
+    limit: int = 20,
+) -> dict | None:
+    q = (
+        db.query(models.RunnerProfileMonthly)
+        .filter(
+            models.RunnerProfileMonthly.user_id == user_id,
+            models.RunnerProfileMonthly.sport == sport,
+            models.RunnerProfileMonthly.metric_scope == "glucose_activity",
+        )
+    )
+
+    rows = q.all()
+    if not rows:
+        return None
+
+    activities: list[dict] = []
+    profile_stats = {
+        "endurance": {"sum_avg_mgdl": 0.0, "count": 0},
+        "seuil": {"sum_avg_mgdl": 0.0, "count": 0},
+        "fractionne": {"sum_avg_mgdl": 0.0, "count": 0},
+    }
+
+    for row in rows:
+        extra = row.extra or {}
+        for entry in extra.get("activities") or []:
+            start_ts = _parse_iso_datetime(entry.get("start_ts"))
+            activities.append(
+                {
+                    "activity_id": entry.get("activity_id"),
+                    "start_mgdl": entry.get("start_mgdl"),
+                    "end_mgdl": entry.get("end_mgdl"),
+                    "avg_mgdl": entry.get("avg_mgdl"),
+                    "tir_percent": entry.get("tir_percent"),
+                    "profile": entry.get("profile"),
+                    "start_ts": start_ts,
+                    "distance_km": entry.get("distance_km"),
+                    "elevation_gain_m": entry.get("elevation_gain_m"),
+                    "duration_sec": entry.get("duration_sec"),
+                }
+            )
+
+        stats = extra.get("profile_stats") or {}
+        for key in profile_stats.keys():
+            data = stats.get(key) or {}
+            profile_stats[key]["sum_avg_mgdl"] += float(data.get("sum_avg_mgdl") or 0.0)
+            profile_stats[key]["count"] += int(data.get("count") or 0)
+
+    if not activities:
+        return {"activities": [], "profile_stats": profile_stats}
+
+    activities.sort(key=lambda x: x.get("start_ts") or dt.datetime.min, reverse=True)
+    limited = activities[:limit]
+
+    return {
+        "activities": limited,
+        "profile_stats": profile_stats,
+    }
 
 
 #---------------------------------------------------------------------------
@@ -2320,202 +2271,3 @@ def compute_best_dplus_windows(
 
 
 #---------------------------------------------------------------------------
-# Construction du profil de fatigue à partir des agrégats zone×pente
-#---------------------------------------------------------------------------
-def build_fatigue_profile(
-    db: Session,
-    *,
-    user_id: int,
-    sport: str = "run",
-    hr_zone: str | None = None,           # filtre optionnel zone cardio
-    date_from: dt.datetime | None = None, # 👈 AJOUT
-    date_to: dt.datetime | None = None,   # 👈 AJOUT
-) -> dict:
-    """
-    Profil de fatigue : pour chaque pente (slope_band), on regarde l'allure moyenne
-    sur différentes durées de sortie, et on calcule la dégradation vs sorties < 2h.
-
-    - Si hr_zone est renseignée (ex: "Zone 3"), on ne prend en compte que cette zone.
-    - Si date_from / date_to sont renseignées, on filtre sur Activity.start_date.
-    """
-
-    # Définition des "buckets" de durée (en heures)
-    buckets = [
-        {"id": "short",  "label": "< 2h",     "min_h": 0.0,  "max_h": 2.0},
-        {"id": "mid",    "label": "2–5h",     "min_h": 2.0,  "max_h": 5.0},
-        {"id": "long",   "label": "5–10h",    "min_h": 5.0,  "max_h": 10.0},
-        {"id": "ultra",  "label": "≥ 10h",    "min_h": 10.0, "max_h": None},
-    ]
-
-    # 1) Charger toutes les lignes agrégées + la durée de l’activité (pour filtres période)
-    q = (
-        db.query(
-            models.ActivityZoneSlopeAgg,
-            models.Activity.elapsed_time,
-            models.Activity.start_date,
-        )
-        .join(models.Activity, models.ActivityZoneSlopeAgg.activity_id == models.Activity.id)
-        .filter(
-            models.ActivityZoneSlopeAgg.user_id == user_id,
-            models.ActivityZoneSlopeAgg.sport == sport,
-        )
-    )
-
-    # Filtre optionnel sur la zone cardio
-    if hr_zone is not None:
-        q = q.filter(models.ActivityZoneSlopeAgg.hr_zone == hr_zone)
-
-    # 🔎 Filtres période sur Activity.start_date (on ne change pas les colonnes retournées)
-    if date_from is not None:
-        if date_from.tzinfo is not None:
-            date_from = date_from.astimezone(dt.timezone.utc).replace(tzinfo=None)
-        q = q.filter(models.Activity.start_date >= date_from)
-
-    if date_to is not None:
-        if date_to.tzinfo is not None:
-            date_to = date_to.astimezone(dt.timezone.utc).replace(tzinfo=None)
-        q = q.filter(models.Activity.start_date < date_to)
-
-    rows = q.all()
-    if not rows:
-        return {
-            "user_id": user_id,
-            "sport": sport,
-            "hr_zone": hr_zone,
-            "buckets": buckets,
-            "by_slope": {},
-        }
-
-    activity_dur_sum: dict[int, float] = defaultdict(float)
-    activity_elapsed_map: dict[int, float] = {}
-    for row, elapsed_time, _start_date in rows:
-        if row.activity_id is None:
-            continue
-        activity_dur_sum[row.activity_id] += float(row.duration_sec or 0)
-        if elapsed_time:
-            activity_elapsed_map[row.activity_id] = float(elapsed_time)
-
-    # 2) Agrégation en mémoire
-    # Structure : by_slope[slope_band][bucket_id] = {...}
-    by_slope: dict[str, dict[str, dict]] = {}
-
-    combined_by_activity: dict[tuple[int, str], dict[str, float]] = {}
-
-    for row, elapsed_time, _start_date in rows:
-        slope_band = row.slope_band
-        if slope_band is None:
-            continue
-
-        zone_duration_sec = float(row.duration_sec or 0)
-        if row.activity_id is not None:
-            total_dur = activity_dur_sum.get(row.activity_id)
-            activity_elapsed = activity_elapsed_map.get(row.activity_id)
-            if total_dur and activity_elapsed and total_dur > 0:
-                scale = activity_elapsed / total_dur
-                if scale > 1.2:  # corrige les anciens agrégats 1s/point
-                    zone_duration_sec *= scale
-        if zone_duration_sec <= 0:
-            continue
-
-        if hr_zone is None:
-            if row.activity_id is None:
-                continue
-            key = (row.activity_id, slope_band)
-            stats = combined_by_activity.setdefault(
-                key,
-                {
-                    "duration_sec": 0.0,
-                    "sum_pace_x_dur": 0.0,
-                    "dur_for_pace": 0.0,
-                    "elapsed_time": float(elapsed_time or 0.0),
-                },
-            )
-            stats["duration_sec"] += zone_duration_sec
-            pace = row.avg_pace_s_per_km
-            if pace is not None:
-                stats["sum_pace_x_dur"] += float(pace) * zone_duration_sec
-                stats["dur_for_pace"] += zone_duration_sec
-            if elapsed_time:
-                stats["elapsed_time"] = float(elapsed_time)
-            continue
-
-        hours = zone_duration_sec / 3600.0
-        bucket_id = _find_bucket_id_from_hours(hours)
-        if bucket_id is None:
-            continue
-
-        slope_dict = by_slope.setdefault(slope_band, {})
-        b_dict = slope_dict.setdefault(
-            bucket_id,
-            {
-                "sum_pace_x_dur": 0.0,
-                "dur_for_pace": 0.0,
-                "count": 0,
-            },
-        )
-
-        dur_sec = zone_duration_sec
-        pace = row.avg_pace_s_per_km
-        if pace is not None and dur_sec > 0:
-            b_dict["sum_pace_x_dur"] += float(pace) * dur_sec
-            b_dict["dur_for_pace"] += dur_sec
-            b_dict["count"] += 1
-
-    if hr_zone is None:
-        for (activity_id, slope_band), stats in combined_by_activity.items():
-            elapsed_sec = stats.get("elapsed_time", 0.0)
-            if elapsed_sec <= 0:
-                continue
-            hours_total = elapsed_sec / 3600.0
-            bucket_id = _find_bucket_id_from_hours(hours_total)
-            if bucket_id is None:
-                continue
-
-            slope_dict = by_slope.setdefault(slope_band, {})
-            b_dict = slope_dict.setdefault(
-                bucket_id,
-                {
-                    "sum_pace_x_dur": 0.0,
-                    "dur_for_pace": 0.0,
-                    "count": 0,
-                },
-            )
-
-            if stats["dur_for_pace"] > 0:
-                b_dict["sum_pace_x_dur"] += stats["sum_pace_x_dur"]
-                b_dict["dur_for_pace"] += stats["dur_for_pace"]
-            b_dict["count"] += 1
-
-    # 3) Calcul des moyennes et de la dégradation vs "short"
-    def _safe_avg(sum_x_dur: float, dur: float) -> float | None:
-        if dur <= 0:
-            return None
-        return sum_x_dur / dur
-
-    for slope_band, slope_dict in by_slope.items():
-        # allure de référence sur sorties "short"
-        short_stats = slope_dict.get("short")
-        short_pace = None
-        if short_stats and short_stats["dur_for_pace"] > 0:
-            short_pace = _safe_avg(
-                short_stats["sum_pace_x_dur"],
-                short_stats["dur_for_pace"],
-            )
-
-        for bucket_id, b_dict in slope_dict.items():
-            avg_pace = _safe_avg(b_dict["sum_pace_x_dur"], b_dict["dur_for_pace"])
-            b_dict["avg_pace_s_per_km"] = avg_pace
-
-            # Dégradation en % vs sorties < 2h
-            if short_pace is not None and avg_pace is not None and short_pace > 0:
-                b_dict["degradation_vs_short_pct"] = ((avg_pace / short_pace) - 1.0) * 100.0
-            else:
-                b_dict["degradation_vs_short_pct"] = None
-
-    return {
-        "user_id": user_id,
-        "sport": sport,
-        "hr_zone": hr_zone,
-        "buckets": buckets,
-        "by_slope": by_slope,
-    }

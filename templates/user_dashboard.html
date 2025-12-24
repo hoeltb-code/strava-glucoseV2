@@ -62,7 +62,7 @@
 
   <div class="card">
     <h2 style="font-size:1rem; font-weight:600; margin-bottom:7px;">🏃 Profil Coureur / Traileur</h2>
-    <p class="muted" style="margin-top:0; font-size:0.85rem;">
+    <p style="margin-top:0; font-size:0.85rem; color:#0f172a;">
       Profil cardio × pente × VAM × cadence × allure + projections chrono depuis un GPX (Trail / Route).
     </p>
 
@@ -89,7 +89,7 @@
   <div class="card">
     <div id="anchor-vam" style="position:relative; top:-80px;"></div>
     <h2 style="font-size:1rem; font-weight:600; margin-bottom:6px;">📚 Activités</h2>
-    <p class="muted" style="margin-top:0; font-size:0.85rem;">
+    <p style="margin-top:0; font-size:0.85rem; color:#0f172a;">
       Consulte les 30 dernières activités enrichies : distance, D+/D-, fenêtres D+ et glycémie.
     </p>
     <div style="margin-top:12px; text-align:right;">
@@ -136,7 +136,7 @@
         {{ (a.name or ('Activité #' ~ a.id))|truncate(60, True, '…') }}
       </a>
     </div>
-    <div style="font-size:0.85rem; color:#6b7280; margin-top:4px;">
+    <div style="font-size:0.85rem; color:#0f172a; margin-top:4px;">
       {{ a.date_str }} · {{ a.dist_km }} km · D+ {{ a.dplus }} m ·
       Durée {{ (a.duration_sec // 3600)|int }}h{{ ((a.duration_sec % 3600) // 60)|int }} ·
       {% if a.tir_percent is not none %}TIR {{ a.tir_percent|round(0) }}%{% else %}TIR n/a{% endif %}
@@ -148,11 +148,11 @@
       </div>
       <div style="flex:1 1 320px;">
         {% if a.summary_block_clean %}
-          <pre style="background:#ffffff; color:#0f172a; padding:10px; border-radius:4px;
-                      border:1px solid transparent; font-size:0.8rem; line-height:1.5;
-                      white-space:pre-wrap; max-height:200px; overflow:auto;">
-{{ a.summary_block_clean }}
-          </pre>
+          <div style="background:#ffffff; color:#0f172a; padding:10px; border-radius:4px;
+                      border:1px solid transparent; font-size:0.85rem; line-height:1.5;
+                      white-space:pre-wrap; max-height:200px; overflow:auto; font-family:inherit;">
+            {{ a.summary_block_clean }}
+          </div>
         {% else %}
           <div style="font-size:0.85rem; color:#9ca3af;">Aucun bloc généré pour cette activité.</div>
         {% endif %}

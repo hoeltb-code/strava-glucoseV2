@@ -22,6 +22,23 @@
   .runner-section.is-active {
     display:block;
   }
+
+  .runner-section table {
+    width:100%;
+    border-collapse:collapse;
+    table-layout:auto;
+  }
+  .runner-section table th,
+  .runner-section table td {
+    padding:4px 3px !important;
+    font-size:0.78rem !important;
+    white-space:normal !important;
+  }
+  .runner-section table th span {
+    display:block;
+    font-size:0.7rem !important;
+    line-height:1.2;
+  }
   @media (max-width: 900px) {
     .runner-layout {
       grid-template-columns:1fr;
@@ -32,6 +49,9 @@
     .runner-section {
       display:block !important;
       margin-bottom:16px;
+    }
+    body, p, div, table, th, td, a {
+      font-size:0.85rem !important;
     }
   }
 
@@ -82,14 +102,14 @@
 ">
   <div style="display:flex; align-items:center; gap:14px;">
     <div>
-      <div style="font-size:1.1rem; font-weight:600;">
+      <div style="font-size:1.1rem; font-weight:600; color:#0f172a;">
         {% if user.first_name or user.last_name %}
           {{ user.first_name or "" }} {{ user.last_name or "" }}
         {% else %}
           {{ user.email }}
         {% endif %}
       </div>
-      <div class="muted" style="margin-top:2px;">Profil coureur · id={{ user.id }}</div>
+      <div style="margin-top:2px; color:#0f172a;">Profil coureur · id={{ user.id }}</div>
     </div>
   </div>
 
@@ -109,7 +129,7 @@
           Profil coureur – {{ sport }}
         {% endif %}
       </h2>
-      <p class="muted" style="margin:0; font-size:0.85rem;">
+      <p style="margin:0; font-size:0.85rem; color:#0f172a;">
         Ce profil agrège toutes tes sorties pour estimer VAM, rythmes selon la pente et zones cardio,
         projeter tes chronos à partir d’un GPX, et, si tu portes un CGM, afficher les analyses glycémie.
         Pense à renseigner ta FC max dans ton profil pour des zones cardio plus précises.
@@ -147,7 +167,7 @@
   <!-- 🧭 Colonne gauche : menu onglets -->
   <aside class="card runner-sidebar" style="padding:12px; font-size:0.9rem;">
     <div style="font-weight:600; font-size:0.85rem; margin-bottom:8px;
-                text-transform:uppercase; color:#6b7280;">
+                text-transform:uppercase; color:#0f172a;">
       Profil coureur
     </div>
 
@@ -450,7 +470,7 @@
                    onchange='runSlopeAnalysis({{ user.id }}, {{ sport|tojson }}, {{ period|tojson }})'>
           </div>
 
-          <div id="projection-feedback" style="font-size:0.8rem; color:#6b7280; margin-top:6px;"></div>
+          <div id="projection-feedback" style="font-size:0.8rem; color:#0f172a; margin-top:6px;"></div>
 
           <div id="projection-result" style="margin-top:12px;"></div>
         </div>
@@ -593,11 +613,11 @@
                           {% set deg = bucket_stats.degradation_vs_short_pct %}
                           {% if deg is not none and bucket_id != 'short' %}
                             {% set sign = '+' if deg >= 0 else '' %}
-                            <div style="font-size:0.7rem; color:#6b7280;">
+                            <div style="font-size:0.7rem; color:#0f172a;">
                               {{ sign }}{{ deg|round(0)|int }}%
                             </div>
                           {% elif bucket_id == 'short' %}
-                            <div style="font-size:0.7rem; color:#6b7280;">
+                            <div style="font-size:0.7rem; color:#0f172a;">
                               Référence
                             </div>
                           {% endif %}
@@ -667,7 +687,7 @@
                   {% for row in summary.rows %}
                     <tr style="border-bottom:1px solid #f3f4f6;">
                       <td style="padding:4px 2px; font-weight:600;">{{ row.name }}</td>
-                      <td style="padding:4px 2px; color:#6b7280;">{{ row.range }}</td>
+                      <td style="padding:4px 2px; color:#0f172a;">{{ row.range }}</td>
                       <td style="padding:4px 2px; text-align:right;">{{ row.time_str }}</td>
                       <td style="padding:4px 2px; text-align:right;">{{ row.percent }}%</td>
                     </tr>
@@ -774,7 +794,7 @@
                     title: {
                       display: true,
                       text: 'mg/dL',
-                      color: '#6b7280',
+                      color: '#0f172a',
                     },
                   }
                 }
@@ -828,7 +848,7 @@
           <div style="max-width:420px; margin:0 auto;">
             <canvas id="glucoseProfileRadar" height="260"></canvas>
           </div>
-          <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; font-size:0.75rem; color:#4b5563;">
+          <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; font-size:0.75rem; color:#0f172a;">
             <div>Endurance : {{ glucose_activity_profile_radar.counts[0] }} act.</div>
             <div>Seuil : {{ glucose_activity_profile_radar.counts[1] }} act.</div>
             <div>Fractionné : {{ glucose_activity_profile_radar.counts[2] }} act.</div>

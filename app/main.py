@@ -3038,7 +3038,7 @@ def ui_user_dashboard(user_id: int, request: Request):
         )
 
         last_activities = []
-        for a in recent:
+        for a in recent[:5]:
             # TIR (calc fallback)
             tir = a.time_in_range_percent
             if tir is None:

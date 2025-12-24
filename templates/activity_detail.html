@@ -24,7 +24,9 @@
   }
   .table-responsive {
     width:100%;
+    max-width:100%;
     overflow-x:auto;
+    display:block;
   }
   .activity-tab {
     display:none;
@@ -370,7 +372,7 @@
               VAM (m/h) par % de pente et zone cardio
             </h3>
             <div class="table-responsive">
-              <table class="vam-table" style="width:100%; border-collapse:collapse; font-size:0.75rem; min-width:420px;">
+              <table class="vam-table" style="width:100%; border-collapse:collapse; font-size:0.75rem;">
                 <thead>
                   <tr style="border-bottom:1px solid #e5e7eb;">
                     <th style="text-align:left;">Pente</th>
@@ -455,7 +457,7 @@
         </h3>
 
         <div class="table-responsive">
-        <table style="width:100%;border-collapse:collapse;font-size:0.85rem; min-width:620px;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
           <thead>
             <tr style="border-bottom:1px solid #e5e7eb;">
               <th style="text-align:left;">Tronçon</th>
@@ -548,7 +550,7 @@
         </h3>
 
         <div class="table-responsive">
-        <table style="width:100%;border-collapse:collapse;font-size:0.85rem; min-width:620px;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
           <thead>
             <tr style="border-bottom:1px solid #e5e7eb;">
               <th style="text-align:left;">Pente</th>
@@ -621,6 +623,7 @@
             </span>
           </h3>
         {% if climbs and climbs|length > 0 %}
+          <div class="table-responsive">
           <table style="
             width:100%;
             border-collapse:collapse;
@@ -691,6 +694,7 @@
               {% endfor %}
             </tbody>
           </table>
+          </div>
 
 
         {% else %}
@@ -877,7 +881,7 @@
         </h3>
 
         <div class="table-responsive">
-        <table style="width:100%; border-collapse:collapse; font-size:0.85rem; min-width:560px;">
+        <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
           <thead>
             <tr style="border-bottom:1px solid #e5e7eb;">
               <th style="text-align:left;">Zone</th>
@@ -1177,6 +1181,7 @@
           </form>
         </div>
 
+        <div class="table-responsive">
         <table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-top:10px;">
           <thead>
             <tr style="border-bottom:1px solid #e5e7eb;">
@@ -1213,6 +1218,7 @@
             {% endfor %}
           </tbody>
         </table>
+        </div>
 
         <p style="margin-top:10px; font-size:0.7rem; color:#6b7280;">
           Zones VAM utilisées : &lt;300, 300–600, 600–900, 900–1200, &gt;1200 m/h
@@ -1260,6 +1266,7 @@
       </form>
     </div>
 
+    <div class="table-responsive">
     <table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-top:10px;">
       <thead>
         <tr style="border-bottom:1px solid #e5e7eb;">
@@ -1364,6 +1371,7 @@
       </tbody>
 
     </table>
+    </div>
 
   </div>
 

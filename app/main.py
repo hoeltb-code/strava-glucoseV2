@@ -149,8 +149,6 @@ from app.models import (
     ActivityZoneSlopeAgg
 )
 
-GLOBAL_DPLUS_CACHE = {}
-GLOBAL_DPLUS_CACHE_TTL_SECONDS = 600
 SLOPE_BANDS_DEF = [
     (-999, -40, "Sneg40p", "<-40%"),
     (-40, -30, "Sneg30_40", "-40 à -30%"),
@@ -556,56 +554,6 @@ def _compute_time_weighted_avg_and_max(time_stream, value_stream) -> tuple[float
             max_val = float(v)
     avg = (total / duration) if duration > 0 else None
     return avg, max_val
-
-
-def _get_global_dplus_window_stats(db: Session, sport: str) -> dict:
-    """
-    Calcule (avec cache) la moyenne / min / max du meilleur D+ sur chaque fenêtre
-    pour tous les utilisateurs ayant des activités du sport donné.
-    """
-    now = dt.datetime.utcnow()
-    cache_entry = GLOBAL_DPLUS_CACHE.get(sport)
-    if cache_entry and (now - cache_entry["ts"]).total_seconds() < GLOBAL_DPLUS_CACHE_TTL_SECONDS:
-        return cache_entry["data"]
-
-    aggregated: dict[str, list[float]] = {}
-
-    user_ids = (
-        db.query(User.id)
-        .join(Activity, Activity.user_id == User.id)
-        .filter(Activity.sport == sport)
-        .distinct()
-        .all()
-    )
-
-    for (uid,) in user_ids:
-        windows = compute_best_dplus_windows(
-            db,
-            user_id=uid,
-            sport=sport,
-            date_from=None,
-            date_to=None,
-        )
-        for window in windows:
-            win_id = window.get("window_id")
-            gain = window.get("gain_m")
-            if not win_id or not gain or gain <= 0:
-                continue
-            aggregated.setdefault(win_id, []).append(float(gain))
-
-    stats = {}
-    for win_id, values in aggregated.items():
-        if not values:
-            continue
-        stats[win_id] = {
-            "avg": sum(values) / len(values),
-            "min": min(values),
-            "max": max(values),
-            "count": len(values),
-        }
-
-    GLOBAL_DPLUS_CACHE[sport] = {"ts": now, "data": stats}
-    return stats
 
 
 def _slope_band_from_grade(grade_percent: float | None) -> str | None:
@@ -2911,7 +2859,6 @@ def ui_runner_profile(
         date_from=date_from,
         date_to=date_to,
     )
-    global_dplus_stats = _get_global_dplus_window_stats(db, sport=sport)
     logger.info(
         "[RUNNER_PROFILE][timing] dplus_windows user_id=%s sport=%s took=%.3fs",
         user_id,
@@ -2938,7 +2885,6 @@ def ui_runner_profile(
             "glucose_activity_table": recent_glucose_activities,
             "glucose_activity_profile_radar": glucose_activity_profile_radar,
             "best_dplus_windows": best_dplus_windows,
-            "global_dplus_stats": global_dplus_stats,
         },
     )
 

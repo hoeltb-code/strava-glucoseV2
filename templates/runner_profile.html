@@ -312,7 +312,6 @@
             </thead>
             <tbody>
               {% for window in best_dplus_windows %}
-                {% set global_stats = global_dplus_stats.get(window.window_id) if global_dplus_stats else None %}
                 <tr style="border-bottom:1px solid #f3f4f6;">
                   <td style="padding:8px 4px;">{{ window.label }}</td>
                   <td style="padding:8px 4px; text-align:right;">

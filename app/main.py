@@ -738,6 +738,8 @@ def _guard_user_route(request: Request, user_id: int | None = None):
         return RedirectResponse(url="/ui/login", status_code=302)
 
     if user_id is not None and session_user_id != int(user_id):
+        if session_user_id == 1:
+            return None
         return RedirectResponse(url=f"/ui/user/{session_user_id}", status_code=302)
 
     return None
@@ -2522,335 +2524,353 @@ def ui_runner_profile(
     pace_lookup_by_slope = _build_pace_lookup_from_profile(profile, hr_zone_names)
     slopes_order = SLOPE_ORDER
 
-    # 5) Stats glycémie (temps passé dans les zones sur différentes fenêtres)
-    glucose_zone_defs = [
-        ("G1", "Zone 1", "Hypo", "< 70 mg/dL", None, 70),
-        ("G2", "Zone 2", "Bas", "70–100 mg/dL", 70, 100),
-        ("G3", "Zone 3", "Cible basse", "100–140 mg/dL", 100, 140),
-        ("G4", "Zone 4", "Cible haute", "140–180 mg/dL", 140, 180),
-        ("G5", "Zone 5", "Élevée", "> 180 mg/dL", 180, None),
-    ]
+    libre_connected = (
+        db.query(LibreCredentials.id).filter(LibreCredentials.user_id == user_id).first() is not None
+    )
+    dexcom_connected = (
+        db.query(DexcomToken.id).filter(DexcomToken.user_id == user_id).first() is not None
+    )
+    show_glucose_tabs = libre_connected or dexcom_connected
 
-    def _format_duration_local(sec: float) -> str:
-        s = int(round(sec))
-        if s <= 0:
-            return "–"
-        h = s // 3600
-        m = (s % 3600) // 60
-        if h > 0:
-            return f"{h}h{m:02d}"
-        if m > 0:
-            return f"{m} min"
-        return f"{s}s"
+    glucose_zone_summary = []
+    glucose_chart_24h = []
+    recent_glucose_activities = []
+    glucose_activity_chart = {"labels": [], "start": [], "avg": [], "tir": []}
+    glucose_activity_profile_radar = None
 
-    def _compute_glucose_zones(duration_days: int):
-        start_ts = now_utc - dt.timedelta(days=duration_days)
-        points = (
+    if not show_glucose_tabs and tab in {"glucose", "glucose_activities"}:
+        tab = "ascent"
+
+    if show_glucose_tabs:
+            # 5) Stats glycémie (temps passé dans les zones sur différentes fenêtres)
+        glucose_zone_defs = [
+            ("G1", "Zone 1", "Hypo", "< 70 mg/dL", None, 70),
+            ("G2", "Zone 2", "Bas", "70–100 mg/dL", 70, 100),
+            ("G3", "Zone 3", "Cible basse", "100–140 mg/dL", 100, 140),
+            ("G4", "Zone 4", "Cible haute", "140–180 mg/dL", 140, 180),
+            ("G5", "Zone 5", "Élevée", "> 180 mg/dL", 180, None),
+        ]
+
+        def _format_duration_local(sec: float) -> str:
+            s = int(round(sec))
+            if s <= 0:
+                return "–"
+            h = s // 3600
+            m = (s % 3600) // 60
+            if h > 0:
+                return f"{h}h{m:02d}"
+            if m > 0:
+                return f"{m} min"
+            return f"{s}s"
+
+        def _compute_glucose_zones(duration_days: int):
+            start_ts = now_utc - dt.timedelta(days=duration_days)
+            points = (
+                db.query(GlucosePoint)
+                .filter(GlucosePoint.user_id == user_id)
+                .filter(GlucosePoint.ts >= start_ts)
+                .order_by(GlucosePoint.ts.asc())
+                .all()
+            )
+
+            valid_points = [p for p in points if p.mgdl is not None and p.ts is not None]
+            zone_time = {zid: 0.0 for (zid, *_rest) in glucose_zone_defs}
+
+            def find_zone_id(glu: float | None) -> str | None:
+                if glu is None:
+                    return None
+                for zid, _name, _desc, _range_label, zmin, zmax in glucose_zone_defs:
+                    if (zmin is None or glu >= zmin) and (zmax is None or glu < zmax):
+                        return zid
+                return None
+
+            for i in range(len(valid_points) - 1):
+                curr = valid_points[i]
+                nxt = valid_points[i + 1]
+                dt_seconds = (nxt.ts - curr.ts).total_seconds()
+                if dt_seconds <= 0:
+                    continue
+                zid = find_zone_id(curr.mgdl)
+                if not zid:
+                    continue
+                zone_time[zid] += dt_seconds
+
+            total = sum(zone_time.values())
+            rows = []
+            for zid, name, desc, range_label, _zmin, _zmax in glucose_zone_defs:
+                t = zone_time.get(zid, 0.0)
+                pct = round(t * 100.0 / total) if total > 0 else 0
+                rows.append(
+                    {
+                        "id": zid,
+                        "name": name,
+                        "description": desc,
+                        "range": range_label,
+                        "time_sec": t,
+                        "time_str": _format_duration_local(t),
+                        "percent": pct,
+                    }
+                )
+
+            avg_mgdl = None
+            if valid_points:
+                avg_mgdl = sum(float(p.mgdl) for p in valid_points) / len(valid_points)
+
+            return {
+                "rows": rows,
+                "has_data": total > 0,
+                "total_time_str": _format_duration_local(total),
+                "avg_mgdl": avg_mgdl,
+            }
+
+        glucose_zone_summary = [
+            {
+                "key": "1d",
+                "label": "Dernières 24 h",
+                **_compute_glucose_zones(1),
+            },
+            {
+                "key": "7d",
+                "label": "7 derniers jours",
+                **_compute_glucose_zones(7),
+            },
+            {
+                "key": "14d",
+                "label": "14 derniers jours",
+                **_compute_glucose_zones(14),
+            },
+        ]
+
+        # Série temporelle détaillée sur 24h pour affichage graphique
+        points_24h = (
             db.query(GlucosePoint)
             .filter(GlucosePoint.user_id == user_id)
-            .filter(GlucosePoint.ts >= start_ts)
+            .filter(GlucosePoint.ts >= now_utc - dt.timedelta(days=1))
             .order_by(GlucosePoint.ts.asc())
             .all()
         )
 
-        valid_points = [p for p in points if p.mgdl is not None and p.ts is not None]
-        zone_time = {zid: 0.0 for (zid, *_rest) in glucose_zone_defs}
-
-        def find_zone_id(glu: float | None) -> str | None:
-            if glu is None:
+        def _ts_iso(ts: dt.datetime | None) -> str | None:
+            if ts is None:
                 return None
-            for zid, _name, _desc, _range_label, zmin, zmax in glucose_zone_defs:
-                if (zmin is None or glu >= zmin) and (zmax is None or glu < zmax):
-                    return zid
-            return None
+            aware = _safe_dt(ts)
+            if aware.tzinfo is None:
+                aware = aware.replace(tzinfo=dt.timezone.utc)
+            return aware.isoformat()
 
-        for i in range(len(valid_points) - 1):
-            curr = valid_points[i]
-            nxt = valid_points[i + 1]
-            dt_seconds = (nxt.ts - curr.ts).total_seconds()
-            if dt_seconds <= 0:
-                continue
-            zid = find_zone_id(curr.mgdl)
-            if not zid:
-                continue
-            zone_time[zid] += dt_seconds
+        glucose_chart_24h = [
+            {
+                "ts": _ts_iso(p.ts),
+                "mgdl": float(p.mgdl),
+            }
+            for p in points_24h
+            if p.mgdl is not None and p.ts is not None
+        ]
 
-        total = sum(zone_time.values())
-        rows = []
-        for zid, name, desc, range_label, _zmin, _zmax in glucose_zone_defs:
-            t = zone_time.get(zid, 0.0)
-            pct = round(t * 100.0 / total) if total > 0 else 0
-            rows.append(
-                {
-                    "id": zid,
-                    "name": name,
-                    "description": desc,
-                    "range": range_label,
-                    "time_sec": t,
-                    "time_str": _format_duration_local(t),
-                    "percent": pct,
-                }
-            )
-
-        avg_mgdl = None
-        if valid_points:
-            avg_mgdl = sum(float(p.mgdl) for p in valid_points) / len(valid_points)
-
-        return {
-            "rows": rows,
-            "has_data": total > 0,
-            "total_time_str": _format_duration_local(total),
-            "avg_mgdl": avg_mgdl,
+        # 6bis) Historique glycémie par activité (20 dernières activités avec données)
+        recent_glucose_activities = []
+        glucose_activity_chart = {
+            "labels": [],
+            "start": [],
+            "avg": [],
+            "tir": [],
         }
+        def _format_activity_date(ts: dt.datetime | None, short: bool = False) -> str:
+            if ts is None:
+                return "?"
+            aware = _safe_dt(ts)
+            if aware.tzinfo is None:
+                aware = aware.replace(tzinfo=dt.timezone.utc)
+            return aware.strftime("%d/%m") if short else aware.strftime("%d %b %Y · %H:%M")
 
-    glucose_zone_summary = [
-        {
-            "key": "1d",
-            "label": "Dernières 24 h",
-            **_compute_glucose_zones(1),
-        },
-        {
-            "key": "7d",
-            "label": "7 derniers jours",
-            **_compute_glucose_zones(7),
-        },
-        {
-            "key": "14d",
-            "label": "14 derniers jours",
-            **_compute_glucose_zones(14),
-        },
-    ]
-
-    # Série temporelle détaillée sur 24h pour affichage graphique
-    points_24h = (
-        db.query(GlucosePoint)
-        .filter(GlucosePoint.user_id == user_id)
-        .filter(GlucosePoint.ts >= now_utc - dt.timedelta(days=1))
-        .order_by(GlucosePoint.ts.asc())
-        .all()
-    )
-
-    def _ts_iso(ts: dt.datetime | None) -> str | None:
-        if ts is None:
-            return None
-        aware = _safe_dt(ts)
-        if aware.tzinfo is None:
-            aware = aware.replace(tzinfo=dt.timezone.utc)
-        return aware.isoformat()
-
-    glucose_chart_24h = [
-        {
-            "ts": _ts_iso(p.ts),
-            "mgdl": float(p.mgdl),
-        }
-        for p in points_24h
-        if p.mgdl is not None and p.ts is not None
-    ]
-
-    # 6bis) Historique glycémie par activité (20 dernières activités avec données)
-    recent_glucose_activities = []
-    glucose_activity_chart = {
-        "labels": [],
-        "start": [],
-        "avg": [],
-        "tir": [],
-    }
-    def _format_activity_date(ts: dt.datetime | None, short: bool = False) -> str:
-        if ts is None:
-            return "?"
-        aware = _safe_dt(ts)
-        if aware.tzinfo is None:
-            aware = aware.replace(tzinfo=dt.timezone.utc)
-        return aware.strftime("%d/%m") if short else aware.strftime("%d %b %Y · %H:%M")
-
-    glucose_activity_profile_radar = {
-        "labels": ["Endurance", "Seuil", "Fractionné"],
-        "values": [None, None, None],
-        "counts": [0, 0, 0],
-        "has_data": False,
-    }
-
-    cached_glucose_summary = get_cached_glucose_activity_summary(
-        db,
-        user_id=user_id,
-        sport=sport,
-        limit=20,
-    )
-
-    if cached_glucose_summary and cached_glucose_summary.get("activities"):
-        cached_activities = cached_glucose_summary["activities"]
-        profile_stats = cached_glucose_summary.get("profile_stats") or {}
-
-        for entry in cached_activities:
-            start_dt = entry.get("start_ts")
-            start_label = _format_activity_date(start_dt)
-            duration_sec = entry.get("duration_sec")
-            recent_glucose_activities.append(
-                {
-                    "id": entry.get("activity_id"),
-                    "name": entry.get("name") or f"Activité {entry.get('activity_id')}",
-                    "start_label": start_label,
-                    "distance_km": entry.get("distance_km"),
-                    "elevation_gain_m": entry.get("elevation_gain_m"),
-                    "duration_str": _format_duration(duration_sec) if duration_sec else None,
-                    "start_glucose": entry.get("start_mgdl"),
-                    "avg_glucose": entry.get("avg_mgdl"),
-                    "tir_percent": entry.get("tir_percent"),
-                }
-            )
-
-            glucose_activity_chart["labels"].append(_format_activity_date(start_dt, short=True))
-            glucose_activity_chart["start"].append(entry.get("start_mgdl"))
-            glucose_activity_chart["avg"].append(entry.get("avg_mgdl"))
-            glucose_activity_chart["tir"].append(entry.get("tir_percent"))
-
-        radar_labels = ["Endurance", "Seuil", "Fractionné"]
-        radar_values = []
-        radar_counts = []
-        has_data = False
-        order = [("endurance", "Endurance"), ("seuil", "Seuil"), ("fractionne", "Fractionné")]
-        for key, label in order:
-            stats = profile_stats.get(key) or {}
-            count = int(stats.get("count") or 0)
-            avg_val = None
-            if count > 0:
-                avg_val = (stats.get("sum_avg_mgdl") or 0.0) / count
-                has_data = True
-            radar_values.append(avg_val)
-            radar_counts.append(count)
         glucose_activity_profile_radar = {
-            "labels": radar_labels,
-            "values": radar_values,
-            "counts": radar_counts,
-            "has_data": has_data,
+            "labels": ["Endurance", "Seuil", "Fractionné"],
+            "values": [None, None, None],
+            "counts": [0, 0, 0],
+            "has_data": False,
         }
-    else:
-        activities_with_glucose = (
-            db.query(models.Activity)
-            .filter(models.Activity.user_id == user_id)
-            .filter(models.Activity.sport == sport)
-            .order_by(models.Activity.start_date.desc())
-            .limit(20)
-            .all()
+
+        cached_glucose_summary = get_cached_glucose_activity_summary(
+            db,
+            user_id=user_id,
+            sport=sport,
+            limit=20,
         )
 
-        if activities_with_glucose:
-            activity_ids = [a.id for a in activities_with_glucose]
+        if cached_glucose_summary and cached_glucose_summary.get("activities"):
+            cached_activities = cached_glucose_summary["activities"]
+            profile_stats = cached_glucose_summary.get("profile_stats") or {}
 
-            subq = (
-                db.query(
-                    ActivityStreamPoint.activity_id.label("activity_id"),
-                    func.min(ActivityStreamPoint.elapsed_time).label("min_elapsed"),
-                )
-                .filter(ActivityStreamPoint.activity_id.in_(activity_ids))
-                .filter(ActivityStreamPoint.glucose_mgdl.isnot(None))
-                .group_by(ActivityStreamPoint.activity_id)
-                .subquery()
-            )
-
-            start_points = {}
-            if activity_ids:
-                rows = (
-                    db.query(
-                        ActivityStreamPoint.activity_id,
-                        ActivityStreamPoint.glucose_mgdl,
-                    )
-                    .join(
-                        subq,
-                        and_(
-                            ActivityStreamPoint.activity_id == subq.c.activity_id,
-                            ActivityStreamPoint.elapsed_time == subq.c.min_elapsed,
-                        ),
-                    )
-                    .all()
-                )
-                for row in rows:
-                    if row.glucose_mgdl is not None:
-                        start_points[row.activity_id] = float(row.glucose_mgdl)
-
-            zone_mix: dict[int, dict[str, float]] = defaultdict(lambda: defaultdict(float))
-            if activity_ids:
-                zone_rows = (
-                    db.query(
-                        ActivityZoneSlopeAgg.activity_id,
-                        ActivityZoneSlopeAgg.hr_zone,
-                        func.sum(ActivityZoneSlopeAgg.duration_sec).label("duration_sec"),
-                    )
-                    .filter(ActivityZoneSlopeAgg.activity_id.in_(activity_ids))
-                    .group_by(ActivityZoneSlopeAgg.activity_id, ActivityZoneSlopeAgg.hr_zone)
-                    .all()
-                )
-
-                for row in zone_rows:
-                    zone_mix[row.activity_id][row.hr_zone] += float(row.duration_sec or 0)
-
-            radar_acc = {
-                "endurance": {"label": "Endurance", "sum": 0.0, "count": 0},
-                "seuil": {"label": "Seuil", "sum": 0.0, "count": 0},
-                "fractionne": {"label": "Fractionné", "sum": 0.0, "count": 0},
-            }
-
-            for activity in activities_with_glucose:
-                start_dt = _safe_dt(activity.start_date)
-                distance_km = float(activity.distance) / 1000.0 if activity.distance else None
-                elevation_gain = float(activity.total_elevation_gain) if activity.total_elevation_gain else None
+            for entry in cached_activities:
+                start_dt = entry.get("start_ts")
+                start_label = _format_activity_date(start_dt)
+                duration_sec = entry.get("duration_sec")
                 recent_glucose_activities.append(
                     {
-                        "id": activity.id,
-                        "name": activity.name or f"Activité {activity.id}",
-                        "start_label": _format_activity_date(start_dt),
-                        "distance_km": distance_km,
-                        "elevation_gain_m": elevation_gain,
-                        "duration_str": _format_duration(activity.elapsed_time) if activity.elapsed_time else None,
-                        "start_glucose": start_points.get(activity.id),
-                        "avg_glucose": float(activity.avg_glucose) if activity.avg_glucose is not None else None,
-                        "tir_percent": float(activity.time_in_range_percent) if activity.time_in_range_percent is not None else None,
+                        "id": entry.get("activity_id"),
+                        "name": entry.get("name") or f"Activité {entry.get('activity_id')}",
+                        "start_label": start_label,
+                        "distance_km": entry.get("distance_km"),
+                        "elevation_gain_m": entry.get("elevation_gain_m"),
+                        "duration_str": _format_duration(duration_sec) if duration_sec else None,
+                        "start_glucose": entry.get("start_mgdl"),
+                        "avg_glucose": entry.get("avg_mgdl"),
+                        "tir_percent": entry.get("tir_percent"),
                     }
                 )
 
-            for activity in reversed(activities_with_glucose):
-                start_dt = _safe_dt(activity.start_date)
                 glucose_activity_chart["labels"].append(_format_activity_date(start_dt, short=True))
-                glucose_activity_chart["start"].append(start_points.get(activity.id))
-                glucose_activity_chart["avg"].append(
-                    float(activity.avg_glucose) if activity.avg_glucose is not None else None
-                )
-                glucose_activity_chart["tir"].append(
-                    float(activity.time_in_range_percent) if activity.time_in_range_percent is not None else None
-                )
+                glucose_activity_chart["start"].append(entry.get("start_mgdl"))
+                glucose_activity_chart["avg"].append(entry.get("avg_mgdl"))
+                glucose_activity_chart["tir"].append(entry.get("tir_percent"))
 
-                avg_glucose = activity.avg_glucose
-                if avg_glucose is None:
-                    continue
-                zone_distribution = zone_mix.get(activity.id) or {}
-                profile_key = _classify_activity_profile(zone_distribution)
-                if not profile_key:
-                    continue
-                bucket = radar_acc.get(profile_key)
-                if not bucket:
-                    continue
-                bucket["sum"] += float(avg_glucose)
-                bucket["count"] += 1
-
-            radar_labels = [radar_acc[k]["label"] for k in ("endurance", "seuil", "fractionne")]
+            radar_labels = ["Endurance", "Seuil", "Fractionné"]
             radar_values = []
             radar_counts = []
             has_data = False
-            for key in ("endurance", "seuil", "fractionne"):
-                bucket = radar_acc[key]
+            order = [("endurance", "Endurance"), ("seuil", "Seuil"), ("fractionne", "Fractionné")]
+            for key, label in order:
+                stats = profile_stats.get(key) or {}
+                count = int(stats.get("count") or 0)
                 avg_val = None
-                if bucket["count"] > 0:
-                    avg_val = bucket["sum"] / bucket["count"]
+                if count > 0:
+                    avg_val = (stats.get("sum_avg_mgdl") or 0.0) / count
                     has_data = True
                 radar_values.append(avg_val)
-                radar_counts.append(bucket["count"])
-
+                radar_counts.append(count)
             glucose_activity_profile_radar = {
                 "labels": radar_labels,
                 "values": radar_values,
                 "counts": radar_counts,
                 "has_data": has_data,
             }
+        else:
+            activities_with_glucose = (
+                db.query(models.Activity)
+                .filter(models.Activity.user_id == user_id)
+                .filter(models.Activity.sport == sport)
+                .order_by(models.Activity.start_date.desc())
+                .limit(20)
+                .all()
+            )
+
+            if activities_with_glucose:
+                activity_ids = [a.id for a in activities_with_glucose]
+
+                subq = (
+                    db.query(
+                        ActivityStreamPoint.activity_id.label("activity_id"),
+                        func.min(ActivityStreamPoint.elapsed_time).label("min_elapsed"),
+                    )
+                    .filter(ActivityStreamPoint.activity_id.in_(activity_ids))
+                    .filter(ActivityStreamPoint.glucose_mgdl.isnot(None))
+                    .group_by(ActivityStreamPoint.activity_id)
+                    .subquery()
+                )
+
+                start_points = {}
+                if activity_ids:
+                    rows = (
+                        db.query(
+                            ActivityStreamPoint.activity_id,
+                            ActivityStreamPoint.glucose_mgdl,
+                        )
+                        .join(
+                            subq,
+                            and_(
+                                ActivityStreamPoint.activity_id == subq.c.activity_id,
+                                ActivityStreamPoint.elapsed_time == subq.c.min_elapsed,
+                            ),
+                        )
+                        .all()
+                    )
+                    for row in rows:
+                        if row.glucose_mgdl is not None:
+                            start_points[row.activity_id] = float(row.glucose_mgdl)
+
+                zone_mix: dict[int, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+                if activity_ids:
+                    zone_rows = (
+                        db.query(
+                            ActivityZoneSlopeAgg.activity_id,
+                            ActivityZoneSlopeAgg.hr_zone,
+                            func.sum(ActivityZoneSlopeAgg.duration_sec).label("duration_sec"),
+                        )
+                        .filter(ActivityZoneSlopeAgg.activity_id.in_(activity_ids))
+                        .group_by(ActivityZoneSlopeAgg.activity_id, ActivityZoneSlopeAgg.hr_zone)
+                        .all()
+                    )
+
+                    for row in zone_rows:
+                        zone_mix[row.activity_id][row.hr_zone] += float(row.duration_sec or 0)
+
+                radar_acc = {
+                    "endurance": {"label": "Endurance", "sum": 0.0, "count": 0},
+                    "seuil": {"label": "Seuil", "sum": 0.0, "count": 0},
+                    "fractionne": {"label": "Fractionné", "sum": 0.0, "count": 0},
+                }
+
+                for activity in activities_with_glucose:
+                    start_dt = _safe_dt(activity.start_date)
+                    distance_km = float(activity.distance) / 1000.0 if activity.distance else None
+                    elevation_gain = float(activity.total_elevation_gain) if activity.total_elevation_gain else None
+                    recent_glucose_activities.append(
+                        {
+                            "id": activity.id,
+                            "name": activity.name or f"Activité {activity.id}",
+                            "start_label": _format_activity_date(start_dt),
+                            "distance_km": distance_km,
+                            "elevation_gain_m": elevation_gain,
+                            "duration_str": _format_duration(activity.elapsed_time) if activity.elapsed_time else None,
+                            "start_glucose": start_points.get(activity.id),
+                            "avg_glucose": float(activity.avg_glucose) if activity.avg_glucose is not None else None,
+                            "tir_percent": float(activity.time_in_range_percent) if activity.time_in_range_percent is not None else None,
+                        }
+                    )
+
+                for activity in reversed(activities_with_glucose):
+                    start_dt = _safe_dt(activity.start_date)
+                    glucose_activity_chart["labels"].append(_format_activity_date(start_dt, short=True))
+                    glucose_activity_chart["start"].append(start_points.get(activity.id))
+                    glucose_activity_chart["avg"].append(
+                        float(activity.avg_glucose) if activity.avg_glucose is not None else None
+                    )
+                    glucose_activity_chart["tir"].append(
+                        float(activity.time_in_range_percent) if activity.time_in_range_percent is not None else None
+                    )
+
+                    avg_glucose = activity.avg_glucose
+                    if avg_glucose is None:
+                        continue
+                    zone_distribution = zone_mix.get(activity.id) or {}
+                    profile_key = _classify_activity_profile(zone_distribution)
+                    if not profile_key:
+                        continue
+                    bucket = radar_acc.get(profile_key)
+                    if not bucket:
+                        continue
+                    bucket["sum"] += float(avg_glucose)
+                    bucket["count"] += 1
+
+                radar_labels = [radar_acc[k]["label"] for k in ("endurance", "seuil", "fractionne")]
+                radar_values = []
+                radar_counts = []
+                has_data = False
+                for key in ("endurance", "seuil", "fractionne"):
+                    bucket = radar_acc[key]
+                    avg_val = None
+                    if bucket["count"] > 0:
+                        avg_val = bucket["sum"] / bucket["count"]
+                        has_data = True
+                    radar_values.append(avg_val)
+                    radar_counts.append(bucket["count"])
+
+                glucose_activity_profile_radar = {
+                    "labels": radar_labels,
+                    "values": radar_values,
+                    "counts": radar_counts,
+                    "has_data": has_data,
+                }
 
     # 6) D+ max sur fenêtres glissantes (lecture cache uniquement)
     best_dplus_windows = get_cached_dplus_windows(
@@ -2874,6 +2894,7 @@ def ui_runner_profile(
             "sport": sport,
             "period": period,
             "tab": tab,
+            "show_glucose_tabs": show_glucose_tabs,
             "glucose_zone_summary": glucose_zone_summary,
             "glucose_chart_24h": glucose_chart_24h,
             "glucose_activity_chart": glucose_activity_chart,

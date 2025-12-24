@@ -108,9 +108,11 @@
     }
   }
 </style>
-{% set needs_chart_js = (glucose_chart_24h and glucose_chart_24h|length > 1)
+{% set needs_chart_js = show_glucose_tabs and (
+  (glucose_chart_24h and glucose_chart_24h|length > 1)
   or (glucose_activity_chart.labels and glucose_activity_chart.labels|length > 0)
-  or (glucose_activity_profile_radar and glucose_activity_profile_radar.has_data) %}
+  or (glucose_activity_profile_radar and glucose_activity_profile_radar.has_data)
+) %}
 {% if needs_chart_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
@@ -255,33 +257,35 @@
       Cadence par pente × cardio
     </a>
 
-    <!-- Onglet Glycémie -->
-    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=glucose"
-       style="
-         display:block; padding:8px 10px; border-radius:4px;
-         text-decoration:none; margin-bottom:4px;
-         {% if tab == 'glucose' %}
-           background:#0f172a; color:#f9fafb; font-weight:600;
-         {% else %}
-           color:#111827;
-         {% endif %}
-       ">
-      Glycémie (temps dans la zone)
-    </a>
+    {% if show_glucose_tabs %}
+      <!-- Onglet Glycémie -->
+      <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=glucose"
+         style="
+           display:block; padding:8px 10px; border-radius:4px;
+           text-decoration:none; margin-bottom:4px;
+           {% if tab == 'glucose' %}
+             background:#0f172a; color:#f9fafb; font-weight:600;
+           {% else %}
+             color:#111827;
+           {% endif %}
+         ">
+        Glycémie (temps dans la zone)
+      </a>
 
-    <!-- Onglet Glycémie + activités -->
-    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=glucose_activities"
-       style="
-         display:block; padding:8px 10px; border-radius:4px;
-         text-decoration:none;
-         {% if tab == 'glucose_activities' %}
-           background:#0f172a; color:#f9fafb; font-weight:600;
-         {% else %}
-           color:#111827;
-         {% endif %}
-       ">
-      Glycémie & activités
-    </a>
+      <!-- Onglet Glycémie + activités -->
+      <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=glucose_activities"
+         style="
+           display:block; padding:8px 10px; border-radius:4px;
+           text-decoration:none;
+           {% if tab == 'glucose_activities' %}
+             background:#0f172a; color:#f9fafb; font-weight:600;
+           {% else %}
+             color:#111827;
+           {% endif %}
+         ">
+        Glycémie & activités
+      </a>
+    {% endif %}
   </aside>
 
   <!-- 🧩 Colonne droite : contenu -->
@@ -541,6 +545,7 @@
         {% endif %}
       </div>
 
+    {% if show_glucose_tabs %}
     <div class="runner-section {% if tab == 'glucose' %}is-active{% endif %}" data-section="glucose">
 
       <div class="card" style="padding:14px;">
@@ -988,6 +993,7 @@
         </script>
       {% endif %}
     </div>
+    {% endif %}
 
   </main>
 </div>

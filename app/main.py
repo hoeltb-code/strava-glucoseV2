@@ -82,6 +82,8 @@ from typing import Optional
 import statistics
 import threading
 import shutil
+import logging
+import time
 from datetime import datetime, timedelta
 from collections import Counter, defaultdict
 import re
@@ -757,6 +759,9 @@ def _guard_admin(request: Request):
 # -----------------------------------------------------------------------------
 # Instance FastAPI + static + templates
 # -----------------------------------------------------------------------------
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
@@ -2503,6 +2508,7 @@ def ui_runner_profile(
         # on laisse date_to à None => jusqu’à maintenant
 
     # 3) Profil coureur (zones × pente)
+    profile_start = time.perf_counter()
     profile = get_cached_runner_profile(
         db,
         user_id=user_id,
@@ -2511,6 +2517,12 @@ def ui_runner_profile(
         date_to=date_to,
     )
     if not profile or not profile.get("zones"):
+        logger.warning(
+            "[RUNNER_PROFILE][cache_miss] user_id=%s sport=%s period=%s → recalcul complet",
+            user_id,
+            sport,
+            period,
+        )
         profile = build_runner_profile(
             db,
             user_id=user_id,
@@ -2518,6 +2530,12 @@ def ui_runner_profile(
             date_from=date_from,
             date_to=date_to,
         )
+    logger.info(
+        "[RUNNER_PROFILE][timing] profile_lookup user_id=%s sport=%s took=%.3fs",
+        user_id,
+        sport,
+        time.perf_counter() - profile_start,
+    )
 
     # 4) Ordre des zones cardio + pentes (positives et négatives)
     hr_zone_names = [name for (name, _, _) in HR_ZONES]
@@ -2542,6 +2560,7 @@ def ui_runner_profile(
         tab = "ascent"
 
     if show_glucose_tabs:
+        glucose_start = time.perf_counter()
             # 5) Stats glycémie (temps passé dans les zones sur différentes fenêtres)
         glucose_zone_defs = [
             ("G1", "Zone 1", "Hypo", "< 70 mg/dL", None, 70),
@@ -2871,8 +2890,20 @@ def ui_runner_profile(
                     "counts": radar_counts,
                     "has_data": has_data,
                 }
+        logger.info(
+            "[RUNNER_PROFILE][timing] glucose_blocks user_id=%s sport=%s took=%.3fs",
+            user_id,
+            sport,
+            time.perf_counter() - glucose_start,
+        )
+    else:
+        logger.info(
+            "[RUNNER_PROFILE][timing] glucose_blocks user_id=%s skipped (no CGM)",
+            user_id,
+        )
 
     # 6) D+ max sur fenêtres glissantes (lecture cache uniquement)
+    dplus_start = time.perf_counter()
     best_dplus_windows = get_cached_dplus_windows(
         db,
         user_id=user_id,
@@ -2881,6 +2912,12 @@ def ui_runner_profile(
         date_to=date_to,
     )
     global_dplus_stats = _get_global_dplus_window_stats(db, sport=sport)
+    logger.info(
+        "[RUNNER_PROFILE][timing] dplus_windows user_id=%s sport=%s took=%.3fs",
+        user_id,
+        sport,
+        time.perf_counter() - dplus_start,
+    )
 
     return templates.TemplateResponse(
         "runner_profile.html",

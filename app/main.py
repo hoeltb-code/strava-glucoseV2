@@ -122,8 +122,11 @@ from .logic import (
     compute_and_store_zone_slope_aggs,
     compute_difficulty_and_level,   # 👈 AJOUT
     build_runner_profile,
+    get_cached_runner_profile,
     build_fatigue_profile,
     compute_best_dplus_windows,
+    get_cached_dplus_windows,
+    update_runner_profile_monthly_from_activity,
     HR_ZONES,
 )
 from .settings import settings
@@ -1293,6 +1296,15 @@ async def process_activity_core(
             compute_and_store_zone_slope_aggs(db=db, activity=activity_obj, user_id=user_id)
         except Exception as e:
             print("⚠️ Erreur compute_and_store_zone_slope_aggs :", e)
+
+        try:
+            update_runner_profile_monthly_from_activity(
+                db=db,
+                activity=activity_obj,
+                stats=stats,
+            )
+        except Exception as e:
+            print("⚠️ Erreur update_runner_profile_monthly_from_activity :", e)
 
         # 6) Sections dynamiques selon le type d'activité
         # -----------------------------------------------------------------
@@ -2493,13 +2505,21 @@ def ui_runner_profile(
         # on laisse date_to à None => jusqu’à maintenant
 
     # 3) Profil coureur (zones × pente)
-    profile = build_runner_profile(
+    profile = get_cached_runner_profile(
         db,
         user_id=user_id,
         sport=sport,
         date_from=date_from,
         date_to=date_to,
     )
+    if not profile or not profile.get("zones"):
+        profile = build_runner_profile(
+            db,
+            user_id=user_id,
+            sport=sport,
+            date_from=date_from,
+            date_to=date_to,
+        )
 
     # 4) Profil fatigue (dégradation par durée)
     logic_hr_zone = None if hr_zone_fatigue == "all" else hr_zone_fatigue
@@ -2798,8 +2818,8 @@ def ui_runner_profile(
             "has_data": has_data,
         }
 
-    # 7) D+ max sur fenêtres glissantes
-    best_dplus_windows = compute_best_dplus_windows(
+    # 7) D+ max sur fenêtres glissantes (lecture cache uniquement)
+    best_dplus_windows = get_cached_dplus_windows(
         db,
         user_id=user_id,
         sport=sport,

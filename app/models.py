@@ -19,6 +19,7 @@ from sqlalchemy import (
     Float,
     UniqueConstraint,
     Date,
+    JSON,
 )
 from sqlalchemy.orm import relationship
 
@@ -280,6 +281,65 @@ class ActivityZoneSlopeAgg(Base):
     )
 
     activity = relationship("Activity", back_populates="zone_slope_aggs")
+
+
+class RunnerProfileMonthly(Base):
+    __tablename__ = "runner_profile_monthly"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "sport",
+            "year_month",
+            "metric_scope",
+            "slope_band",
+            "hr_zone",
+            "fatigue_bucket",
+            "window_label",
+            name="uq_runner_profile_monthly_cell",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    sport = Column(String(32), nullable=False)
+    year_month = Column(Date, nullable=False)
+    metric_scope = Column(String(32), nullable=False)
+
+    slope_band = Column(String(32), nullable=True)
+    hr_zone = Column(String(32), nullable=True)
+    fatigue_bucket = Column(String(32), nullable=True)
+    window_label = Column(String(32), nullable=True)
+
+    total_duration_sec = Column(Float, nullable=False, default=0.0)
+    total_distance_m = Column(Float, nullable=False, default=0.0)
+    total_elevation_gain_m = Column(Float, nullable=False, default=0.0)
+    total_points = Column(Integer, nullable=False, default=0)
+
+    sum_pace_x_duration = Column(Float, nullable=False, default=0.0)
+    pace_duration_sec = Column(Float, nullable=False, default=0.0)
+
+    sum_vam_x_duration = Column(Float, nullable=False, default=0.0)
+    vam_duration_sec = Column(Float, nullable=False, default=0.0)
+
+    sum_cadence_x_duration = Column(Float, nullable=False, default=0.0)
+    cadence_duration_sec = Column(Float, nullable=False, default=0.0)
+
+    sum_velocity_x_duration = Column(Float, nullable=False, default=0.0)
+    velocity_duration_sec = Column(Float, nullable=False, default=0.0)
+
+    avg_pace_s_per_km = Column(Float, nullable=True)
+    avg_vam_m_per_h = Column(Float, nullable=True)
+    avg_cadence_spm = Column(Float, nullable=True)
+    avg_velocity_m_s = Column(Float, nullable=True)
+
+    dplus_total_m = Column(Float, nullable=True)
+    dminus_total_m = Column(Float, nullable=True)
+
+    extra = Column(JSON, nullable=True)
+
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User")
 
 
 class UserSettings(Base):

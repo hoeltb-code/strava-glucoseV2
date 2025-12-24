@@ -29,6 +29,7 @@ import hashlib
 import bisect
 from typing import Optional, List
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app import models
 
@@ -118,6 +119,57 @@ def _classify_duration_bucket(elapsed_sec: int | None) -> str | None:
                 return bucket_id
 
     return None
+
+
+def _find_bucket_id_from_hours(hours: float | None) -> str | None:
+    if hours is None or hours < 0:
+        return None
+    seconds = hours * 3600.0
+    for bucket_id, _label, mn, mx in DURATION_BUCKETS:
+        if mx is None:
+            if seconds >= mn:
+                return bucket_id
+        else:
+            if mn <= seconds < mx:
+                return bucket_id
+    return None
+
+
+def _find_bucket_id_from_seconds(seconds: float | None) -> str | None:
+    if seconds is None:
+        return None
+    return _find_bucket_id_from_hours(seconds / 3600.0)
+
+
+def _month_floor_date(ts: dt.datetime | None) -> dt.date | None:
+    if ts is None:
+        return None
+    if ts.tzinfo is not None:
+        ts = ts.astimezone(dt.timezone.utc).replace(tzinfo=None)
+    return dt.date(ts.year, ts.month, 1)
+
+
+def _next_month_date(month: dt.date) -> dt.date:
+    if month.month == 12:
+        return dt.date(month.year + 1, 1, 1)
+    return dt.date(month.year, month.month + 1, 1)
+
+
+def _parse_iso_datetime(ts_str: str | None) -> dt.datetime | None:
+    if not ts_str:
+        return None
+    try:
+        return dt.datetime.fromisoformat(ts_str)
+    except ValueError:
+        return None
+
+
+def _isoformat(ts: dt.datetime | None) -> str | None:
+    if ts is None:
+        return None
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=dt.timezone.utc)
+    return ts.isoformat()
 
 
 # ---------------------------------------------------------------------------
@@ -1476,6 +1528,606 @@ def build_runner_profile(
 
 
 #---------------------------------------------------------------------------
+def get_cached_dplus_windows(
+    db: Session,
+    *,
+    user_id: int,
+    sport: str = "run",
+    date_from: dt.datetime | None = None,
+    date_to: dt.datetime | None = None,
+) -> list[dict]:
+    q = (
+        db.query(models.RunnerProfileMonthly)
+        .filter(
+            models.RunnerProfileMonthly.user_id == user_id,
+            models.RunnerProfileMonthly.sport == sport,
+            models.RunnerProfileMonthly.metric_scope == "ascent_window",
+        )
+    )
+
+    month_from = _month_floor_date(date_from)
+    if month_from is not None:
+        q = q.filter(models.RunnerProfileMonthly.year_month >= month_from)
+
+    if date_to is not None:
+        month_to = _month_floor_date(date_to)
+        if month_to is not None:
+            q = q.filter(models.RunnerProfileMonthly.year_month < _next_month_date(month_to))
+
+    rows = q.all()
+    if not rows:
+        return []
+
+    best_by_window: dict[str, models.RunnerProfileMonthly] = {}
+    for row in rows:
+        window_label = row.window_label
+        if not window_label:
+            continue
+        current = best_by_window.get(window_label)
+        current_gain = current.dplus_total_m if current else None
+        if current is None or (row.dplus_total_m or 0.0) > (current_gain or 0.0):
+            best_by_window[window_label] = row
+
+    if not best_by_window:
+        return []
+
+    window_defs = [
+        {"id": "1m", "label": "1 min"},
+        {"id": "5m", "label": "5 min"},
+        {"id": "15m", "label": "15 min"},
+        {"id": "30m", "label": "30 min"},
+        {"id": "1h", "label": "1 h"},
+        {"id": "2h", "label": "2 h"},
+        {"id": "5h", "label": "5 h"},
+        {"id": "10h", "label": "10 h"},
+        {"id": "24h", "label": "24 h"},
+    ]
+
+    formatted = []
+    for win in window_defs:
+        row = best_by_window.get(win["id"])
+        if not row:
+            formatted.append(
+                {
+                    "window_id": win["id"],
+                    "label": win["label"],
+                    "seconds": None,
+                    "gain_m": 0.0,
+                    "loss_m": 0.0,
+                    "distance_km": 0.0,
+                    "activity_id": None,
+                    "activity_name": None,
+                    "activity_date": None,
+                    "start_datetime": None,
+                    "end_datetime": None,
+                    "duration_sec": None,
+                    "gain_per_hour": None,
+                }
+            )
+            continue
+
+        extra = row.extra or {}
+        start_dt = _parse_iso_datetime(extra.get("start_datetime") if isinstance(extra, dict) else None)
+        end_dt = _parse_iso_datetime(extra.get("end_datetime") if isinstance(extra, dict) else None)
+
+        formatted.append(
+            {
+                "window_id": row.window_label,
+                "label": (extra.get("label") if isinstance(extra, dict) else None) or win["label"],
+                "seconds": row.total_duration_sec,
+                "gain_m": row.dplus_total_m or 0.0,
+                "loss_m": row.dminus_total_m or 0.0,
+                "distance_km": (row.total_distance_m or 0.0) / 1000.0,
+                "activity_id": extra.get("activity_id") if isinstance(extra, dict) else None,
+                "activity_name": extra.get("activity_name") if isinstance(extra, dict) else None,
+                "activity_date": start_dt,
+                "start_datetime": start_dt,
+                "end_datetime": end_dt,
+                "duration_sec": row.total_duration_sec,
+                "gain_per_hour": row.avg_vam_m_per_h,
+            }
+        )
+
+    return formatted
+
+
+def get_cached_runner_profile(
+    db: Session,
+    *,
+    user_id: int,
+    sport: str = "run",
+    date_from: dt.datetime | None = None,
+    date_to: dt.datetime | None = None,
+) -> dict | None:
+    q = (
+        db.query(models.RunnerProfileMonthly)
+        .filter(
+            models.RunnerProfileMonthly.user_id == user_id,
+            models.RunnerProfileMonthly.sport == sport,
+            models.RunnerProfileMonthly.metric_scope == "slope_zone",
+        )
+    )
+
+    month_from = _month_floor_date(date_from)
+    if month_from is not None:
+        q = q.filter(models.RunnerProfileMonthly.year_month >= month_from)
+
+    if date_to is not None:
+        month_to = _month_floor_date(date_to)
+        if month_to is not None:
+            q = q.filter(models.RunnerProfileMonthly.year_month < _next_month_date(month_to))
+
+    rows = q.all()
+    if not rows:
+        return None
+
+    agg: dict[tuple[str, str], dict[str, float]] = {}
+
+    for row in rows:
+        hr_zone = row.hr_zone
+        slope_band = row.slope_band
+        if not hr_zone or not slope_band:
+            continue
+
+        cell = agg.setdefault(
+            (hr_zone, slope_band),
+            {
+                "duration_sec": 0.0,
+                "num_points": 0.0,
+                "distance_m": 0.0,
+                "elevation_gain_m": 0.0,
+                "sum_vam_x_dur": 0.0,
+                "dur_for_vam": 0.0,
+                "sum_cad_x_dur": 0.0,
+                "dur_for_cad": 0.0,
+                "sum_vel_x_dur": 0.0,
+                "dur_for_vel": 0.0,
+                "sum_pace_x_dur": 0.0,
+                "dur_for_pace": 0.0,
+            },
+        )
+
+        cell["duration_sec"] += float(row.total_duration_sec or 0.0)
+        cell["num_points"] += float(row.total_points or 0.0)
+        cell["distance_m"] += float(row.total_distance_m or 0.0)
+        cell["elevation_gain_m"] += float(row.total_elevation_gain_m or 0.0)
+
+        if row.sum_vam_x_duration is not None:
+            cell["sum_vam_x_dur"] += float(row.sum_vam_x_duration)
+            cell["dur_for_vam"] += float(row.vam_duration_sec or 0.0)
+
+        if row.sum_cadence_x_duration is not None:
+            cell["sum_cad_x_dur"] += float(row.sum_cadence_x_duration)
+            cell["dur_for_cad"] += float(row.cadence_duration_sec or 0.0)
+
+        if row.sum_velocity_x_duration is not None:
+            cell["sum_vel_x_dur"] += float(row.sum_velocity_x_duration)
+            cell["dur_for_vel"] += float(row.velocity_duration_sec or 0.0)
+
+        if row.sum_pace_x_duration is not None:
+            cell["sum_pace_x_dur"] += float(row.sum_pace_x_duration)
+            cell["dur_for_pace"] += float(row.pace_duration_sec or 0.0)
+
+    if not agg:
+        return None
+
+    zones: dict[str, dict[str, dict]] = {}
+
+    def _safe_avg(sum_val: float, dur: float) -> float | None:
+        if dur <= 0:
+            return None
+        return sum_val / dur
+
+    for (hr_zone, slope_band), vals in agg.items():
+        hr_dict = zones.setdefault(hr_zone, {})
+        hr_dict[slope_band] = {
+            "duration_sec": int(vals["duration_sec"]),
+            "num_points": int(vals["num_points"]),
+            "distance_m": vals["distance_m"],
+            "elevation_gain_m": vals["elevation_gain_m"],
+            "avg_vam_m_per_h": _safe_avg(vals["sum_vam_x_dur"], vals["dur_for_vam"]),
+            "avg_cadence_spm": _safe_avg(vals["sum_cad_x_dur"], vals["dur_for_cad"]),
+            "avg_velocity_m_s": _safe_avg(vals["sum_vel_x_dur"], vals["dur_for_vel"]),
+            "avg_pace_s_per_km": _safe_avg(vals["sum_pace_x_dur"], vals["dur_for_pace"]),
+        }
+
+    best_pace_by_slope: dict[str, float] = {}
+    for hr_zone, slopes in zones.items():
+        for slope_band, cell in slopes.items():
+            pace = cell.get("avg_pace_s_per_km")
+            if pace is None or pace <= 0:
+                continue
+            current_best = best_pace_by_slope.get(slope_band)
+            if current_best is None or pace < current_best:
+                best_pace_by_slope[slope_band] = pace
+
+    def _format_pace(sec: float | None) -> str | None:
+        if sec is None or sec <= 0:
+            return None
+        total = int(round(sec))
+        m, s = divmod(total, 60)
+        return f"{m:02d}:{s:02d}"
+
+    for hr_zone, slopes in zones.items():
+        for slope_band, cell in slopes.items():
+            pace = cell.get("avg_pace_s_per_km")
+            best = best_pace_by_slope.get(slope_band)
+            rel_pct = None
+            if pace is not None and pace > 0 and best is not None and best > 0:
+                rel_pct = (pace - best) / best * 100.0
+            cell["rel_pace_pct"] = rel_pct
+            cell["pace_str"] = _format_pace(pace)
+
+    return {
+        "user_id": user_id,
+        "sport": sport,
+        "period": {"from": date_from, "to": date_to},
+        "zones": zones,
+    }
+
+
+def _get_or_create_runner_profile_row(
+    db: Session,
+    *,
+    user_id: int,
+    sport: str,
+    month: dt.date,
+    metric_scope: str,
+    slope_band: str | None = None,
+    hr_zone: str | None = None,
+    fatigue_bucket: str | None = None,
+    window_label: str | None = None,
+) -> models.RunnerProfileMonthly:
+    row = (
+        db.query(models.RunnerProfileMonthly)
+        .filter(
+            models.RunnerProfileMonthly.user_id == user_id,
+            models.RunnerProfileMonthly.sport == sport,
+            models.RunnerProfileMonthly.year_month == month,
+            models.RunnerProfileMonthly.metric_scope == metric_scope,
+            models.RunnerProfileMonthly.slope_band == slope_band,
+            models.RunnerProfileMonthly.hr_zone == hr_zone,
+            models.RunnerProfileMonthly.fatigue_bucket == fatigue_bucket,
+            models.RunnerProfileMonthly.window_label == window_label,
+        )
+        .one_or_none()
+    )
+    if row is None:
+        row = models.RunnerProfileMonthly(
+            user_id=user_id,
+            sport=sport,
+            year_month=month,
+            metric_scope=metric_scope,
+            slope_band=slope_band,
+            hr_zone=hr_zone,
+            fatigue_bucket=fatigue_bucket,
+            window_label=window_label,
+            total_duration_sec=0.0,
+            total_distance_m=0.0,
+            total_elevation_gain_m=0.0,
+            total_points=0,
+            sum_pace_x_duration=0.0,
+            pace_duration_sec=0.0,
+            sum_vam_x_duration=0.0,
+            vam_duration_sec=0.0,
+            sum_cadence_x_duration=0.0,
+            cadence_duration_sec=0.0,
+            sum_velocity_x_duration=0.0,
+            velocity_duration_sec=0.0,
+            dplus_total_m=0.0,
+            dminus_total_m=0.0,
+            extra={},
+        )
+        db.add(row)
+    return row
+
+
+def _update_runner_profile_slope_zone(
+    db: Session,
+    *,
+    activity: models.Activity,
+    sport: str,
+    month: dt.date,
+):
+    rows = (
+        db.query(models.ActivityZoneSlopeAgg)
+        .filter(models.ActivityZoneSlopeAgg.activity_id == activity.id)
+        .all()
+    )
+    if not rows:
+        return
+
+    def _safe_avg(sum_val: float, dur: float) -> float | None:
+        if dur <= 0:
+            return None
+        return sum_val / dur
+
+    for agg in rows:
+        hr_zone = agg.hr_zone
+        slope_band = agg.slope_band
+        if not hr_zone or not slope_band:
+            continue
+
+        rpm = _get_or_create_runner_profile_row(
+            db,
+            user_id=activity.user_id,
+            sport=sport,
+            month=month,
+            metric_scope="slope_zone",
+            hr_zone=hr_zone,
+            slope_band=slope_band,
+        )
+
+        dur = float(agg.duration_sec or 0.0)
+        rpm.total_duration_sec = (rpm.total_duration_sec or 0.0) + dur
+        rpm.total_distance_m = (rpm.total_distance_m or 0.0) + float(agg.distance_m or 0.0)
+        rpm.total_elevation_gain_m = (rpm.total_elevation_gain_m or 0.0) + float(agg.elevation_gain_m or 0.0)
+        rpm.total_points = int((rpm.total_points or 0) + int(agg.num_points or 0))
+
+        if agg.avg_vam_m_per_h is not None:
+            rpm.sum_vam_x_duration = (rpm.sum_vam_x_duration or 0.0) + float(agg.avg_vam_m_per_h) * dur
+            rpm.vam_duration_sec = (rpm.vam_duration_sec or 0.0) + dur
+
+        if agg.avg_cadence_spm is not None:
+            rpm.sum_cadence_x_duration = (rpm.sum_cadence_x_duration or 0.0) + float(agg.avg_cadence_spm) * dur
+            rpm.cadence_duration_sec = (rpm.cadence_duration_sec or 0.0) + dur
+
+        if agg.avg_velocity_m_s is not None:
+            rpm.sum_velocity_x_duration = (rpm.sum_velocity_x_duration or 0.0) + float(agg.avg_velocity_m_s) * dur
+            rpm.velocity_duration_sec = (rpm.velocity_duration_sec or 0.0) + dur
+
+        if agg.avg_pace_s_per_km is not None:
+            rpm.sum_pace_x_duration = (rpm.sum_pace_x_duration or 0.0) + float(agg.avg_pace_s_per_km) * dur
+            rpm.pace_duration_sec = (rpm.pace_duration_sec or 0.0) + dur
+
+        rpm.avg_vam_m_per_h = _safe_avg(rpm.sum_vam_x_duration or 0.0, rpm.vam_duration_sec or 0.0)
+        rpm.avg_cadence_spm = _safe_avg(rpm.sum_cadence_x_duration or 0.0, rpm.cadence_duration_sec or 0.0)
+        rpm.avg_velocity_m_s = _safe_avg(rpm.sum_velocity_x_duration or 0.0, rpm.velocity_duration_sec or 0.0)
+        rpm.avg_pace_s_per_km = _safe_avg(rpm.sum_pace_x_duration or 0.0, rpm.pace_duration_sec or 0.0)
+
+
+def _update_runner_profile_fatigue(
+    db: Session,
+    *,
+    activity: models.Activity,
+    sport: str,
+    month: dt.date,
+):
+    rows = (
+        db.query(models.ActivityZoneSlopeAgg)
+        .filter(models.ActivityZoneSlopeAgg.activity_id == activity.id)
+        .all()
+    )
+    if not rows:
+        return
+
+    bucket_id = _find_bucket_id_from_seconds(activity.elapsed_time)
+    if bucket_id is None:
+        return
+
+    slope_stats: dict[str, dict[str, float]] = {}
+    for agg in rows:
+        slope_band = agg.slope_band
+        if not slope_band:
+            continue
+        stats = slope_stats.setdefault(
+            slope_band,
+            {"duration": 0.0, "sum_pace": 0.0, "dur_for_pace": 0.0},
+        )
+        dur = float(agg.duration_sec or 0.0)
+        stats["duration"] += dur
+        if agg.avg_pace_s_per_km is not None:
+            stats["sum_pace"] += float(agg.avg_pace_s_per_km) * dur
+            stats["dur_for_pace"] += dur
+
+    def _safe_avg(sum_val: float, dur: float) -> float | None:
+        if dur <= 0:
+            return None
+        return sum_val / dur
+
+    for slope_band, stats in slope_stats.items():
+        rpm = _get_or_create_runner_profile_row(
+            db,
+            user_id=activity.user_id,
+            sport=sport,
+            month=month,
+            metric_scope="fatigue",
+            slope_band=slope_band,
+            fatigue_bucket=bucket_id,
+        )
+        rpm.total_duration_sec = (rpm.total_duration_sec or 0.0) + stats["duration"]
+        rpm.sum_pace_x_duration = (rpm.sum_pace_x_duration or 0.0) + stats["sum_pace"]
+        rpm.pace_duration_sec = (rpm.pace_duration_sec or 0.0) + stats["dur_for_pace"]
+        rpm.avg_pace_s_per_km = _safe_avg(rpm.sum_pace_x_duration or 0.0, rpm.pace_duration_sec or 0.0)
+
+        extra = rpm.extra or {}
+        extra["count"] = int(extra.get("count", 0)) + 1
+        rpm.extra = extra
+
+
+def _update_runner_profile_ascent_windows(
+    db: Session,
+    *,
+    activity: models.Activity,
+    sport: str,
+    month: dt.date,
+):
+    windows = compute_best_dplus_windows(
+        db,
+        user_id=activity.user_id,
+        sport=sport,
+        activity_ids=[activity.id],
+    )
+    if not windows:
+        return
+
+    for win in windows:
+        gain = win.get("gain_m") or 0.0
+        window_id = win.get("window_id")
+        if not window_id or gain <= 0:
+            continue
+
+        rpm = _get_or_create_runner_profile_row(
+            db,
+            user_id=activity.user_id,
+            sport=sport,
+            month=month,
+            metric_scope="ascent_window",
+            window_label=window_id,
+        )
+
+        current_gain = rpm.dplus_total_m or 0.0
+        if gain <= current_gain:
+            continue
+
+        rpm.dplus_total_m = gain
+        rpm.dminus_total_m = win.get("loss_m") or 0.0
+        rpm.total_duration_sec = win.get("duration_sec") or 0.0
+        rpm.total_distance_m = (win.get("distance_km") or 0.0) * 1000.0
+        rpm.avg_vam_m_per_h = win.get("gain_per_hour")
+
+        extra = rpm.extra or {}
+        extra.update(
+            {
+                "label": win.get("label"),
+                "activity_id": win.get("activity_id") or activity.id,
+                "activity_name": win.get("activity_name") or activity.name,
+                "start_datetime": _isoformat(win.get("start_datetime")),
+                "end_datetime": _isoformat(win.get("end_datetime")),
+                "start_offset_sec": win.get("start_offset_sec"),
+                "end_offset_sec": win.get("end_offset_sec"),
+            }
+        )
+        rpm.extra = extra
+
+
+def _get_activity_zone_mix(db: Session, activity_id: int) -> dict[str, float]:
+    rows = (
+        db.query(
+            models.ActivityZoneSlopeAgg.hr_zone,
+            func.sum(models.ActivityZoneSlopeAgg.duration_sec),
+        )
+        .filter(models.ActivityZoneSlopeAgg.activity_id == activity_id)
+        .group_by(models.ActivityZoneSlopeAgg.hr_zone)
+        .all()
+    )
+    return {
+        row[0]: float(row[1] or 0.0)
+        for row in rows
+        if row[0]
+    }
+
+
+def _classify_activity_profile_cache(zone_durations: dict[str, float]) -> str | None:
+    total = sum(zone_durations.values())
+    if total <= 0:
+        return None
+
+    z1 = zone_durations.get("Zone 1", 0.0)
+    z2 = zone_durations.get("Zone 2", 0.0)
+    z3 = zone_durations.get("Zone 3", 0.0)
+    z4 = zone_durations.get("Zone 4", 0.0)
+    z5 = zone_durations.get("Zone 5", 0.0)
+
+    z5_ratio = z5 / total if total else 0.0
+    if z5_ratio >= 0.12 or z5 >= 600:
+        return "fractionne"
+
+    threshold_ratio = (z3 + z4) / total if total else 0.0
+    if threshold_ratio >= 0.5:
+        return "seuil"
+
+    endurance_ratio = (z1 + z2 + z3) / total if total else 0.0
+    if endurance_ratio >= 0.45:
+        return "endurance"
+
+    return "seuil"
+
+
+def _update_runner_profile_glucose_activity(
+    db: Session,
+    *,
+    activity: models.Activity,
+    sport: str,
+    month: dt.date,
+    stats: dict | None,
+):
+    if not stats:
+        return
+
+    avg = stats.get("avg")
+    if avg is None:
+        return
+
+    rpm = _get_or_create_runner_profile_row(
+        db,
+        user_id=activity.user_id,
+        sport=sport,
+        month=month,
+        metric_scope="glucose_activity",
+    )
+
+    zone_mix = _get_activity_zone_mix(db, activity.id)
+    profile_key = _classify_activity_profile_cache(zone_mix)
+
+    entry = {
+        "activity_id": activity.id,
+        "start_mgdl": stats.get("start_mgdl"),
+        "end_mgdl": stats.get("end_mgdl"),
+        "avg_mgdl": avg,
+        "tir_percent": stats.get("pct_in_range"),
+        "profile": profile_key,
+        "start_ts": _isoformat(_safe_dt(activity.start_date)),
+        "distance_km": (activity.distance or 0.0) / 1000.0 if activity.distance else None,
+        "elevation_gain_m": float(activity.total_elevation_gain) if activity.total_elevation_gain is not None else None,
+        "duration_sec": activity.elapsed_time,
+    }
+
+    extra = rpm.extra or {}
+    activities = extra.get("activities") or []
+    activities.append(entry)
+    if len(activities) > 100:
+        activities = activities[-100:]
+    extra["activities"] = activities
+
+    profile_stats = extra.get("profile_stats") or {
+        "endurance": {"sum_avg_mgdl": 0.0, "count": 0},
+        "seuil": {"sum_avg_mgdl": 0.0, "count": 0},
+        "fractionne": {"sum_avg_mgdl": 0.0, "count": 0},
+    }
+    if profile_key in profile_stats and avg is not None:
+        profile_stats[profile_key]["sum_avg_mgdl"] += float(avg)
+        profile_stats[profile_key]["count"] += 1
+    extra["profile_stats"] = profile_stats
+
+    rpm.extra = extra
+    rpm.total_duration_sec = (rpm.total_duration_sec or 0.0) + float(activity.elapsed_time or 0.0)
+
+
+def update_runner_profile_monthly_from_activity(
+    db: Session,
+    *,
+    activity: models.Activity,
+    stats: dict | None = None,
+) -> None:
+    if not activity or not activity.start_date:
+        return
+
+    month = _month_floor_date(_safe_dt(activity.start_date))
+    if month is None:
+        return
+
+    sport = activity.sport or normalize_activity_type(activity.activity_type)
+    if not sport:
+        sport = "run"
+
+    _update_runner_profile_slope_zone(db, activity=activity, sport=sport, month=month)
+    _update_runner_profile_fatigue(db, activity=activity, sport=sport, month=month)
+    _update_runner_profile_ascent_windows(db, activity=activity, sport=sport, month=month)
+    _update_runner_profile_glucose_activity(db, activity=activity, sport=sport, month=month, stats=stats)
+
+
+#---------------------------------------------------------------------------
 def compute_best_dplus_windows(
     db: Session,
     *,
@@ -1483,6 +2135,7 @@ def compute_best_dplus_windows(
     sport: str = "run",
     date_from: dt.datetime | None = None,
     date_to: dt.datetime | None = None,
+    activity_ids: list[int] | None = None,
 ) -> list[dict]:
     """Retourne le meilleur D+ cumulé sur des fenêtres glissantes (1h,2h,5h,10h,24h)."""
 
@@ -1520,15 +2173,18 @@ def compute_best_dplus_windows(
         models.Activity.sport == sport,
     )
 
-    if date_from is not None:
-        if date_from.tzinfo is not None:
-            date_from = date_from.astimezone(dt.timezone.utc).replace(tzinfo=None)
-        activities_q = activities_q.filter(models.Activity.start_date >= date_from)
+    if activity_ids:
+        activities_q = activities_q.filter(models.Activity.id.in_(activity_ids))
+    else:
+        if date_from is not None:
+            if date_from.tzinfo is not None:
+                date_from = date_from.astimezone(dt.timezone.utc).replace(tzinfo=None)
+            activities_q = activities_q.filter(models.Activity.start_date >= date_from)
 
-    if date_to is not None:
-        if date_to.tzinfo is not None:
-            date_to = date_to.astimezone(dt.timezone.utc).replace(tzinfo=None)
-        activities_q = activities_q.filter(models.Activity.start_date < date_to)
+        if date_to is not None:
+            if date_to.tzinfo is not None:
+                date_to = date_to.astimezone(dt.timezone.utc).replace(tzinfo=None)
+            activities_q = activities_q.filter(models.Activity.start_date < date_to)
 
     activities = activities_q.order_by(models.Activity.start_date.desc()).all()
     if not activities:
@@ -1743,14 +2399,6 @@ def build_fatigue_profile(
     # Structure : by_slope[slope_band][bucket_id] = {...}
     by_slope: dict[str, dict[str, dict]] = {}
 
-    def _find_bucket_id(hours: float) -> str | None:
-        for b in buckets:
-            if hours < b["min_h"]:
-                continue
-            if b["max_h"] is None or hours < b["max_h"]:
-                return b["id"]
-        return None
-
     combined_by_activity: dict[tuple[int, str], dict[str, float]] = {}
 
     for row, elapsed_time, _start_date in rows:
@@ -1792,7 +2440,7 @@ def build_fatigue_profile(
             continue
 
         hours = zone_duration_sec / 3600.0
-        bucket_id = _find_bucket_id(hours)
+        bucket_id = _find_bucket_id_from_hours(hours)
         if bucket_id is None:
             continue
 
@@ -1819,7 +2467,7 @@ def build_fatigue_profile(
             if elapsed_sec <= 0:
                 continue
             hours_total = elapsed_sec / 3600.0
-            bucket_id = _find_bucket_id(hours_total)
+            bucket_id = _find_bucket_id_from_hours(hours_total)
             if bucket_id is None:
                 continue
 

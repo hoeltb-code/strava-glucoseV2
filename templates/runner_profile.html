@@ -39,6 +39,29 @@
     font-size:0.7rem !important;
     line-height:1.2;
   }
+  .runner-section p,
+  .runner-section .muted {
+    font-size:0.78rem !important;
+    color:#0f172a !important;
+  }
+
+  @media (max-width: 640px) {
+    body, p, div, table, th, td, a {
+      font-size:0.8rem !important;
+    }
+    .runner-section table {
+      table-layout:fixed;
+    }
+    .runner-section table th,
+    .runner-section table td {
+      font-size:0.7rem !important;
+      padding:3px 2px !important;
+    }
+    .runner-section table th span {
+      font-size:0.65rem !important;
+    }
+  }
+
   @media (max-width: 900px) {
     .runner-layout {
       grid-template-columns:1fr;

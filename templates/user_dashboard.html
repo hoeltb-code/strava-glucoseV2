@@ -16,19 +16,9 @@
     }
   }
   .dashboard-activities-grid {
-    display:grid;
-    grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);
+    display:flex;
+    flex-direction:column;
     gap:16px;
-  }
-  @media (max-width: 1100px) {
-    .dashboard-activities-grid {
-      grid-template-columns:minmax(0, 1fr);
-    }
-  }
-  @media (max-width: 720px) {
-    .dashboard-activities-grid {
-      grid-template-columns:1fr;
-    }
   }
 </style>
 {% endblock %}
@@ -126,80 +116,9 @@
 <!-- ================== DERNIÈRES ACTIVITÉS (split map | VAM) ================== -->
 <div class="dashboard-activities-grid">
 {% for a in last_activities %}
-  <div class="card"
-     style="
-       position:relative;
-       overflow:visible;
-       border:2px solid {{ a.level_color }};
-       border-radius:6px;
-     ">
-
-    {% if a.level %}
-      <!-- Badge niveau losange -->
-      <div style="
-        position:absolute;
-        top:-10px;
-        right:10px;
-        display:flex;
-        flex-direction:column;
-        align-items:center;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      ">
-        <div style="position:relative; width:75px; height:60px;">
-          <!-- Contour blanc + ombre -->
-          <div style="
-            position:absolute;
-            inset:0;
-            clip-path: polygon(50% 0, 92% 40%, 70% 100%, 30% 100%, 8% 40%);
-            background:#ffffff;
-            box-shadow:0 4px 12px rgba(15,23,42,0.35);
-            border-radius:2px;
-          "></div>
-
-          <!-- Intérieur coloré -->
-            <div style="
-                position:absolute;
-                inset:3px;
-                clip-path: polygon(50% 0, 92% 40%, 70% 100%, 30% 100%, 8% 40%);
-                background: {{ a.level_color or '#6b7280' }};
-                display:flex;
-                flex-direction:column;
-                align-items:center;
-                justify-content:center;
-                color:#ffffff;
-                font-weight:700;
-                text-transform:uppercase;
-
-                /* 👉 Tu peux ajuster ici le texte du losang */
-                padding-top:10px;
-                padding-bottom:4px;
-                padding-left:4px;
-                padding-right:4px;
-            ">
-            <div style="font-size:0.55rem; letter-spacing:0.06em; opacity:0.9;">
-              Niveau
-            </div>
-            <div style="font-size:1.05rem; line-height:1; margin-top:2px;">
-              {{ a.level }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Label sortie sous le losange -->
-        <div style="
-          margin-top:4px;
-          font-size:0.65rem;
-          text-transform:uppercase;
-          letter-spacing:0.06em;
-          color:#6b7280;
-        ">
-          Sortie
-        </div>
-      </div>
-    {% endif %}
-
-    <h3 style="margin:0;">
-      <a href="/ui/user/{{ user.id }}/activity/{{ a.id }}">
+  <div class="card" style="border:1px solid #e5e7eb; border-radius:6px; padding:12px;">
+    <div style="font-weight:600; font-size:1rem;">
+      <a href="/ui/user/{{ user.id }}/activity/{{ a.id }}" style="text-decoration:none; color:inherit;">
         {% set sport = (a.sport or '')|lower %}
         {% if sport in ['run', 'trailrun', 'trail run'] %}
           🏃
@@ -216,23 +135,22 @@
         {% endif %}
         {{ (a.name or ('Activité #' ~ a.id))|truncate(60, True, '…') }}
       </a>
-    </h3>
-    <p class="muted" style="margin:4px 0 12px;">
+    </div>
+    <div style="font-size:0.85rem; color:#6b7280; margin-top:4px;">
       {{ a.date_str }} · {{ a.dist_km }} km · D+ {{ a.dplus }} m ·
       Durée {{ (a.duration_sec // 3600)|int }}h{{ ((a.duration_sec % 3600) // 60)|int }} ·
       {% if a.tir_percent is not none %}TIR {{ a.tir_percent|round(0) }}%{% else %}TIR n/a{% endif %}
-    </p>
+    </div>
 
-    <div style="display:grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap:36px;">
-      <!-- Carte à gauche -->
-      <div id="map-{{ a.id }}" style="height: 240px; border:1px solid #eee; border-radius:2px;"></div>
-
-      <!-- 📤 Bloc envoyé sur Strava -->
-      <div style="margin-top:12px;">
+    <div style="display:flex; flex-wrap:wrap; gap:16px; margin-top:12px;">
+      <div style="flex:0 0 220px;">
+        <div id="map-{{ a.id }}" style="height:160px; border:1px solid #e5e7eb; border-radius:4px;"></div>
+      </div>
+      <div style="flex:1 1 320px;">
         {% if a.summary_block_clean %}
           <pre style="background:#ffffff; color:#0f172a; padding:10px; border-radius:4px;
-                      border:1px solid #e5e7eb; font-size:0.8rem; line-height:1.5;
-                      white-space:pre-wrap; max-height:220px; overflow:auto;">
+                      border:1px solid transparent; font-size:0.8rem; line-height:1.5;
+                      white-space:pre-wrap; max-height:200px; overflow:auto;">
 {{ a.summary_block_clean }}
           </pre>
         {% else %}

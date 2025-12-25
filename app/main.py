@@ -128,6 +128,7 @@ from .logic import (
     compute_best_dplus_windows,
     get_cached_dplus_windows,
     get_series_splits_matrix,
+    compute_distance_projections,
     get_cached_volume_weekly_summary,
     update_runner_profile_monthly_from_activity,
     get_cached_glucose_activity_summary,
@@ -2889,6 +2890,7 @@ def ui_runner_profile(
         date_from=date_from,
         date_to=date_to,
     )
+    distance_projections = compute_distance_projections(series_matrix)
 
     return templates.TemplateResponse(
         "runner_profile.html",
@@ -2911,6 +2913,7 @@ def ui_runner_profile(
             "best_dplus_windows": best_dplus_windows,
             "series_matrix": series_matrix,
             "volume_weekly_summary": volume_weekly_summary,
+            "distance_projections": distance_projections,
         },
     )
 

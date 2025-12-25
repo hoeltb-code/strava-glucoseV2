@@ -67,6 +67,13 @@
     .runner-section table th span {
       font-size:0.65rem !important;
     }
+    .series-pace {
+      font-weight:400 !important;
+      font-size:0.65rem !important;
+    }
+    .series-date {
+      display:none !important;
+    }
   }
 
   @media (max-width: 900px) {
@@ -123,6 +130,17 @@
     padding:10px;
     background:#fcfcfc;
     font-size:0.8rem;
+  }
+  .series-pace {
+    font-weight:600;
+    color:#0f172a;
+  }
+  .series-date {
+    font-size:0.55rem;
+    margin-top:4px;
+  }
+  .runner-section .muted.series-date {
+    font-size:0.55rem !important;
   }
 
   .projection-card .title {
@@ -637,7 +655,7 @@
                     {% for cell in distance_row.cells %}
                       <td style="padding:6px 4px; text-align:center;">
                         {% if cell %}
-                          <div style="font-weight:600; color:#0f172a;">
+                          <div class="series-pace">
                             {% if cell.pace_str %}
                               {{ cell.pace_str }} /km
                             {% else %}
@@ -650,7 +668,7 @@
                             </div>
                           {% endif %}
                           {% if cell.best_activity_date %}
-                            <div class="muted" style="font-size:0.55rem !important; margin-top:4px;">
+                            <div class="muted series-date">
                               {{ cell.best_activity_date.strftime("%d/%m/%Y") }}
                             </div>
                           {% endif %}

@@ -1774,7 +1774,7 @@ def get_series_splits_matrix(
         repetition_headers.append(
             {
                 "value": reps,
-                "label": "Solo" if reps == 1 else f"{reps}×",
+                "label": "1×" if reps == 1 else f"{reps}×",
                 "description": "1 répétition" if reps == 1 else f"{reps} répétitions",
             }
         )

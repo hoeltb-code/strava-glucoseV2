@@ -508,9 +508,7 @@ def _extract_series_from_segments(segments: list[dict], distance_m: float) -> di
     segments = sorted(segments, key=lambda s: s["index"])
     best_by_reps: dict[int, dict] = {}
 
-    reps_list = list(SERIES_REPETITION_COUNTS)
-    if distance_m >= SERIES_LONG_DISTANCE_MIN_M:
-        reps_list = [1] + reps_list
+    reps_list = [1] + list(SERIES_REPETITION_COUNTS)
 
     for reps in reps_list:
         if len(segments) < reps:

@@ -127,6 +127,8 @@ from .logic import (
     get_cached_runner_profile,
     compute_best_dplus_windows,
     get_cached_dplus_windows,
+    get_series_splits_matrix,
+    get_cached_volume_weekly_summary,
     update_runner_profile_monthly_from_activity,
     get_cached_glucose_activity_summary,
     HR_ZONES,
@@ -2873,6 +2875,21 @@ def ui_runner_profile(
         time.perf_counter() - dplus_start,
     )
 
+    series_matrix = get_series_splits_matrix(
+        db,
+        user_id=user_id,
+        sport=sport,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    volume_weekly_summary = get_cached_volume_weekly_summary(
+        db,
+        user_id=user_id,
+        sport=sport,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
     return templates.TemplateResponse(
         "runner_profile.html",
         {
@@ -2892,6 +2909,8 @@ def ui_runner_profile(
             "glucose_activity_table": recent_glucose_activities,
             "glucose_activity_profile_radar": glucose_activity_profile_radar,
             "best_dplus_windows": best_dplus_windows,
+            "series_matrix": series_matrix,
+            "volume_weekly_summary": volume_weekly_summary,
         },
     )
 

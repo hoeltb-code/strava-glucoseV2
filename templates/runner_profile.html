@@ -266,6 +266,19 @@
       Cadence par pente × cardio
     </a>
 
+    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=series"
+       style="
+         display:block; padding:8px 10px; border-radius:4px;
+         text-decoration:none; margin-bottom:4px;
+         {% if tab == 'series' %}
+           background:#0f172a; color:#f9fafb; font-weight:600;
+         {% else %}
+           color:#111827;
+         {% endif %}
+       ">
+      Séries & volume
+    </a>
+
     {% if show_glucose_tabs %}
       <!-- Onglet Glycémie -->
       <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=glucose"
@@ -550,6 +563,128 @@
           <p class="muted" style="margin:0;">
             Aucune donnée d’agrégats trouvée pour ce profil (sport={{ sport }}, période={{ period }}).
           </p>
+        {% endif %}
+      </div>
+
+    <div class="card runner-section {% if tab == 'series' %}is-active{% endif %}" style="padding:14px;" data-section="series">
+        <h3 style="margin:0 0 8px 0; font-size:0.95rem;">Séries d’allure détectées</h3>
+        <p class="muted" style="margin:0 0 12px 0; font-size:0.8rem;">
+          Chaque cellule reprend tes meilleurs blocs répétés (allure moyenne, nombre de séries et stabilité).<br>
+          Solo = segment continu unique (activé à partir de 5 km).
+        </p>
+
+        {% if series_matrix and series_matrix.has_data %}
+          <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:0.78rem;">
+              <thead>
+                <tr style="border-bottom:1px solid #e5e7eb;">
+                  <th style="text-align:left; padding:6px 4px; white-space:nowrap;">Distance</th>
+                  {% for rep in series_matrix.repetitions %}
+                    <th style="text-align:center; padding:6px 4px;">
+                      {{ rep.label }}<br>
+                      <span style="font-size:0.7rem; font-weight:400;">{{ rep.description }}</span>
+                    </th>
+                  {% endfor %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for distance_row in series_matrix.rows %}
+                  <tr style="border-bottom:1px solid #f3f4f6;">
+                    <th style="text-align:left; padding:6px 4px;">{{ distance_row.distance_label }}</th>
+                    {% for cell in distance_row.cells %}
+                      <td style="padding:6px 4px; text-align:center;">
+                        {% if cell %}
+                          <div style="font-weight:600; color:#0f172a;">
+                            {% if cell.pace_str %}
+                              {{ cell.pace_str }} /km
+                            {% else %}
+                              –
+                            {% endif %}
+                          </div>
+                          {% if cell.stability_pct is not none %}
+                            <div class="muted" style="font-size:0.65rem;">
+                              ±{{ cell.stability_pct|round(1) }}%
+                            </div>
+                          {% endif %}
+                          {% if cell.best_activity_date %}
+                            <div class="muted" style="font-size:0.55rem !important; margin-top:4px;">
+                              {{ cell.best_activity_date.strftime("%d/%m/%Y") }}
+                            </div>
+                          {% endif %}
+                        {% else %}
+                          <span class="muted">–</span>
+                        {% endif %}
+                      </td>
+                    {% endfor %}
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="muted" style="margin:0;">
+            Aucune série détectée pour le moment sur cette période. Pense à enregistrer tes séances de fractionné avec GPS activé.
+          </p>
+        {% endif %}
+
+        {% if volume_weekly_summary %}
+          <div class="card" style="margin-top:14px; padding:14px; border:1px solid #e5e7eb; background:#fefefe;">
+            <h4 style="margin:0 0 8px 0; font-size:0.9rem;">
+              Volume hebdo moyen (fenêtre {{ volume_weekly_summary.window_days }} j glissants)
+            </h4>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:12px;">
+              <div>
+                <div class="muted" style="font-size:0.7rem;">Moyenne période</div>
+                <div style="font-size:1rem; font-weight:600; color:#0f172a;">
+                  {% if volume_weekly_summary.avg_weekly_km %}
+                    {{ volume_weekly_summary.avg_weekly_km|round(1) }} km/sem
+                  {% else %}
+                    –
+                  {% endif %}
+                </div>
+                <div class="muted" style="font-size:0.7rem;">
+                  {% if volume_weekly_summary.avg_sessions_per_week %}
+                    {{ volume_weekly_summary.avg_sessions_per_week|round(1) }} sorties / sem
+                  {% else %}
+                    –
+                  {% endif %}
+                </div>
+              </div>
+              <div>
+                <div class="muted" style="font-size:0.7rem;">Derniers calculs</div>
+                <div style="font-size:1rem; font-weight:600; color:#0f172a;">
+                  {% if volume_weekly_summary.latest_weekly_km %}
+                    {{ volume_weekly_summary.latest_weekly_km|round(1) }} km/sem
+                  {% else %}
+                    –
+                  {% endif %}
+                </div>
+                <div class="muted" style="font-size:0.7rem;">
+                  {% if volume_weekly_summary.latest_sessions_per_week %}
+                    {{ volume_weekly_summary.latest_sessions_per_week|round(1) }} sorties / sem
+                  {% else %}
+                    –
+                  {% endif %}
+                </div>
+              </div>
+              <div>
+                <div class="muted" style="font-size:0.7rem;">Dernière sortie longue &gt; 20 km</div>
+                {% if volume_weekly_summary.recent_long_run %}
+                  <div style="font-size:1rem; font-weight:600; color:#0f172a;">
+                    {{ volume_weekly_summary.recent_long_run.long_run_km|round(1) }} km
+                  </div>
+                  {% if volume_weekly_summary.recent_long_run.long_run_date %}
+                    <div class="muted" style="font-size:0.7rem;">
+                      {{ volume_weekly_summary.recent_long_run.long_run_date.strftime("%d/%m/%Y") }}
+                    </div>
+                  {% endif %}
+                {% else %}
+                  <div style="font-size:1rem; font-weight:600; color:#0f172a;">–</div>
+                  <div class="muted" style="font-size:0.7rem;">Pas détectée récemment</div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
         {% endif %}
       </div>
 

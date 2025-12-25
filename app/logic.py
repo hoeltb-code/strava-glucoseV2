@@ -27,6 +27,7 @@
 import datetime as dt
 import hashlib
 import bisect
+import statistics
 from typing import Optional, List
 
 from sqlalchemy import func
@@ -54,6 +55,42 @@ HR_ZONES = [
 
 # FC max par défaut si on n'a aucune info utilisateur
 DEFAULT_FC_MAX = 180
+
+SERIES_DISTANCE_TARGETS_M = [
+    200,
+    400,
+    800,
+    1000,
+    2000,
+    3000,
+    5000,
+    10000,
+    15000,
+]
+
+SERIES_DISTANCE_LABELS = {
+    200: "200 m",
+    400: "400 m",
+    800: "800 m",
+    1000: "1 km",
+    2000: "2 km",
+    3000: "3 km",
+    5000: "5 km",
+    10000: "10 km",
+    15000: "15 km",
+}
+
+SERIES_REPETITION_COUNTS = [2, 3, 6, 8, 10, 15, 20, 30, 40]
+SERIES_REPETITION_COLUMNS = [1] + SERIES_REPETITION_COUNTS
+SERIES_LONG_DISTANCE_MIN_M = 5000
+SERIES_MAX_STABILITY_RATIO = 0.08  # 8 % max variance vs moyenne
+SERIES_MIN_PACE_S = 150            # 2:30 / km
+SERIES_MAX_PACE_S = 720            # 12:00 / km
+
+VOLUME_WINDOW_DAYS = 28
+LONG_RUN_LOOKBACK_DAYS = 35
+LONG_RUN_THRESHOLD_KM = 20.0
+RUN_VOLUME_SPORTS = {"run", "hike"}
 
 
 def normalize_activity_type(strava_type: Optional[str]) -> str:
@@ -119,6 +156,14 @@ def _isoformat(ts: dt.datetime | None) -> str | None:
     if ts.tzinfo is None:
         ts = ts.replace(tzinfo=dt.timezone.utc)
     return ts.isoformat()
+
+
+def _format_pace_label(pace_s: float | None) -> str | None:
+    if not pace_s or pace_s <= 0:
+        return None
+    total = int(round(pace_s))
+    minutes, seconds = divmod(total, 60)
+    return f"{minutes}:{seconds:02d}"
 
 
 # ---------------------------------------------------------------------------
@@ -1580,6 +1625,154 @@ def get_cached_dplus_windows(
     return formatted
 
 
+def get_series_splits_matrix(
+    db: Session,
+    *,
+    user_id: int,
+    sport: str = "run",
+    date_from: dt.datetime | None = None,
+    date_to: dt.datetime | None = None,
+) -> dict:
+    q = (
+        db.query(models.RunnerProfileMonthly)
+        .filter(
+            models.RunnerProfileMonthly.user_id == user_id,
+            models.RunnerProfileMonthly.sport == sport,
+            models.RunnerProfileMonthly.metric_scope == "series_splits",
+        )
+    )
+
+    month_from = _month_floor_date(date_from)
+    if month_from is not None:
+        q = q.filter(models.RunnerProfileMonthly.year_month >= month_from)
+
+    if date_to is not None:
+        month_to = _month_floor_date(date_to)
+        if month_to is not None:
+            q = q.filter(models.RunnerProfileMonthly.year_month < _next_month_date(month_to))
+
+    rows = q.all()
+
+    aggregates: dict[tuple[int, int], dict] = {}
+
+    for row in rows:
+        distance_m = None
+        if row.slope_band and row.slope_band.startswith("D"):
+            try:
+                distance_m = int(row.slope_band[1:])
+            except ValueError:
+                distance_m = None
+        if not distance_m:
+            extra = row.extra if isinstance(row.extra, dict) else {}
+            try:
+                distance_m = int(extra.get("distance_m") or 0)
+            except (TypeError, ValueError):
+                distance_m = None
+
+        reps = None
+        if row.hr_zone and row.hr_zone.startswith("R"):
+            try:
+                reps = int(row.hr_zone[1:])
+            except ValueError:
+                reps = None
+        if not reps:
+            extra = row.extra if isinstance(row.extra, dict) else {}
+            try:
+                reps = int(extra.get("reps") or 0)
+            except (TypeError, ValueError):
+                reps = None
+
+        if not distance_m or not reps:
+            continue
+
+        key = (distance_m, reps)
+        cell = aggregates.setdefault(
+            key,
+            {
+                "series_count": 0,
+                "stability_sum": 0.0,
+                "stability_count": 0,
+                "best_entry": None,
+            },
+        )
+
+        extra = row.extra if isinstance(row.extra, dict) else {}
+        cell["series_count"] += int(extra.get("series_count") or row.total_points or 0)
+
+        stability_samples = extra.get("stability_samples")
+        if isinstance(stability_samples, list):
+            numeric = [float(s) for s in stability_samples if isinstance(s, (int, float))]
+            cell["stability_sum"] += sum(numeric)
+            cell["stability_count"] += len(numeric)
+
+        best_series = extra.get("best_series")
+        if isinstance(best_series, dict):
+            best_pace = best_series.get("avg_pace_s_per_km")
+            if best_pace and best_pace > 0:
+                current = cell["best_entry"]
+                if current is None or best_pace < current.get("avg_pace_s_per_km", float("inf")):
+                    cell["best_entry"] = {
+                        "avg_pace_s_per_km": best_pace,
+                        "activity_id": best_series.get("activity_id"),
+                        "date": _parse_iso_datetime(best_series.get("date")),
+                        "duration_sec": best_series.get("duration_sec"),
+                    }
+
+    rows_out = []
+    has_data = False
+
+    for distance in SERIES_DISTANCE_TARGETS_M:
+        cells = []
+        for reps in SERIES_REPETITION_COLUMNS:
+            bucket = aggregates.get((distance, reps))
+            best_entry = bucket.get("best_entry") if bucket else None
+            if best_entry and (best_entry.get("avg_pace_s_per_km") or 0) > 0:
+                pace_val = best_entry["avg_pace_s_per_km"]
+                stability_pct = None
+                if bucket["stability_count"] > 0:
+                    stability_pct = (bucket["stability_sum"] / bucket["stability_count"]) * 100.0
+
+                cells.append(
+                    {
+                        "distance_m": distance,
+                        "reps": reps,
+                        "avg_pace_s_per_km": pace_val,
+                        "pace_str": _format_pace_label(pace_val),
+                        "series_count": bucket["series_count"],
+                        "stability_pct": stability_pct,
+                        "best_activity_id": best_entry.get("activity_id"),
+                        "best_activity_date": best_entry.get("date"),
+                    }
+                )
+                has_data = True
+            else:
+                cells.append(None)
+
+        rows_out.append(
+            {
+                "distance_m": distance,
+                "distance_label": SERIES_DISTANCE_LABELS.get(distance, f"{distance} m"),
+                "cells": cells,
+            }
+        )
+
+    repetition_headers = []
+    for reps in SERIES_REPETITION_COLUMNS:
+        repetition_headers.append(
+            {
+                "value": reps,
+                "label": "Solo" if reps == 1 else f"{reps}×",
+                "description": "1 répétition" if reps == 1 else f"{reps} répétitions",
+            }
+        )
+
+    return {
+        "rows": rows_out,
+        "repetitions": repetition_headers,
+        "has_data": has_data,
+    }
+
+
 def get_cached_runner_profile(
     db: Session,
     *,
@@ -1715,6 +1908,97 @@ def get_cached_runner_profile(
     }
 
 
+def get_cached_volume_weekly_summary(
+    db: Session,
+    *,
+    user_id: int,
+    sport: str = "run",
+    date_from: dt.datetime | None = None,
+    date_to: dt.datetime | None = None,
+) -> dict | None:
+    q = (
+        db.query(models.RunnerProfileMonthly)
+        .filter(
+            models.RunnerProfileMonthly.user_id == user_id,
+            models.RunnerProfileMonthly.sport == sport,
+            models.RunnerProfileMonthly.metric_scope == "volume_weekly",
+        )
+    )
+
+    month_from = _month_floor_date(date_from)
+    if month_from is not None:
+        q = q.filter(models.RunnerProfileMonthly.year_month >= month_from)
+
+    if date_to is not None:
+        month_to = _month_floor_date(date_to)
+        if month_to is not None:
+            q = q.filter(models.RunnerProfileMonthly.year_month < _next_month_date(month_to))
+
+    rows = q.order_by(models.RunnerProfileMonthly.year_month.asc()).all()
+    if not rows:
+        return None
+
+    history = []
+    weekly_values: list[float] = []
+    session_values: list[float] = []
+    divisor = VOLUME_WINDOW_DAYS / 7.0 if VOLUME_WINDOW_DAYS else 4.0
+
+    for row in rows:
+        extra = row.extra if isinstance(row.extra, dict) else {}
+        weekly_km = extra.get("weekly_volume_km")
+        if weekly_km is None:
+            weekly_km = (row.total_distance_m or 0.0) / 1000.0
+
+        activities_count = extra.get("activities_count")
+        if activities_count is None:
+            activities_count = row.total_points or 0
+
+        sessions_per_week = None
+        if activities_count is not None:
+            sessions_per_week = activities_count / divisor if divisor else activities_count
+
+        long_run = extra.get("long_run") if isinstance(extra, dict) else None
+        long_run_km = None
+        long_run_date = None
+        if isinstance(long_run, dict):
+            long_run_km = long_run.get("distance_km")
+            long_run_date = _parse_iso_datetime(long_run.get("date"))
+
+        history.append(
+            {
+                "month": row.year_month,
+                "weekly_km": weekly_km,
+                "sessions_per_week": sessions_per_week,
+                "activities_count": activities_count,
+                "long_run_km": long_run_km,
+                "long_run_date": long_run_date,
+            }
+        )
+
+        if weekly_km is not None:
+            weekly_values.append(float(weekly_km))
+        if sessions_per_week is not None:
+            session_values.append(float(sessions_per_week))
+
+    def _avg(values: list[float]) -> float | None:
+        return sum(values) / len(values) if values else None
+
+    avg_weekly_km = _avg(weekly_values)
+    avg_sessions = _avg(session_values)
+    latest = history[-1]
+    recent_long_run = next((item for item in reversed(history) if item["long_run_km"]), None)
+
+    return {
+        "history": history,
+        "avg_weekly_km": avg_weekly_km,
+        "avg_sessions_per_week": avg_sessions,
+        "latest_weekly_km": latest.get("weekly_km"),
+        "latest_sessions_per_week": latest.get("sessions_per_week"),
+        "recent_long_run": recent_long_run,
+        "window_days": VOLUME_WINDOW_DAYS,
+    }
+
+
 def _get_or_create_runner_profile_row(
     db: Session,
     *,
@@ -1830,6 +2114,394 @@ def _update_runner_profile_slope_zone(
         rpm.avg_cadence_spm = _safe_avg(rpm.sum_cadence_x_duration or 0.0, rpm.cadence_duration_sec or 0.0)
         rpm.avg_velocity_m_s = _safe_avg(rpm.sum_velocity_x_duration or 0.0, rpm.velocity_duration_sec or 0.0)
         rpm.avg_pace_s_per_km = _safe_avg(rpm.sum_pace_x_duration or 0.0, rpm.pace_duration_sec or 0.0)
+
+
+def _load_distance_time_stream(db: Session, activity_id: int) -> list[tuple[float, float]]:
+    rows = (
+        db.query(
+            models.ActivityStreamPoint.distance,
+            models.ActivityStreamPoint.elapsed_time,
+        )
+        .filter(models.ActivityStreamPoint.activity_id == activity_id)
+        .order_by(models.ActivityStreamPoint.idx.asc())
+        .all()
+    )
+
+    stream: list[tuple[float, float]] = []
+    last_dist = None
+    for row in rows:
+        if row.distance is None or row.elapsed_time is None:
+            continue
+        dist = float(row.distance)
+        elapsed = float(row.elapsed_time)
+        if last_dist is not None and dist < last_dist - 1.0:
+            # Distance reset / GPS glitch -> on ignore ce point
+            continue
+        stream.append((dist, elapsed))
+        last_dist = dist
+    return stream
+
+
+def _build_distance_segments(stream: list[tuple[float, float]], target_distance_m: float) -> list[dict]:
+    if not stream or len(stream) < 2:
+        return []
+
+    total_distance = stream[-1][0]
+    max_segments = int(total_distance // target_distance_m)
+    if max_segments == 0:
+        return []
+
+    segments: list[dict] = []
+    targets = [i * target_distance_m for i in range(max_segments + 1)]
+    target_times = [None] * (max_segments + 1)
+    target_times[0] = stream[0][1] if stream[0][0] <= 1e-3 else 0.0
+
+    idx_target = 0
+    prev_dist, prev_time = stream[0]
+
+    for dist, time in stream[1:]:
+        if dist < prev_dist:
+            prev_dist, prev_time = dist, time
+            continue
+
+        while idx_target + 1 < len(targets) and targets[idx_target + 1] <= dist:
+            target = targets[idx_target + 1]
+            if dist == prev_dist:
+                interpolated_time = time
+            else:
+                ratio = (target - prev_dist) / (dist - prev_dist)
+                interpolated_time = prev_time + ratio * (time - prev_time)
+
+            target_times[idx_target + 1] = interpolated_time
+            start_time = target_times[idx_target]
+            if start_time is not None:
+                duration = interpolated_time - start_time
+                if duration > 1.0:
+                    pace = duration / (target_distance_m / 1000.0)
+                    if SERIES_MIN_PACE_S <= pace <= SERIES_MAX_PACE_S:
+                        segments.append(
+                            {
+                                "index": idx_target,
+                                "start_time": start_time,
+                                "end_time": interpolated_time,
+                                "duration_sec": duration,
+                                "pace_s_per_km": pace,
+                            }
+                        )
+            idx_target += 1
+
+        prev_dist = dist
+        prev_time = time
+
+        if idx_target + 1 >= len(targets):
+            break
+
+    return segments
+
+
+def _select_best_segments_no_overlap(segments: list[dict], reps: int) -> list[dict] | None:
+    if reps <= 0 or len(segments) < reps:
+        return None
+
+    segments_sorted = sorted(segments, key=lambda s: s["end_time"])
+    end_times = [seg["end_time"] for seg in segments_sorted]
+    prev_idx: list[int] = []
+
+    for i, seg in enumerate(segments_sorted):
+        start = seg["start_time"]
+        j = bisect.bisect_right(end_times, start, hi=i) - 1
+        prev_idx.append(j)
+
+    n = len(segments_sorted)
+    INF = float("inf")
+
+    dp = [[INF] * (reps + 1) for _ in range(n + 1)]
+    choice = [[False] * (reps + 1) for _ in range(n + 1)]
+    jump = [[0] * (reps + 1) for _ in range(n + 1)]
+
+    for i in range(n + 1):
+        dp[i][0] = 0.0
+
+    for i in range(1, n + 1):
+        seg = segments_sorted[i - 1]
+        for c in range(1, reps + 1):
+            # Option 1 : hériter du meilleur coût précédent (ne pas prendre ce segment)
+            dp[i][c] = dp[i - 1][c]
+            choice[i][c] = False
+
+            prev_row = prev_idx[i - 1] + 1
+            prev_cost = dp[prev_row][c - 1]
+            if prev_cost == INF:
+                continue
+
+            include_cost = seg["pace_s_per_km"] + prev_cost
+            if include_cost < dp[i][c]:
+                dp[i][c] = include_cost
+                choice[i][c] = True
+                jump[i][c] = prev_row
+
+    if dp[n][reps] == INF:
+        return None
+
+    selected_indices: list[int] = []
+    i, c = n, reps
+    while i > 0 and c > 0:
+        if choice[i][c]:
+            selected_indices.append(i - 1)
+            i = jump[i][c]
+            c -= 1
+        else:
+            i -= 1
+
+    if c != 0:
+        return None
+
+    selected_indices.sort()
+    return [segments_sorted[idx] for idx in selected_indices]
+
+
+def _extract_series_from_segments(
+    segments: list[dict],
+    distance_m: float,
+) -> dict[int, dict]:
+    if not segments:
+        return {}
+
+    best_by_reps: dict[int, dict] = {}
+
+    reps_list = [1] + list(SERIES_REPETITION_COUNTS)
+
+    for reps in reps_list:
+        selection = _select_best_segments_no_overlap(segments, reps)
+        if not selection:
+            continue
+
+        pace_values = [s["pace_s_per_km"] for s in selection]
+        avg_pace = sum(pace_values) / reps
+        if avg_pace <= 0:
+            continue
+
+        if reps > 1:
+            std_dev = statistics.pstdev(pace_values)
+            stability = std_dev / avg_pace if avg_pace > 0 else None
+        else:
+            stability = 0.0
+
+        if stability is not None and stability > SERIES_MAX_STABILITY_RATIO:
+            continue
+
+        duration = sum(s["duration_sec"] for s in selection)
+        start_offset = min(s["start_time"] for s in selection)
+        entry = {
+            "distance_m": distance_m,
+            "reps": reps,
+            "avg_pace_s_per_km": avg_pace,
+            "stability_ratio": stability,
+            "duration_sec": duration,
+            "start_offset_sec": start_offset,
+        }
+        best_by_reps[reps] = entry
+
+    return best_by_reps
+
+
+def _extract_activity_series_splits(db: Session, activity: models.Activity) -> list[dict]:
+    stream = _load_distance_time_stream(db, activity.id)
+    if not stream:
+        return []
+
+    total_distance = stream[-1][0]
+    if total_distance < min(SERIES_DISTANCE_TARGETS_M):
+        return []
+
+    series_entries: list[dict] = []
+
+    for distance_m in SERIES_DISTANCE_TARGETS_M:
+        segments = _build_distance_segments(stream, distance_m)
+        if not segments:
+            continue
+
+        series_by_reps = _extract_series_from_segments(segments, distance_m)
+        for reps, data in series_by_reps.items():
+            entry = data.copy()
+            entry["activity_id"] = activity.id
+            series_entries.append(entry)
+
+    return series_entries
+
+
+def _update_runner_profile_series_splits(
+    db: Session,
+    *,
+    activity: models.Activity,
+    sport: str,
+    month: dt.date,
+):
+    if sport != "run":
+        return
+
+    series_entries = _extract_activity_series_splits(db, activity)
+    if not series_entries:
+        return
+
+    activity_date_iso = _isoformat(_safe_dt(activity.start_date))
+
+    for entry in series_entries:
+        duration = float(entry.get("duration_sec") or 0.0)
+        avg_pace = float(entry.get("avg_pace_s_per_km") or 0.0)
+        if duration <= 0 or avg_pace <= 0:
+            continue
+
+        distance_m = int(entry["distance_m"])
+        reps = int(entry["reps"])
+
+        distance_key = f"D{distance_m}"
+        reps_key = f"R{reps}"
+
+        rpm = _get_or_create_runner_profile_row(
+            db,
+            user_id=activity.user_id,
+            sport=sport,
+            month=month,
+            metric_scope="series_splits",
+            slope_band=distance_key,
+            hr_zone=reps_key,
+        )
+
+        rpm.total_duration_sec = (rpm.total_duration_sec or 0.0) + duration
+        rpm.total_distance_m = (rpm.total_distance_m or 0.0) + (distance_m * reps)
+        rpm.total_points = int((rpm.total_points or 0) + reps)
+        rpm.sum_pace_x_duration = (rpm.sum_pace_x_duration or 0.0) + (avg_pace * duration)
+        rpm.pace_duration_sec = (rpm.pace_duration_sec or 0.0) + duration
+        rpm.avg_pace_s_per_km = _safe_avg(rpm.sum_pace_x_duration or 0.0, rpm.pace_duration_sec or 0.0)
+
+        extra = rpm.extra or {}
+        extra["distance_m"] = distance_m
+        extra["reps"] = reps
+        extra["series_count"] = int(extra.get("series_count", 0)) + 1
+
+        stability_samples = extra.get("stability_samples") or []
+        if entry.get("stability_ratio") is not None:
+            stability_samples.append(entry["stability_ratio"])
+            stability_samples = stability_samples[-50:]
+        extra["stability_samples"] = stability_samples
+
+        samples = extra.get("samples") or []
+        samples.append(
+            {
+                "activity_id": entry["activity_id"],
+                "avg_pace_s_per_km": avg_pace,
+                "duration_sec": duration,
+                "start_offset_sec": entry.get("start_offset_sec"),
+                "stability_ratio": entry.get("stability_ratio"),
+                "date": activity_date_iso,
+            }
+        )
+        samples = samples[-20:]
+        extra["samples"] = samples
+
+        best_series = extra.get("best_series")
+        if not best_series or avg_pace < best_series.get("avg_pace_s_per_km", float("inf")):
+            extra["best_series"] = {
+                "avg_pace_s_per_km": avg_pace,
+                "activity_id": entry["activity_id"],
+                "duration_sec": duration,
+                "start_offset_sec": entry.get("start_offset_sec"),
+                "stability_ratio": entry.get("stability_ratio"),
+                "date": activity_date_iso,
+            }
+
+        rpm.extra = extra
+
+
+def _compute_recent_volume_metrics(
+    db: Session,
+    *,
+    user_id: int,
+    reference_date: dt.datetime,
+) -> dict:
+    ref = _safe_dt(reference_date)
+    window_start = ref - dt.timedelta(days=VOLUME_WINDOW_DAYS)
+
+    activities = (
+        db.query(models.Activity)
+        .filter(models.Activity.user_id == user_id)
+        .filter(models.Activity.sport.in_(RUN_VOLUME_SPORTS))
+        .filter(models.Activity.start_date >= window_start)
+        .filter(models.Activity.start_date <= ref)
+        .all()
+    )
+
+    if not activities:
+        return {
+            "weekly_volume_km": 0.0,
+            "activities_count": 0,
+            "long_run_km": None,
+            "long_run_date": None,
+        }
+
+    total_km = 0.0
+    activities_count = 0
+    best_long_run = None
+
+    for act in activities:
+        if act.distance is None:
+            continue
+        km = float(act.distance) / 1000.0
+        total_km += km
+        activities_count += 1
+
+        if best_long_run is None or km > best_long_run["distance_km"]:
+            best_long_run = {
+                "distance_km": km,
+                "date": _isoformat(_safe_dt(act.start_date)),
+            }
+
+    weekly_volume_km = total_km / (VOLUME_WINDOW_DAYS / 7.0)
+
+    if best_long_run and best_long_run["distance_km"] < LONG_RUN_THRESHOLD_KM:
+        best_long_run = None
+
+    return {
+        "weekly_volume_km": weekly_volume_km,
+        "activities_count": activities_count,
+        "long_run": best_long_run,
+        "window_days": VOLUME_WINDOW_DAYS,
+    }
+
+
+def _update_runner_profile_volume_weekly(
+    db: Session,
+    *,
+    activity: models.Activity,
+    sport: str,
+    month: dt.date,
+):
+    if sport not in RUN_VOLUME_SPORTS:
+        return
+
+    metrics = _compute_recent_volume_metrics(
+        db,
+        user_id=activity.user_id,
+        reference_date=_safe_dt(activity.start_date),
+    )
+
+    target_sport = "run"
+    rpm = _get_or_create_runner_profile_row(
+        db,
+        user_id=activity.user_id,
+        sport=target_sport,
+        month=month,
+        metric_scope="volume_weekly",
+    )
+
+    weekly_km = metrics.get("weekly_volume_km") or 0.0
+    rpm.total_distance_m = weekly_km * 1000.0
+    rpm.total_points = metrics.get("activities_count") or 0
+
+    extra = rpm.extra or {}
+    extra.update(metrics)
+    rpm.extra = extra
 
 
 def _update_runner_profile_ascent_windows(
@@ -2010,6 +2682,8 @@ def update_runner_profile_monthly_from_activity(
         sport = "run"
 
     _update_runner_profile_slope_zone(db, activity=activity, sport=sport, month=month)
+    _update_runner_profile_series_splits(db, activity=activity, sport=sport, month=month)
+    _update_runner_profile_volume_weekly(db, activity=activity, sport=sport, month=month)
     _update_runner_profile_ascent_windows(db, activity=activity, sport=sport, month=month)
     _update_runner_profile_glucose_activity(db, activity=activity, sport=sport, month=month, stats=stats)
 

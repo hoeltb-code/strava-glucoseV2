@@ -12,6 +12,7 @@ activity.
 from __future__ import annotations
 
 import datetime as dt
+import statistics
 from collections import defaultdict
 from typing import Dict, Iterable, Tuple
 
@@ -19,7 +20,19 @@ from sqlalchemy import func
 
 from app.database import SessionLocal
 from app import models
-from app.logic import compute_best_dplus_windows
+from app.logic import (
+    compute_best_dplus_windows,
+    SERIES_DISTANCE_TARGETS_M,
+    SERIES_REPETITION_COUNTS,
+    SERIES_LONG_DISTANCE_MIN_M,
+    SERIES_MIN_PACE_S,
+    SERIES_MAX_PACE_S,
+    SERIES_MAX_STABILITY_RATIO,
+    VOLUME_WINDOW_DAYS,
+    LONG_RUN_LOOKBACK_DAYS,
+    LONG_RUN_THRESHOLD_KM,
+    RUN_VOLUME_SPORTS,
+)
 
 
 def _month_start(ts: dt.datetime) -> dt.date:
@@ -140,14 +153,32 @@ def _get_activity_glucose_point(
     return float(value) if value is not None else None
 
 
-def rebuild_runner_profile_monthly(db: SessionLocal, wipe_existing: bool = False) -> None:
-    """
-    Recompute monthly aggregates for all activities currently stored.
+def _load_distance_time_stream(db: SessionLocal, activity_id: int) -> list[tuple[float, float]]:
+    rows = (
+        db.query(
+            models.ActivityStreamPoint.distance,
+            models.ActivityStreamPoint.elapsed_time,
+        )
+        .filter(models.ActivityStreamPoint.activity_id == activity_id)
+        .order_by(models.ActivityStreamPoint.idx.asc())
+        .all()
+    )
+    stream: list[tuple[float, float]] = []
+    last_dist = None
+    for row in rows:
+        if row.distance is None or row.elapsed_time is None:
+            continue
+        dist = float(row.distance)
+        elapsed = float(row.elapsed_time)
+        if last_dist is not None and dist < last_dist - 1.0:
+            continue
+        stream.append((dist, elapsed))
+        last_dist = dist
+    return stream
 
-    Remplit successivement :
-      - slope_zone (pente × zone cardio)
-      - ascent_window (fenêtres D+)
-    """
+
+
+def rebuild_runner_profile_monthly(db: SessionLocal, wipe_existing: bool = False) -> None:
     if wipe_existing:
         deleted = db.query(models.RunnerProfileMonthly).delete()
         print(f"Deleted {deleted} existing monthly rows.")
@@ -157,6 +188,8 @@ def rebuild_runner_profile_monthly(db: SessionLocal, wipe_existing: bool = False
     total_inserted += _backfill_slope_zone(db)
     total_inserted += _backfill_ascent_windows(db)
     total_inserted += _backfill_glucose_activity(db)
+    total_inserted += _backfill_series_splits(db)
+    total_inserted += _backfill_volume_weekly(db)
 
     print(f"Total rows inserted: {total_inserted}")
 
@@ -410,6 +443,288 @@ def _backfill_glucose_activity(db: SessionLocal) -> int:
     print(f"Inserted {inserted} monthly aggregates (scope=glucose_activity).")
     return inserted
 
+
+def _build_distance_segments(stream: list[tuple[float, float]], target_distance_m: float) -> list[dict]:
+    if not stream or len(stream) < 2:
+        return []
+
+    total_distance = stream[-1][0]
+    max_segments = int(total_distance // target_distance_m)
+    if max_segments == 0:
+        return []
+
+    segments: list[dict] = []
+    targets = [i * target_distance_m for i in range(max_segments + 1)]
+    target_times = [None] * (max_segments + 1)
+    target_times[0] = stream[0][1] if stream[0][0] <= 1e-3 else 0.0
+
+    idx_target = 0
+    prev_dist, prev_time = stream[0]
+
+    for dist, time in stream[1:]:
+        if dist < prev_dist:
+            prev_dist, prev_time = dist, time
+            continue
+
+        while idx_target + 1 < len(targets) and targets[idx_target + 1] <= dist:
+            target = targets[idx_target + 1]
+            if dist == prev_dist:
+                interpolated_time = time
+            else:
+                ratio = (target - prev_dist) / (dist - prev_dist)
+                interpolated_time = prev_time + ratio * (time - prev_time)
+
+            target_times[idx_target + 1] = interpolated_time
+            start_time = target_times[idx_target]
+            if start_time is not None:
+                duration = interpolated_time - start_time
+                if duration > 1.0:
+                    pace = duration / (target_distance_m / 1000.0)
+                    if SERIES_MIN_PACE_S <= pace <= SERIES_MAX_PACE_S:
+                        segments.append(
+                            {
+                                "index": idx_target,
+                                "start_time": start_time,
+                                "end_time": interpolated_time,
+                                "duration_sec": duration,
+                                "pace_s_per_km": pace,
+                            }
+                        )
+            idx_target += 1
+
+        prev_dist = dist
+        prev_time = time
+
+        if idx_target + 1 >= len(targets):
+            break
+
+    return segments
+
+
+def _extract_series_from_segments(segments: list[dict], distance_m: float) -> dict[int, dict]:
+    if not segments:
+        return {}
+
+    segments = sorted(segments, key=lambda s: s["index"])
+    best_by_reps: dict[int, dict] = {}
+
+    reps_list = list(SERIES_REPETITION_COUNTS)
+    if distance_m >= SERIES_LONG_DISTANCE_MIN_M:
+        reps_list = [1] + reps_list
+
+    for reps in reps_list:
+        if len(segments) < reps:
+            continue
+
+        best_entry: dict | None = None
+        window: list[dict] = []
+        prev_index = None
+
+        for seg in segments:
+            if prev_index is not None and seg["index"] != prev_index + 1:
+                window = []
+            window.append(seg)
+            prev_index = seg["index"]
+
+            if len(window) > reps:
+                window.pop(0)
+
+            if len(window) == reps:
+                pace_values = [s["pace_s_per_km"] for s in window]
+                avg_pace = sum(pace_values) / reps
+                if avg_pace <= 0:
+                    continue
+
+                if reps > 1:
+                    std_dev = statistics.pstdev(pace_values)
+                    stability = std_dev / avg_pace if avg_pace > 0 else None
+                else:
+                    stability = 0.0
+
+                if stability is not None and stability > SERIES_MAX_STABILITY_RATIO:
+                    continue
+
+                duration = sum(s["duration_sec"] for s in window)
+                entry = {
+                    "distance_m": distance_m,
+                    "reps": reps,
+                    "avg_pace_s_per_km": avg_pace,
+                    "stability_ratio": stability,
+                    "duration_sec": duration,
+                }
+
+                if best_entry is None or avg_pace < best_entry["avg_pace_s_per_km"]:
+                    best_entry = entry
+
+        if best_entry:
+            best_by_reps[reps] = best_entry
+
+    return best_by_reps
+
+
+def _backfill_series_splits(db: SessionLocal) -> int:
+    inserted = 0
+    for user_id, sport, month in _iter_user_sport_months(db):
+        if sport != "run":
+            continue
+
+        month_start, month_end = _month_bounds(month)
+        activities = (
+            db.query(models.Activity)
+            .filter(
+                models.Activity.user_id == user_id,
+                models.Activity.sport == sport,
+                models.Activity.start_date >= month_start,
+                models.Activity.start_date < month_end,
+            )
+            .order_by(models.Activity.start_date.asc())
+            .all()
+        )
+
+        if not activities:
+            continue
+
+        for act in activities:
+            stream = _load_distance_time_stream(db, act.id)
+            if not stream or stream[-1][0] < min(SERIES_DISTANCE_TARGETS_M):
+                continue
+
+            for distance_m in SERIES_DISTANCE_TARGETS_M:
+                segments = _build_distance_segments(stream, distance_m)
+                if not segments:
+                    continue
+                series_by_reps = _extract_series_from_segments(segments, distance_m)
+                for reps, data in series_by_reps.items():
+                    duration = float(data.get("duration_sec") or 0.0)
+                    avg_pace = float(data.get("avg_pace_s_per_km") or 0.0)
+                    if duration <= 0 or avg_pace <= 0:
+                        continue
+                    rpm = models.RunnerProfileMonthly(
+                        user_id=user_id,
+                        sport=sport,
+                        year_month=month,
+                        metric_scope="series_splits",
+                        slope_band=f"D{int(distance_m)}",
+                        hr_zone=f"R{int(reps)}",
+                        total_duration_sec=duration,
+                        total_distance_m=distance_m * reps,
+                        total_points=reps,
+                        sum_pace_x_duration=avg_pace * duration,
+                        pace_duration_sec=duration,
+                        avg_pace_s_per_km=avg_pace,
+                        extra={
+                            "distance_m": distance_m,
+                            "reps": reps,
+                            "series_count": 1,
+                            "samples": [
+                                {
+                                    "activity_id": act.id,
+                                    "avg_pace_s_per_km": avg_pace,
+                                    "duration_sec": duration,
+                                    "stability_ratio": data.get("stability_ratio"),
+                                    "date": _isoformat(act.start_date),
+                                }
+                            ],
+                            "best_series": {
+                                "avg_pace_s_per_km": avg_pace,
+                                "activity_id": act.id,
+                                "duration_sec": duration,
+                                "stability_ratio": data.get("stability_ratio"),
+                                "date": _isoformat(act.start_date),
+                            },
+                        },
+                    )
+                    db.add(rpm)
+                    inserted += 1
+
+    db.commit()
+    print(f"Inserted {inserted} monthly aggregates (scope=series_splits).")
+    return inserted
+
+
+def _compute_recent_volume_metrics_backfill(
+    db: SessionLocal,
+    user_id: int,
+    month_end: dt.datetime,
+) -> dict:
+    window_start = month_end - dt.timedelta(days=VOLUME_WINDOW_DAYS)
+    activities = (
+        db.query(models.Activity)
+        .filter(models.Activity.user_id == user_id)
+        .filter(models.Activity.sport.in_(RUN_VOLUME_SPORTS))
+        .filter(models.Activity.start_date >= window_start)
+        .filter(models.Activity.start_date <= month_end)
+        .all()
+    )
+
+    if not activities:
+        return {
+            "weekly_volume_km": 0.0,
+            "activities_count": 0,
+            "long_run": None,
+            "window_days": VOLUME_WINDOW_DAYS,
+        }
+
+    total_km = 0.0
+    activities_count = 0
+    best_long_run = None
+
+    for act in activities:
+        if act.distance is None:
+            continue
+        km = float(act.distance) / 1000.0
+        total_km += km
+        activities_count += 1
+        if best_long_run is None or km > best_long_run["distance_km"]:
+            best_long_run = {
+                "distance_km": km,
+                "date": _isoformat(act.start_date),
+            }
+
+    weekly_volume_km = total_km / (VOLUME_WINDOW_DAYS / 7.0)
+
+    if best_long_run and best_long_run["distance_km"] < LONG_RUN_THRESHOLD_KM:
+        best_long_run = None
+
+    return {
+        "weekly_volume_km": weekly_volume_km,
+        "activities_count": activities_count,
+        "long_run": best_long_run,
+        "window_days": VOLUME_WINDOW_DAYS,
+    }
+
+
+def _backfill_volume_weekly(db: SessionLocal) -> int:
+    inserted = 0
+    processed_months: set[tuple[int, dt.date]] = set()
+    for user_id, sport, month in _iter_user_sport_months(db):
+        if sport not in RUN_VOLUME_SPORTS:
+            continue
+        key = (user_id, month)
+        if key in processed_months:
+            continue
+        processed_months.add(key)
+        _, month_end = _month_bounds(month)
+        metrics = _compute_recent_volume_metrics_backfill(
+            db,
+            user_id=user_id,
+            month_end=month_end,
+        )
+        entry = models.RunnerProfileMonthly(
+            user_id=user_id,
+            sport="run",
+            year_month=month,
+            metric_scope="volume_weekly",
+            total_distance_m=metrics.get("weekly_volume_km", 0.0) * 1000.0,
+            total_points=metrics.get("activities_count") or 0,
+            extra=metrics,
+        )
+        db.add(entry)
+        inserted += 1
+
+    db.commit()
+    print(f"Inserted {inserted} monthly aggregates (scope=volume_weekly).")
+    return inserted
 
 
 

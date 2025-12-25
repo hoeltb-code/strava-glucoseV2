@@ -44,6 +44,9 @@
     font-size:0.78rem !important;
     color:#0f172a !important;
   }
+  .runner-section .muted.duration-label {
+    font-size:0.45rem !important;
+  }
 
   @media (max-width: 640px) {
     body, p, div, table, th, td, a {
@@ -106,6 +109,32 @@
     .dplus-table td {
       padding:4px 2px;
     }
+  }
+
+  .projection-grid {
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(180px,1fr));
+    gap:12px;
+  }
+
+  .projection-card {
+    border:1px solid #e5e7eb;
+    border-radius:6px;
+    padding:10px;
+    background:#fcfcfc;
+    font-size:0.8rem;
+  }
+
+  .projection-card .title {
+    font-weight:600;
+    margin-bottom:4px;
+    color:#111827;
+  }
+
+  .projection-card .value {
+    font-size:0.95rem;
+    font-weight:600;
+    color:#0f172a;
   }
 </style>
 {% set needs_chart_js = show_glucose_tabs and (
@@ -210,6 +239,34 @@
 
     {% set base_url = request.url.path %}
 
+    <!-- Onglet Allure + projections -->
+    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=pace"
+       style="
+         display:block; padding:8px 10px; border-radius:4px;
+         text-decoration:none; margin-bottom:4px;
+         {% if tab == 'pace' %}
+           background:#0f172a; color:#f9fafb; font-weight:600;
+         {% else %}
+         color:#111827;
+         {% endif %}
+       ">
+      Allure par pente × cardio & <span style="color:#dc2626; font-weight:600;">projections Chrono (GPX)</span>
+    </a>
+
+    <!-- Onglet Projection chrono route -->
+    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=series"
+       style="
+         display:block; padding:8px 10px; border-radius:4px;
+         text-decoration:none; margin-bottom:4px;
+         {% if tab == 'series' %}
+           background:#0f172a; color:#f9fafb; font-weight:600;
+         {% else %}
+           color:#111827;
+         {% endif %}
+       ">
+      <span style="color:#dc2626; font-weight:600;">Projection Chrono Route</span> & séances clef
+    </a>
+
     <!-- Onglet D+ -->
     <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=ascent"
        style="
@@ -234,22 +291,8 @@
          {% else %}
            color:#111827;
          {% endif %}
-       ">
+      ">
       VAM par pente × cardio
-    </a>
-
-    <!-- Onglet Allure + projections -->
-    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=pace"
-       style="
-         display:block; padding:8px 10px; border-radius:4px;
-         text-decoration:none; margin-bottom:4px;
-         {% if tab == 'pace' %}
-           background:#0f172a; color:#f9fafb; font-weight:600;
-         {% else %}
-         color:#111827;
-         {% endif %}
-       ">
-      Allure par pente × cardio & <span style="color:#dc2626; font-weight:600;">projections Chrono (GPX)</span>
     </a>
 
     <!-- Onglet Cadence -->
@@ -264,19 +307,6 @@
          {% endif %}
        ">
       Cadence par pente × cardio
-    </a>
-
-    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=series"
-       style="
-         display:block; padding:8px 10px; border-radius:4px;
-         text-decoration:none; margin-bottom:4px;
-         {% if tab == 'series' %}
-           background:#0f172a; color:#f9fafb; font-weight:600;
-         {% else %}
-           color:#111827;
-         {% endif %}
-       ">
-      Séries & volume
     </a>
 
     {% if show_glucose_tabs %}
@@ -443,7 +473,8 @@
           </h3>
           <p class="muted" style="margin:0 0 10px 0; font-size:0.8rem;">
             On inclut ici montées <strong>et descentes</strong> pour voir comment tu gères
-            toutes les pentes.
+            toutes les pentes, et on affiche aussi le temps total passé dans chaque croisement
+            pente × zone cardio sur la période.
           </p>
 
           <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
@@ -471,14 +502,25 @@
                       {% set cell = None %}
                     {% endif %}
 
+                    {% set duration_sec = 0 %}
+                    {% if cell and cell.pace_duration_sec %}
+                      {% set duration_sec = cell.pace_duration_sec %}
+                    {% endif %}
                     <td style="text-align:right; padding:4px 2px;">
-                      {% if cell and cell.avg_pace_s_per_km %}
+                      {% if cell and cell.avg_pace_s_per_km and duration_sec >= 60 %}
                         {% set pace_sec = cell.avg_pace_s_per_km|round(0)|int %}
                         {% set pace_min = pace_sec // 60 %}
                         {% set pace_rem = pace_sec % 60 %}
                         {{ pace_min }}'{{ "%02d"|format(pace_rem) }}
                       {% else %}
                         –
+                      {% endif %}
+                      {% if duration_sec and duration_sec > 0 %}
+                        {% set dur_min = duration_sec // 60 %}
+                        {% set dur_sec = duration_sec % 60 %}
+                        <div class="muted duration-label">
+                          {{ dur_min }}′{{ "%02d"|format(dur_sec) }}
+                        </div>
                       {% endif %}
                     </td>
                   {% endfor %}
@@ -567,10 +609,11 @@
       </div>
 
     <div class="card runner-section {% if tab == 'series' %}is-active{% endif %}" style="padding:14px;" data-section="series">
-        <h3 style="margin:0 0 8px 0; font-size:0.95rem;">Séries d’allure détectées</h3>
+        <h3 style="margin:0 0 8px 0; font-size:0.95rem;">
+          <span style="color:#dc2626; font-weight:600;">Projection Chrono Route</span> & séances clef
+        </h3>
         <p class="muted" style="margin:0 0 12px 0; font-size:0.8rem;">
-          Chaque cellule reprend tes meilleurs blocs répétés (allure moyenne, nombre de séries et stabilité).<br>
-          Solo = segment continu unique (activé à partir de 5 km).
+          Chaque cellule reprend tes meilleurs blocs répétés (allure moyenne, nombre de séries et stabilité).
         </p>
 
         {% if series_matrix and series_matrix.has_data %}
@@ -683,6 +726,41 @@
                   <div class="muted" style="font-size:0.7rem;">Pas détectée récemment</div>
                 {% endif %}
               </div>
+            </div>
+          </div>
+        {% endif %}
+
+        {% if distance_projections %}
+          <div class="card" style="margin-top:14px; padding:14px; border:1px solid #e5e7eb; background:#fff;">
+            <h4 style="margin:0 0 8px 0; font-size:0.9rem;">
+              Projections chrono (route)
+            </h4>
+            <div class="projection-grid">
+              {% for proj in distance_projections %}
+                <div class="projection-card">
+                  <div class="title">{{ proj.label }}</div>
+                  {% if proj.available %}
+                    <div class="value">{{ proj.chrono_str }}</div>
+                    <div style="color:#0f172a; font-size:0.78rem;">
+                      Allure : {{ proj.pace_str }} /km
+                    </div>
+                    {% if proj.validation_keys %}
+                      <div style="font-size:0.7rem; color:#6b7280; margin-top:2px;">
+                        Séances clef : {{ proj.validation_keys|join(' · ') }}
+                      </div>
+                    {% endif %}
+                  {% else %}
+                    <div class="muted" style="font-size:0.75rem;">
+                      {{ proj.reason }}
+                    </div>
+                    {% if proj.validation_keys %}
+                      <div style="font-size:0.7rem; color:#9ca3af; margin-top:4px;">
+                        Séances clef : {{ proj.validation_keys|join(' · ') }}
+                      </div>
+                    {% endif %}
+                  {% endif %}
+                </div>
+              {% endfor %}
             </div>
           </div>
         {% endif %}

@@ -26,6 +26,7 @@
 # -----------------------------------------------------------------------------
 import datetime as dt
 import hashlib
+import math
 import bisect
 import statistics
 from typing import Optional, List
@@ -164,6 +165,18 @@ def _format_pace_label(pace_s: float | None) -> str | None:
     total = int(round(pace_s))
     minutes, seconds = divmod(total, 60)
     return f"{minutes}:{seconds:02d}"
+
+
+def _format_time_label(seconds: float | None) -> str | None:
+    if seconds is None or seconds <= 0:
+        return None
+    total = int(round(seconds))
+    h = total // 3600
+    m = (total % 3600) // 60
+    s = total % 60
+    if h > 0:
+        return f"{h}h{m:02d}m{s:02d}s"
+    return f"{m}:{s:02d}"
 
 
 # ---------------------------------------------------------------------------
@@ -1773,6 +1786,247 @@ def get_series_splits_matrix(
     }
 
 
+def _build_series_lookup(series_matrix: dict | None) -> dict[int, dict[int, dict]]:
+    lookup: dict[int, dict[int, dict]] = {}
+    if not series_matrix:
+        return lookup
+    for row in series_matrix.get("rows", []):
+        distance_m = row.get("distance_m")
+        if not distance_m:
+            continue
+        dist_cells = lookup.setdefault(distance_m, {})
+        for cell in row.get("cells", []):
+            if not cell:
+                continue
+            reps = cell.get("reps")
+            pace = cell.get("avg_pace_s_per_km")
+            if not reps or not pace:
+                continue
+            existing = dist_cells.get(reps)
+            if not existing or pace < existing.get("avg_pace_s_per_km", float("inf")):
+                dist_cells[reps] = cell
+    return lookup
+
+
+def _format_series_source(distance_m: int, reps: int) -> str:
+    base = SERIES_DISTANCE_LABELS.get(distance_m, f"{distance_m} m")
+    return f"{reps}×{base}" if reps > 1 else base
+
+
+def _apply_direct_projection(
+    lookup: dict[int, dict[int, dict]],
+    combos: list[tuple[int, int]],
+    distance_km: float,
+    multiplier: float,
+) -> tuple[float, float, str] | None:
+    for distance_m, reps in combos:
+        cell = lookup.get(distance_m, {}).get(reps)
+        if not cell or not cell.get("avg_pace_s_per_km"):
+            continue
+        pace = cell["avg_pace_s_per_km"] * multiplier
+        chrono = pace * distance_km
+        return pace, chrono, _format_series_source(distance_m, reps)
+    return None
+
+
+def _ensure_projection_entry(
+    results: dict, key: str, label: str, combo_labels: list[str] | None = None
+) -> dict:
+    entry = results.setdefault(
+        key,
+        {
+            "target": key,
+            "label": label,
+            "available": False,
+            "reason": "Données insuffisantes",
+            "validation_keys": combo_labels or [],
+        },
+    )
+    if combo_labels and not entry.get("validation_keys"):
+        entry["validation_keys"] = combo_labels
+    return entry
+
+
+def _record_projection(
+    results: dict,
+    key: str,
+    label: str,
+    pace: float | None,
+    chrono: float | None,
+    source: str | None,
+    mode: str,
+):
+    if pace is None or chrono is None:
+        return False
+    entry = _ensure_projection_entry(results, key, label)
+    entry.update(
+        {
+            "available": True,
+            "pace_s_per_km": pace,
+            "pace_str": _format_pace_label(pace),
+            "chrono_seconds": chrono,
+            "chrono_str": _format_time_label(chrono),
+            "source": source,
+            "mode": mode,
+        }
+    )
+    return True
+
+
+def _projection_available(entry: dict | None) -> bool:
+    return bool(entry and entry.get("available"))
+
+
+def compute_distance_projections(series_matrix: dict | None) -> list[dict]:
+    lookup = _build_series_lookup(series_matrix)
+    target_cfg = {
+        "10k": {
+            "label": "10 km",
+            "distance": 10.0,
+            "combos": [(1000, 8), (2000, 3), (3000, 2)],
+            "multiplier": 1.015,
+        },
+        "half": {
+            "label": "Semi-marathon",
+            "distance": 21.0975,
+            "combos": [(3000, 3), (5000, 2), (10000, 1)],
+            "multiplier": 1.005,
+        },
+        "5k": {
+            "label": "5 km",
+            "distance": 5.0,
+            "combos": [(1000, 5), (800, 10), (400, 20)],
+            "multiplier": 1.01,
+        },
+        "marathon": {
+            "label": "Marathon",
+            "distance": 42.195,
+            "combos": [(15000, 1), (10000, 1), (5000, 2)],
+            "multiplier": 1.10,
+        },
+    }
+    for cfg in target_cfg.values():
+        cfg["combo_labels"] = [
+            _format_series_source(distance_m, reps) for distance_m, reps in cfg["combos"]
+        ]
+    results: dict[str, dict] = {}
+
+    order = ["10k", "half", "5k", "marathon"]
+    for key in order:
+        cfg = target_cfg[key]
+        entry = _ensure_projection_entry(results, key, cfg["label"], cfg["combo_labels"])
+        direct = _apply_direct_projection(lookup, cfg["combos"], cfg["distance"], cfg["multiplier"])
+        if direct:
+            pace, chrono, source = direct
+            _record_projection(results, key, cfg["label"], pace, chrono, source, "direct")
+
+    def get_time(key: str) -> float | None:
+        entry = results.get(key)
+        if entry and entry.get("available"):
+            return entry.get("chrono_seconds")
+        return None
+
+    def fallback_10k() -> bool:
+        entry = results.get("10k")
+        if _projection_available(entry):
+            return False
+        time_5k = get_time("5k")
+        time_half = get_time("half")
+        target = target_cfg["10k"]
+        chrono = pace = None
+        source = None
+        if time_5k and time_half:
+            exponent = math.log(time_half / time_5k) / math.log(21.0975 / 5.0)
+            chrono = time_5k * (target["distance"] / 5.0) ** exponent
+            source = "Interpolation 5 km / semi"
+        elif time_5k:
+            chrono = time_5k * (target["distance"] / 5.0) ** 1.06
+            source = "Projection depuis 5 km"
+        elif time_half:
+            chrono = time_half * (target["distance"] / 21.0975) ** 1.06
+            source = "Projection depuis semi"
+        if chrono:
+            pace = chrono / target["distance"]
+            return _record_projection(results, "10k", target["label"], pace, chrono, source, "fallback")
+        return False
+
+    def fallback_half() -> bool:
+        entry = results.get("half")
+        if _projection_available(entry):
+            return False
+        time_10k = get_time("10k")
+        time_marathon = get_time("marathon")
+        target = target_cfg["half"]
+        chrono = pace = None
+        source = None
+        if time_10k and time_marathon:
+            exponent = math.log(time_marathon / time_10k) / math.log(42.195 / 10.0)
+            chrono = time_10k * (target["distance"] / 10.0) ** exponent
+            source = "Interpolation 10 km / marathon"
+        elif time_10k:
+            chrono = time_10k * (target["distance"] / 10.0) ** 1.06
+            source = "Projection depuis 10 km"
+        elif time_marathon:
+            chrono = time_marathon * (target["distance"] / 42.195) ** 1.06
+            source = "Projection depuis marathon"
+        if chrono:
+            pace = chrono / target["distance"]
+            return _record_projection(results, "half", target["label"], pace, chrono, source, "fallback")
+        return False
+
+    def fallback_5k() -> bool:
+        entry = results.get("5k")
+        if _projection_available(entry):
+            return False
+        time_10k = get_time("10k")
+        if not time_10k:
+            return False
+        target = target_cfg["5k"]
+        chrono = time_10k * (target["distance"] / 10.0) ** 1.06
+        pace = chrono / target["distance"]
+        return _record_projection(results, "5k", target["label"], pace, chrono, "Projection depuis 10 km", "fallback")
+
+    def fallback_marathon() -> bool:
+        entry = results.get("marathon")
+        if _projection_available(entry):
+            return False
+        time_half = get_time("half")
+        if not time_half:
+            return False
+        target = target_cfg["marathon"]
+        chrono = time_half * (target["distance"] / 21.0975) ** 1.06
+        pace = chrono / target["distance"]
+        return _record_projection(results, "marathon", target["label"], pace, chrono, "Projection depuis semi", "fallback")
+
+    changed = True
+    while changed:
+        changed = False
+        if fallback_10k():
+            changed = True
+        if fallback_half():
+            changed = True
+        if fallback_5k():
+            changed = True
+        if fallback_marathon():
+            changed = True
+
+    output = []
+    for key in ["5k", "10k", "half", "marathon"]:
+        if key in results:
+            output.append(results[key])
+        else:
+            output.append(
+                {
+                    "target": key,
+                    "label": target_cfg[key]["label"],
+                    "available": False,
+                    "reason": "Données insuffisantes",
+                    "validation_keys": target_cfg[key]["combo_labels"],
+                }
+            )
+    return output
+
+
 def get_cached_runner_profile(
     db: Session,
     *,
@@ -1870,6 +2124,7 @@ def get_cached_runner_profile(
             "avg_vam_m_per_h": _safe_avg(vals["sum_vam_x_dur"], vals["dur_for_vam"]),
             "avg_cadence_spm": _safe_avg(vals["sum_cad_x_dur"], vals["dur_for_cad"]),
             "avg_velocity_m_s": _safe_avg(vals["sum_vel_x_dur"], vals["dur_for_vel"]),
+            "pace_duration_sec": int(vals["dur_for_pace"]),
             "avg_pace_s_per_km": _safe_avg(vals["sum_pace_x_dur"], vals["dur_for_pace"]),
         }
 

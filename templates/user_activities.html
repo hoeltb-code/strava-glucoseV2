@@ -65,7 +65,6 @@
             {% for win in window_defs %}
               <th>D+ {{ win.label }}</th>
             {% endfor %}
-            <th>Détails</th>
           </tr>
         </thead>
         <tbody>
@@ -88,7 +87,10 @@
                 {% endif %}
               </td>
               <td>
-                <strong>{{ row.name|truncate(30, True, '…') }}</strong>
+                <a href="/ui/user/{{ user.id }}/activity/{{ row.id }}"
+                   style="text-decoration:none; color:#1d4ed8; font-weight:600;">
+                  {{ row.name|truncate(30, True, '…') }}
+                </a>
               </td>
               <td>{{ row.start_label }}</td>
               <td>
@@ -115,11 +117,6 @@
                   {% else %}–{% endif %}
                 </td>
               {% endfor %}
-              <td>
-                <a href="/ui/user/{{ user.id }}/activity/{{ row.id }}" style="text-decoration:none; color:#2563eb;">
-                  Voir
-                </a>
-              </td>
             </tr>
           {% endfor %}
         </tbody>

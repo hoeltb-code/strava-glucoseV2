@@ -132,6 +132,8 @@ from .logic import (
     get_cached_volume_weekly_summary,
     update_runner_profile_monthly_from_activity,
     get_cached_glucose_activity_summary,
+    sport_column_condition,
+    canonicalize_sport_label,
     HR_ZONES,
 )
 from .settings import settings
@@ -1412,6 +1414,20 @@ async def process_activity_core(
 
             elif sport_norm == "ride":
                 ride_lines = []
+                dplus_labels = {300: "5′", 900: "15′", 1800: "30′", 3600: "1 h"}
+                dplus_parts = []
+                for window, label in dplus_labels.items():
+                    data = best_gain_windows.get(window)
+                    if not data:
+                        continue
+                    gain = round(data.get("gain_m", 0.0))
+                    vam = round(data.get("vam_m_per_h", 0.0))
+                    if gain <= 0 or vam <= 0:
+                        continue
+                    dplus_parts.append(f"{label} : +{gain} m ({vam} m/h)")
+                if dplus_parts:
+                    ride_lines.append("⛰️ D+ max : " + " | ".join(dplus_parts))
+
                 avg_cad, max_cad = _compute_time_weighted_avg_and_max(time_stream_full, cadence_stream)
                 cadence_parts = []
                 if avg_cad:
@@ -2722,10 +2738,11 @@ def ui_runner_profile(
                 "has_data": has_data,
             }
         else:
+            sport = canonicalize_sport_label(sport)
             activities_with_glucose = (
                 db.query(models.Activity)
                 .filter(models.Activity.user_id == user_id)
-                .filter(models.Activity.sport == sport)
+                .filter(sport_column_condition(models.Activity.sport, sport))
                 .order_by(models.Activity.start_date.desc())
                 .limit(20)
                 .all()

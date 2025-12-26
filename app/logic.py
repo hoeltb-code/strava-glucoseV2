@@ -91,7 +91,34 @@ SERIES_MAX_PACE_S = 720            # 12:00 / km
 VOLUME_WINDOW_DAYS = 28
 LONG_RUN_LOOKBACK_DAYS = 35
 LONG_RUN_THRESHOLD_KM = 20.0
-RUN_VOLUME_SPORTS = {"run", "hike"}
+RUN_SPORT_ALIASES = {"run", "hike"}
+RUN_VOLUME_SPORTS = set(RUN_SPORT_ALIASES)
+SPORT_ALIAS_MAP = {
+    "run": RUN_SPORT_ALIASES,
+}
+
+
+def canonicalize_sport_label(sport: Optional[str]) -> str:
+    if not sport:
+        return "other"
+    normalized = sport.strip().lower()
+    for canonical, aliases in SPORT_ALIAS_MAP.items():
+        if normalized in aliases:
+            return canonical
+    return normalized
+
+
+def sport_aliases(sport: str) -> set[str]:
+    canonical = canonicalize_sport_label(sport)
+    return set(SPORT_ALIAS_MAP.get(canonical, {canonical}))
+
+
+def sport_column_condition(column, sport: str):
+    aliases = sport_aliases(sport)
+    if len(aliases) == 1:
+        value = next(iter(aliases))
+        return column == value
+    return column.in_(tuple(aliases))
 
 
 def normalize_activity_type(strava_type: Optional[str]) -> str:
@@ -104,8 +131,8 @@ def normalize_activity_type(strava_type: Optional[str]) -> str:
         return "other"
     t = strava_type.strip().lower()
 
-    # course à pied (trail inclus)
-    if t in {"run", "trailrun", "trail run"}:
+    # course à pied (trail inclus + marche/rando assimilées)
+    if t in {"run", "trailrun", "trail run", "hike", "walk"}:
         return "run"
 
     # vélo
@@ -113,10 +140,6 @@ def normalize_activity_type(strava_type: Optional[str]) -> str:
         return "ride"
     if t in {"mountainbike", "mtb"}:
         return "ride"  # ou 'mtb' si tu veux distinguer
-
-    # marche / rando
-    if t in {"hike", "walk"}:
-        return "hike"
 
     # ski
     if t in {"alpineski", "backcountryski"}:
@@ -1303,13 +1326,20 @@ def _update_user_vam_pr(
     activity_id: int,
     start_ts: dt.datetime | None,
 ) -> None:
+    sport = canonicalize_sport_label(sport)
+    aliases = sport_aliases(sport)
     pr = (
         db.query(models.UserVamPR)
-        .filter(models.UserVamPR.user_id == user_id,
-                models.UserVamPR.sport == sport,
-                models.UserVamPR.window_min == window_min)
-        .one_or_none()
+        .filter(
+            models.UserVamPR.user_id == user_id,
+            models.UserVamPR.window_min == window_min,
+        )
     )
+    if len(aliases) == 1:
+        pr = pr.filter(models.UserVamPR.sport == sport)
+    else:
+        pr = pr.filter(models.UserVamPR.sport.in_(tuple(aliases)))
+    pr = pr.one_or_none()
     if pr is None:
         pr = models.UserVamPR(
             user_id=user_id,
@@ -1327,6 +1357,8 @@ def _update_user_vam_pr(
             pr.activity_id = activity_id
             pr.start_ts = _safe_dt(start_ts)
             pr.updated_at = dt.datetime.utcnow()
+        if pr.sport != sport:
+            pr.sport = sport
     # pas de commit ici (l'appelant gère)
 
 #---------------------------------------------------------------------------
@@ -1380,12 +1412,13 @@ def build_runner_profile(
     """
 
     # 1) Charger toutes les lignes d'agrégats pour ce user + sport (+ filtre dates)
+    sport = canonicalize_sport_label(sport)
     q = (
         db.query(models.ActivityZoneSlopeAgg, models.Activity.start_date)
         .join(models.Activity, models.ActivityZoneSlopeAgg.activity_id == models.Activity.id)
         .filter(
             models.ActivityZoneSlopeAgg.user_id == user_id,
-            models.ActivityZoneSlopeAgg.sport == sport,
+            sport_column_condition(models.ActivityZoneSlopeAgg.sport, sport),
         )
     )
 
@@ -1543,11 +1576,12 @@ def get_cached_dplus_windows(
     date_from: dt.datetime | None = None,
     date_to: dt.datetime | None = None,
 ) -> list[dict]:
+    sport = canonicalize_sport_label(sport)
     q = (
         db.query(models.RunnerProfileMonthly)
         .filter(
             models.RunnerProfileMonthly.user_id == user_id,
-            models.RunnerProfileMonthly.sport == sport,
+            sport_column_condition(models.RunnerProfileMonthly.sport, sport),
             models.RunnerProfileMonthly.metric_scope == "ascent_window",
         )
     )
@@ -1646,11 +1680,12 @@ def get_series_splits_matrix(
     date_from: dt.datetime | None = None,
     date_to: dt.datetime | None = None,
 ) -> dict:
+    sport = canonicalize_sport_label(sport)
     q = (
         db.query(models.RunnerProfileMonthly)
         .filter(
             models.RunnerProfileMonthly.user_id == user_id,
-            models.RunnerProfileMonthly.sport == sport,
+            sport_column_condition(models.RunnerProfileMonthly.sport, sport),
             models.RunnerProfileMonthly.metric_scope == "series_splits",
         )
     )
@@ -2035,11 +2070,12 @@ def get_cached_runner_profile(
     date_from: dt.datetime | None = None,
     date_to: dt.datetime | None = None,
 ) -> dict | None:
+    sport = canonicalize_sport_label(sport)
     q = (
         db.query(models.RunnerProfileMonthly)
         .filter(
             models.RunnerProfileMonthly.user_id == user_id,
-            models.RunnerProfileMonthly.sport == sport,
+            sport_column_condition(models.RunnerProfileMonthly.sport, sport),
             models.RunnerProfileMonthly.metric_scope == "slope_zone",
         )
     )
@@ -2171,11 +2207,12 @@ def get_cached_volume_weekly_summary(
     date_from: dt.datetime | None = None,
     date_to: dt.datetime | None = None,
 ) -> dict | None:
+    sport = canonicalize_sport_label(sport)
     q = (
         db.query(models.RunnerProfileMonthly)
         .filter(
             models.RunnerProfileMonthly.user_id == user_id,
-            models.RunnerProfileMonthly.sport == sport,
+            sport_column_condition(models.RunnerProfileMonthly.sport, sport),
             models.RunnerProfileMonthly.metric_scope == "volume_weekly",
         )
     )
@@ -2265,11 +2302,12 @@ def _get_or_create_runner_profile_row(
     hr_zone: str | None = None,
     window_label: str | None = None,
 ) -> models.RunnerProfileMonthly:
+    sport = canonicalize_sport_label(sport)
     row = (
         db.query(models.RunnerProfileMonthly)
         .filter(
             models.RunnerProfileMonthly.user_id == user_id,
-            models.RunnerProfileMonthly.sport == sport,
+            sport_column_condition(models.RunnerProfileMonthly.sport, sport),
             models.RunnerProfileMonthly.year_month == month,
             models.RunnerProfileMonthly.metric_scope == metric_scope,
             models.RunnerProfileMonthly.slope_band == slope_band,
@@ -2935,6 +2973,7 @@ def update_runner_profile_monthly_from_activity(
     sport = activity.sport or normalize_activity_type(activity.activity_type)
     if not sport:
         sport = "run"
+    sport = canonicalize_sport_label(sport)
 
     _update_runner_profile_slope_zone(db, activity=activity, sport=sport, month=month)
     _update_runner_profile_series_splits(db, activity=activity, sport=sport, month=month)
@@ -2950,11 +2989,12 @@ def get_cached_glucose_activity_summary(
     sport: str = "run",
     limit: int = 20,
 ) -> dict | None:
+    sport = canonicalize_sport_label(sport)
     q = (
         db.query(models.RunnerProfileMonthly)
         .filter(
             models.RunnerProfileMonthly.user_id == user_id,
-            models.RunnerProfileMonthly.sport == sport,
+            sport_column_condition(models.RunnerProfileMonthly.sport, sport),
             models.RunnerProfileMonthly.metric_scope == "glucose_activity",
         )
     )
@@ -3018,6 +3058,7 @@ def compute_best_dplus_windows(
     activity_ids: list[int] | None = None,
 ) -> list[dict]:
     """Retourne le meilleur D+ cumulé sur des fenêtres glissantes (1h,2h,5h,10h,24h)."""
+    sport = canonicalize_sport_label(sport)
 
     window_defs = [
         {"id": "1m", "label": "1 min", "seconds": 60},
@@ -3050,7 +3091,7 @@ def compute_best_dplus_windows(
 
     activities_q = db.query(models.Activity).filter(
         models.Activity.user_id == user_id,
-        models.Activity.sport == sport,
+        sport_column_condition(models.Activity.sport, sport),
     )
 
     if activity_ids:

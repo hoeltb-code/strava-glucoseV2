@@ -32,6 +32,8 @@ from app.logic import (
     LONG_RUN_LOOKBACK_DAYS,
     LONG_RUN_THRESHOLD_KM,
     RUN_VOLUME_SPORTS,
+    sport_aliases,
+    canonicalize_sport_label,
 )
 
 
@@ -55,6 +57,14 @@ def _month_bounds(month: dt.date) -> tuple[dt.datetime, dt.datetime]:
     return start, end
 
 
+def _sport_filter(column, sport: str):
+    aliases = sport_aliases(sport)
+    if len(aliases) == 1:
+        value = next(iter(aliases))
+        return column == value
+    return column.in_(tuple(aliases))
+
+
 def _iter_user_sport_months(db: SessionLocal) -> Iterable[tuple[int, str, dt.date]]:
     rows = (
         db.query(
@@ -67,13 +77,18 @@ def _iter_user_sport_months(db: SessionLocal) -> Iterable[tuple[int, str, dt.dat
         .all()
     )
 
+    seen: set[tuple[int, str, dt.date]] = set()
     for user_id, sport, start_at, end_at in rows:
         if not start_at or not end_at or not sport:
             continue
+        canonical = canonicalize_sport_label(sport)
         month = _month_start(start_at)
         end_month = _month_start(end_at)
         while month <= end_month:
-            yield user_id, sport, month
+            key = (user_id, canonical, month)
+            if key not in seen:
+                seen.add(key)
+                yield user_id, canonical, month
             month = _next_month(month)
 
 
@@ -364,7 +379,7 @@ def _backfill_glucose_activity(db: SessionLocal) -> int:
             db.query(models.Activity)
             .filter(
                 models.Activity.user_id == user_id,
-                models.Activity.sport == sport,
+                _sport_filter(models.Activity.sport, sport),
                 models.Activity.start_date >= month_start,
                 models.Activity.start_date < month_end,
                 models.Activity.avg_glucose.isnot(None),
@@ -571,7 +586,7 @@ def _backfill_series_splits(db: SessionLocal) -> int:
             db.query(models.Activity)
             .filter(
                 models.Activity.user_id == user_id,
-                models.Activity.sport == sport,
+                _sport_filter(models.Activity.sport, sport),
                 models.Activity.start_date >= month_start,
                 models.Activity.start_date < month_end,
             )

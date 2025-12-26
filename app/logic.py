@@ -231,7 +231,9 @@ def compute_user_fc_max(user: Optional[models.User]) -> int:
             - ((today.month, today.day) < (birthdate.month, birthdate.day))
         )
         if age > 0:
-            return max(100, age - 20)
+            # Formule Tanaka: FCmax = 208 - 0.7 * âge
+            tanaka = round(208 - 0.7 * age)
+            return max(150, tanaka)
 
     return DEFAULT_FC_MAX
 

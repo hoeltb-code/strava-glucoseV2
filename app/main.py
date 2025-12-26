@@ -470,6 +470,45 @@ def _compute_best_gain_windows(time_stream, altitude_stream, windows_sec: list[i
     return results
 
 
+def _compute_best_drop_windows(time_stream, altitude_stream, windows_sec: list[int]) -> dict[int, dict]:
+    pairs = _align_stream_pairs(time_stream, altitude_stream)
+    if len(pairs) < 2:
+        return {}
+
+    times = [p[0] for p in pairs]
+    alts = [p[1] for p in pairs]
+    n = len(times)
+    results: dict[int, dict] = {}
+
+    for window in windows_sec:
+        best_entry = None
+        best_drop = 0.0
+        for i in range(n - 1):
+            t0 = times[i]
+            target = t0 + window
+            j = bisect_left(times, target, i + 1, n)
+            if j >= n:
+                continue
+            for idx in range(j, min(j + 3, n)):
+                duration = times[idx] - t0
+                if duration <= 0:
+                    continue
+                drop = alts[i] - alts[idx]
+                if drop <= 0:
+                    continue
+                if drop > best_drop:
+                    vam = (drop / duration) * 3600.0
+                    best_drop = drop
+                    best_entry = {
+                        "drop_m": drop,
+                        "duration": duration,
+                        "vam_m_per_h": vam,
+                    }
+        if best_entry:
+            results[window] = best_entry
+    return results
+
+
 def _compute_cadence_buckets(time_stream, cadence_stream) -> dict[str, float]:
     pairs = _align_stream_pairs(time_stream, cadence_stream)
     if len(pairs) < 2:
@@ -1284,6 +1323,7 @@ async def process_activity_core(
             cadence_stream = streams.get("cadence", {}).get("data") or []
 
             best_gain_windows = _compute_best_gain_windows(time_stream_full, altitude_stream, [60, 300, 600, 900, 1800, 3600])
+            best_drop_windows = _compute_best_drop_windows(time_stream_full, altitude_stream, [600, 900, 1800, 3600])
             cadence_buckets = _compute_cadence_buckets(time_stream_full, cadence_stream)
 
             def _last_valid_value(seq):
@@ -1371,18 +1411,18 @@ async def process_activity_core(
 
             elif sport_norm in {"ski_alpine", "ski_nordic"}:
                 ski_lines = []
-                dplus_labels = {600: "10′", 1800: "30′", 3600: "1 h"}
-                dplus_parts = []
-                for window, label in dplus_labels.items():
-                    data = best_gain_windows.get(window)
+                dminus_labels = {600: "10′", 1800: "30′", 3600: "1 h"}
+                dminus_parts = []
+                for window, label in dminus_labels.items():
+                    data = best_drop_windows.get(window)
                     if not data:
                         continue
-                    gain = round(data.get("gain_m", 0.0))
-                    if gain <= 0:
+                    drop = round(data.get("drop_m", 0.0))
+                    if drop <= 0:
                         continue
-                    dplus_parts.append(f"{label} : +{gain} m")
-                if dplus_parts:
-                    ski_lines.append("🎿 D+ max : " + " | ".join(dplus_parts))
+                    dminus_parts.append(f"{label} : -{drop} m")
+                if dminus_parts:
+                    ski_lines.append("🎿 D- max : " + " | ".join(dminus_parts))
 
                 vam_labels = {300: "5′", 900: "15′", 1800: "30′"}
                 vam_parts = []
@@ -3091,6 +3131,11 @@ def ui_user_dashboard(user_id: int, request: Request):
     user_prs = []
     vam_by_slope = []
     hr_zone_filter = "all"
+    fc_info = None
+    volume_summary = None
+    sport_distribution = []
+    vam_highlights = []
+    dash_distance_projections = []
 
     try:
         user = db.query(User).get(user_id)
@@ -3234,6 +3279,162 @@ def ui_user_dashboard(user_id: int, request: Request):
             it["vam_30"] = float(a.max_vam_30m) if a and a.max_vam_30m is not None else None
 
         # ---------------------------
+        # ❤️ FC max + zones cardio (profil rapide)
+        # ---------------------------
+        if user:
+            fc_max_value = compute_user_fc_max(user)
+            if fc_max_value:
+                if user.max_heartrate:
+                    fc_source = "Saisie dans le profil"
+                elif user.birthdate:
+                    fc_source = "Estimation (208 - 0,7 × âge)"
+                else:
+                    fc_source = "Valeur par défaut"
+                zones_preview = []
+                for idx, (zone_name, lo_ratio, hi_ratio) in enumerate(HR_ZONES, start=1):
+                    bpm_min = int(round(lo_ratio * fc_max_value))
+                    bpm_max = int(round(hi_ratio * fc_max_value))
+                    zones_preview.append(
+                        {
+                            "label": zone_name,
+                            "bpm_min": bpm_min,
+                            "bpm_max": bpm_max,
+                            "percent_label": f"{int(lo_ratio * 100)}–{int(hi_ratio * 100)} %",
+                        }
+                    )
+                fc_info = {
+                    "fc_max": int(round(fc_max_value)),
+                    "source": fc_source,
+                    "needs_update": user.max_heartrate is None,
+                    "zones": zones_preview,
+                }
+
+                # Temps passé par zone sur 28 derniers jours
+                recent_hr_cutoff = datetime.utcnow() - timedelta(days=28)
+                hr_rows = (
+                    db.query(
+                        models.ActivityZoneSlopeAgg.hr_zone,
+                        func.sum(models.ActivityZoneSlopeAgg.duration_sec).label("duration_sec"),
+                    )
+                    .join(models.Activity, models.Activity.id == models.ActivityZoneSlopeAgg.activity_id)
+                    .filter(models.Activity.user_id == user_id)
+                    .filter(models.Activity.start_date.isnot(None))
+                    .filter(models.Activity.start_date >= recent_hr_cutoff)
+                    .group_by(models.ActivityZoneSlopeAgg.hr_zone)
+                    .all()
+                )
+                if hr_rows:
+                    duration_map = {row.hr_zone: float(row.duration_sec or 0.0) for row in hr_rows if row.hr_zone}
+                    total_recent = sum(duration_map.values())
+                    usage = []
+                    for zone_name, _, _ in HR_ZONES:
+                        secs = duration_map.get(zone_name, 0.0)
+                        percent = (secs / total_recent * 100.0) if total_recent else 0.0
+                        usage.append(
+                            {
+                                "label": zone_name,
+                                "duration_str": _format_duration(secs) if secs else "00:00",
+                                "percent": percent,
+                            }
+                        )
+                    fc_info["recent_usage"] = {
+                        "window_days": 28,
+                        "total_seconds": total_recent,
+                        "zones": usage,
+                    }
+
+        # ---------------------------
+        # 📦 Volume hebdo moyen + SL
+        # ---------------------------
+        volume_summary = get_cached_volume_weekly_summary(
+            db,
+            user_id=user_id,
+            sport="run",
+        )
+
+        # ---------------------------
+        # 🧗‍♂️ Meilleurs D+ / VAM et projections chrono
+        # ---------------------------
+        dplus_windows = get_cached_dplus_windows(
+            db,
+            user_id=user_id,
+            sport="run",
+        )
+        if dplus_windows:
+            lookup_windows = {item["window_id"]: item for item in dplus_windows if item.get("window_id")}
+            highlight_ids = ["5m", "15m", "30m", "1h"]
+            for win_id in highlight_ids:
+                row = lookup_windows.get(win_id)
+                if not row:
+                    continue
+                vam_highlights.append(
+                    {
+                        "label": row.get("label") or win_id,
+                        "gain_m": row.get("gain_m") or 0.0,
+                        "vam": row.get("gain_per_hour"),
+                        "activity_name": row.get("activity_name"),
+                        "activity_date": row.get("activity_date"),
+                    }
+                )
+
+        series_matrix = get_series_splits_matrix(
+            db,
+            user_id=user_id,
+            sport="run",
+        )
+        dash_distance_projections = compute_distance_projections(series_matrix) if series_matrix else []
+
+        # ---------------------------
+        # 🧭 Répartition des sports (28 derniers jours)
+        # ---------------------------
+        mix_since = datetime.utcnow() - timedelta(days=28)
+        mix_rows = (
+            db.query(
+                Activity.sport,
+                func.count(Activity.id).label("count"),
+                func.sum(Activity.distance).label("distance_m"),
+                func.sum(Activity.elapsed_time).label("duration_s"),
+                func.sum(Activity.total_elevation_gain).label("dplus_m"),
+            )
+            .filter(Activity.user_id == user_id)
+            .filter(Activity.start_date.isnot(None))
+            .filter(Activity.start_date >= mix_since)
+            .group_by(Activity.sport)
+            .all()
+        )
+        total_duration = sum((row.duration_s or 0.0) for row in mix_rows)
+        sport_label_map = {
+            "run": ("Course à pied", "🏃"),
+            "trailrun": ("Trail", "⛰️"),
+            "trail run": ("Trail", "⛰️"),
+            "ride": ("Vélo", "🚴"),
+            "virtualride": ("Home trainer", "🚴‍♂️"),
+            "ebikeride": ("Vélo électrique", "🚴‍♀️"),
+            "ski_alpine": ("Ski alpin", "⛷️"),
+            "ski": ("Ski de rando", "🎿"),
+            "ski_nordic": ("Ski nordique", "⛷️"),
+            "rollerski": ("Ski roue", "🎿"),
+            "hike": ("Randonnée", "🥾"),
+            "walk": ("Marche", "🚶"),
+        }
+        for row in mix_rows:
+            key = (row.sport or "").lower()
+            label, emoji = sport_label_map.get(key, ("Autre", "⚪"))
+            duration_s = float(row.duration_s or 0.0)
+            percent_time = (duration_s / total_duration * 100.0) if total_duration else 0.0
+            dist_km = ((row.distance_m or 0.0) / 1000.0) if row.distance_m else 0.0
+            sport_distribution.append(
+                {
+                    "label": label,
+                    "emoji": emoji,
+                    "percent_time": percent_time,
+                    "distance_km": dist_km,
+                    "duration_str": _format_duration(duration_s) if duration_s else "–",
+                    "dplus_m": float(row.dplus_m or 0.0),
+                }
+            )
+
+        # ---------------------------
         # 🏆 Records VAM user (5/15/30) par sport + date formatée JJ-MM-AAAA
         # ---------------------------
         user_prs_rows = (
@@ -3314,6 +3515,11 @@ def ui_user_dashboard(user_id: int, request: Request):
             "user_prs": user_prs,          # records 5/15/30
             "vam_by_slope": vam_by_slope,  # tableau bandes de pente
             "hr_zone_filter": hr_zone_filter,
+            "fc_info": fc_info,
+            "volume_summary": volume_summary,
+            "vam_highlights": vam_highlights,
+            "dash_distance_projections": dash_distance_projections,
+            "sport_distribution": sport_distribution,
         },
     )
 
@@ -4512,7 +4718,7 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
 
         # --- 14) Onglet courant (tab) 🔸 NOUVEAU ---
         tab = request.query_params.get("tab", "overview")
-        if tab not in ("overview", "segments", "climbs", "glycemia", "vam", "splits"):
+        if tab not in ("overview", "segments", "climbs", "cardio", "glycemia", "vam", "splits"):
             tab = "overview"
 
     finally:

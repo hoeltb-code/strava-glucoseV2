@@ -306,6 +306,20 @@
       Montées remarquables
     </a>
 
+    <a href="{{ base_url }}?tab=cardio"
+       style="
+         display:block; padding:8px 10px; border-radius:4px;
+         text-decoration:none;
+         margin-bottom:4px;
+         {% if tab == 'cardio' %}
+           background:#0f172a; color:#f9fafb; font-weight:600;
+         {% else %}
+           color:#111827;
+         {% endif %}
+       ">
+      Zones cardio
+    </a>
+
     <a href="{{ base_url }}?tab=glycemia"
        style="
          display:block; padding:8px 10px; border-radius:4px;
@@ -640,8 +654,8 @@
           <table style="
             width:100%;
             border-collapse:collapse;
-            font-size:0.75rem;          /* police plus petite */
-            line-height:1.15;           /* plus compact */
+            font-size:0.75rem;
+            line-height:1.15;
           ">
             <thead>
               <tr style="border-bottom:1px solid #e5e7eb;">
@@ -882,7 +896,56 @@
 
     </div> {# fin onglet climbs #}
 
-    {# ════════════ ONGLET 4 : GLYCÉMIE ════════════ #}
+
+    {# ════════════ ONGLET 4 : CARDIO ════════════ #}
+    <div class="activity-tab {% if tab == 'cardio' %}is-active{% endif %}" data-tab="cardio">
+      <div class="card" style="border-radius:4px; padding:16px;">
+        <h3 style="margin:0 0 10px 0; font-size:0.95rem;">
+          Temps passé dans chaque zone cardio
+        </h3>
+        {% if hr_zone_summary %}
+          <div class="table-responsive">
+            <table style="width:100%; border-collapse:collapse; font-size:0.78rem;">
+              <thead>
+                <tr style="border-bottom:1px solid #e5e7eb;">
+                  <th style="text-align:left; padding:6px 4px;">Zone</th>
+                  <th style="text-align:center; padding:6px 4px;">Temps</th>
+                  <th style="text-align:right; padding:6px 4px;">%</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for zone in hr_zone_summary %}
+                <tr style="border-bottom:1px solid #f3f4f6;">
+                  <td style="padding:6px 4px;">{{ zone.zone }}</td>
+                  <td style="text-align:center; padding:6px 4px;">{{ zone.time_str }}</td>
+                  <td style="text-align:right; padding:6px 4px;">{{ zone.percent }}%</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="muted" style="margin:0;">
+            Aucune donnée de fréquence cardiaque exploitable sur cette activité.
+          </p>
+        {% endif %}
+      </div>
+      {% if activity_type_summary %}
+      <div class="card" style="margin-top:12px; padding:14px;
+                  background:{{ activity_type_summary.bg_color }};
+                  color:{{ activity_type_summary.fg_color }};
+                  border-radius:4px;">
+        <div style="font-weight:600; margin-bottom:4px;">
+          {{ activity_type_summary.label }}
+        </div>
+        <div style="font-size:0.85rem; margin:0;">
+          {{ activity_type_summary.detail }}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    {# ════════════ ONGLET 5 : GLYCÉMIE ════════════ #}
     {% if has_glucose %}
     <div class="activity-tab {% if tab == 'glycemia' %}is-active{% endif %}" data-tab="glycemia">
 
@@ -1051,16 +1114,6 @@
           </table>
         </div>
 
-        {% if hr_zone_summary %}
-        <div style="margin-top:14px; font-size:0.75rem; color:#475569;">
-          {% for zone in hr_zone_summary %}
-          <span style="display:inline-block; margin-right:12px;">
-            <strong>{{ zone.zone }}</strong>&nbsp;{{ zone.time_str }}
-            ({{ zone.percent }}%)
-          </span>
-          {% endfor %}
-        </div>
-        {% endif %}
       </div>
       {% endif %}
 
@@ -1159,7 +1212,7 @@
     {% endif %}
 
 
-    {# ════════════ ONGLET 5 : VITESSE ASCENSIONNELLE ════════════ #}
+    {# ════════════ ONGLET 6 : VITESSE ASCENSIONNELLE ════════════ #}
     {% if has_vam %}
     <div class="activity-tab {% if tab == 'vam' %}is-active{% endif %}" data-tab="vam">
 

@@ -20,6 +20,26 @@
     flex-direction:column;
     gap:16px;
   }
+  .insight-list {
+    list-style:none;
+    padding-left:0;
+    margin:0;
+  }
+  .insight-list li {
+    margin-bottom:4px;
+    font-size:0.85rem;
+  }
+  .mini-table {
+    width:100%;
+    border-collapse:collapse;
+    font-size:0.85rem;
+    margin-top:8px;
+  }
+  .mini-table th,
+  .mini-table td {
+    padding:4px 6px;
+    border-bottom:1px solid #e5e7eb;
+  }
 </style>
 {% endblock %}
 
@@ -112,6 +132,167 @@
     </div>
   </div>
 </div>
+
+{% if fc_info or sport_distribution or vam_highlights or dash_distance_projections %}
+<div class="dashboard-grid">
+  {% if fc_info %}
+  <div class="card">
+    <h2 style="font-size:1rem; font-weight:600; margin-bottom:7px;">❤️ Bases cardio & capteurs</h2>
+    <p style="margin:0 0 6px 0; font-size:0.85rem;">
+      FC max actuelle :
+      <strong>{{ fc_info.fc_max }} bpm</strong>
+      <span style="color:#6b7280;">({{ fc_info.source }})</span>
+    </p>
+    {% if fc_info.needs_update %}
+      <p style="margin:0 0 8px 0; font-size:0.8rem; color:#b45309;">
+        Cette valeur conditionne les zones cardio du profil coureur –
+        vérifie-la dans ton <a href="/ui/user/{{ user.id }}/profile">profil utilisateur</a>.
+      </p>
+    {% endif %}
+
+    <table class="mini-table" style="margin-top:10px;">
+      <thead>
+        <tr>
+          <th style="text-align:left;">Zone</th>
+          <th style="text-align:center;">Plage</th>
+          <th style="text-align:right;">BPM</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for zone in fc_info.zones %}
+        <tr>
+          <td>{{ zone.label }}</td>
+          <td style="text-align:center;">{{ zone.percent_label }}</td>
+          <td style="text-align:right;">{{ zone.bpm_min }} - {{ zone.bpm_max }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if fc_info.recent_usage and fc_info.recent_usage.total_seconds > 0 %}
+    <div style="margin-top:16px;">
+      <div style="font-size:0.85rem; font-weight:600;">
+        Temps passé par zone ({{ fc_info.recent_usage.window_days }} derniers jours)
+      </div>
+      <table class="mini-table" style="margin-top:6px;">
+        <thead>
+          <tr>
+            <th style="text-align:left;">Zone</th>
+            <th style="text-align:center;">Durée</th>
+            <th style="text-align:right;">%</th>
+            <th style="text-align:left;">Visuel</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for usage in fc_info.recent_usage.zones %}
+          <tr>
+            <td>{{ usage.label }}</td>
+            <td style="text-align:center;">{{ usage.duration_str }}</td>
+            <td style="text-align:right;">{{ usage.percent|round(1) }}%</td>
+            <td>
+              <div style="background:#e5e7eb; border-radius:999px; height:6px; overflow:hidden;">
+                <div style="width:{{ usage.percent }}%; height:100%; background:#2563eb;"></div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+  </div>
+  {% endif %}
+
+  {% if sport_distribution or vam_highlights or dash_distance_projections %}
+  <div class="card">
+    <h2 style="font-size:1rem; font-weight:600; margin-bottom:7px;">📊 Tendances d'entraînement</h2>
+
+    {% if sport_distribution %}
+    <div style="margin-bottom:10px;">
+      <div style="font-size:0.85rem; font-weight:600;">Répartition des sports (28 derniers jours)</div>
+      <table class="mini-table">
+        <thead>
+          <tr>
+            <th style="text-align:left;">Sport</th>
+            <th style="text-align:center;">% temps</th>
+            <th style="text-align:right;">Distance</th>
+            <th style="text-align:right;">Durée</th>
+            <th style="text-align:right;">D+</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for sport in sport_distribution %}
+          <tr>
+            <td>{{ sport.emoji }} {{ sport.label }}</td>
+            <td style="text-align:center;">{{ sport.percent_time|round(1) }}%</td>
+            <td style="text-align:right;">{{ sport.distance_km|round(1) }} km</td>
+            <td style="text-align:right;">{{ sport.duration_str }}</td>
+            <td style="text-align:right;">{{ sport.dplus_m|round(0) }} m</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {% if vam_highlights %}
+    <div style="margin-bottom:10px;">
+      <div style="font-size:0.85rem; font-weight:600; color:#dc2626;">
+        Fenêtres D+ / VAM records (Running)
+      </div>
+      <table class="mini-table">
+        <thead>
+          <tr><th style="text-align:left;">Fenêtre</th><th style="text-align:right;">D+</th><th style="text-align:right;">VAM</th></tr>
+        </thead>
+        <tbody>
+          {% for win in vam_highlights %}
+          <tr>
+            <td>{{ win.label }}</td>
+            <td style="text-align:right;">{{ win.gain_m|round(0) }} m</td>
+            <td style="text-align:right;">{{ win.vam|round(0) if win.vam else "n/a" }} m/h</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {% if dash_distance_projections %}
+    <div>
+      <div style="font-size:0.85rem; font-weight:600;">Projections chrono route</div>
+      <table class="mini-table">
+        <thead>
+          <tr><th style="text-align:left;">Distance</th><th style="text-align:center;">Allure</th><th style="text-align:right;">Chrono</th></tr>
+        </thead>
+        <tbody>
+          {% for proj in dash_distance_projections %}
+          <tr>
+            <td>{{ proj.label }}</td>
+            <td style="text-align:center;">
+              {% if proj.available %}
+                {{ proj.pace_str }}
+              {% else %}
+                n/a
+              {% endif %}
+            </td>
+            <td style="text-align:right;">
+              {% if proj.available %}
+                {{ proj.chrono_str }}
+              {% else %}
+                {{ proj.reason }}
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
 
 <!-- ================== DERNIÈRES ACTIVITÉS (split map | VAM) ================== -->
 <div class="dashboard-activities-grid">

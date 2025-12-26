@@ -331,7 +331,7 @@
         {% if a.summary_block_clean %}
           <div style="background:#ffffff; color:#0f172a; padding:10px; border-radius:4px;
                       border:1px solid transparent; font-size:0.85rem; line-height:1.5;
-                      white-space:pre-wrap; max-height:200px; overflow:auto; font-family:inherit;">
+                      white-space:pre-wrap; font-family:inherit;">
             {{ a.summary_block_clean }}
           </div>
         {% else %}
@@ -344,7 +344,16 @@
       (function(){
         const pts = {{ a.gps|tojson }};
         if (pts && pts.length > 1 && window.L) {
-          const map = L.map('map-{{ a.id }}', { zoomControl: false });
+          const map = L.map('map-{{ a.id }}', {
+            zoomControl: false,
+            dragging: false,
+            scrollWheelZoom: false,
+            doubleClickZoom: false,
+            boxZoom: false,
+            keyboard: false,
+            tap: false,
+            touchZoom: false
+          });
           L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap'
           }).addTo(map);

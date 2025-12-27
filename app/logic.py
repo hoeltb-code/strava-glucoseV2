@@ -48,6 +48,18 @@ TARGET_MAX = 180
 
 logger = logging.getLogger(__name__)
 
+
+def _safe_avg(val_sum: float | None, duration: float | None) -> float | None:
+    """
+    Moyenne protégée contre les divisions par zéro ou valeurs None.
+    Utilisée comme fallback global si un helper local manque.
+    """
+    if val_sum is None or duration is None:
+        return None
+    if duration <= 0:
+        return None
+    return val_sum / duration
+
 # Zones cardio en % de FC max
 HR_ZONES = [
     ("Zone 1", 0.10, 0.60),

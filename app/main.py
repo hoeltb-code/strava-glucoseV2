@@ -134,6 +134,7 @@ from .logic import (
     get_cached_glucose_activity_summary,
     sport_column_condition,
     canonicalize_sport_label,
+    normalize_activity_type,
     HR_ZONES,
 )
 from .settings import settings
@@ -368,7 +369,7 @@ def _max_speed_cap_for_sport(sport_label: str | None) -> float | None:
         return 6.0  # ~3:20 /km
     if sport == "ride":
         return 25.0  # ~90 km/h
-    if sport in {"ski_alpine", "ski_nordic"}:
+    if sport in {"ski_alpine", "ski_nordic", "ski_rando"}:
         return 15.0  # ~54 km/h
     return None
 
@@ -1365,7 +1366,7 @@ async def process_activity_core(
                 pace_windows_needed = [15, 60, 300, 600]
             elif sport_norm == "ride":
                 pace_windows_needed = [900, 1800, 3600]
-            elif sport_norm in {"ski_alpine", "ski_nordic"}:
+            elif sport_norm in {"ski_alpine", "ski_nordic", "ski_rando"}:
                 pace_windows_needed = [60, 300]
             if pace_windows_needed:
                 max_speed_cap = _max_speed_cap_for_sport(sport_norm)
@@ -1409,7 +1410,7 @@ async def process_activity_core(
                 if run_lines:
                     blocks_ordered.append("\n".join(run_lines))
 
-            elif sport_norm in {"ski_alpine", "ski_nordic"}:
+            elif sport_norm in {"ski_alpine", "ski_nordic", "ski_rando"}:
                 ski_lines = []
                 dminus_labels = {600: "10′", 1800: "30′", 3600: "1 h"}
                 dminus_parts = []
@@ -3388,21 +3389,45 @@ def ui_user_dashboard(user_id: int, request: Request):
         # 🧭 Répartition des sports (28 derniers jours)
         # ---------------------------
         mix_since = datetime.utcnow() - timedelta(days=28)
-        mix_rows = (
+        recent_activities = (
             db.query(
                 Activity.sport,
-                func.count(Activity.id).label("count"),
-                func.sum(Activity.distance).label("distance_m"),
-                func.sum(Activity.elapsed_time).label("duration_s"),
-                func.sum(Activity.total_elevation_gain).label("dplus_m"),
+                Activity.activity_type,
+                Activity.distance,
+                Activity.elapsed_time,
+                Activity.total_elevation_gain,
+                Activity.name,
             )
             .filter(Activity.user_id == user_id)
             .filter(Activity.start_date.isnot(None))
             .filter(Activity.start_date >= mix_since)
-            .group_by(Activity.sport)
             .all()
         )
-        total_duration = sum((row.duration_s or 0.0) for row in mix_rows)
+
+        agg = defaultdict(lambda: {"count": 0, "distance_m": 0.0, "duration_s": 0.0, "dplus_m": 0.0})
+        for row in recent_activities:
+            raw_type = (row.activity_type or "").lower()
+            sport_raw = (row.sport or "").lower()
+            name_lower = (row.name or "").lower()
+
+            sport_norm = normalize_activity_type(raw_type) if raw_type else None
+
+            # Heuristique de reclassement ski de rando si on n'a que le sport normalisé alpin
+            if (not sport_norm or sport_norm == sport_raw) and sport_raw == "ski_alpine":
+                ski_tokens = ["rando", "skimo", "backcountry", "ski tour", "ski de rando", "ski touring", "mountain", "alpinism"]
+                if any(k in name_lower for k in ski_tokens):
+                    sport_norm = "ski_rando"
+
+            if not sport_norm:
+                sport_norm = normalize_activity_type(sport_raw) if sport_raw else None
+
+            key = sport_norm or sport_raw or raw_type or "other"
+            agg[key]["count"] += 1
+            agg[key]["distance_m"] += float(row.distance or 0.0)
+            agg[key]["duration_s"] += float(row.elapsed_time or 0.0)
+            agg[key]["dplus_m"] += float(row.total_elevation_gain or 0.0)
+
+        total_duration = sum(val["duration_s"] for val in agg.values())
         sport_label_map = {
             "run": ("Course à pied", "🏃"),
             "trailrun": ("Trail", "⛰️"),
@@ -3411,18 +3436,25 @@ def ui_user_dashboard(user_id: int, request: Request):
             "virtualride": ("Home trainer", "🚴‍♂️"),
             "ebikeride": ("Vélo électrique", "🚴‍♀️"),
             "ski_alpine": ("Ski alpin", "⛷️"),
-            "ski": ("Ski de rando", "🎿"),
+            "alpineski": ("Ski alpin", "⛷️"),  # alias
+            "ski": ("Ski de rando", "🎿"),  # compat
+            "ski_rando": ("Ski de rando", "🎿"),
+            "backcountryski": ("Ski de rando", "🎿"),  # alias direct
+            "skitouring": ("Ski de rando", "🎿"),
+            "skimo": ("Ski de rando", "🎿"),
             "ski_nordic": ("Ski nordique", "⛷️"),
+            "nordicski": ("Ski nordique", "⛷️"),  # alias
             "rollerski": ("Ski roue", "🎿"),
             "hike": ("Randonnée", "🥾"),
             "walk": ("Marche", "🚶"),
         }
-        for row in mix_rows:
-            key = (row.sport or "").lower()
-            label, emoji = sport_label_map.get(key, ("Autre", "⚪"))
-            duration_s = float(row.duration_s or 0.0)
+        for key, vals in agg.items():
+            key_norm = normalize_activity_type(key) if key else None
+            lookup_key = key_norm or key
+            label, emoji = sport_label_map.get(lookup_key, ("Autre", "⚪"))
+            duration_s = float(vals["duration_s"] or 0.0)
             percent_time = (duration_s / total_duration * 100.0) if total_duration else 0.0
-            dist_km = ((row.distance_m or 0.0) / 1000.0) if row.distance_m else 0.0
+            dist_km = (vals["distance_m"] / 1000.0) if vals["distance_m"] else 0.0
             sport_distribution.append(
                 {
                     "label": label,
@@ -3430,7 +3462,7 @@ def ui_user_dashboard(user_id: int, request: Request):
                     "percent_time": percent_time,
                     "distance_km": dist_km,
                     "duration_str": _format_duration(duration_s) if duration_s else "–",
-                    "dplus_m": float(row.dplus_m or 0.0),
+                    "dplus_m": float(vals["dplus_m"] or 0.0),
                 }
             )
 
@@ -4933,6 +4965,7 @@ def ui_user_delete_account(request: Request, user_id: int):
         db.query(UserSettings).filter(UserSettings.user_id == user_id).delete()
         db.query(models.UserVamPR).filter(models.UserVamPR.user_id == user_id).delete()
         db.query(ActivityVamPeak).filter(ActivityVamPeak.user_id == user_id).delete()
+        db.query(models.RunnerProfileMonthly).filter(models.RunnerProfileMonthly.user_id == user_id).delete()
 
         db.delete(user)
         db.commit()

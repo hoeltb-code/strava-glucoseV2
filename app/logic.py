@@ -29,6 +29,7 @@ import hashlib
 import math
 import bisect
 import statistics
+import logging
 from typing import Optional, List
 
 from sqlalchemy import func
@@ -44,6 +45,8 @@ def _safe_dt(ts):
 
 TARGET_MIN = 70
 TARGET_MAX = 180
+
+logger = logging.getLogger(__name__)
 
 # Zones cardio en % de FC max
 HR_ZONES = [
@@ -141,11 +144,21 @@ def normalize_activity_type(strava_type: Optional[str]) -> str:
     if t in {"mountainbike", "mtb"}:
         return "ride"  # ou 'mtb' si tu veux distinguer
 
-    # ski
-    if t in {"alpineski", "backcountryski"}:
-        return "ski_alpine"
+    # ski (ordre important)
     if t in {"nordicski", "rollerski"}:
         return "ski_nordic"
+    if t in {"alpineski"}:
+        return "ski_alpine"
+    if t in {"backcountryski", "skitouring", "skimo"}:
+        return "ski_rando"
+    if t == "ski":
+        return "ski_rando"
+    if "ski" in t:
+        # heuristique : mots-clés rando
+        if any(k in t for k in ["backcountry", "tour", "rando", "skimo", "mountain", "alpin"]):
+            return "ski_rando"
+        # sinon par défaut ski alpin
+        return "ski_alpine"
 
     return t
 
@@ -2305,7 +2318,7 @@ def _get_or_create_runner_profile_row(
     window_label: str | None = None,
 ) -> models.RunnerProfileMonthly:
     sport = canonicalize_sport_label(sport)
-    row = (
+    rows = (
         db.query(models.RunnerProfileMonthly)
         .filter(
             models.RunnerProfileMonthly.user_id == user_id,
@@ -2316,8 +2329,21 @@ def _get_or_create_runner_profile_row(
             models.RunnerProfileMonthly.hr_zone == hr_zone,
             models.RunnerProfileMonthly.window_label == window_label,
         )
-        .one_or_none()
+        .order_by(models.RunnerProfileMonthly.updated_at.desc().nulls_last(), models.RunnerProfileMonthly.id.desc())
+        .all()
     )
+
+    row = rows[0] if rows else None
+
+    # Si des doublons existent (absence de contrainte unique côté DB), on garde le plus récent et on purge les autres.
+    if rows and len(rows) > 1:
+        logger.warning(
+            "[RPM] Purge doublons user_id=%s sport=%s month=%s scope=%s slope=%s hr_zone=%s window=%s (n=%s)",
+            user_id, sport, month, metric_scope, slope_band, hr_zone, window_label, len(rows),
+        )
+        for dup in rows[1:]:
+            db.delete(dup)
+
     if row is None:
         row = models.RunnerProfileMonthly(
             user_id=user_id,
@@ -2977,11 +3003,22 @@ def update_runner_profile_monthly_from_activity(
         sport = "run"
     sport = canonicalize_sport_label(sport)
 
+    logger.info(
+        "[RPM] Maj profils mensuels user_id=%s activity_id=%s sport=%s month=%s",
+        activity.user_id, activity.id, sport, month,
+    )
+
     _update_runner_profile_slope_zone(db, activity=activity, sport=sport, month=month)
     _update_runner_profile_series_splits(db, activity=activity, sport=sport, month=month)
     _update_runner_profile_volume_weekly(db, activity=activity, sport=sport, month=month)
     _update_runner_profile_ascent_windows(db, activity=activity, sport=sport, month=month)
     _update_runner_profile_glucose_activity(db, activity=activity, sport=sport, month=month, stats=stats)
+    # En cas de purge de doublons pendant les mises à jour, on persiste.
+    db.commit()
+    logger.info(
+        "[RPM] Maj profils mensuels OK user_id=%s activity_id=%s sport=%s month=%s",
+        activity.user_id, activity.id, sport, month,
+    )
 
 
 def get_cached_glucose_activity_summary(

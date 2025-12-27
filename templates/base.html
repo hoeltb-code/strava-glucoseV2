@@ -181,6 +181,45 @@
       outline:none; box-shadow: var(--ring);
       border-radius: 10px;
     }
+
+    /* ===== Navigation mobile bas de page ===== */
+    .mobile-bottom-nav {
+      display: none;
+    }
+
+    @media (max-width: 640px) {
+      body { padding-bottom: 70px; }
+
+      .mobile-bottom-nav {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        padding: 10px 16px;
+        background: var(--bg-header);
+        border-top: 1px solid var(--border-soft);
+        box-shadow: 0 -4px 14px rgba(15, 23, 42, 0.08);
+        z-index: 1001;
+      }
+
+      .mobile-bottom-nav a {
+        color: #475569;
+        font-size: 0.75rem;
+        text-decoration: none;
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .mobile-bottom-nav a:hover { color: var(--text-main); }
+
+      .mobile-bottom-nav .icon { font-size: 1.2rem; }
+      .mobile-bottom-nav .label { font-size: 0.78rem; }
+    }
   
     .leaflet-control-container,
     .leaflet-top,
@@ -243,5 +282,32 @@
   <div class="container">
     {% block content %}{% endblock %}
   </div>
+
+  {% if session_user_id %}
+  <nav class="mobile-bottom-nav" aria-label="Navigation principale mobile">
+    <a href="/ui/user/{{ session_user_id }}">
+      <span class="icon">🏠</span>
+      <span class="label">Home</span>
+    </a>
+    <a href="/ui/user/{{ session_user_id }}/activities">
+      <span class="icon">🏃</span>
+      <span class="label">Activités</span>
+    </a>
+    <a href="/ui/user/{{ session_user_id }}/profile">
+      <span class="icon">👤</span>
+      <span class="label">Profil</span>
+    </a>
+    {% if session_user_id == 1 %}
+    <a href="/ui">
+      <span class="icon">🗂️</span>
+      <span class="label">Admin</span>
+    </a>
+    {% endif %}
+    <a href="/logout">
+      <span class="icon">🚪</span>
+      <span class="label">Quitter</span>
+    </a>
+  </nav>
+  {% endif %}
 </body>
 </html>

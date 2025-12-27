@@ -103,12 +103,15 @@
       font-size: 1rem;
     }
 
-    .nav-icon { display: none; font-size: 1.15rem; }
     .nav-label { display: inline; }
+    .icon-img {
+      width: 50px;
+      height: 50px;
+      display: block;
+      object-fit: contain;
+    }
 
     @media (max-width: 640px) {
-      .nav-icon { display: inline-flex; }
-      .nav-label { display: none; }
       header { padding: 10px 16px; }
       .brand-mark { display:none; }
     .brand-text { display:inline-flex; font-size:0.8rem; }
@@ -207,18 +210,17 @@
 
       .mobile-bottom-nav a {
         color: #475569;
-        font-size: 0.75rem;
         text-decoration: none;
         display: inline-flex;
         flex-direction: column;
         align-items: center;
-        gap: 4px;
+        gap: 0;
       }
 
       .mobile-bottom-nav a:hover { color: var(--text-main); }
 
-      .mobile-bottom-nav .icon { font-size: 1.2rem; }
-      .mobile-bottom-nav .label { font-size: 0.78rem; }
+      .mobile-bottom-nav .icon-img { width: 50px; height: 50px; }
+      .mobile-bottom-nav .label { display: none; }
     }
   
     .leaflet-control-container,
@@ -245,38 +247,6 @@
         <span class="brand-text">Strava x D+</span>
       </a>
     </div>
-    <nav>
-      {% if session_user_id %}
-        <a class="nav-link home-link" href="/ui/user/{{ session_user_id }}">
-          <span class="nav-icon">🏠</span>
-          <span class="nav-label">Home</span>
-        </a>
-        <a class="nav-link" href="/ui/user/{{ session_user_id }}/profile">
-          <span class="nav-icon">👤</span>
-          <span class="nav-label">Profil</span>
-        </a>
-        <a class="nav-link" href="/ui/user/{{ session_user_id }}/activities">
-          <span class="nav-icon">🏃</span>
-          <span class="nav-label">Activités</span>
-        </a>
-      {% endif %}
-      {% if session_user_id == 1 %}
-        <a class="nav-link" href="/ui">
-          <span class="nav-icon">🗂️</span>
-          <span class="nav-label">Admin</span>
-        </a>
-        <a class="nav-link" href="/docs" target="_blank">
-          <span class="nav-icon">📘</span>
-          <span class="nav-label">API Docs</span>
-        </a>
-      {% endif %}
-      {% if session_user_id %}
-        <a class="nav-link" href="/logout">
-          <span class="nav-icon">🚪</span>
-          <span class="nav-label">Déconnexion</span>
-        </a>
-      {% endif %}
-    </nav>
   </header>
 
   <div class="container">
@@ -285,26 +255,30 @@
 
   {% if session_user_id %}
   <nav class="mobile-bottom-nav" aria-label="Navigation principale mobile">
-    <a href="/ui/user/{{ session_user_id }}">
-      <span class="icon">🏠</span>
+    <a href="/ui/user/{{ session_user_id }}" aria-label="Home">
+      <img class="icon-img" src="{{ url_for('static', path='icons/home.svg') }}" alt="Home">
       <span class="label">Home</span>
     </a>
-    <a href="/ui/user/{{ session_user_id }}/activities">
-      <span class="icon">🏃</span>
+    <a href="/ui/user/{{ session_user_id }}/activities" aria-label="Activités">
+      <img class="icon-img" src="{{ url_for('static', path='icons/activities.svg') }}" alt="Activités">
       <span class="label">Activités</span>
     </a>
-    <a href="/ui/user/{{ session_user_id }}/profile">
-      <span class="icon">👤</span>
+    <a href="/ui/user/{{ session_user_id }}/profile" aria-label="Profil">
+      <img class="icon-img" src="{{ url_for('static', path='icons/profile.svg') }}" alt="Profil">
       <span class="label">Profil</span>
     </a>
+    <a href="/ui/user/{{ session_user_id }}/runner-profile" aria-label="Profil coureur">
+      <img class="icon-img" src="{{ url_for('static', path='icons/stat.svg') }}" alt="Profil coureur">
+      <span class="label">Profil coureur</span>
+    </a>
     {% if session_user_id == 1 %}
-    <a href="/ui">
-      <span class="icon">🗂️</span>
+    <a href="/ui" aria-label="Admin">
+      <img class="icon-img" src="{{ url_for('static', path='icons/admin.svg') }}" alt="Admin">
       <span class="label">Admin</span>
     </a>
     {% endif %}
-    <a href="/logout">
-      <span class="icon">🚪</span>
+    <a href="/logout" aria-label="Déconnexion">
+      <img class="icon-img" src="{{ url_for('static', path='icons/logout.svg') }}" alt="Déconnexion">
       <span class="label">Quitter</span>
     </a>
   </nav>

@@ -2667,6 +2667,11 @@ def _update_runner_profile_series_splits(
 
     activity_date_iso = _isoformat(_safe_dt(activity.start_date))
 
+    def _safe_avg(sum_val: float, dur: float) -> float | None:
+        if dur <= 0:
+            return None
+        return sum_val / dur
+
     for entry in series_entries:
         duration = float(entry.get("duration_sec") or 0.0)
         avg_pace = float(entry.get("avg_pace_s_per_km") or 0.0)
@@ -2722,6 +2727,10 @@ def _update_runner_profile_series_splits(
         extra["samples"] = samples
 
         best_series = extra.get("best_series")
+        old_best = None
+        if isinstance(best_series, dict):
+            old_best = best_series.get("avg_pace_s_per_km")
+
         if not best_series or avg_pace < best_series.get("avg_pace_s_per_km", float("inf")):
             extra["best_series"] = {
                 "avg_pace_s_per_km": avg_pace,
@@ -2731,6 +2740,16 @@ def _update_runner_profile_series_splits(
                 "stability_ratio": entry.get("stability_ratio"),
                 "date": activity_date_iso,
             }
+            logger.info(
+                "[RPM][series] Nouveau PB user_id=%s month=%s dist=%sm reps=%s pace_old=%s pace_new=%s activity_id=%s",
+                activity.user_id,
+                month,
+                distance_m,
+                reps,
+                old_best,
+                avg_pace,
+                entry["activity_id"],
+            )
 
         rpm.extra = extra
 

@@ -75,62 +75,12 @@
   <div style="display:flex; gap:8px;"><!-- header actions removed, now in global nav --></div>
 </div>
 
-<!-- ========================================================= -->
-<!-- Profil coureur + bloc activités (desktop only) -->
-<!-- ========================================================= -->
-<div class="dashboard-grid" style="position:relative; z-index:0;">
-
-  <div class="card">
-    <h2 style="font-size:1rem; font-weight:600; margin-bottom:7px;">🏃 Profil Coureur / Traileur</h2>
-    <p style="margin-top:0; font-size:0.85rem; color:#0f172a;">
-      Profil cardio × pente × VAM × cadence × allure + projections chrono depuis un GPX (Trail / Route).
-    </p>
-
-    <div style="margin-top:12px; text-align:right;">
-      <a href="/ui/user/{{ user.id }}/runner-profile"
-        style="
-            display:inline-block;
-            padding:10px 16px;
-            background:var(--grad-accent);
-            color:white;
-            text-decoration:none;
-            border-radius:4px;
-            font-weight:600;
-            box-shadow:0 6px 16px rgba(37,99,235,.25);
-            transition:filter .15s ease;
-        "
-        onmouseover="this.style.filter='brightness(1.05)'"
-        onmouseout="this.style.filter='none'">
-        📈 Voir ton profil
-      </a>
-    </div>
-  </div>
-
-  <div class="card">
-    <div id="anchor-vam" style="position:relative; top:-80px;"></div>
-    <h2 style="font-size:1rem; font-weight:600; margin-bottom:6px;">📚 Activités</h2>
-    <p style="margin-top:0; font-size:0.85rem; color:#0f172a;">
-      Consulte les 30 dernières activités enrichies : distance, D+/D-, fenêtres D+ et glycémie.
-    </p>
-    <div style="margin-top:12px; text-align:right;">
-      <a href="/ui/user/{{ user.id }}/activities"
-         style="
-           display:inline-block;
-           padding:10px 16px;
-           background:var(--grad-accent);
-           color:white;
-           text-decoration:none;
-           border-radius:4px;
-           font-weight:600;
-           box-shadow:0 6px 16px rgba(37,99,235,.25);
-           transition:filter .15s ease;
-         "
-         onmouseover="this.style.filter='brightness(1.05)'"
-         onmouseout="this.style.filter='none'">
-        📄 Accéder aux activités
-      </a>
-    </div>
-  </div>
+<div class="card" style="padding:12px 16px; margin-bottom:14px;">
+  <p style="margin:0; font-size:0.9rem; color:#0f172a;">
+    Strava x D+ est le cockpit des amoureux de D+ : VAM, projections de course, analyse fine de tes traces
+    GPX et stats poussées pour comprendre et progresser. Tu peux aussi y ajouter le suivi glycémie avec ton
+    capteur CGM.
+  </p>
 </div>
 
 {% if fc_info or sport_distribution or vam_highlights or dash_distance_projections %}

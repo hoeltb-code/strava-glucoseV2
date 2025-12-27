@@ -102,6 +102,11 @@
       gap: 8px;
       font-size: 1rem;
     }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
 
     .nav-label { display: inline; }
     .icon-img {
@@ -135,6 +140,7 @@
     .brand-text { display:inline-flex; font-size:0.8rem; }
     .brand-home { display:inline-flex; }
       .nav-link.home-link { display:none; }
+      nav { display: none; }
     }
   
     /* ===== Layout ===== */
@@ -265,12 +271,35 @@
         <span class="brand-text">Strava x D+</span>
       </a>
     </div>
-    {% if session_user_id %}
-    <a class="logout-link" href="/logout">
-      <img class="logout-icon" src="{{ url_for('static', path='icons/logout.svg') }}" alt="Déconnexion">
-      Quitter
-    </a>
-    {% endif %}
+    <div class="header-actions">
+      {% if session_user_id %}
+      <nav>
+        <a class="nav-link home-link" href="/ui/user/{{ session_user_id }}">
+          <img class="icon-img" src="{{ url_for('static', path='icons/home.svg') }}" alt="Home">
+        </a>
+        <a class="nav-link" href="/ui/user/{{ session_user_id }}/activities">
+          <img class="icon-img" src="{{ url_for('static', path='icons/activities.svg') }}" alt="Activités">
+        </a>
+        <a class="nav-link" href="/ui/user/{{ session_user_id }}/profile">
+          <img class="icon-img" src="{{ url_for('static', path='icons/profile.svg') }}" alt="Profil">
+        </a>
+        <a class="nav-link" href="/ui/user/{{ session_user_id }}/runner-profile">
+          <img class="icon-img" src="{{ url_for('static', path='icons/stat.svg') }}" alt="Profil coureur">
+        </a>
+        {% if session_user_id == 1 %}
+        <a class="nav-link" href="/ui">
+          <img class="icon-img" src="{{ url_for('static', path='icons/admin.svg') }}" alt="Admin">
+        </a>
+        <a class="nav-link" href="/docs" target="_blank">
+          <img class="icon-img" src="{{ url_for('static', path='icons/stat.svg') }}" alt="API Docs">
+        </a>
+        {% endif %}
+      </nav>
+      <a class="nav-link" href="/logout" aria-label="Déconnexion">
+        <img class="icon-img" src="{{ url_for('static', path='icons/logout.svg') }}" alt="Déconnexion">
+      </a>
+      {% endif %}
+    </div>
   </header>
 
   <div class="container">

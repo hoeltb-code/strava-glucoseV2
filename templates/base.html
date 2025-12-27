@@ -110,6 +110,24 @@
       display: block;
       object-fit: contain;
     }
+    .logout-icon {
+      width: 18px;
+      height: 18px;
+      display: inline-block;
+      object-fit: contain;
+    }
+    .logout-link {
+      color: #0f172a;
+      font-weight: 400;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      transition: background-color .15s ease, color .15s ease;
+    }
+    .logout-link:hover { color: var(--text-main); background: rgba(15, 23, 42, 0.04); }
 
     @media (max-width: 640px) {
       header { padding: 10px 16px; }
@@ -247,6 +265,12 @@
         <span class="brand-text">Strava x D+</span>
       </a>
     </div>
+    {% if session_user_id %}
+    <a class="logout-link" href="/logout">
+      <img class="logout-icon" src="{{ url_for('static', path='icons/logout.svg') }}" alt="Déconnexion">
+      Quitter
+    </a>
+    {% endif %}
   </header>
 
   <div class="container">
@@ -277,10 +301,6 @@
       <span class="label">Admin</span>
     </a>
     {% endif %}
-    <a href="/logout" aria-label="Déconnexion">
-      <img class="icon-img" src="{{ url_for('static', path='icons/logout.svg') }}" alt="Déconnexion">
-      <span class="label">Quitter</span>
-    </a>
   </nav>
   {% endif %}
 </body>

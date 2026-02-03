@@ -77,6 +77,10 @@
 import os
 import datetime as dt
 import subprocess
+import secrets
+import hashlib
+import smtplib
+from email.message import EmailMessage
 import json
 from typing import Optional
 import statistics
@@ -2032,24 +2036,6 @@ def ui_home(request: Request):
                 "cgm_source": (u.cgm_source or "").upper() if u.cgm_source else None,
             })
 
-        def _compute_dminus(act_id: int) -> int | None:
-            rows = (
-                db.query(ActivityStreamPoint.altitude)
-                .filter(ActivityStreamPoint.activity_id == act_id)
-                .order_by(ActivityStreamPoint.idx.asc())
-                .all()
-            )
-            prev_alt = None
-            total_loss = 0.0
-            for (alt,) in rows:
-                if alt is None:
-                    continue
-                alt_f = float(alt)
-                if prev_alt is not None and alt_f < prev_alt:
-                    total_loss += prev_alt - alt_f
-                prev_alt = alt_f
-            return int(round(total_loss)) if total_loss > 0 else None
-
         recent_activities_rows = (
             db.query(Activity, User)
             .join(User, Activity.user_id == User.id)
@@ -2070,7 +2056,6 @@ def ui_home(request: Request):
                 "duration_str": _format_duration(act.elapsed_time) if act.elapsed_time else None,
                 "sport": act.sport or act.activity_type or "—",
                 "dplus": int(round(act.total_elevation_gain)) if act.total_elevation_gain is not None else None,
-                "dminus": _compute_dminus(act.id),
                 "summary_block": act.glucose_summary_block or "",
             })
     finally:
@@ -2078,7 +2063,612 @@ def ui_home(request: Request):
 
     return templates.TemplateResponse(
         "home.html",
-        {"request": request, "users": ui_users, "recent_activities": recent_activities},
+        {
+            "request": request,
+            "users": ui_users,
+            "recent_activities": recent_activities,
+            "current_user_id": _get_session_user_id(request),
+        },
+    )
+
+
+@app.get("/admin/glucose-dashboard", response_class=HTMLResponse)
+def admin_glucose_dashboard(request: Request):
+    session_user_id = _get_session_user_id(request)
+    if session_user_id != 1:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    now = dt.datetime.utcnow()
+    start_dt = now - dt.timedelta(days=183)
+
+    db = SessionLocal()
+    try:
+        total_users = db.query(User.id).count()
+        total_activities = db.query(Activity.id).count()
+
+        user_ids_from_glucose = {
+            uid for (uid,) in db.query(GlucosePoint.user_id).distinct()
+        }
+        user_ids_from_acts = {
+            uid
+            for (uid,) in db.query(Activity.user_id)
+            .filter(Activity.avg_glucose.isnot(None))
+            .distinct()
+        }
+        users_with_glucose = len(user_ids_from_glucose | user_ids_from_acts)
+
+        activities_with_glucose = (
+            db.query(Activity.id)
+            .filter(
+                Activity.start_date >= start_dt,
+                Activity.avg_glucose.isnot(None),
+            )
+            .count()
+        )
+
+        glucose_points_count = (
+            db.query(GlucosePoint.id)
+            .filter(GlucosePoint.ts >= start_dt, GlucosePoint.ts <= now)
+            .count()
+        )
+
+        analyzed_seconds = (
+            db.query(func.coalesce(func.sum(Activity.elapsed_time), 0))
+            .filter(
+                Activity.start_date >= start_dt,
+                Activity.avg_glucose.isnot(None),
+                Activity.elapsed_time.isnot(None),
+            )
+            .scalar()
+            or 0
+        )
+        analyzed_hours = round(float(analyzed_seconds) / 3600.0, 1)
+
+        dialect_name = db.get_bind().dialect.name
+        if dialect_name == "postgresql":
+            week_expr = func.to_char(
+                func.date_trunc("week", Activity.start_date),
+                "IYYY-\"W\"IW",
+            )
+        else:
+            week_expr = func.strftime("%Y-%W", Activity.start_date)
+
+        weekly_rows = (
+            db.query(
+                week_expr.label("week"),
+                func.count(Activity.id).label("count"),
+            )
+            .filter(
+                Activity.start_date >= start_dt,
+                Activity.start_date <= now,
+                Activity.avg_glucose.isnot(None),
+            )
+            .group_by("week")
+            .order_by("week")
+            .all()
+        )
+        weekly_data = []
+        for week_key, count in weekly_rows:
+            if week_key:
+                parts = week_key.split("-")
+                if len(parts) == 2:
+                    week_label = f"{parts[0]}-W{parts[1]}"
+                else:
+                    week_label = week_key
+            else:
+                week_label = "n/a"
+            weekly_data.append({"week": week_label, "count": int(count)})
+
+        zones_order = ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"]
+        zone_rows = (
+            db.query(
+                ActivityStreamPoint.hr_zone.label("zone"),
+                func.avg(ActivityStreamPoint.glucose_mgdl).label("avg_glucose"),
+                func.count(ActivityStreamPoint.id).label("points"),
+            )
+            .join(Activity, ActivityStreamPoint.activity_id == Activity.id)
+            .filter(
+                Activity.start_date >= start_dt,
+                Activity.start_date <= now,
+                ActivityStreamPoint.glucose_mgdl.isnot(None),
+                ActivityStreamPoint.hr_zone.isnot(None),
+            )
+            .group_by(ActivityStreamPoint.hr_zone)
+            .all()
+        )
+        zone_map = {
+            z: {
+                "avg_glucose": float(avg) if avg is not None else None,
+                "points": int(points),
+            }
+            for z, avg, points in zone_rows
+        }
+        hr_zone_data = []
+        for zone in zones_order:
+            entry = zone_map.get(zone, {"avg_glucose": None, "points": 0})
+            hr_zone_data.append({"zone": zone, **entry})
+
+        acts_in_window = (
+            db.query(Activity)
+            .filter(
+                Activity.start_date >= start_dt,
+                Activity.start_date <= now,
+                Activity.avg_glucose.isnot(None),
+            )
+            .all()
+        )
+        act_info = {}
+        for act in acts_in_window:
+            act_info[act.id] = {
+                "user_id": act.user_id,
+                "start_date": act.start_date,
+                "sport": act.sport or act.activity_type or "—",
+                "elapsed_time": act.elapsed_time,
+                "distance": act.distance,
+                "dplus": act.total_elevation_gain,
+                "avg_glucose": act.avg_glucose,
+                "tir_percent": act.time_in_range_percent,
+                "min_glucose": act.min_glucose,
+                "max_glucose": act.max_glucose,
+                "hypo_count": act.hypo_count,
+                "hyper_count": act.hyper_count,
+            }
+
+        zone_counts_rows = (
+            db.query(
+                ActivityStreamPoint.activity_id,
+                ActivityStreamPoint.hr_zone,
+                func.count(ActivityStreamPoint.id),
+            )
+            .join(Activity, ActivityStreamPoint.activity_id == Activity.id)
+            .filter(
+                Activity.start_date >= start_dt,
+                Activity.start_date <= now,
+                ActivityStreamPoint.hr_zone.isnot(None),
+            )
+            .group_by(ActivityStreamPoint.activity_id, ActivityStreamPoint.hr_zone)
+            .all()
+        )
+        zone_counts_by_act = {}
+        for act_id, zone, cnt in zone_counts_rows:
+            if act_id not in act_info:
+                continue
+            zone_counts_by_act.setdefault(act_id, {})[zone] = int(cnt)
+
+        profile_by_act = {}
+        for act_id, zone_counts in zone_counts_by_act.items():
+            total_zone = sum(zone_counts.values())
+            if total_zone <= 0:
+                continue
+            z1 = zone_counts.get("Zone 1", 0)
+            z2 = zone_counts.get("Zone 2", 0)
+            z3 = zone_counts.get("Zone 3", 0)
+            z4 = zone_counts.get("Zone 4", 0)
+            z5 = zone_counts.get("Zone 5", 0)
+            if (z5 / total_zone) >= 0.25:
+                profile_by_act[act_id] = "fractionne"
+            elif (z4 / total_zone) >= 0.20:
+                profile_by_act[act_id] = "seuil"
+            elif ((z1 + z2 + z3) / total_zone) >= 0.70:
+                profile_by_act[act_id] = "endurance"
+            else:
+                profile_by_act[act_id] = "endurance"
+
+        glucose_points_count_by_act = {}
+        first_point_by_act = {}
+        last_point_by_act = {}
+        zone_stats = {
+            zone: {"count": 0, "sum": 0.0, "sumsq": 0.0, "in_range": 0}
+            for zone in zones_order
+        }
+        profile_bins = {
+            "endurance": {},
+            "seuil": {},
+            "fractionne": {},
+        }
+        profile_event_bins = {
+            "endurance": {},
+            "seuil": {},
+            "fractionne": {},
+        }
+        profile_tir_bins = {
+            "endurance": {},
+            "seuil": {},
+            "fractionne": {},
+        }
+
+        glucose_points_rows = (
+            db.query(
+                ActivityStreamPoint.activity_id,
+                ActivityStreamPoint.idx,
+                ActivityStreamPoint.elapsed_time,
+                ActivityStreamPoint.glucose_mgdl,
+                ActivityStreamPoint.hr_zone,
+            )
+            .join(Activity, ActivityStreamPoint.activity_id == Activity.id)
+            .filter(
+                Activity.start_date >= start_dt,
+                Activity.start_date <= now,
+                ActivityStreamPoint.glucose_mgdl.isnot(None),
+            )
+            .all()
+        )
+        for act_id, idx, elapsed_time, glucose, hr_zone in glucose_points_rows:
+            if act_id not in act_info:
+                continue
+            g_val = float(glucose)
+            glucose_points_count_by_act[act_id] = (
+                glucose_points_count_by_act.get(act_id, 0) + 1
+            )
+
+            first = first_point_by_act.get(act_id)
+            if first is None or idx < first["idx"]:
+                first_point_by_act[act_id] = {"idx": idx, "glucose": g_val}
+            last = last_point_by_act.get(act_id)
+            if last is None or idx > last["idx"]:
+                last_point_by_act[act_id] = {"idx": idx, "glucose": g_val}
+
+            if hr_zone in zone_stats:
+                zs = zone_stats[hr_zone]
+                zs["count"] += 1
+                zs["sum"] += g_val
+                zs["sumsq"] += g_val * g_val
+                if 70 <= g_val <= 180:
+                    zs["in_range"] += 1
+
+            profile = profile_by_act.get(act_id)
+            if profile and elapsed_time is not None:
+                minute = int(elapsed_time / 60)
+                if 0 <= minute <= 120:
+                    bucket = int(minute / 5) * 5
+                    acc = profile_bins[profile].setdefault(
+                        bucket, {"sum": 0.0, "count": 0}
+                    )
+                    acc["sum"] += g_val
+                    acc["count"] += 1
+
+                bucket10 = int(minute / 10) * 10
+                if 0 <= bucket10 <= 120:
+                    ev = profile_event_bins[profile].setdefault(
+                        bucket10, {"total": 0, "hypo": 0, "hyper": 0}
+                    )
+                    ev["total"] += 1
+                    if g_val < 70:
+                        ev["hypo"] += 1
+                    elif g_val > 180:
+                        ev["hyper"] += 1
+                    tir = profile_tir_bins[profile].setdefault(
+                        bucket10, {"total": 0, "in_range": 0}
+                    )
+                    tir["total"] += 1
+                    if 70 <= g_val <= 180:
+                        tir["in_range"] += 1
+
+        tir_by_zone = []
+        hr_zone_table = []
+        for zone in zones_order:
+            zs = zone_stats[zone]
+            count = zs["count"]
+            avg = (zs["sum"] / count) if count else None
+            var = (zs["sumsq"] / count - (avg * avg)) if count and avg is not None else None
+            stddev = (var ** 0.5) if var is not None and var >= 0 else None
+            tir = (zs["in_range"] / count * 100.0) if count else None
+            hr_zone_table.append(
+                {
+                    "zone": zone,
+                    "duration_min": count,
+                    "avg_glucose": round(avg, 1) if avg is not None else None,
+                    "tir_percent": round(tir, 1) if tir is not None else None,
+                    "stddev": round(stddev, 1) if stddev is not None else None,
+                }
+            )
+            tir_by_zone.append(
+                {
+                    "zone": zone,
+                    "tir_percent": round(tir, 1) if tir is not None else None,
+                }
+            )
+
+        duration_points = []
+        coverage_by_duration = []
+        duration_bins_cov = [
+            ("<30", 0, 30),
+            ("30-60", 30, 60),
+            ("60-90", 60, 90),
+            ("90-120", 90, 120),
+            ("120-180", 120, 180),
+            (">180", 180, None),
+        ]
+        cov_acc = {label: {"sum": 0.0, "count": 0} for label, _, _ in duration_bins_cov}
+
+        duration_bins = [
+            ("<45", 0, 45),
+            ("45-75", 45, 75),
+            ("75-120", 75, 120),
+            ("120-180", 120, 180),
+            (">180", 180, None),
+        ]
+        bucket_acc = {
+            label: {"count": 0, "sum_glucose": 0.0, "sum_tir": 0.0, "sum_drift": 0.0, "sum_hypos_per_h": 0.0}
+            for label, _, _ in duration_bins
+        }
+
+        drift_scatter = []
+        drift_values = []
+        drift_by_zone = {zone: {"sum": 0.0, "count": 0} for zone in zones_order}
+
+        profile_rules = {
+            "endurance": {"sum_glucose": 0.0, "sum_tir": 0.0, "sum_amp": 0.0, "sum_hypos_per_h": 0.0, "count": 0},
+            "seuil": {"sum_glucose": 0.0, "sum_tir": 0.0, "sum_amp": 0.0, "sum_hypos_per_h": 0.0, "count": 0},
+            "fractionne": {"sum_glucose": 0.0, "sum_tir": 0.0, "sum_amp": 0.0, "sum_hypos_per_h": 0.0, "count": 0},
+        }
+
+        heatmap_data = {zone: {} for zone in zones_order}
+        heatmap_bins = duration_bins
+
+        for act_id, info in act_info.items():
+            elapsed = info["elapsed_time"] or 0
+            duration_min = (elapsed / 60.0) if elapsed else None
+            points_count = glucose_points_count_by_act.get(act_id, 0)
+
+            if duration_min and duration_min > 0:
+                duration_points.append({"x": round(duration_min, 1), "y": points_count})
+                coverage_pct = min(100.0, (points_count / duration_min) * 100.0)
+                for label, lo, hi in duration_bins_cov:
+                    if (duration_min >= lo) and (hi is None or duration_min < hi):
+                        cov_acc[label]["sum"] += coverage_pct
+                        cov_acc[label]["count"] += 1
+                        break
+
+            first = first_point_by_act.get(act_id)
+            last = last_point_by_act.get(act_id)
+            drift = None
+            if first and last:
+                drift = last["glucose"] - first["glucose"]
+                drift_values.append(drift)
+
+            if duration_min and drift is not None:
+                drift_scatter.append({"x": round(duration_min, 1), "y": round(drift, 1)})
+
+            for label, lo, hi in duration_bins:
+                if duration_min is None:
+                    continue
+                if duration_min >= lo and (hi is None or duration_min < hi):
+                    bucket = bucket_acc[label]
+                    if info["avg_glucose"] is not None:
+                        bucket["sum_glucose"] += float(info["avg_glucose"])
+                    if info["tir_percent"] is not None:
+                        bucket["sum_tir"] += float(info["tir_percent"])
+                    if drift is not None:
+                        bucket["sum_drift"] += float(drift)
+                    hypos_per_h = None
+                    if elapsed and info["hypo_count"] is not None and elapsed > 0:
+                        hypos_per_h = float(info["hypo_count"]) / (elapsed / 3600.0)
+                    if hypos_per_h is not None:
+                        bucket["sum_hypos_per_h"] += hypos_per_h
+                    bucket["count"] += 1
+                    break
+
+            zone_counts = zone_counts_by_act.get(act_id, {})
+            total_zone = sum(zone_counts.values())
+            dominant_zone = None
+            if total_zone > 0:
+                dominant_zone = max(zone_counts, key=zone_counts.get)
+                if dominant_zone in drift_by_zone and drift is not None:
+                    drift_by_zone[dominant_zone]["sum"] += drift
+                    drift_by_zone[dominant_zone]["count"] += 1
+
+                profile = profile_by_act.get(act_id)
+                if profile:
+                    prof = profile_rules[profile]
+                    if info["avg_glucose"] is not None:
+                        prof["sum_glucose"] += float(info["avg_glucose"])
+                    if info["tir_percent"] is not None:
+                        prof["sum_tir"] += float(info["tir_percent"])
+                    if info["min_glucose"] is not None and info["max_glucose"] is not None:
+                        prof["sum_amp"] += float(info["max_glucose"]) - float(info["min_glucose"])
+                    if elapsed and info["hypo_count"] is not None and elapsed > 0:
+                        prof["sum_hypos_per_h"] += float(info["hypo_count"]) / (elapsed / 3600.0)
+                    prof["count"] += 1
+
+                for label, lo, hi in heatmap_bins:
+                    if duration_min is None:
+                        continue
+                    if duration_min >= lo and (hi is None or duration_min < hi):
+                        key = label
+                        cell = heatmap_data[dominant_zone].setdefault(key, {"sum": 0.0, "count": 0})
+                        if drift is not None:
+                            cell["sum"] += drift
+                            cell["count"] += 1
+                        break
+
+        coverage_by_duration = []
+        for label, _, _ in duration_bins_cov:
+            acc = cov_acc[label]
+            avg_cov = (acc["sum"] / acc["count"]) if acc["count"] else None
+            coverage_by_duration.append({"label": label, "avg_coverage": round(avg_cov, 1) if avg_cov is not None else None})
+
+        duration_buckets = []
+        for label, _, _ in duration_bins:
+            acc = bucket_acc[label]
+            count = acc["count"]
+            duration_buckets.append(
+                {
+                    "label": label,
+                    "avg_glucose": round(acc["sum_glucose"] / count, 1) if count else None,
+                    "avg_tir": round(acc["sum_tir"] / count, 1) if count else None,
+                    "avg_drift": round(acc["sum_drift"] / count, 1) if count else None,
+                    "avg_hypos_per_h": round(acc["sum_hypos_per_h"] / count, 2) if count else None,
+                }
+            )
+
+        profile_data = []
+        for label in ["endurance", "seuil", "fractionne"]:
+            acc = profile_rules[label]
+            count = acc["count"]
+            profile_data.append(
+                {
+                    "profile": label,
+                    "count": count,
+                    "avg_glucose": round(acc["sum_glucose"] / count, 1) if count else None,
+                    "avg_tir": round(acc["sum_tir"] / count, 1) if count else None,
+                    "avg_amp": round(acc["sum_amp"] / count, 1) if count else None,
+                    "avg_hypos_per_h": round(acc["sum_hypos_per_h"] / count, 2) if count else None,
+                }
+            )
+
+        drift_by_zone_list = []
+        for zone in zones_order:
+            dz = drift_by_zone[zone]
+            avg_drift = (dz["sum"] / dz["count"]) if dz["count"] else None
+            drift_by_zone_list.append({"zone": zone, "avg_drift": round(avg_drift, 1) if avg_drift is not None else None})
+
+        drift_hist = []
+        if drift_values:
+            bins = [-100, -80, -60, -40, -20, 0, 20, 40, 60, 80, 100]
+            counts = [0 for _ in range(len(bins) + 1)]
+            for val in drift_values:
+                placed = False
+                for i in range(len(bins) - 1):
+                    if bins[i] <= val < bins[i + 1]:
+                        counts[i + 1] += 1
+                        placed = True
+                        break
+                if not placed:
+                    if val < bins[0]:
+                        counts[0] += 1
+                    else:
+                        counts[-1] += 1
+            labels = [f"<{bins[0]}"] + [f"{bins[i]}:{bins[i+1]}" for i in range(len(bins) - 1)] + [f">{bins[-1]}"]
+            for label, count in zip(labels, counts):
+                drift_hist.append({"label": label, "count": count})
+
+        profile_glucose_series = {}
+        for profile in ["endurance", "seuil", "fractionne"]:
+            series = []
+            for minute in range(0, 121, 5):
+                acc = profile_bins[profile].get(minute)
+                if acc and acc["count"]:
+                    avg_val = acc["sum"] / acc["count"]
+                    series.append({"minute": minute, "avg_glucose": round(avg_val, 1)})
+                else:
+                    series.append({"minute": minute, "avg_glucose": None})
+            profile_glucose_series[profile] = series
+
+        profile_event_series = {}
+        for profile in ["endurance", "seuil", "fractionne"]:
+            series = []
+            for minute in range(0, 121, 10):
+                acc = profile_event_bins[profile].get(minute)
+                if acc and acc["total"]:
+                    hypo_pct = acc["hypo"] / acc["total"] * 100.0
+                    hyper_pct = acc["hyper"] / acc["total"] * 100.0
+                    series.append(
+                        {
+                            "minute": minute,
+                            "hypo_pct": round(hypo_pct, 1),
+                            "hyper_pct": round(hyper_pct, 1),
+                        }
+                    )
+                else:
+                    series.append(
+                        {"minute": minute, "hypo_pct": None, "hyper_pct": None}
+                    )
+            profile_event_series[profile] = series
+
+        profile_tir_series = {}
+        for profile in ["endurance", "seuil", "fractionne"]:
+            series = []
+            for minute in range(0, 121, 10):
+                acc = profile_tir_bins[profile].get(minute)
+                if acc and acc["total"]:
+                    tir_pct = acc["in_range"] / acc["total"] * 100.0
+                    series.append({"minute": minute, "tir_pct": round(tir_pct, 1)})
+                else:
+                    series.append({"minute": minute, "tir_pct": None})
+            profile_tir_series[profile] = series
+
+        recent_acts_rows = (
+            db.query(Activity)
+            .filter(
+                Activity.start_date >= start_dt,
+                Activity.avg_glucose.isnot(None),
+            )
+            .order_by(Activity.start_date.desc())
+            .limit(50)
+            .all()
+        )
+        recent_acts = []
+        for act in recent_acts_rows:
+            recent_acts.append(
+                {
+                    "start_date": act.start_date.strftime("%Y-%m-%d %H:%M")
+                    if act.start_date
+                    else "n/a",
+                    "user_id": act.user_id,
+                    "activity_id": act.id,
+                    "sport": act.sport or act.activity_type or "—",
+                    "elapsed_str": _format_duration(act.elapsed_time)
+                    if act.elapsed_time
+                    else "—",
+                    "distance_km": round((act.distance or 0) / 1000.0, 1)
+                    if act.distance
+                    else None,
+                    "dplus_m": int(round(act.total_elevation_gain))
+                    if act.total_elevation_gain is not None
+                    else None,
+                    "avg_glucose": round(float(act.avg_glucose), 1)
+                    if act.avg_glucose is not None
+                    else None,
+                    "tir_percent": round(float(act.time_in_range_percent), 1)
+                    if act.time_in_range_percent is not None
+                    else None,
+                    "min_glucose": round(float(act.min_glucose), 1)
+                    if act.min_glucose is not None
+                    else None,
+                    "max_glucose": round(float(act.max_glucose), 1)
+                    if act.max_glucose is not None
+                    else None,
+                    "hypo_count": act.hypo_count,
+                    "hyper_count": act.hyper_count,
+                }
+            )
+    finally:
+        db.close()
+
+    return templates.TemplateResponse(
+        "glucose_dashboard.html",
+        {
+            "request": request,
+            "current_user_id": session_user_id,
+            "kpis": {
+                "total_users": total_users,
+                "users_with_glucose": users_with_glucose,
+                "total_activities": total_activities,
+                "activities_with_glucose": activities_with_glucose,
+                "glucose_points_count": glucose_points_count,
+                "analyzed_hours": analyzed_hours,
+            },
+            "weekly_data": weekly_data,
+            "hr_zone_data": hr_zone_data,
+            "tir_by_zone": tir_by_zone,
+            "duration_points": duration_points,
+            "coverage_by_duration": coverage_by_duration,
+            "duration_buckets": duration_buckets,
+            "profile_data": profile_data,
+            "profile_glucose_series": profile_glucose_series,
+            "profile_event_series": profile_event_series,
+            "profile_tir_series": profile_tir_series,
+            "drift_scatter": drift_scatter,
+            "drift_by_zone": drift_by_zone_list,
+            "drift_hist": drift_hist,
+            "hr_zone_table": hr_zone_table,
+            "heatmap_data": heatmap_data,
+            "heatmap_bins": [label for label, _, _ in heatmap_bins],
+            "recent_acts": recent_acts,
+            "period_start": start_dt.strftime("%Y-%m-%d"),
+            "period_end": now.strftime("%Y-%m-%d"),
+        },
     )
 
 @app.get("/", response_class=HTMLResponse)
@@ -3043,6 +3633,35 @@ async def ui_runner_profile_pace_projection(
 # UI : Login
 # -----------------------------------------------------------------------------
 
+def _hash_reset_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _send_reset_email(*, to_email: str, reset_url: str) -> None:
+    if not settings.SMTP_HOST or not settings.SMTP_PORT:
+        raise RuntimeError("SMTP settings missing (host/port).")
+    if not settings.SMTP_USER or not settings.SMTP_PASS:
+        raise RuntimeError("SMTP settings missing (user/pass).")
+
+    from_name = settings.SMTP_FROM_NAME or "Strava Glucose"
+    from_email = settings.SMTP_FROM_EMAIL or settings.SMTP_USER
+
+    msg = EmailMessage()
+    msg["Subject"] = "Réinitialisation du mot de passe"
+    msg["From"] = f"{from_name} <{from_email}>"
+    msg["To"] = to_email
+    msg.set_content(
+        "Bonjour,\n\n"
+        "Vous avez demandé une réinitialisation de mot de passe.\n"
+        f"Utilisez ce lien (valide 1 heure) :\n{reset_url}\n\n"
+        "Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.\n"
+    )
+
+    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+        server.starttls()
+        server.login(settings.SMTP_USER, settings.SMTP_PASS)
+        server.send_message(msg)
+
 def _render_login_page(request: Request):
     hero_points = [
         {
@@ -3104,6 +3723,132 @@ def ui_login(request: Request, email: str = Form(...), password: str = Form(...)
 
     request.session["user_id"] = int(user.id)
     return RedirectResponse(url=f"/ui/user/{user.id}", status_code=302)
+
+
+@app.get("/ui/forgot-password", response_class=HTMLResponse)
+def ui_forgot_password_form(request: Request):
+    return templates.TemplateResponse("forgot_password.html", {"request": request})
+
+
+@app.post("/ui/forgot-password", response_class=HTMLResponse)
+def ui_forgot_password_send(request: Request, email: str = Form(...)):
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        if user:
+            token = secrets.token_urlsafe(32)
+            token_hash = _hash_reset_token(token)
+            expires_at = dt.datetime.utcnow() + dt.timedelta(hours=1)
+            rec = models.PasswordResetToken(
+                user_id=user.id,
+                token_hash=token_hash,
+                expires_at=expires_at,
+            )
+            db.add(rec)
+            db.commit()
+
+            base_url = str(request.base_url).rstrip("/")
+            reset_url = f"{base_url}/ui/reset-password?token={token}"
+            _send_reset_email(to_email=user.email, reset_url=reset_url)
+    finally:
+        db.close()
+
+    return templates.TemplateResponse(
+        "forgot_password_sent.html",
+        {"request": request, "email": email},
+    )
+
+
+@app.get("/ui/reset-password", response_class=HTMLResponse)
+def ui_reset_password_form(request: Request, token: str | None = None):
+    if not token:
+        return templates.TemplateResponse(
+            "reset_password_invalid.html", {"request": request}, status_code=400
+        )
+
+    token_hash = _hash_reset_token(token)
+    db = SessionLocal()
+    try:
+        rec = (
+            db.query(models.PasswordResetToken)
+            .filter(models.PasswordResetToken.token_hash == token_hash)
+            .first()
+        )
+        if (
+            rec is None
+            or rec.used_at is not None
+            or rec.expires_at <= dt.datetime.utcnow()
+        ):
+            return templates.TemplateResponse(
+                "reset_password_invalid.html", {"request": request}, status_code=400
+            )
+        user = db.query(User).get(rec.user_id)
+        if not user:
+            return templates.TemplateResponse(
+                "reset_password_invalid.html", {"request": request}, status_code=400
+            )
+        email = user.email
+    finally:
+        db.close()
+
+    return templates.TemplateResponse(
+        "reset_password.html",
+        {"request": request, "token": token, "email": email},
+    )
+
+
+@app.post("/ui/reset-password", response_class=HTMLResponse)
+def ui_reset_password_apply(
+    request: Request,
+    token: str = Form(...),
+    password: str = Form(...),
+    confirm_password: str = Form(...),
+):
+    token_hash = _hash_reset_token(token)
+    if password != confirm_password:
+        return templates.TemplateResponse(
+            "reset_password.html",
+            {
+                "request": request,
+                "token": token,
+                "email": None,
+                "error": "Les mots de passe ne correspondent pas.",
+            },
+            status_code=400,
+        )
+    db = SessionLocal()
+    try:
+        rec = (
+            db.query(models.PasswordResetToken)
+            .filter(models.PasswordResetToken.token_hash == token_hash)
+            .first()
+        )
+        if (
+            rec is None
+            or rec.used_at is not None
+            or rec.expires_at <= dt.datetime.utcnow()
+        ):
+            return templates.TemplateResponse(
+                "reset_password_invalid.html", {"request": request}, status_code=400
+            )
+
+        user = db.query(User).get(rec.user_id)
+        if not user:
+            return templates.TemplateResponse(
+                "reset_password_invalid.html", {"request": request}, status_code=400
+            )
+
+        user.password_hash = pwd_context.hash(password)
+        rec.used_at = dt.datetime.utcnow()
+        db.add(user)
+        db.add(rec)
+        db.commit()
+    finally:
+        db.close()
+
+    return templates.TemplateResponse(
+        "reset_password_done.html", {"request": request}
+    )
 
 #-----------------------------------------------------------------------------
 #-------------------UI : Dashboard utilisateur -----------------------

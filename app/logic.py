@@ -1252,7 +1252,10 @@ def compute_and_store_zone_slope_aggs(db: Session, activity: models.Activity, us
 
     aggs = {}  # (hr_zone, slope_band) → stats
 
-    for idx, p in enumerate(points):
+    # Utilise le point courant pour la classification et le point suivant pour les deltas.
+    for idx in range(len(points) - 1):
+        p = points[idx]
+        next_pt = points[idx + 1]
         if not p.hr_zone or p.slope_percent is None:
             continue
 
@@ -1276,35 +1279,47 @@ def compute_and_store_zone_slope_aggs(db: Session, activity: models.Activity, us
                 "num_points": 0,
                 "distance_m": 0.0,
                 "elevation_gain_m": 0.0,
-                "sum_vam": 0.0,
-                "sum_cad": 0.0,
-                "sum_vel": 0.0,
+                "sum_vam_x_dur": 0.0,
+                "dur_for_vam": 0.0,
+                "sum_cad_x_dur": 0.0,
+                "dur_for_cad": 0.0,
+                "sum_vel_x_dur": 0.0,
+                "dur_for_vel": 0.0,
             }
 
         # Durée réelle basée sur l'intervalle temporel avec le point suivant (fallback=1s)
         dt_sec = 1.0
-        if idx + 1 < len(points):
-            next_pt = points[idx + 1]
-            if p.elapsed_time is not None and next_pt.elapsed_time is not None:
-                delta = float(next_pt.elapsed_time) - float(p.elapsed_time)
-                if delta > 0:
-                    dt_sec = delta
+        if p.elapsed_time is not None and next_pt.elapsed_time is not None:
+            delta = float(next_pt.elapsed_time) - float(p.elapsed_time)
+            if delta > 0:
+                dt_sec = delta
         aggs[key]["duration_sec"] += dt_sec
         aggs[key]["num_points"] += 1
 
-        if p.distance:
-            aggs[key]["distance_m"] += float(p.distance)
+        # Delta distance (mètres)
+        delta_dist = 0.0
+        if p.distance is not None and next_pt.distance is not None:
+            delta_dist = float(next_pt.distance) - float(p.distance)
+            if delta_dist < 0:
+                delta_dist = 0.0
+        aggs[key]["distance_m"] += delta_dist
 
-        # D+ seulement si montée
-        if p.altitude:
-            aggs[key]["elevation_gain_m"] += max(0, p.altitude)
+        # D+ basé sur le delta d'altitude positif
+        delta_alt = 0.0
+        if p.altitude is not None and next_pt.altitude is not None:
+            delta_alt = float(next_pt.altitude) - float(p.altitude)
+        if delta_alt > 0:
+            aggs[key]["elevation_gain_m"] += delta_alt
 
-        if p.vertical_speed_m_per_h:
-            aggs[key]["sum_vam"] += p.vertical_speed_m_per_h
-        if p.cadence:
-            aggs[key]["sum_cad"] += p.cadence
-        if p.velocity:
-            aggs[key]["sum_vel"] += p.velocity
+        if p.vertical_speed_m_per_h is not None:
+            aggs[key]["sum_vam_x_dur"] += float(p.vertical_speed_m_per_h) * dt_sec
+            aggs[key]["dur_for_vam"] += dt_sec
+        if p.cadence is not None:
+            aggs[key]["sum_cad_x_dur"] += float(p.cadence) * dt_sec
+            aggs[key]["dur_for_cad"] += dt_sec
+        if p.velocity is not None:
+            aggs[key]["sum_vel_x_dur"] += float(p.velocity) * dt_sec
+            aggs[key]["dur_for_vel"] += dt_sec
 
     # Purge anciens
     db.query(models.ActivityZoneSlopeAgg).filter(
@@ -1314,10 +1329,24 @@ def compute_and_store_zone_slope_aggs(db: Session, activity: models.Activity, us
 
     # Enregistrement
     for (hr_zone, slope_band), d in aggs.items():
-        n = max(1, d["num_points"])
-
-        avg_vel = d["sum_vel"] / n
-        avg_pace_s_per_km = (1000.0 / avg_vel) if avg_vel > 0 else None
+        avg_vam = (
+            d["sum_vam_x_dur"] / d["dur_for_vam"]
+            if d["dur_for_vam"] > 0
+            else None
+        )
+        avg_cad = (
+            d["sum_cad_x_dur"] / d["dur_for_cad"]
+            if d["dur_for_cad"] > 0
+            else None
+        )
+        avg_vel = (
+            d["sum_vel_x_dur"] / d["dur_for_vel"]
+            if d["dur_for_vel"] > 0
+            else None
+        )
+        avg_pace_s_per_km = (
+            (1000.0 / avg_vel) if (avg_vel is not None and avg_vel > 0) else None
+        )
 
         rec = models.ActivityZoneSlopeAgg(
             user_id=user_id,
@@ -1329,8 +1358,8 @@ def compute_and_store_zone_slope_aggs(db: Session, activity: models.Activity, us
             num_points=d["num_points"],
             distance_m=d["distance_m"],
             elevation_gain_m=d["elevation_gain_m"],
-            avg_vam_m_per_h=d["sum_vam"] / n,
-            avg_cadence_spm=d["sum_cad"] / n,
+            avg_vam_m_per_h=avg_vam,
+            avg_cadence_spm=avg_cad,
             avg_velocity_m_s=avg_vel,
             avg_pace_s_per_km=avg_pace_s_per_km,
         )

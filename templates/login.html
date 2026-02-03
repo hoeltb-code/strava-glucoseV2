@@ -83,6 +83,14 @@
           <input type="password" id="password" name="password" required
                  style="width:100%; padding:10px 12px; border:1px solid #cbd5f5; border-radius:8px; margin-top:6px;">
         </div>
+        <label class="password-toggle" style="margin-top:-6px;">
+          <input type="checkbox" onchange="togglePasswordField('password', this)">
+          Afficher le mot de passe
+        </label>
+
+        <div style="text-align:right; margin-top:-8px;">
+          <a href="/ui/forgot-password" style="color:#0d6efd; font-size:0.85rem; text-decoration:none;">Mot de passe oublié ?</a>
+        </div>
 
         <button type="submit"
                 style="background:#0d6efd; color:white; border:none; border-radius:10px; padding:12px 0; font-weight:600; cursor:pointer;">
@@ -111,4 +119,14 @@
     </ol>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+  <script>
+    function togglePasswordField(id, checkbox) {
+      const input = document.getElementById(id);
+      if (!input) return;
+      input.type = checkbox.checked ? 'text' : 'password';
+    }
+  </script>
 {% endblock %}

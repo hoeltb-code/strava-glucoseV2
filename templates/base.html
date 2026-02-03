@@ -189,6 +189,12 @@
     }
     .btn-secondary:hover { background:#f8fafc; }
 
+    .password-toggle {
+      display:flex; align-items:center; gap:8px;
+      font-size:0.85rem; color:#475569;
+      margin-top:6px;
+    }
+
     /* Petits badges/info chips (optionnel) */
     .chip {
       display:inline-flex; align-items:center; gap:8px;
@@ -326,5 +332,7 @@
     {% endif %}
   </nav>
   {% endif %}
+
+  {% block extra_js %}{% endblock %}
 </body>
 </html>

@@ -44,6 +44,14 @@ class Settings(BaseSettings):
     SECRET_KEY: str = Field(...)
     TZ: str | None = "Europe/Paris"
 
+    # === SMTP / Email ===
+    SMTP_HOST: str | None = Field(default=None)
+    SMTP_PORT: int | None = Field(default=None)
+    SMTP_USER: str | None = Field(default=None)
+    SMTP_PASS: str | None = Field(default=None)
+    SMTP_FROM_NAME: str | None = Field(default=None)
+    SMTP_FROM_EMAIL: str | None = Field(default=None)
+
     # Lecture automatique du fichier .env
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

@@ -1,0 +1,791 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Glucose · Strava x Glucose{% endblock %}
+
+{% block content %}
+  <div class="card">
+    <h2>Dashboard Glucose – Analyse effort & glycémie</h2>
+    <p style="color: var(--text-muted); margin-top:-4px;">
+      Outil d’analyse avancée (admin). Période analysée : {{ period_start }} → {{ period_end }}.
+    </p>
+  </div>
+
+  <div class="card" style="margin-top:20px;">
+    <h3>1) Vue d’ensemble / Data Health</h3>
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-top:12px;">
+      <div class="card" style="margin:0; padding:12px;">
+        <div style="font-size:0.85rem; color:var(--text-muted);">Utilisateurs totaux</div>
+        <div style="font-size:1.4rem; font-weight:700;">{{ kpis.total_users }}</div>
+      </div>
+      <div class="card" style="margin:0; padding:12px;">
+        <div style="font-size:0.85rem; color:var(--text-muted);">Utilisateurs avec glucose</div>
+        <div style="font-size:1.4rem; font-weight:700;">{{ kpis.users_with_glucose }}</div>
+      </div>
+      <div class="card" style="margin:0; padding:12px;">
+        <div style="font-size:0.85rem; color:var(--text-muted);">Activités totales</div>
+        <div style="font-size:1.4rem; font-weight:700;">{{ kpis.total_activities }}</div>
+      </div>
+      <div class="card" style="margin:0; padding:12px;">
+        <div style="font-size:0.85rem; color:var(--text-muted);">Activités avec glucose</div>
+        <div style="font-size:1.4rem; font-weight:700;">{{ kpis.activities_with_glucose }}</div>
+      </div>
+      <div class="card" style="margin:0; padding:12px;">
+        <div style="font-size:0.85rem; color:var(--text-muted);">Points glucose</div>
+        <div style="font-size:1.4rem; font-weight:700;">{{ kpis.glucose_points_count }}</div>
+      </div>
+      <div class="card" style="margin:0; padding:12px;">
+        <div style="font-size:0.85rem; color:var(--text-muted);">Durée cumulée (h)</div>
+        <div style="font-size:1.4rem; font-weight:700;">{{ kpis.analyzed_hours }}</div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; margin-top:16px;">
+      <div class="card" style="margin:0; padding:12px;">
+        <h4 style="margin:0 0 8px 0;">Activités avec glucose / semaine</h4>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:6px;">
+          Évolution hebdomadaire des activités contenant des données glucose.
+        </div>
+        <div style="height:160px;">
+          <canvas id="chart-acts-weekly"></canvas>
+        </div>
+      </div>
+      <div class="card" style="margin:0; padding:12px;">
+        <h4 style="margin:0 0 8px 0;">Activités totales vs glucose</h4>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:6px;">
+          Compare le volume total d’activités vs celles exploitables côté glucose.
+        </div>
+        <div style="height:160px;">
+          <canvas id="chart-acts-compare"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:20px;">
+    <h3>2) Activités & couverture glucose</h3>
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-top:12px;">
+      <div class="card" style="margin:0; padding:12px;">
+        <div style="font-size:0.85rem; color:var(--text-muted);">% d’activités avec glucose</div>
+        <div style="font-size:1.2rem; font-weight:700;">
+          {% if kpis.total_activities %}
+            {{ ((kpis.activities_with_glucose / kpis.total_activities) * 100) | round(1) }}%
+          {% else %}
+            —
+          {% endif %}
+        </div>
+      </div>
+      <div class="card" style="margin:0; padding:12px;">
+        <div style="font-size:0.85rem; color:var(--text-muted);">Durée moyenne (glucose)</div>
+        <div style="font-size:1.2rem; font-weight:700;">
+          {% if kpis.activities_with_glucose %}
+            {{ (kpis.analyzed_hours / kpis.activities_with_glucose) | round(2) }} h
+          {% else %}
+            —
+          {% endif %}
+        </div>
+      </div>
+      <div class="card" style="margin:0; padding:12px;">
+        <div style="font-size:0.85rem; color:var(--text-muted);">Points glucose / activité</div>
+        <div style="font-size:1.2rem; font-weight:700;">
+          {% if kpis.activities_with_glucose %}
+            {{ (kpis.glucose_points_count / kpis.activities_with_glucose) | round(0) }}
+          {% else %}
+            —
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; margin-top:16px;">
+      <div class="card" style="margin:0; padding:12px;">
+        <h4 style="margin:0 0 8px 0;">Durée vs points glucose</h4>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:6px;">
+          Chaque point = une activité ; densité des points par durée.
+        </div>
+        <div style="height:160px;">
+          <canvas id="chart-duration-vs-points"></canvas>
+        </div>
+      </div>
+      <div class="card" style="margin:0; padding:12px;">
+        <h4 style="margin:0 0 8px 0;">Couverture glucose par durée</h4>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:6px;">
+          Pour chaque bucket de durée, % de couverture estimé des points glucose.
+        </div>
+        <div style="height:160px;">
+          <canvas id="chart-coverage-hist"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:20px;">
+    <h3>3) Glucose vs intensité cardiaque</h3>
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; margin-top:12px;">
+      <div class="card" style="margin:0; padding:12px;">
+        <h4 style="margin:0 0 8px 0;">Glycémie moyenne par zone FC</h4>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:6px;">
+          Moyenne des points glucose observés dans chaque zone FC.
+        </div>
+        <div style="height:160px;">
+          <canvas id="chart-glucose-by-hrzone"></canvas>
+        </div>
+      </div>
+      <div class="card" style="margin:0; padding:12px;">
+        <h4 style="margin:0 0 8px 0;">Time In Range par zone FC</h4>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:6px;">
+          % de points entre 70–180 mg/dL par zone FC.
+        </div>
+        <div style="height:160px;">
+          <canvas id="chart-tir-by-hrzone"></canvas>
+        </div>
+      </div>
+      <div class="card" style="margin:0; padding:12px;">
+        <h4 style="margin:0 0 8px 0;">Dérive glycémique (heatmap)</h4>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:6px;">
+          Dérive moyenne (fin − début) par zone dominante et bucket de durée.
+        </div>
+        {% if heatmap_bins and heatmap_data %}
+          <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+              <thead>
+                <tr style="border-bottom:1px solid var(--border); color:var(--text-muted);">
+                  <th style="text-align:left; padding:6px;">Zone</th>
+                  {% for b in heatmap_bins %}
+                    <th style="text-align:right; padding:6px;">{{ b }} min</th>
+                  {% endfor %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for zone in ["Zone 1","Zone 2","Zone 3","Zone 4","Zone 5"] %}
+                  <tr style="border-bottom:1px solid rgba(255,255,255,0.08);">
+                    <td style="padding:6px;">{{ zone }}</td>
+                    {% for b in heatmap_bins %}
+                      {% set cell = heatmap_data[zone][b] if heatmap_data[zone] and b in heatmap_data[zone] else None %}
+                      {% if cell and cell.count %}
+                        {% set val = (cell.sum / cell.count) | round(1) %}
+                        <td style="padding:6px; text-align:right;">{{ val }}</td>
+                      {% else %}
+                        <td style="padding:6px; text-align:right;">—</td>
+                      {% endif %}
+                    {% endfor %}
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="muted">Pas de données.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:20px;">
+    <h3>4) Glucose vs durée d’activité</h3>
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; margin-top:12px;">
+      <div class="card" style="margin:0; padding:12px;">
+        <h4 style="margin:0 0 8px 0;">Glucose & TIR par durée</h4>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:6px;">
+          Comparaison des moyennes par bucket de durée.
+        </div>
+        <div style="height:160px;">
+          <canvas id="chart-glucose-by-duration"></canvas>
+        </div>
+      </div>
+      <div class="card" style="margin:0; padding:12px;">
+        <h4 style="margin:0 0 8px 0;">Dérive moyenne vs durée</h4>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:6px;">
+          Variation glycémique moyenne en fonction de la durée.
+        </div>
+        <div style="height:160px;">
+          <canvas id="chart-drift-by-duration"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:20px;">
+    <h3>5) Profils d’effort</h3>
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; margin-top:12px;">
+      <div class="card" style="margin:0; padding:12px;">
+        <h4 style="margin:0 0 8px 0;">Comparaison multi-métriques</h4>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:6px;">
+          Radar multi-indicateurs par profil d’effort (endurance/seuil/fractionné).
+        </div>
+        <div style="height:180px;">
+          <canvas id="chart-effort-radar"></canvas>
+        </div>
+      </div>
+      <div class="card" style="margin:0; padding:12px;">
+        <h4 style="margin:0 0 8px 0;">Variance glycémique par profil</h4>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:6px;">
+          Amplitude moyenne (max − min) par profil.
+        </div>
+        <div style="height:180px;">
+          <canvas id="chart-effort-variance"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; margin-top:16px;">
+      <div class="card" style="margin:0; padding:12px;">
+        <h4 style="margin:0 0 8px 0;">Endurance — glycémie vs durée</h4>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:6px;">
+          Moyenne par tranche de 5 min, de 0 à 2h. Profil “endurance” = majorité du temps en zones 1–3
+          (faible à modérée intensité, effort continu).
+        </div>
+        <div style="height:180px;">
+          <canvas id="chart-endurance-glucose"></canvas>
+        </div>
+      </div>
+      <div class="card" style="margin:0; padding:12px;">
+        <h4 style="margin:0 0 8px 0;">Seuil — glycémie vs durée</h4>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:6px;">
+          Moyenne par tranche de 5 min, de 0 à 2h. Profil “seuil” = présence significative en zone 4
+          (effort soutenu proche du seuil).
+        </div>
+        <div style="height:180px;">
+          <canvas id="chart-seuil-glucose"></canvas>
+        </div>
+      </div>
+      <div class="card" style="margin:0; padding:12px;">
+        <h4 style="margin:0 0 8px 0;">Fractionné — glycémie vs durée</h4>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:6px;">
+          Moyenne par tranche de 5 min, de 0 à 2h. Profil “fractionné” = ~25% de la sortie en zone 5
+          (pics d’intensité, récupérations).
+        </div>
+        <div style="height:180px;">
+          <canvas id="chart-fractionne-glucose"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; margin-top:16px;">
+      <div class="card" style="margin:0; padding:12px;">
+        <h4 style="margin:0 0 8px 0;">Endurance — hypo/hyper par tranche</h4>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:6px;">
+          % de points hypo (<70) et hyper (>180) par tranche de 10 min (0→2h).
+        </div>
+        <div style="height:140px;">
+          <canvas id="chart-endurance-hypo"></canvas>
+        </div>
+        <div style="height:140px; margin-top:8px;">
+          <canvas id="chart-endurance-hyper"></canvas>
+        </div>
+      </div>
+      <div class="card" style="margin:0; padding:12px;">
+        <h4 style="margin:0 0 8px 0;">Seuil — hypo/hyper par tranche</h4>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:6px;">
+          % de points hypo (<70) et hyper (>180) par tranche de 10 min (0→2h).
+        </div>
+        <div style="height:140px;">
+          <canvas id="chart-seuil-hypo"></canvas>
+        </div>
+        <div style="height:140px; margin-top:8px;">
+          <canvas id="chart-seuil-hyper"></canvas>
+        </div>
+      </div>
+      <div class="card" style="margin:0; padding:12px;">
+        <h4 style="margin:0 0 8px 0;">Fractionné — hypo/hyper par tranche</h4>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:6px;">
+          % de points hypo (<70) et hyper (>180) par tranche de 10 min (0→2h).
+        </div>
+        <div style="height:140px;">
+          <canvas id="chart-fractionne-hypo"></canvas>
+        </div>
+        <div style="height:140px; margin-top:8px;">
+          <canvas id="chart-fractionne-hyper"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; margin-top:16px;">
+      <div class="card" style="margin:0; padding:12px;">
+        <h4 style="margin:0 0 8px 0;">Endurance — TIR par tranche</h4>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:6px;">
+          % de points dans la plage 70–180 mg/dL par tranche de 10 min (0→2h).
+        </div>
+        <div style="height:160px;">
+          <canvas id="chart-endurance-tir"></canvas>
+        </div>
+      </div>
+      <div class="card" style="margin:0; padding:12px;">
+        <h4 style="margin:0 0 8px 0;">Seuil — TIR par tranche</h4>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:6px;">
+          % de points dans la plage 70–180 mg/dL par tranche de 10 min (0→2h).
+        </div>
+        <div style="height:160px;">
+          <canvas id="chart-seuil-tir"></canvas>
+        </div>
+      </div>
+      <div class="card" style="margin:0; padding:12px;">
+        <h4 style="margin:0 0 8px 0;">Fractionné — TIR par tranche</h4>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:6px;">
+          % de points dans la plage 70–180 mg/dL par tranche de 10 min (0→2h).
+        </div>
+        <div style="height:160px;">
+          <canvas id="chart-fractionne-tir"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:20px;">
+    <h3>6) Variabilité & dérive glycémique</h3>
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; margin-top:12px;">
+      <div class="card" style="margin:0; padding:12px;">
+        <h4 style="margin:0 0 8px 0;">Dérive glycémique vs durée</h4>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:6px;">
+          Relation durée d’activité et dérive (fin − début).
+        </div>
+        <div style="height:160px;">
+          <canvas id="chart-drift-scatter"></canvas>
+        </div>
+      </div>
+      <div class="card" style="margin:0; padding:12px;">
+        <h4 style="margin:0 0 8px 0;">Dérive par intensité</h4>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:6px;">
+          Dérive moyenne par zone FC dominante.
+        </div>
+        <div style="height:160px;">
+          <canvas id="chart-drift-by-intensity"></canvas>
+        </div>
+      </div>
+      <div class="card" style="margin:0; padding:12px;">
+        <h4 style="margin:0 0 8px 0;">Distribution des dérives</h4>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:6px;">
+          Histogramme des dérives observées (mg/dL).
+        </div>
+        <div style="height:160px;">
+          <canvas id="chart-drift-hist"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:20px;">
+    <h3>7) Tables exploratoires</h3>
+    <h4 style="margin-top:12px;">Table 1 — Dernières activités avec glucose</h4>
+    <div style="overflow-x:auto; margin-top:8px;">
+      <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border); color:var(--text-muted);">
+            <th style="text-align:left; padding:6px;">Date</th>
+            <th style="text-align:right; padding:6px;">User</th>
+            <th style="text-align:right; padding:6px;">Activity ID</th>
+            <th style="text-align:left; padding:6px;">Sport</th>
+            <th style="text-align:right; padding:6px;">Durée</th>
+            <th style="text-align:right; padding:6px;">Distance</th>
+            <th style="text-align:right; padding:6px;">D+</th>
+            <th style="text-align:right; padding:6px;">Glycémie moy.</th>
+            <th style="text-align:right; padding:6px;">TIR %</th>
+            <th style="text-align:right; padding:6px;">Min</th>
+            <th style="text-align:right; padding:6px;">Max</th>
+            <th style="text-align:right; padding:6px;">Hypos</th>
+            <th style="text-align:right; padding:6px;">Hypers</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if recent_acts %}
+            {% for row in recent_acts %}
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.08);">
+                <td style="padding:6px; white-space:nowrap;">{{ row.start_date }}</td>
+                <td style="padding:6px; text-align:right;">{{ row.user_id }}</td>
+                <td style="padding:6px; text-align:right;">{{ row.activity_id }}</td>
+                <td style="padding:6px;">{{ row.sport }}</td>
+                <td style="padding:6px; text-align:right;">{{ row.elapsed_str }}</td>
+                <td style="padding:6px; text-align:right;">
+                  {% if row.distance_km is not none %}{{ row.distance_km }} km{% else %}—{% endif %}
+                </td>
+                <td style="padding:6px; text-align:right;">
+                  {% if row.dplus_m is not none %}{{ row.dplus_m }} m{% else %}—{% endif %}
+                </td>
+                <td style="padding:6px; text-align:right;">
+                  {% if row.avg_glucose is not none %}{{ row.avg_glucose }}{% else %}—{% endif %}
+                </td>
+                <td style="padding:6px; text-align:right;">
+                  {% if row.tir_percent is not none %}{{ row.tir_percent }}{% else %}—{% endif %}
+                </td>
+                <td style="padding:6px; text-align:right;">
+                  {% if row.min_glucose is not none %}{{ row.min_glucose }}{% else %}—{% endif %}
+                </td>
+                <td style="padding:6px; text-align:right;">
+                  {% if row.max_glucose is not none %}{{ row.max_glucose }}{% else %}—{% endif %}
+                </td>
+                <td style="padding:6px; text-align:right;">
+                  {% if row.hypo_count is not none %}{{ row.hypo_count }}{% else %}—{% endif %}
+                </td>
+                <td style="padding:6px; text-align:right;">
+                  {% if row.hyper_count is not none %}{{ row.hyper_count }}{% else %}—{% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.08);">
+              <td style="padding:6px;" colspan="13" class="muted">Pas de données sur la période.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    <h4 style="margin-top:16px;">Table 2 — Zones FC × Glucose</h4>
+    <div style="overflow-x:auto; margin-top:8px;">
+      <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border); color:var(--text-muted);">
+            <th style="text-align:left; padding:6px;">Zone FC</th>
+            <th style="text-align:right; padding:6px;">Durée cumulée</th>
+            <th style="text-align:right; padding:6px;">Glycémie moy.</th>
+            <th style="text-align:right; padding:6px;">TIR %</th>
+            <th style="text-align:right; padding:6px;">Variabilité</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if hr_zone_table %}
+            {% for row in hr_zone_table %}
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.08);">
+                <td style="padding:6px;">{{ row.zone }}</td>
+                <td style="padding:6px; text-align:right;">
+                  {% if row.duration_min is not none %}{{ row.duration_min }} min{% else %}—{% endif %}
+                </td>
+                <td style="padding:6px; text-align:right;">
+                  {% if row.avg_glucose is not none %}{{ row.avg_glucose }}{% else %}—{% endif %}
+                </td>
+                <td style="padding:6px; text-align:right;">
+                  {% if row.tir_percent is not none %}{{ row.tir_percent }}{% else %}—{% endif %}
+                </td>
+                <td style="padding:6px; text-align:right;">
+                  {% if row.stddev is not none %}{{ row.stddev }}{% else %}—{% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.08);">
+              <td style="padding:6px;" colspan="5" class="muted">Pas de données sur la période.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    const weeklyData = {{ weekly_data | tojson }};
+    const hrZoneData = {{ hr_zone_data | tojson }};
+    const tirByZone = {{ tir_by_zone | tojson }};
+    const durationPoints = {{ duration_points | tojson }};
+    const coverageByDuration = {{ coverage_by_duration | tojson }};
+    const durationBuckets = {{ duration_buckets | tojson }};
+    const profileData = {{ profile_data | tojson }};
+    const profileGlucoseSeries = {{ profile_glucose_series | tojson }};
+    const profileEventSeries = {{ profile_event_series | tojson }};
+    const profileTirSeries = {{ profile_tir_series | tojson }};
+    const driftScatter = {{ drift_scatter | tojson }};
+    const driftByZone = {{ drift_by_zone | tojson }};
+    const driftHist = {{ drift_hist | tojson }};
+
+    const emptyLine = (ctx) => new Chart(ctx, {
+      type: "line",
+      data: { labels: [], datasets: [{ label: "—", data: [] }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+
+    const emptyBar = (ctx) => new Chart(ctx, {
+      type: "bar",
+      data: { labels: [], datasets: [{ label: "—", data: [] }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+
+    const safeInit = (id, fn) => {
+      const el = document.getElementById(id);
+      if (el) fn(el);
+    };
+
+    safeInit("chart-acts-weekly", (ctx) => {
+      if (!weeklyData.length) return emptyLine(ctx);
+      return new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: weeklyData.map(d => d.week),
+          datasets: [{
+            label: "Activités avec glucose",
+            data: weeklyData.map(d => d.count),
+            borderColor: "#0d6efd",
+            backgroundColor: "rgba(13,110,253,0.2)",
+            tension: 0.25,
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    });
+
+    safeInit("chart-acts-compare", (ctx) => {
+      const total = {{ kpis.total_activities | tojson }};
+      const withGlucose = {{ kpis.activities_with_glucose | tojson }};
+      return new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: ["Total", "Avec glucose"],
+          datasets: [{
+            label: "Activités",
+            data: [total, withGlucose],
+            backgroundColor: ["#94a3b8", "#0d6efd"],
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      });
+    });
+
+    safeInit("chart-duration-vs-points", (ctx) => {
+      if (!durationPoints.length) return emptyLine(ctx);
+      return new Chart(ctx, {
+        type: "scatter",
+        data: { datasets: [{ label: "Activités", data: durationPoints, backgroundColor: "rgba(13,110,253,0.6)" }] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { title: { display: true, text: "Durée (min)" } },
+            y: { title: { display: true, text: "Points glucose" } }
+          }
+        }
+      });
+    });
+
+    safeInit("chart-coverage-hist", (ctx) => {
+      if (!coverageByDuration.length) return emptyBar(ctx);
+      return new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: coverageByDuration.map(d => d.label),
+          datasets: [{
+            label: "Couverture (%)",
+            data: coverageByDuration.map(d => d.avg_coverage),
+            backgroundColor: "#94a3b8",
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100 } } }
+      });
+    });
+    safeInit("chart-glucose-by-hrzone", (ctx) => {
+      if (!hrZoneData.length) return emptyBar(ctx);
+      return new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: hrZoneData.map(d => d.zone),
+          datasets: [{
+            label: "Glycémie moyenne (mg/dL)",
+            data: hrZoneData.map(d => d.avg_glucose),
+            backgroundColor: "#10b981",
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    });
+    safeInit("chart-tir-by-hrzone", (ctx) => {
+      if (!tirByZone.length) return emptyBar(ctx);
+      return new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: tirByZone.map(d => d.zone),
+          datasets: [{
+            label: "TIR (%)",
+            data: tirByZone.map(d => d.tir_percent),
+            backgroundColor: "#f59e0b",
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100 } } }
+      });
+    });
+
+    safeInit("chart-glucose-by-duration", (ctx) => {
+      if (!durationBuckets.length) return emptyBar(ctx);
+      return new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: durationBuckets.map(d => d.label),
+          datasets: [
+            { label: "Glycémie moy.", data: durationBuckets.map(d => d.avg_glucose), backgroundColor: "#10b981" },
+            { label: "TIR %", data: durationBuckets.map(d => d.avg_tir), backgroundColor: "#0ea5e9" }
+          ]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    });
+
+    safeInit("chart-drift-by-duration", (ctx) => {
+      if (!durationBuckets.length) return emptyLine(ctx);
+      return new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: durationBuckets.map(d => d.label),
+          datasets: [{
+            label: "Dérive moyenne",
+            data: durationBuckets.map(d => d.avg_drift),
+            borderColor: "#ef4444",
+            backgroundColor: "rgba(239,68,68,0.2)",
+            tension: 0.3
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    });
+    safeInit("chart-effort-radar", (ctx) => {
+      if (!profileData.length) return emptyLine(ctx);
+      const labels = ["Glycémie moy.", "TIR %", "Amplitude", "Hypos/h"];
+      return new Chart(ctx, {
+        type: "radar",
+        data: {
+          labels,
+          datasets: profileData.map(p => ({
+            label: p.profile,
+            data: [p.avg_glucose, p.avg_tir, p.avg_amp, p.avg_hypos_per_h],
+            fill: true,
+          }))
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    });
+
+    safeInit("chart-effort-variance", (ctx) => {
+      if (!profileData.length) return emptyBar(ctx);
+      return new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: profileData.map(p => p.profile),
+          datasets: [{ label: "Amplitude glycémique", data: profileData.map(p => p.avg_amp), backgroundColor: "#a855f7" }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      });
+    });
+
+    const renderProfileSeries = (ctx, key, color) => {
+      const series = profileGlucoseSeries[key] || [];
+      if (!series.length) return emptyLine(ctx);
+      return new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: series.map(d => d.minute),
+          datasets: [{
+            label: "Glycémie moyenne",
+            data: series.map(d => d.avg_glucose),
+            borderColor: color,
+            backgroundColor: "rgba(15,23,42,0.08)",
+            tension: 0.3,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { title: { display: true, text: "Minutes" } },
+            y: { title: { display: true, text: "mg/dL" } }
+          }
+        }
+      });
+    };
+
+    safeInit("chart-endurance-glucose", (ctx) => renderProfileSeries(ctx, "endurance", "#10b981"));
+    safeInit("chart-seuil-glucose", (ctx) => renderProfileSeries(ctx, "seuil", "#f59e0b"));
+    safeInit("chart-fractionne-glucose", (ctx) => renderProfileSeries(ctx, "fractionne", "#ef4444"));
+
+    const renderProfileEventSingle = (ctx, key, kind, color) => {
+      const series = profileEventSeries[key] || [];
+      if (!series.length) return emptyBar(ctx);
+      const values = series.map(d => kind === "hypo" ? d.hypo_pct : d.hyper_pct).filter(v => v !== null && v !== undefined);
+      const maxVal = values.length ? Math.max(...values) : 0;
+      const paddedMax = maxVal > 0 ? Math.min(100, Math.ceil(maxVal * 1.2)) : 1;
+      return new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: series.map(d => `${d.minute}-${d.minute + 10}`),
+          datasets: [{
+            label: kind === "hypo" ? "Hypo %" : "Hyper %",
+            data: series.map(d => kind === "hypo" ? d.hypo_pct : d.hyper_pct),
+            backgroundColor: color
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true, suggestedMax: paddedMax } }
+        }
+      });
+    };
+
+    safeInit("chart-endurance-hypo", (ctx) => renderProfileEventSingle(ctx, "endurance", "hypo", "#0ea5e9"));
+    safeInit("chart-endurance-hyper", (ctx) => renderProfileEventSingle(ctx, "endurance", "hyper", "#f97316"));
+    safeInit("chart-seuil-hypo", (ctx) => renderProfileEventSingle(ctx, "seuil", "hypo", "#0ea5e9"));
+    safeInit("chart-seuil-hyper", (ctx) => renderProfileEventSingle(ctx, "seuil", "hyper", "#f97316"));
+    safeInit("chart-fractionne-hypo", (ctx) => renderProfileEventSingle(ctx, "fractionne", "hypo", "#0ea5e9"));
+    safeInit("chart-fractionne-hyper", (ctx) => renderProfileEventSingle(ctx, "fractionne", "hyper", "#f97316"));
+
+    const renderProfileTir = (ctx, key) => {
+      const series = profileTirSeries[key] || [];
+      if (!series.length) return emptyBar(ctx);
+      const values = series.map(d => d.tir_pct).filter(v => v !== null && v !== undefined);
+      const maxVal = values.length ? Math.max(...values) : 0;
+      const paddedMax = maxVal > 0 ? Math.min(100, Math.ceil(maxVal * 1.2)) : 1;
+      return new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: series.map(d => `${d.minute}-${d.minute + 10}`),
+          datasets: [{
+            label: "TIR %",
+            data: series.map(d => d.tir_pct),
+            backgroundColor: "#22c55e"
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true, suggestedMax: paddedMax } }
+        }
+      });
+    };
+
+    safeInit("chart-endurance-tir", (ctx) => renderProfileTir(ctx, "endurance"));
+    safeInit("chart-seuil-tir", (ctx) => renderProfileTir(ctx, "seuil"));
+    safeInit("chart-fractionne-tir", (ctx) => renderProfileTir(ctx, "fractionne"));
+
+    safeInit("chart-drift-scatter", (ctx) => {
+      if (!driftScatter.length) return emptyLine(ctx);
+      return new Chart(ctx, {
+        type: "scatter",
+        data: { datasets: [{ label: "Dérive", data: driftScatter, backgroundColor: "rgba(239,68,68,0.6)" }] },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    });
+
+    safeInit("chart-drift-by-intensity", (ctx) => {
+      if (!driftByZone.length) return emptyBar(ctx);
+      return new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: driftByZone.map(d => d.zone),
+          datasets: [{ label: "Dérive moyenne", data: driftByZone.map(d => d.avg_drift), backgroundColor: "#ef4444" }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      });
+    });
+
+    safeInit("chart-drift-hist", (ctx) => {
+      if (!driftHist.length) return emptyBar(ctx);
+      return new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: driftHist.map(d => d.label),
+          datasets: [{ label: "Nombre d'activités", data: driftHist.map(d => d.count), backgroundColor: "#64748b" }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      });
+    });
+  </script>
+{% endblock %}

@@ -9,6 +9,15 @@
       Statut des connexions Strava / LibreLinkUp / Dexcom
     </p>
 
+    {% if current_user_id == 1 %}
+      <div style="margin-top:10px;">
+        <a href="/admin/glucose-dashboard"
+           style="display:inline-block; text-decoration:none;">
+          <button type="button">📊 Dashboard Glucose</button>
+        </a>
+      </div>
+    {% endif %}
+
     {% if users %}
       <table style="width: 100%; border-collapse: collapse; margin-top: 12px;">
         <thead>
@@ -93,7 +102,6 @@
               <th style="text-align:right; padding:6px;">Distance</th>
               <th style="text-align:right; padding:6px;">Durée</th>
               <th style="text-align:right; padding:6px;">D+</th>
-              <th style="text-align:right; padding:6px;">D-</th>
             </tr>
           </thead>
           <tbody>
@@ -115,12 +123,9 @@
                 <td style="padding:6px; text-align:right;">
                   {% if row.dplus is not none %}{{ row.dplus }} m{% else %}–{% endif %}
                 </td>
-                <td style="padding:6px; text-align:right;">
-                  {% if row.dminus is not none %}{{ row.dminus }} m{% else %}–{% endif %}
-                </td>
               </tr>
               <tr style="border-bottom:1px solid rgba(255,255,255,0.08); background:#ffffff;">
-                <td colspan="8" style="padding:8px 6px;">
+                <td colspan="7" style="padding:8px 6px;">
                   {% if row.summary_block %}
                     <div style="font-size:0.8rem; color:#0f172a; white-space:pre-line; max-height:180px; overflow:auto;">
                       {{ row.summary_block }}

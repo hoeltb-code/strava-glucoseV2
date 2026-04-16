@@ -452,18 +452,28 @@ def compute_km_highlights_from_streams(
     start_distance = 0.0
     start_time = 0.0
     start_alt = stream[0][2]
+    segment_gain = 0.0
+    segment_loss = 0.0
 
     for idx in range(1, len(stream)):
         prev = stream[idx - 1]
         curr = stream[idx]
+        active_prev = prev
+
         while boundary_idx * 1000.0 <= curr[0]:
             target_distance = boundary_idx * 1000.0
-            end_time, end_alt = _interpolate_value_at_distance(prev, curr, target_distance)
+            end_time, end_alt = _interpolate_value_at_distance(active_prev, curr, target_distance)
+            delta_alt = end_alt - active_prev[2]
+            if delta_alt > 0:
+                segment_gain += delta_alt
+            elif delta_alt < 0:
+                segment_loss += -delta_alt
             duration = end_time - start_time
             distance_m = target_distance - start_distance
             net_gain = end_alt - start_alt
             grade_pct = ((net_gain / distance_m) * 100.0) if distance_m > 0 else None
             if duration > 0 and distance_m >= 995.0:
+                loss_ratio = (segment_loss / segment_gain) if segment_gain > 0 else None
                 km_segments.append(
                     {
                         "km_index": boundary_idx,
@@ -472,6 +482,9 @@ def compute_km_highlights_from_streams(
                         "pace_s_per_km": duration / (distance_m / 1000.0),
                         "speed_kmh": (distance_m / duration) * 3.6,
                         "net_gain_m": net_gain,
+                        "elevation_gain_m": segment_gain,
+                        "elevation_loss_m": segment_loss,
+                        "loss_ratio": loss_ratio,
                         "grade_pct": grade_pct,
                         "vam_m_per_h": (max(net_gain, 0.0) / duration) * 3600.0 if net_gain > 0 else 0.0,
                         "start_offset_sec": start_time,
@@ -482,13 +495,32 @@ def compute_km_highlights_from_streams(
             start_distance = target_distance
             start_time = end_time
             start_alt = end_alt
+            segment_gain = 0.0
+            segment_loss = 0.0
+            active_prev = (target_distance, end_time, end_alt)
+
+        delta_alt = curr[2] - active_prev[2]
+        if delta_alt > 0:
+            segment_gain += delta_alt
+        elif delta_alt < 0:
+            segment_loss += -delta_alt
 
     if not km_segments:
         return None
 
     fastest = min(km_segments, key=lambda seg: seg["pace_s_per_km"])
-    uphill = [seg for seg in km_segments if (seg.get("grade_pct") or 0.0) > 0]
-    steepest = max(uphill, key=lambda seg: seg["grade_pct"]) if uphill else None
+    uphill = [
+        seg for seg in km_segments
+        if (seg.get("grade_pct") or 0.0) > 0
+    ]
+    uphill_continuous = [
+        seg for seg in uphill
+        if (seg.get("elevation_gain_m") or 0.0) > 0
+        and (seg.get("loss_ratio") is not None)
+        and float(seg["loss_ratio"]) <= 0.05
+    ]
+    uphill_candidates = uphill_continuous or uphill
+    steepest = max(uphill_candidates, key=lambda seg: seg["grade_pct"]) if uphill_candidates else None
     return {
         "fastest_km": fastest,
         "steepest_km": steepest,

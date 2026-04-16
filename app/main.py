@@ -136,9 +136,16 @@ from .logic import (
     get_cached_volume_weekly_summary,
     update_runner_profile_monthly_from_activity,
     get_cached_glucose_activity_summary,
+    get_cached_distance_efforts,
+    rebuild_runner_profile_range_from_contributions,
     sport_column_condition,
     canonicalize_sport_label,
     normalize_activity_type,
+    compute_km_highlights_from_streams,
+    classify_run_surface_profile,
+    purge_old_user_activities,
+    purge_old_activities_for_all_users,
+    delete_activity_live_data,
     HR_ZONES,
 )
 from .settings import settings
@@ -605,6 +612,200 @@ def _compute_time_weighted_avg_and_max(time_stream, value_stream) -> tuple[float
     return avg, max_val
 
 
+def _build_time_distance_alt_points(time_stream, distance_stream, altitude_stream) -> list[tuple[float, float, float]]:
+    n = min(len(time_stream or []), len(distance_stream or []), len(altitude_stream or []))
+    if n < 2:
+        return []
+
+    points: list[tuple[float, float, float]] = []
+    last_time = None
+    last_dist = None
+    for i in range(n):
+        try:
+            t = float(time_stream[i])
+            d = float(distance_stream[i])
+            a = float(altitude_stream[i])
+        except (TypeError, ValueError):
+            continue
+        if last_time is not None and t <= last_time:
+            continue
+        if last_dist is not None and d < last_dist:
+            d = last_dist
+        points.append((t, d, a))
+        last_time = t
+        last_dist = d
+    return points
+
+
+def _build_directional_segments(
+    time_stream,
+    distance_stream,
+    altitude_stream,
+    direction: str,
+    *,
+    altitude_deadband_m: float = 0.8,
+    max_gap_distance_m: float = 150.0,
+    max_gap_time_s: float = 90.0,
+    min_distance_m: float = 400.0,
+    min_vertical_m: float = 40.0,
+    min_grade_pct: float = 2.0,
+) -> list[dict]:
+    points = _build_time_distance_alt_points(time_stream, distance_stream, altitude_stream)
+    if len(points) < 2:
+        return []
+
+    direction_sign = 1 if direction == "climb" else -1
+    segments: list[dict] = []
+    current = None
+    pending_gap_distance = 0.0
+    pending_gap_time = 0.0
+    pending_gap_vertical = 0.0
+
+    def _new_segment(start_idx: int, end_idx: int, delta_d: float, delta_a: float, delta_t: float) -> dict:
+        gain = max(delta_a, 0.0)
+        drop = max(-delta_a, 0.0)
+        return {
+            "start_idx": start_idx,
+            "end_idx": end_idx,
+            "distance_m": max(delta_d, 0.0),
+            "duration_sec": max(delta_t, 0.0),
+            "gain_m": gain,
+            "drop_m": drop,
+            "start_distance_m": points[start_idx][1],
+            "end_distance_m": points[end_idx][1],
+            "start_time_sec": points[start_idx][0],
+            "end_time_sec": points[end_idx][0],
+            "start_altitude_m": points[start_idx][2],
+            "end_altitude_m": points[end_idx][2],
+        }
+
+    def _finalize_segment(segment: dict | None):
+        if not segment:
+            return
+        distance_m = float(segment.get("distance_m") or 0.0)
+        duration_sec = float(segment.get("duration_sec") or 0.0)
+        gain_m = float(segment.get("gain_m") or 0.0)
+        drop_m = float(segment.get("drop_m") or 0.0)
+        vertical_m = gain_m if direction == "climb" else drop_m
+        opposite_m = drop_m if direction == "climb" else gain_m
+        net_vertical_m = max(vertical_m - opposite_m, 0.0)
+        if distance_m < min_distance_m or vertical_m < min_vertical_m or duration_sec <= 0:
+            return
+        grade_pct = (net_vertical_m / distance_m) * 100.0 if distance_m > 0 else 0.0
+        if grade_pct < min_grade_pct:
+            return
+        speed_kmh = (distance_m / duration_sec) * 3.6 if duration_sec > 0 else None
+        segment["vertical_m"] = vertical_m
+        segment["net_vertical_m"] = net_vertical_m
+        segment["avg_grade_pct"] = grade_pct
+        segment["avg_speed_kmh"] = speed_kmh
+        segment["vam_m_per_h"] = (net_vertical_m / duration_sec) * 3600.0 if direction == "climb" and duration_sec > 0 else None
+        segments.append(segment)
+
+    for idx in range(1, len(points)):
+        prev_t, prev_d, prev_a = points[idx - 1]
+        curr_t, curr_d, curr_a = points[idx]
+        delta_t = curr_t - prev_t
+        delta_d = curr_d - prev_d
+        delta_a = curr_a - prev_a
+        if delta_t <= 0 or delta_d < 0:
+            continue
+
+        if abs(delta_a) <= altitude_deadband_m:
+            step_dir = 0
+        elif delta_a * direction_sign > 0:
+            step_dir = direction_sign
+        else:
+            step_dir = -direction_sign
+
+        if step_dir == direction_sign:
+            if current is None:
+                current = _new_segment(idx - 1, idx, delta_d, delta_a, delta_t)
+            else:
+                if pending_gap_distance and (
+                    pending_gap_distance <= max_gap_distance_m or pending_gap_time <= max_gap_time_s
+                ):
+                    current["distance_m"] += pending_gap_distance
+                    current["duration_sec"] += pending_gap_time
+                    if pending_gap_vertical > 0:
+                        current["gain_m"] += pending_gap_vertical
+                    elif pending_gap_vertical < 0:
+                        current["drop_m"] += -pending_gap_vertical
+                    current["end_idx"] = idx - 1
+                    current["end_distance_m"] = points[idx - 1][1]
+                    current["end_time_sec"] = points[idx - 1][0]
+                    current["end_altitude_m"] = points[idx - 1][2]
+                pending_gap_distance = 0.0
+                pending_gap_time = 0.0
+                pending_gap_vertical = 0.0
+                current["distance_m"] += delta_d
+                current["duration_sec"] += delta_t
+                if delta_a > 0:
+                    current["gain_m"] += delta_a
+                elif delta_a < 0:
+                    current["drop_m"] += -delta_a
+                current["end_idx"] = idx
+                current["end_distance_m"] = curr_d
+                current["end_time_sec"] = curr_t
+                current["end_altitude_m"] = curr_a
+            continue
+
+        if current is None:
+            continue
+
+        if step_dir == 0:
+            pending_gap_distance += delta_d
+            pending_gap_time += delta_t
+            pending_gap_vertical += delta_a
+            if pending_gap_distance > max_gap_distance_m and pending_gap_time > max_gap_time_s:
+                _finalize_segment(current)
+                current = None
+                pending_gap_distance = 0.0
+                pending_gap_time = 0.0
+                pending_gap_vertical = 0.0
+            continue
+
+        _finalize_segment(current)
+        current = None
+        pending_gap_distance = 0.0
+        pending_gap_time = 0.0
+        pending_gap_vertical = 0.0
+
+    _finalize_segment(current)
+    return segments
+
+
+def _compute_longest_climb_summary(time_stream, distance_stream, altitude_stream) -> dict | None:
+    climbs = _build_directional_segments(
+        time_stream,
+        distance_stream,
+        altitude_stream,
+        "climb",
+        min_distance_m=400.0,
+        min_vertical_m=35.0,
+        min_grade_pct=2.0,
+    )
+    if not climbs:
+        return None
+    return max(climbs, key=lambda seg: (seg.get("distance_m") or 0.0, seg.get("net_vertical_m") or 0.0))
+
+
+def _compute_descent_summaries(time_stream, distance_stream, altitude_stream) -> dict:
+    descents = _build_directional_segments(
+        time_stream,
+        distance_stream,
+        altitude_stream,
+        "descent",
+        min_distance_m=300.0,
+        min_vertical_m=30.0,
+        min_grade_pct=3.0,
+    )
+    if not descents:
+        return {"count": 0, "longest_descent": None}
+    longest = max(descents, key=lambda seg: (seg.get("distance_m") or 0.0, seg.get("net_vertical_m") or 0.0))
+    return {"count": len(descents), "longest_descent": longest}
+
+
 def _slope_band_from_grade(grade_percent: float | None) -> str | None:
     if grade_percent is None:
         return None
@@ -758,6 +959,10 @@ def _guard_admin(request: Request):
 # -----------------------------------------------------------------------------
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+RETENTION_JOB_INTERVAL_DAYS = max(1, int(os.getenv("ACTIVITY_RETENTION_JOB_INTERVAL_DAYS", "5") or "5"))
+RETENTION_JOB_HOUR_LOCAL = min(23, max(0, int(os.getenv("ACTIVITY_RETENTION_JOB_HOUR_LOCAL", "3") or "3")))
+RETENTION_JOB_MINUTE_LOCAL = min(59, max(0, int(os.getenv("ACTIVITY_RETENTION_JOB_MINUTE_LOCAL", "0") or "0")))
+RETENTION_JOB_ANCHOR_DATE = dt.date(2026, 1, 1)
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -831,6 +1036,66 @@ def store_glucose_points_from_graph(db, user_id: int, points: list, source: str 
         db.commit()
 
     return inserted
+
+
+def _compute_next_retention_job_run(now_local: dt.datetime | None = None) -> dt.datetime:
+    current = now_local or dt.datetime.now().astimezone()
+    if current.tzinfo is None:
+        current = current.astimezone()
+
+    candidate_date = current.date()
+    days_since_anchor = (candidate_date - RETENTION_JOB_ANCHOR_DATE).days
+    remainder = days_since_anchor % RETENTION_JOB_INTERVAL_DAYS
+    if remainder:
+        candidate_date += dt.timedelta(days=RETENTION_JOB_INTERVAL_DAYS - remainder)
+
+    candidate = current.replace(
+        year=candidate_date.year,
+        month=candidate_date.month,
+        day=candidate_date.day,
+        hour=RETENTION_JOB_HOUR_LOCAL,
+        minute=RETENTION_JOB_MINUTE_LOCAL,
+        second=0,
+        microsecond=0,
+    )
+    if candidate <= current:
+        candidate += dt.timedelta(days=RETENTION_JOB_INTERVAL_DAYS)
+    return candidate
+
+
+def run_activity_retention_loop():
+    logger.info(
+        "[RETENTION] Thread planifié lancé (tous les %s jours à %02d:%02d heure locale).",
+        RETENTION_JOB_INTERVAL_DAYS,
+        RETENTION_JOB_HOUR_LOCAL,
+        RETENTION_JOB_MINUTE_LOCAL,
+    )
+
+    while True:
+        next_run = _compute_next_retention_job_run()
+        wait_seconds = max(1.0, (next_run - dt.datetime.now().astimezone()).total_seconds())
+        logger.info("[RETENTION] Prochaine purge planifiée le %s.", next_run.isoformat())
+        time.sleep(wait_seconds)
+
+        db = SessionLocal()
+        try:
+            purged_by_user = purge_old_activities_for_all_users(
+                db,
+                now=dt.datetime.now(dt.timezone.utc),
+            )
+            total_purged = sum(purged_by_user.values())
+            if total_purged:
+                logger.info(
+                    "[RETENTION] Purge planifiée terminée: %s activités live supprimées sur %s utilisateur(s).",
+                    total_purged,
+                    len(purged_by_user),
+                )
+            else:
+                logger.info("[RETENTION] Purge planifiée terminée: aucune activité live à supprimer.")
+        except Exception:
+            logger.exception("[RETENTION] Erreur pendant la purge planifiée.")
+        finally:
+            db.close()
 
 
 def get_cgm_graph_for_user(
@@ -926,6 +1191,15 @@ def startup_event():
     t = threading.Thread(target=run_polling_loop, daemon=True)
     t.start()
     print("[CGM] Thread de polling lancé.")
+
+    # 3) Démarrer la purge planifiée des activités live
+    retention_thread = threading.Thread(target=run_activity_retention_loop, daemon=True)
+    retention_thread.start()
+    print(
+        f"[RETENTION] Thread de purge planifiée lancé "
+        f"(tous les {RETENTION_JOB_INTERVAL_DAYS} jours à "
+        f"{RETENTION_JOB_HOUR_LOCAL:02d}:{RETENTION_JOB_MINUTE_LOCAL:02d})."
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -1326,6 +1600,21 @@ async def process_activity_core(
             altitude_stream = streams.get("altitude", {}).get("data") or []
             distance_stream = streams.get("distance", {}).get("data") or []
             cadence_stream = streams.get("cadence", {}).get("data") or []
+            longest_climb = _compute_longest_climb_summary(
+                time_stream_full,
+                distance_stream,
+                altitude_stream,
+            )
+            descent_summaries = _compute_descent_summaries(
+                time_stream_full,
+                distance_stream,
+                altitude_stream,
+            )
+            km_highlights = compute_km_highlights_from_streams(
+                time_stream_full,
+                distance_stream,
+                altitude_stream,
+            )
 
             best_gain_windows = _compute_best_gain_windows(time_stream_full, altitude_stream, [60, 300, 600, 900, 1800, 3600])
             best_drop_windows = _compute_best_drop_windows(time_stream_full, altitude_stream, [600, 900, 1800, 3600])
@@ -1356,9 +1645,19 @@ async def process_activity_core(
             overall_pace_str = _format_pace(overall_pace_sec)
 
             sport_norm = (activity_obj.sport or "").lower()
+            raw_activity_type = (activity_obj.activity_type or act.get("type") or "").strip().lower()
             has_significant_climb = False
             if total_distance_m and total_gain_m and float(total_distance_m) > 0:
                 has_significant_climb = (float(total_gain_m) / float(total_distance_m)) >= 0.02
+
+            def _format_speed_kmh(speed_kmh: float | None) -> str | None:
+                if speed_kmh is None or speed_kmh <= 0:
+                    return None
+                return f"{speed_kmh:.1f} km/h"
+
+            run_surface_profile = None
+            if sport_norm == "run":
+                run_surface_profile = classify_run_surface_profile(total_distance_m, total_gain_m)
 
             blocks_ordered = []
             if stats and stats.get("block"):
@@ -1384,6 +1683,45 @@ async def process_activity_core(
             if sport_norm == "run":
                 run_lines = []
                 gain_labels = {60: "1′", 300: "5′", 600: "10′"}
+                fastest_km = (km_highlights or {}).get("fastest_km")
+                steepest_km = (km_highlights or {}).get("steepest_km")
+
+                if fastest_km:
+                    pace_str = _format_pace(fastest_km.get("pace_s_per_km"))
+                    speed_str = _format_speed_kmh(fastest_km.get("speed_kmh"))
+                    if pace_str:
+                        fast_parts = [f"km {int(fastest_km.get('km_index') or 0)}", pace_str]
+                        if speed_str:
+                            fast_parts.append(speed_str)
+                        run_lines.append("⚡ KM le plus rapide : " + " | ".join(fast_parts))
+
+                if run_surface_profile in {"run_hilly", "run_mountain"} and steepest_km:
+                    grade = steepest_km.get("grade_pct")
+                    vam = steepest_km.get("vam_m_per_h")
+                    speed_str = _format_speed_kmh(steepest_km.get("speed_kmh"))
+                    steep_parts = [f"km {int(steepest_km.get('km_index') or 0)}"]
+                    if grade is not None:
+                        steep_parts.append(f"{grade:.1f}%")
+                    if vam:
+                        steep_parts.append(f"{round(vam)} m/h")
+                    if speed_str:
+                        steep_parts.append(speed_str)
+                    if len(steep_parts) > 1:
+                        run_lines.append("🧱 KM le plus raide : " + " | ".join(steep_parts))
+
+                if run_surface_profile in {"run_hilly", "run_mountain"} and longest_climb:
+                    climb_parts = [f"{(longest_climb.get('distance_m', 0.0) / 1000.0):.1f} km"]
+                    net_vertical = round(longest_climb.get("net_vertical_m", 0.0))
+                    if net_vertical > 0:
+                        climb_parts.append(f"D+ {net_vertical} m")
+                    vam = longest_climb.get("vam_m_per_h")
+                    if vam:
+                        climb_parts.append(f"{round(vam)} m/h")
+                    speed_str = _format_speed_kmh(longest_climb.get("avg_speed_kmh"))
+                    if speed_str:
+                        climb_parts.append(speed_str)
+                    if len(climb_parts) > 1:
+                        run_lines.append("⛰️ Montée la plus longue : " + " | ".join(climb_parts))
 
                 if has_significant_climb:
                     dplus_parts = []
@@ -1416,6 +1754,38 @@ async def process_activity_core(
 
             elif sport_norm in {"ski_alpine", "ski_nordic", "ski_rando"}:
                 ski_lines = []
+                if sport_norm in {"ski_nordic", "ski_rando"} and total_gain_m and float(total_gain_m) > 0:
+                    ski_lines.append(f"⛰️ D+ total : {round(float(total_gain_m))} m")
+
+                if sport_norm == "ski_alpine":
+                    longest_descent = descent_summaries.get("longest_descent")
+                    descent_count = int(descent_summaries.get("count") or 0)
+                    if descent_count > 0:
+                        ski_lines.append(f"🎿 Descentes détectées : {descent_count}")
+                    if longest_descent:
+                        descent_parts = [f"{(longest_descent.get('distance_m', 0.0) / 1000.0):.1f} km"]
+                        net_vertical = round(longest_descent.get("net_vertical_m", 0.0))
+                        if net_vertical > 0:
+                            descent_parts.append(f"D- {net_vertical} m")
+                        speed_str = _format_speed_kmh(longest_descent.get("avg_speed_kmh"))
+                        if speed_str:
+                            descent_parts.append(speed_str)
+                        if len(descent_parts) > 1:
+                            ski_lines.append("📏 Descente la plus longue : " + " | ".join(descent_parts))
+                elif longest_climb:
+                    climb_parts = [f"{(longest_climb.get('distance_m', 0.0) / 1000.0):.1f} km"]
+                    net_vertical = round(longest_climb.get("net_vertical_m", 0.0))
+                    if net_vertical > 0:
+                        climb_parts.append(f"D+ {net_vertical} m")
+                    vam = longest_climb.get("vam_m_per_h")
+                    if vam:
+                        climb_parts.append(f"{round(vam)} m/h")
+                    speed_str = _format_speed_kmh(longest_climb.get("avg_speed_kmh"))
+                    if speed_str:
+                        climb_parts.append(speed_str)
+                    if len(climb_parts) > 1:
+                        ski_lines.append("⛰️ Montée la plus longue : " + " | ".join(climb_parts))
+
                 dminus_labels = {600: "10′", 1800: "30′", 3600: "1 h"}
                 dminus_parts = []
                 for window, label in dminus_labels.items():
@@ -1452,14 +1822,45 @@ async def process_activity_core(
                     if pace_sec and pace_sec > 0:
                         speed_kmh = 3600.0 / pace_sec
                         speed_parts.append(f"{label} : {speed_kmh:.1f} km/h")
-                if speed_parts:
-                    ski_lines.append("⚡ Vitesse moy : " + " | ".join(speed_parts))
+                    if speed_parts:
+                        ski_lines.append("⚡ Vitesse moy : " + " | ".join(speed_parts))
                 if ski_lines:
                     blocks_ordered.append("\n".join(ski_lines))
 
             elif sport_norm == "ride":
                 ride_lines = []
                 dplus_labels = {300: "5′", 900: "15′", 1800: "30′", 3600: "1 h"}
+                steepest_km = (km_highlights or {}).get("steepest_km")
+                ride_icon = "🚵" if raw_activity_type in {"mountainbike", "mtb"} else "🚴"
+
+                if steepest_km:
+                    grade = steepest_km.get("grade_pct")
+                    vam = steepest_km.get("vam_m_per_h")
+                    speed_str = _format_speed_kmh(steepest_km.get("speed_kmh"))
+                    steep_parts = [f"km {int(steepest_km.get('km_index') or 0)}"]
+                    if grade is not None:
+                        steep_parts.append(f"{grade:.1f}%")
+                    if vam:
+                        steep_parts.append(f"{round(vam)} m/h")
+                    if speed_str:
+                        steep_parts.append(speed_str)
+                    if len(steep_parts) > 1:
+                        ride_lines.append("🧱 KM le plus raide : " + " | ".join(steep_parts))
+
+                if longest_climb:
+                    climb_parts = [f"{(longest_climb.get('distance_m', 0.0) / 1000.0):.1f} km"]
+                    net_vertical = round(longest_climb.get("net_vertical_m", 0.0))
+                    if net_vertical > 0:
+                        climb_parts.append(f"D+ {net_vertical} m")
+                    vam = longest_climb.get("vam_m_per_h")
+                    if vam:
+                        climb_parts.append(f"{round(vam)} m/h")
+                    speed_str = _format_speed_kmh(longest_climb.get("avg_speed_kmh"))
+                    if speed_str:
+                        climb_parts.append(speed_str)
+                    if len(climb_parts) > 1:
+                        ride_lines.append(f"{ride_icon} Montée la plus longue : " + " | ".join(climb_parts))
+
                 dplus_parts = []
                 for window, label in dplus_labels.items():
                     data = best_gain_windows.get(window)
@@ -1527,6 +1928,10 @@ async def process_activity_core(
         activity_obj.glucose_summary_block = full_block or None
         db.add(activity_obj)
         db.commit()
+
+        purged_count = purge_old_user_activities(db, user_id=user_id)
+        if purged_count:
+            logger.info("[RETENTION] %s activités live purgées pour user_id=%s", purged_count, user_id)
 
     finally:
         db.close()
@@ -3128,13 +3533,36 @@ def ui_runner_profile(
             sport,
             period,
         )
-        profile = build_runner_profile(
+        rebuilt_months = rebuild_runner_profile_range_from_contributions(
             db,
             user_id=user_id,
             sport=sport,
             date_from=date_from,
             date_to=date_to,
         )
+        if rebuilt_months:
+            profile = get_cached_runner_profile(
+                db,
+                user_id=user_id,
+                sport=sport,
+                date_from=date_from,
+                date_to=date_to,
+            )
+        if profile and profile.get("zones"):
+            logger.info(
+                "[RUNNER_PROFILE][cache_rebuild] user_id=%s sport=%s rebuilt_months=%s",
+                user_id,
+                sport,
+                rebuilt_months,
+            )
+        else:
+            profile = build_runner_profile(
+                db,
+                user_id=user_id,
+                sport=sport,
+                date_from=date_from,
+                date_to=date_to,
+            )
     logger.info(
         "[RUNNER_PROFILE][timing] profile_lookup user_id=%s sport=%s took=%.3fs",
         user_id,
@@ -3531,6 +3959,13 @@ def ui_runner_profile(
         date_from=date_from,
         date_to=date_to,
     )
+    distance_efforts = get_cached_distance_efforts(
+        db,
+        user_id=user_id,
+        sport=sport,
+        date_from=date_from,
+        date_to=date_to,
+    )
     volume_weekly_summary = get_cached_volume_weekly_summary(
         db,
         user_id=user_id,
@@ -3538,7 +3973,7 @@ def ui_runner_profile(
         date_from=date_from,
         date_to=date_to,
     )
-    distance_projections = compute_distance_projections(series_matrix)
+    distance_projections = compute_distance_projections(series_matrix, distance_efforts)
 
     return templates.TemplateResponse(
         "runner_profile.html",
@@ -4059,14 +4494,14 @@ def ui_user_dashboard(user_id: int, request: Request):
                 recent_hr_cutoff = datetime.utcnow() - timedelta(days=28)
                 hr_rows = (
                     db.query(
-                        models.ActivityZoneSlopeAgg.hr_zone,
-                        func.sum(models.ActivityZoneSlopeAgg.duration_sec).label("duration_sec"),
+                        models.RunnerProfileActivityContribution.hr_zone,
+                        func.sum(models.RunnerProfileActivityContribution.total_duration_sec).label("duration_sec"),
                     )
-                    .join(models.Activity, models.Activity.id == models.ActivityZoneSlopeAgg.activity_id)
-                    .filter(models.Activity.user_id == user_id)
-                    .filter(models.Activity.start_date.isnot(None))
-                    .filter(models.Activity.start_date >= recent_hr_cutoff)
-                    .group_by(models.ActivityZoneSlopeAgg.hr_zone)
+                    .filter(models.RunnerProfileActivityContribution.user_id == user_id)
+                    .filter(models.RunnerProfileActivityContribution.metric_scope == "slope_zone")
+                    .filter(models.RunnerProfileActivityContribution.activity_start_date.isnot(None))
+                    .filter(models.RunnerProfileActivityContribution.activity_start_date >= recent_hr_cutoff)
+                    .group_by(models.RunnerProfileActivityContribution.hr_zone)
                     .all()
                 )
                 if hr_rows:
@@ -4128,7 +4563,14 @@ def ui_user_dashboard(user_id: int, request: Request):
             user_id=user_id,
             sport="run",
         )
-        dash_distance_projections = compute_distance_projections(series_matrix) if series_matrix else []
+        dash_distance_efforts = get_cached_distance_efforts(
+            db,
+            user_id=user_id,
+            sport="run",
+        )
+        dash_distance_projections = (
+            compute_distance_projections(series_matrix, dash_distance_efforts) if series_matrix else []
+        )
 
         # ---------------------------
         # 🧭 Répartition des sports (28 derniers jours)
@@ -4136,41 +4578,37 @@ def ui_user_dashboard(user_id: int, request: Request):
         mix_since = datetime.utcnow() - timedelta(days=28)
         recent_activities = (
             db.query(
-                Activity.sport,
-                Activity.activity_type,
-                Activity.distance,
-                Activity.elapsed_time,
-                Activity.total_elevation_gain,
-                Activity.name,
+                models.RunnerProfileActivityContribution.sport,
+                models.RunnerProfileActivityContribution.total_distance_m,
+                models.RunnerProfileActivityContribution.total_duration_sec,
+                models.RunnerProfileActivityContribution.total_elevation_gain_m,
+                models.RunnerProfileActivityContribution.activity_name,
+                models.RunnerProfileActivityContribution.extra,
             )
-            .filter(Activity.user_id == user_id)
-            .filter(Activity.start_date.isnot(None))
-            .filter(Activity.start_date >= mix_since)
+            .filter(models.RunnerProfileActivityContribution.user_id == user_id)
+            .filter(models.RunnerProfileActivityContribution.metric_scope == "activity_meta")
+            .filter(models.RunnerProfileActivityContribution.activity_start_date.isnot(None))
+            .filter(models.RunnerProfileActivityContribution.activity_start_date >= mix_since)
             .all()
         )
 
         agg = defaultdict(lambda: {"count": 0, "distance_m": 0.0, "duration_s": 0.0, "dplus_m": 0.0})
         for row in recent_activities:
-            raw_type = (row.activity_type or "").lower()
             sport_raw = (row.sport or "").lower()
-            name_lower = (row.name or "").lower()
+            extra = row.extra if isinstance(row.extra, dict) else {}
+            name_lower = (row.activity_name or extra.get("name") or "").lower()
 
-            sport_norm = normalize_activity_type(raw_type) if raw_type else None
-
-            # Heuristique de reclassement ski de rando si on n'a que le sport normalisé alpin
-            if (not sport_norm or sport_norm == sport_raw) and sport_raw == "ski_alpine":
+            sport_norm = normalize_activity_type(sport_raw) if sport_raw else None
+            if sport_norm == "ski_alpine":
                 ski_tokens = ["rando", "skimo", "backcountry", "ski tour", "ski de rando", "ski touring", "mountain", "alpinism"]
                 if any(k in name_lower for k in ski_tokens):
                     sport_norm = "ski_rando"
 
-            if not sport_norm:
-                sport_norm = normalize_activity_type(sport_raw) if sport_raw else None
-
-            key = sport_norm or sport_raw or raw_type or "other"
+            key = sport_norm or sport_raw or "other"
             agg[key]["count"] += 1
-            agg[key]["distance_m"] += float(row.distance or 0.0)
-            agg[key]["duration_s"] += float(row.elapsed_time or 0.0)
-            agg[key]["dplus_m"] += float(row.total_elevation_gain or 0.0)
+            agg[key]["distance_m"] += float(row.total_distance_m or 0.0)
+            agg[key]["duration_s"] += float(row.total_duration_sec or 0.0)
+            agg[key]["dplus_m"] += float(row.total_elevation_gain_m or 0.0)
 
         total_duration = sum(val["duration_s"] for val in agg.values())
         sport_label_map = {
@@ -5583,13 +6021,11 @@ def ui_user_activity_delete(request: Request, user_id: int, activity_id: int):
                 status_code=303,
             )
 
-        # Supprimer d'abord les points de stream associés
-        db.query(ActivityStreamPoint).filter(
-            ActivityStreamPoint.activity_id == activity.id
-        ).delete()
-
-        # Puis l'activité elle-même
-        db.delete(activity)
+        delete_activity_live_data(
+            db,
+            activity=activity,
+            rebuild_month_cache=True,
+        )
         db.commit()
 
     finally:
@@ -5710,6 +6146,9 @@ def ui_user_delete_account(request: Request, user_id: int):
         db.query(UserSettings).filter(UserSettings.user_id == user_id).delete()
         db.query(models.UserVamPR).filter(models.UserVamPR.user_id == user_id).delete()
         db.query(ActivityVamPeak).filter(ActivityVamPeak.user_id == user_id).delete()
+        db.query(models.RunnerProfileActivityContribution).filter(
+            models.RunnerProfileActivityContribution.user_id == user_id
+        ).delete()
         db.query(models.RunnerProfileMonthly).filter(models.RunnerProfileMonthly.user_id == user_id).delete()
 
         db.delete(user)

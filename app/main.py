@@ -1712,24 +1712,21 @@ async def process_activity_core(
 
                 if fastest_km:
                     pace_str = _format_pace(fastest_km.get("pace_s_per_km"))
-                    speed_str = _format_speed_kmh(fastest_km.get("speed_kmh"))
                     if pace_str:
                         fast_parts = [f"km {int(fastest_km.get('km_index') or 0)}", pace_str]
-                        if speed_str:
-                            fast_parts.append(speed_str)
                         run_lines.append("⚡ KM le plus rapide : " + " | ".join(fast_parts))
 
                 if run_surface_profile in {"run_hilly", "run_mountain"} and steepest_km:
                     grade = steepest_km.get("grade_pct")
                     vam = steepest_km.get("vam_m_per_h")
-                    speed_str = _format_speed_kmh(steepest_km.get("speed_kmh"))
+                    pace_str = _format_pace(steepest_km.get("pace_s_per_km"))
                     steep_parts = [f"km {int(steepest_km.get('km_index') or 0)}"]
                     if grade is not None:
                         steep_parts.append(f"{grade:.1f}%")
                     if vam:
                         steep_parts.append(f"{round(vam)} m/h")
-                    if speed_str:
-                        steep_parts.append(speed_str)
+                    if pace_str:
+                        steep_parts.append(pace_str)
                     if len(steep_parts) > 1:
                         run_lines.append("🧱 KM le plus raide : " + " | ".join(steep_parts))
 

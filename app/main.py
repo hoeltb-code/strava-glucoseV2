@@ -969,6 +969,30 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY, same_site="lax")
 
+_raw_template_response = templates.TemplateResponse
+
+
+def _template_response_compat(*args, **kwargs):
+    """
+    Compatibilité Starlette:
+    - ancien style: TemplateResponse("page.html", {"request": request, ...}, ...)
+    - nouveau style: TemplateResponse(request, "page.html", {...}, ...)
+    """
+    if args and isinstance(args[0], str):
+        name = args[0]
+        context = args[1] if len(args) > 1 else kwargs.get("context")
+        if not isinstance(context, dict):
+            raise TypeError("TemplateResponse context must be a dict.")
+        request = context.get("request") or kwargs.pop("request", None)
+        if request is None:
+            raise ValueError("TemplateResponse context must include 'request'.")
+        remaining = args[2:]
+        return _raw_template_response(request, name, context, *remaining, **kwargs)
+    return _raw_template_response(*args, **kwargs)
+
+
+templates.TemplateResponse = _template_response_compat
+
 # -----------------------------------------------------------------------------
 # Routers
 # -----------------------------------------------------------------------------

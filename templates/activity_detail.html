@@ -432,6 +432,76 @@
           </div>
         </div>
       </div>
+
+      {% if alt_profile_js and alt_profile_js != '[]' %}
+      <div class="card" style="margin-top:16px; padding:16px;">
+        <h3 style="margin:0 0 10px 0; font-size:0.95rem;">Profil de dénivelé</h3>
+        <p class="muted" style="margin:0 0 12px 0; font-size:0.8rem;">
+          Axe horizontal : distance en km. Axe vertical : altitude en mètres.
+        </p>
+        <div style="height:260px;">
+          <canvas id="overviewAltitudeChart" height="240"></canvas>
+        </div>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+      <script>
+        (function() {
+          const rawAltData = {{ alt_profile_js | safe }};
+          const canvas = document.getElementById('overviewAltitudeChart');
+          if (!canvas || !rawAltData || rawAltData.length === 0 || typeof Chart === 'undefined') return;
+
+          const ctx = canvas.getContext('2d');
+          const series = rawAltData.map(pt => ({ x: pt[0], y: pt[1] }));
+
+          new Chart(ctx, {
+            type: 'line',
+            data: {
+              datasets: [{
+                label: 'Altitude',
+                data: series,
+                borderColor: '#0f172a',
+                backgroundColor: 'rgba(15, 23, 42, 0.10)',
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: true,
+                tension: 0.2,
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              animation: false,
+              interaction: { mode: 'index', intersect: false },
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    label: function(context) {
+                      const x = context.parsed.x;
+                      const y = context.parsed.y;
+                      if (x == null || y == null) return '';
+                      return `${x.toFixed(1)} km · ${Math.round(y)} m`;
+                    }
+                  }
+                }
+              },
+              scales: {
+                x: {
+                  type: 'linear',
+                  title: { display: true, text: 'Distance (km)' },
+                  grid: { color: 'rgba(148, 163, 184, 0.2)' }
+                },
+                y: {
+                  title: { display: true, text: 'Altitude (m)' },
+                  grid: { color: 'rgba(148, 163, 184, 0.2)' }
+                }
+              }
+            }
+          });
+        })();
+      </script>
+      {% endif %}
     </div>
 
 

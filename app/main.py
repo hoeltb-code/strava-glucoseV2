@@ -781,13 +781,28 @@ def _compute_longest_climb_summary(time_stream, distance_stream, altitude_stream
         distance_stream,
         altitude_stream,
         "climb",
-        min_distance_m=400.0,
-        min_vertical_m=35.0,
+        min_distance_m=200.0,
+        min_vertical_m=10.0,
         min_grade_pct=2.0,
     )
     if not climbs:
         return None
-    return max(climbs, key=lambda seg: (seg.get("distance_m") or 0.0, seg.get("net_vertical_m") or 0.0))
+
+    eligible = []
+    for seg in climbs:
+        distance_m = float(seg.get("distance_m") or 0.0)
+        net_vertical_m = float(seg.get("net_vertical_m") or 0.0)
+        grade_pct = float(seg.get("avg_grade_pct") or 0.0)
+        if distance_m >= 400.0 and net_vertical_m >= 35.0 and grade_pct >= 2.0:
+            eligible.append(seg)
+            continue
+        if distance_m >= 200.0 and grade_pct > 5.0:
+            eligible.append(seg)
+
+    if not eligible:
+        return None
+
+    return max(eligible, key=lambda seg: (seg.get("distance_m") or 0.0, seg.get("net_vertical_m") or 0.0))
 
 
 def _compute_descent_summaries(time_stream, distance_stream, altitude_stream) -> dict:
@@ -1707,28 +1722,6 @@ async def process_activity_core(
             if sport_norm == "run":
                 run_lines = []
                 gain_labels = {60: "1′", 300: "5′", 600: "10′"}
-                fastest_km = (km_highlights or {}).get("fastest_km")
-                steepest_km = (km_highlights or {}).get("steepest_km")
-
-                if fastest_km:
-                    pace_str = _format_pace(fastest_km.get("pace_s_per_km"))
-                    if pace_str:
-                        fast_parts = [f"km {int(fastest_km.get('km_index') or 0)}", pace_str]
-                        run_lines.append("⚡ KM le plus rapide : " + " | ".join(fast_parts))
-
-                if run_surface_profile in {"run_hilly", "run_mountain"} and steepest_km:
-                    grade = steepest_km.get("grade_pct")
-                    vam = steepest_km.get("vam_m_per_h")
-                    pace_str = _format_pace(steepest_km.get("pace_s_per_km"))
-                    steep_parts = [f"km {int(steepest_km.get('km_index') or 0)}"]
-                    if grade is not None:
-                        steep_parts.append(f"{grade:.1f}%")
-                    if vam:
-                        steep_parts.append(f"{round(vam)} m/h")
-                    if pace_str:
-                        steep_parts.append(pace_str)
-                    if len(steep_parts) > 1:
-                        run_lines.append("🧱 KM le plus raide : " + " | ".join(steep_parts))
 
                 if run_surface_profile in {"run_hilly", "run_mountain"} and longest_climb:
                     climb_parts = [f"{(longest_climb.get('distance_m', 0.0) / 1000.0):.1f} km"]
@@ -1851,22 +1844,7 @@ async def process_activity_core(
             elif sport_norm == "ride":
                 ride_lines = []
                 dplus_labels = {300: "5′", 900: "15′", 1800: "30′", 3600: "1 h"}
-                steepest_km = (km_highlights or {}).get("steepest_km")
                 ride_icon = "🚵" if raw_activity_type in {"mountainbike", "mtb"} else "🚴"
-
-                if steepest_km:
-                    grade = steepest_km.get("grade_pct")
-                    vam = steepest_km.get("vam_m_per_h")
-                    speed_str = _format_speed_kmh(steepest_km.get("speed_kmh"))
-                    steep_parts = [f"km {int(steepest_km.get('km_index') or 0)}"]
-                    if grade is not None:
-                        steep_parts.append(f"{grade:.1f}%")
-                    if vam:
-                        steep_parts.append(f"{round(vam)} m/h")
-                    if speed_str:
-                        steep_parts.append(speed_str)
-                    if len(steep_parts) > 1:
-                        ride_lines.append("🧱 KM le plus raide : " + " | ".join(steep_parts))
 
                 if longest_climb:
                     climb_parts = [f"{(longest_climb.get('distance_m', 0.0) / 1000.0):.1f} km"]

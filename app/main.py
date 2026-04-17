@@ -783,26 +783,11 @@ def _compute_longest_climb_summary(time_stream, distance_stream, altitude_stream
         "climb",
         min_distance_m=200.0,
         min_vertical_m=10.0,
-        min_grade_pct=2.0,
+        min_grade_pct=0.0,
     )
     if not climbs:
         return None
-
-    eligible = []
-    for seg in climbs:
-        distance_m = float(seg.get("distance_m") or 0.0)
-        net_vertical_m = float(seg.get("net_vertical_m") or 0.0)
-        grade_pct = float(seg.get("avg_grade_pct") or 0.0)
-        if distance_m >= 400.0 and net_vertical_m >= 35.0 and grade_pct >= 2.0:
-            eligible.append(seg)
-            continue
-        if distance_m >= 200.0 and grade_pct > 5.0:
-            eligible.append(seg)
-
-    if not eligible:
-        return None
-
-    return max(eligible, key=lambda seg: (seg.get("distance_m") or 0.0, seg.get("net_vertical_m") or 0.0))
+    return max(climbs, key=lambda seg: (seg.get("distance_m") or 0.0, seg.get("net_vertical_m") or 0.0))
 
 
 def _compute_descent_summaries(time_stream, distance_stream, altitude_stream) -> dict:

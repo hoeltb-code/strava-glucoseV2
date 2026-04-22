@@ -89,7 +89,7 @@ import shutil
 import logging
 import time
 from datetime import datetime, timedelta
-from collections import Counter, defaultdict
+from collections import Counter, defaultdict, deque
 import re
 from urllib.parse import quote_plus
 from bisect import bisect_left
@@ -142,7 +142,6 @@ from .logic import (
     canonicalize_sport_label,
     normalize_activity_type,
     compute_km_highlights_from_streams,
-    classify_run_surface_profile,
     purge_old_user_activities,
     purge_old_activities_for_all_users,
     delete_activity_live_data,
@@ -637,6 +636,178 @@ def _build_time_distance_alt_points(time_stream, distance_stream, altitude_strea
     return points
 
 
+def _smooth_altitudes_by_distance(
+    points: list[tuple[float, float, float]],
+    *,
+    radius_m: float = 25.0,
+) -> list[float]:
+    if not points:
+        return []
+    if radius_m <= 0:
+        return [float(p[2]) for p in points]
+
+    distances = [float(p[1]) for p in points]
+    altitudes = [float(p[2]) for p in points]
+    prefix_alt = [0.0]
+    for altitude in altitudes:
+        prefix_alt.append(prefix_alt[-1] + altitude)
+
+    smoothed: list[float] = []
+    left = 0
+    right = -1
+    n = len(points)
+    for i in range(n):
+        center_distance = distances[i]
+        min_distance = center_distance - radius_m
+        max_distance = center_distance + radius_m
+        while left < n and distances[left] < min_distance:
+            left += 1
+        while right + 1 < n and distances[right + 1] <= max_distance:
+            right += 1
+        if right < left:
+            smoothed.append(altitudes[i])
+            continue
+        total_alt = prefix_alt[right + 1] - prefix_alt[left]
+        count = right - left + 1
+        smoothed.append(total_alt / count if count > 0 else altitudes[i])
+    return smoothed
+
+
+def _compute_local_min_indices(distances: list[float], values: list[float], window_m: float) -> list[int]:
+    lows: list[int] = []
+    window: deque[int] = deque()
+    left = 0
+    for i, distance in enumerate(distances):
+        min_distance = distance - window_m
+        while left < i and distances[left] < min_distance:
+            if window and window[0] == left:
+                window.popleft()
+            left += 1
+        while window and values[window[-1]] >= values[i]:
+            window.pop()
+        window.append(i)
+        if window and window[0] == i:
+            lows.append(i)
+    return lows
+
+
+def _compute_local_max_indices(distances: list[float], values: list[float], window_m: float) -> list[int]:
+    highs: list[int] = []
+    window: deque[int] = deque()
+    right = len(distances) - 1
+    for i in range(len(distances) - 1, -1, -1):
+        max_distance = distances[i] + window_m
+        while right > i and distances[right] > max_distance:
+            if window and window[0] == right:
+                window.popleft()
+            right -= 1
+        while window and values[window[-1]] <= values[i]:
+            window.pop()
+        window.append(i)
+        if window and window[0] == i:
+            highs.append(i)
+    highs.reverse()
+    return highs
+
+
+def _build_extrema_based_climb_candidates(
+    points: list[tuple[float, float, float]],
+    *,
+    smoothing_radius_m: float = 25.0,
+    extrema_window_m: float = 400.0,
+    min_distance_m: float = 200.0,
+    min_vertical_m: float = 10.0,
+    min_grade_pct: float = 0.0,
+) -> list[dict]:
+    if len(points) < 2:
+        return []
+
+    distances = [float(p[1]) for p in points]
+    times = [float(p[0]) for p in points]
+    altitudes = [float(p[2]) for p in points]
+    smoothed_altitudes = _smooth_altitudes_by_distance(points, radius_m=smoothing_radius_m)
+
+    low_indices = _compute_local_min_indices(distances, smoothed_altitudes, extrema_window_m)
+    high_indices = _compute_local_max_indices(distances, smoothed_altitudes, extrema_window_m)
+    if not low_indices or not high_indices:
+        return []
+
+    candidates: list[dict] = []
+    low_lookup = set(low_indices)
+    high_lookup = set(high_indices)
+    active_low_idx = None
+
+    for idx in range(len(points)):
+        if idx in low_lookup and (
+            active_low_idx is None or smoothed_altitudes[idx] <= smoothed_altitudes[active_low_idx]
+        ):
+            active_low_idx = idx
+
+        if idx not in high_lookup or active_low_idx is None or idx <= active_low_idx:
+            continue
+
+        distance_m = distances[idx] - distances[active_low_idx]
+        duration_sec = times[idx] - times[active_low_idx]
+        net_vertical_m = smoothed_altitudes[idx] - smoothed_altitudes[active_low_idx]
+        if distance_m < min_distance_m or duration_sec <= 0 or net_vertical_m < min_vertical_m:
+            continue
+
+        avg_grade_pct = (net_vertical_m / distance_m) * 100.0 if distance_m > 0 else 0.0
+        if avg_grade_pct < min_grade_pct:
+            continue
+
+        avg_speed_kmh = (distance_m / duration_sec) * 3.6 if duration_sec > 0 else None
+        avg_pace_sec_per_km = (duration_sec / distance_m) * 1000.0 if distance_m > 0 else None
+        candidates.append({
+            "start_idx": active_low_idx,
+            "end_idx": idx,
+            "distance_m": distance_m,
+            "duration_sec": duration_sec,
+            "gain_m": max(altitudes[idx] - altitudes[active_low_idx], 0.0),
+            "drop_m": max(altitudes[active_low_idx] - altitudes[idx], 0.0),
+            "start_distance_m": distances[active_low_idx],
+            "end_distance_m": distances[idx],
+            "start_time_sec": times[active_low_idx],
+            "end_time_sec": times[idx],
+            "start_altitude_m": altitudes[active_low_idx],
+            "end_altitude_m": altitudes[idx],
+            "start_altitude_smoothed_m": smoothed_altitudes[active_low_idx],
+            "end_altitude_smoothed_m": smoothed_altitudes[idx],
+            "vertical_m": net_vertical_m,
+            "net_vertical_m": net_vertical_m,
+            "avg_grade_pct": avg_grade_pct,
+            "avg_speed_kmh": avg_speed_kmh,
+            "avg_pace_sec_per_km": avg_pace_sec_per_km,
+            "vam_m_per_h": (net_vertical_m / duration_sec) * 3600.0 if duration_sec > 0 else None,
+        })
+    return candidates
+
+
+def _build_longest_climb_parts(longest_climb: dict | None, sport_norm: str) -> list[str]:
+    if not longest_climb:
+        return []
+
+    climb_parts = [f"{(longest_climb.get('distance_m', 0.0) / 1000.0):.1f} km"]
+    net_vertical = round(longest_climb.get("net_vertical_m", 0.0))
+    if net_vertical > 0:
+        climb_parts.append(f"D+ {net_vertical} m")
+
+    vam = longest_climb.get("vam_m_per_h")
+    if vam:
+        climb_parts.append(f"{round(vam)} m/h")
+
+    if sport_norm == "ride":
+        speed_kmh = longest_climb.get("avg_speed_kmh")
+        if speed_kmh and speed_kmh > 0:
+            climb_parts.append(f"{speed_kmh:.1f} km/h")
+    else:
+        pace_str = _format_pace(longest_climb.get("avg_pace_sec_per_km"))
+        if pace_str:
+            climb_parts.append(pace_str)
+
+    return climb_parts
+
+
 def _build_directional_segments(
     time_stream,
     distance_stream,
@@ -776,18 +947,24 @@ def _build_directional_segments(
 
 
 def _compute_longest_climb_summary(time_stream, distance_stream, altitude_stream) -> dict | None:
-    climbs = _build_directional_segments(
-        time_stream,
-        distance_stream,
-        altitude_stream,
-        "climb",
+    points = _build_time_distance_alt_points(time_stream, distance_stream, altitude_stream)
+    climbs = _build_extrema_based_climb_candidates(
+        points,
+        smoothing_radius_m=25.0,
+        extrema_window_m=400.0,
         min_distance_m=200.0,
         min_vertical_m=10.0,
         min_grade_pct=0.0,
     )
     if not climbs:
         return None
-    return max(climbs, key=lambda seg: (seg.get("distance_m") or 0.0, seg.get("net_vertical_m") or 0.0))
+    return max(
+        climbs,
+        key=lambda seg: (
+            seg.get("net_vertical_m") or 0.0,
+            seg.get("distance_m") or 0.0,
+        ),
+    )
 
 
 def _compute_descent_summaries(time_stream, distance_stream, altitude_stream) -> dict:
@@ -1679,10 +1856,6 @@ async def process_activity_core(
                     return None
                 return f"{speed_kmh:.1f} km/h"
 
-            run_surface_profile = None
-            if sport_norm == "run":
-                run_surface_profile = classify_run_surface_profile(total_distance_m, total_gain_m)
-
             blocks_ordered = []
             if stats and stats.get("block"):
                 blocks_ordered.append(stats["block"])
@@ -1708,17 +1881,8 @@ async def process_activity_core(
                 run_lines = []
                 gain_labels = {60: "1′", 300: "5′", 600: "10′"}
 
-                if run_surface_profile in {"run_hilly", "run_mountain"} and longest_climb:
-                    climb_parts = [f"{(longest_climb.get('distance_m', 0.0) / 1000.0):.1f} km"]
-                    net_vertical = round(longest_climb.get("net_vertical_m", 0.0))
-                    if net_vertical > 0:
-                        climb_parts.append(f"D+ {net_vertical} m")
-                    vam = longest_climb.get("vam_m_per_h")
-                    if vam:
-                        climb_parts.append(f"{round(vam)} m/h")
-                    speed_str = _format_speed_kmh(longest_climb.get("avg_speed_kmh"))
-                    if speed_str:
-                        climb_parts.append(speed_str)
+                if longest_climb:
+                    climb_parts = _build_longest_climb_parts(longest_climb, sport_norm)
                     if len(climb_parts) > 1:
                         run_lines.append("⛰️ Montée la plus longue : " + " | ".join(climb_parts))
 
@@ -1772,16 +1936,7 @@ async def process_activity_core(
                         if len(descent_parts) > 1:
                             ski_lines.append("📏 Descente la plus longue : " + " | ".join(descent_parts))
                 elif longest_climb:
-                    climb_parts = [f"{(longest_climb.get('distance_m', 0.0) / 1000.0):.1f} km"]
-                    net_vertical = round(longest_climb.get("net_vertical_m", 0.0))
-                    if net_vertical > 0:
-                        climb_parts.append(f"D+ {net_vertical} m")
-                    vam = longest_climb.get("vam_m_per_h")
-                    if vam:
-                        climb_parts.append(f"{round(vam)} m/h")
-                    speed_str = _format_speed_kmh(longest_climb.get("avg_speed_kmh"))
-                    if speed_str:
-                        climb_parts.append(speed_str)
+                    climb_parts = _build_longest_climb_parts(longest_climb, sport_norm)
                     if len(climb_parts) > 1:
                         ski_lines.append("⛰️ Montée la plus longue : " + " | ".join(climb_parts))
 
@@ -1832,16 +1987,7 @@ async def process_activity_core(
                 ride_icon = "🚵" if raw_activity_type in {"mountainbike", "mtb"} else "🚴"
 
                 if longest_climb:
-                    climb_parts = [f"{(longest_climb.get('distance_m', 0.0) / 1000.0):.1f} km"]
-                    net_vertical = round(longest_climb.get("net_vertical_m", 0.0))
-                    if net_vertical > 0:
-                        climb_parts.append(f"D+ {net_vertical} m")
-                    vam = longest_climb.get("vam_m_per_h")
-                    if vam:
-                        climb_parts.append(f"{round(vam)} m/h")
-                    speed_str = _format_speed_kmh(longest_climb.get("avg_speed_kmh"))
-                    if speed_str:
-                        climb_parts.append(speed_str)
+                    climb_parts = _build_longest_climb_parts(longest_climb, sport_norm)
                     if len(climb_parts) > 1:
                         ride_lines.append(f"{ride_icon} Montée la plus longue : " + " | ".join(climb_parts))
 

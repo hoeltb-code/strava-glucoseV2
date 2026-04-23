@@ -893,6 +893,40 @@ def merge_desc(existing: str, block: str) -> str:
     # Sécurité Strava (~2000). On garde 1800 pour marge.
     return merged[:1800]
 
+
+def normalize_summary_block_layout(block: str) -> str:
+    """
+    Réordonne les lignes auto pour garder "Montée la plus longue"
+    après les blocs de performance par fenêtres de temps.
+    """
+    if not block:
+        return ""
+
+    lines = block.splitlines()
+    climb_lines = [line for line in lines if line.startswith("⛰️ Montée la plus longue :")]
+    if not climb_lines:
+        return block
+
+    performance_prefixes = (
+        "⛰️ D+ max :",
+        "⛰️ VAM max :",
+        "⚡ Allures max :",
+        "⚡ Vitesse moy :",
+    )
+
+    lines_without_climb = [line for line in lines if not line.startswith("⛰️ Montée la plus longue :")]
+    insert_after = -1
+    for idx, line in enumerate(lines_without_climb):
+        if line.startswith(performance_prefixes):
+            insert_after = idx
+
+    if insert_after < 0:
+        return block
+
+    insert_at = insert_after + 1
+    reordered = lines_without_climb[:insert_at] + climb_lines + lines_without_climb[insert_at:]
+    return "\n".join(reordered)
+
 #---------------------------------------------------------------------------
 # Enregistrement / mise à jour d’une activité Strava en base
 #---------------------------------------------------------------------------

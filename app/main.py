@@ -119,6 +119,7 @@ from .logic import (
     select_window,
     compute_stats,
     merge_desc,
+    normalize_summary_block_layout,
     compute_hr_zones,
     compute_user_fc_max,
     _format_duration,
@@ -2058,7 +2059,7 @@ async def process_activity_core(
 
             if blocks_ordered:
                 blocks_ordered.append("Pour tous les fans de data —> Join us : https://strava-glucosev2.onrender.com/")
-                full_block = "\n".join(blocks_ordered)
+                full_block = normalize_summary_block_layout("\n".join(blocks_ordered))
 
         # 7) Mise à jour Strava + persistance du block (optionnel)
         if auto_block_enabled and full_block and update_strava_description and cli is not None and activity_id is not None:
@@ -2601,7 +2602,7 @@ def ui_home(request: Request):
                 "duration_str": _format_duration(act.elapsed_time) if act.elapsed_time else None,
                 "sport": act.sport or act.activity_type or "—",
                 "dplus": int(round(act.total_elevation_gain)) if act.total_elevation_gain is not None else None,
-                "summary_block": act.glucose_summary_block or "",
+                "summary_block": normalize_summary_block_layout(act.glucose_summary_block or ""),
             })
     finally:
         db.close()
@@ -4550,7 +4551,7 @@ def ui_user_dashboard(user_id: int, request: Request):
             elif level == 5:
                 level_color = "#eab308"   # or
 
-            summary_block = a.glucose_summary_block or ""
+            summary_block = normalize_summary_block_layout(a.glucose_summary_block or "")
 
             def _strip_signature(block: str) -> str:
                 if not block:

@@ -850,18 +850,24 @@ def merge_desc(existing: str, block: str) -> str:
         "🔬Glycémie :",                 # ancien entête gly
         "🔬 Glycémie (LibreLinkUp)",    # tout premier format historique
         "⛰️ VAM :",                     # entête VAM
+        "⛰️ Montée la plus longue :",   # bloc montée auto
+        "📏 Descente la plus longue :", # bloc descente auto
+        "🎿 Descentes détectées :",     # bloc ski alpin auto
+        "⛰️ D+ total :",                # bloc ski nordique/rando auto
         "🏃 Allure",                    # entête allure
         "🔁 Cadence",                   # entête cadence
         "⚡ Allures max",               # nouveau bloc allures
         "⚡ Vitesse moy",               # bloc vitesses pour ski
         "⚡ Puissance moy",             # bloc puissance vélo
         "🎿 D+ max",                    # bloc ski D+
+        "🎿 D- max",                    # bloc ski D-
         "⛰️ D+ max",                    # bloc run D+
         "⛰️ VAM max",                  # nouveau bloc VAM
         "🔁 Cadence vélo",             # bloc cadence vélo
         "Cardio moy",                   # bloc cardio
         "Zone 1 :", "Zone 2 :", "Zone 3 :", "Zone 4 :", "Zone 5 :",  # zones FC
         "—> Made with ❤️ by Benoit",    # signature historique
+        "Pour tous les fans de data —> Join us : https://strava-glucosev2.onrender.com/",
         "—> Join us : https://strava-glucosev2.onrender.com/",
     ]
 

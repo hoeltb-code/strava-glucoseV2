@@ -1880,11 +1880,11 @@ async def process_activity_core(
             if sport_norm == "run":
                 run_lines = []
                 gain_labels = {60: "1′", 300: "5′", 600: "10′"}
-
+                climb_line = None
                 if longest_climb:
                     climb_parts = _build_longest_climb_parts(longest_climb, sport_norm)
                     if len(climb_parts) > 1:
-                        run_lines.append("⛰️ Montée la plus longue : " + " | ".join(climb_parts))
+                        climb_line = "⛰️ Montée la plus longue : " + " | ".join(climb_parts)
 
                 if has_significant_climb:
                     dplus_parts = []
@@ -1912,11 +1912,15 @@ async def process_activity_core(
                 if pace_parts:
                     run_lines.append("⚡ Allures max : " + " | ".join(pace_parts))
 
+                if climb_line:
+                    run_lines.append(climb_line)
+
                 if run_lines:
                     blocks_ordered.append("\n".join(run_lines))
 
             elif sport_norm in {"ski_alpine", "ski_nordic", "ski_rando"}:
                 ski_lines = []
+                climb_line = None
                 if sport_norm in {"ski_nordic", "ski_rando"} and total_gain_m and float(total_gain_m) > 0:
                     ski_lines.append(f"⛰️ D+ total : {round(float(total_gain_m))} m")
 
@@ -1938,7 +1942,7 @@ async def process_activity_core(
                 elif longest_climb:
                     climb_parts = _build_longest_climb_parts(longest_climb, sport_norm)
                     if len(climb_parts) > 1:
-                        ski_lines.append("⛰️ Montée la plus longue : " + " | ".join(climb_parts))
+                        climb_line = "⛰️ Montée la plus longue : " + " | ".join(climb_parts)
 
                 dminus_labels = {600: "10′", 1800: "30′", 3600: "1 h"}
                 dminus_parts = []
@@ -1976,8 +1980,11 @@ async def process_activity_core(
                     if pace_sec and pace_sec > 0:
                         speed_kmh = 3600.0 / pace_sec
                         speed_parts.append(f"{label} : {speed_kmh:.1f} km/h")
-                    if speed_parts:
-                        ski_lines.append("⚡ Vitesse moy : " + " | ".join(speed_parts))
+                if speed_parts:
+                    ski_lines.append("⚡ Vitesse moy : " + " | ".join(speed_parts))
+
+                if climb_line:
+                    ski_lines.append(climb_line)
                 if ski_lines:
                     blocks_ordered.append("\n".join(ski_lines))
 
@@ -1985,11 +1992,11 @@ async def process_activity_core(
                 ride_lines = []
                 dplus_labels = {300: "5′", 900: "15′", 1800: "30′", 3600: "1 h"}
                 ride_icon = "🚵" if raw_activity_type in {"mountainbike", "mtb"} else "🚴"
-
+                climb_line = None
                 if longest_climb:
                     climb_parts = _build_longest_climb_parts(longest_climb, sport_norm)
                     if len(climb_parts) > 1:
-                        ride_lines.append(f"{ride_icon} Montée la plus longue : " + " | ".join(climb_parts))
+                        climb_line = f"{ride_icon} Montée la plus longue : " + " | ".join(climb_parts)
 
                 dplus_parts = []
                 for window, label in dplus_labels.items():
@@ -2003,6 +2010,22 @@ async def process_activity_core(
                     dplus_parts.append(f"{label} : +{gain} m ({vam} m/h)")
                 if dplus_parts:
                     ride_lines.append("⛰️ D+ max : " + " | ".join(dplus_parts))
+
+                speed_parts = []
+                speed_labels = {900: "15′", 1800: "30′", 3600: "1 h"}
+                for window in [900, 1800, 3600]:
+                    data = best_pace_windows.get(window)
+                    if not data:
+                        continue
+                    pace_sec = data.get("pace_sec_per_km")
+                    if pace_sec and pace_sec > 0:
+                        speed_kmh = 3600.0 / pace_sec
+                        speed_parts.append(f"{speed_labels[window]} : {speed_kmh:.1f} km/h")
+                if speed_parts:
+                    ride_lines.append("⚡ Vitesse moy : " + " | ".join(speed_parts))
+
+                if climb_line:
+                    ride_lines.append(climb_line)
 
                 avg_cad, max_cad = _compute_time_weighted_avg_and_max(time_stream_full, cadence_stream)
                 cadence_parts = []
@@ -2025,19 +2048,6 @@ async def process_activity_core(
                         pw_parts.append(f"{label_map[window]} : {round(avg_power)} W")
                     if pw_parts:
                         ride_lines.append("⚡ Puissance moy : " + " | ".join(pw_parts))
-
-                speed_parts = []
-                speed_labels = {900: "15′", 1800: "30′", 3600: "1 h"}
-                for window in [900, 1800, 3600]:
-                    data = best_pace_windows.get(window)
-                    if not data:
-                        continue
-                    pace_sec = data.get("pace_sec_per_km")
-                    if pace_sec and pace_sec > 0:
-                        speed_kmh = 3600.0 / pace_sec
-                        speed_parts.append(f"{speed_labels[window]} : {speed_kmh:.1f} km/h")
-                if speed_parts:
-                    ride_lines.append("⚡ Vitesse moy : " + " | ".join(speed_parts))
 
                 if ride_lines:
                     blocks_ordered.append("\n".join(ride_lines))

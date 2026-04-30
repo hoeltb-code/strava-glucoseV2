@@ -718,8 +718,13 @@ def _build_extrema_based_climb_candidates(
     extrema_window_m: float = 400.0,
     min_distance_m: float = 200.0,
     min_vertical_m: float = 10.0,
-    min_grade_pct: float = 0.0,
+    min_grade_pct: float = 5.0,
 ) -> list[dict]:
+    """
+    Détecte les segments de montée en exigeant que la montée démarre 
+    au moment où on détecte un segment de 200m+ avec pente >= 5%,
+    et se termine au prochain maximum local.
+    """
     if len(points) < 2:
         return []
 
@@ -728,52 +733,70 @@ def _build_extrema_based_climb_candidates(
     altitudes = [float(p[2]) for p in points]
     smoothed_altitudes = _smooth_altitudes_by_distance(points, radius_m=smoothing_radius_m)
 
-    low_indices = _compute_local_min_indices(distances, smoothed_altitudes, extrema_window_m)
+    # Détecte les maxima locaux d'altitude lissée
     high_indices = _compute_local_max_indices(distances, smoothed_altitudes, extrema_window_m)
-    if not low_indices or not high_indices:
+    if not high_indices:
+        return []
+
+    # Détecte les segments de 200m+ avec pente >= min_grade_pct (5% par défaut)
+    steep_segment_starts = []
+    for i in range(len(points) - 1):
+        # Regarde forward jusqu'à trouver un segment de 200m
+        for j in range(i + 1, len(points)):
+            segment_distance = distances[j] - distances[i]
+            if segment_distance >= min_distance_m:
+                segment_altitude_delta = smoothed_altitudes[j] - smoothed_altitudes[i]
+                segment_grade = (segment_altitude_delta / segment_distance) * 100.0 if segment_distance > 0 else 0.0
+                if segment_grade >= min_grade_pct:
+                    # Marque le début de ce segment comme potentiel démarrage de montée
+                    steep_segment_starts.append(i)
+                break
+
+    if not steep_segment_starts:
         return []
 
     candidates: list[dict] = []
-    low_lookup = set(low_indices)
     high_lookup = set(high_indices)
-    active_low_idx = None
 
-    for idx in range(len(points)):
-        if idx in low_lookup and (
-            active_low_idx is None or smoothed_altitudes[idx] <= smoothed_altitudes[active_low_idx]
-        ):
-            active_low_idx = idx
-
-        if idx not in high_lookup or active_low_idx is None or idx <= active_low_idx:
+    # Pour chaque segment abrupt détecté, cherche le prochain maximum
+    for start_idx in steep_segment_starts:
+        # Trouve le prochain maximum local après ce point de départ
+        next_high_idx = None
+        for high_idx in high_indices:
+            if high_idx > start_idx:
+                next_high_idx = high_idx
+                break
+        
+        if next_high_idx is None:
             continue
 
-        distance_m = distances[idx] - distances[active_low_idx]
-        duration_sec = times[idx] - times[active_low_idx]
-        net_vertical_m = smoothed_altitudes[idx] - smoothed_altitudes[active_low_idx]
+        end_idx = next_high_idx
+        distance_m = distances[end_idx] - distances[start_idx]
+        duration_sec = times[end_idx] - times[start_idx]
+        net_vertical_m = smoothed_altitudes[end_idx] - smoothed_altitudes[start_idx]
+        
         if distance_m < min_distance_m or duration_sec <= 0 or net_vertical_m < min_vertical_m:
             continue
 
         avg_grade_pct = (net_vertical_m / distance_m) * 100.0 if distance_m > 0 else 0.0
-        if avg_grade_pct < min_grade_pct:
-            continue
 
         avg_speed_kmh = (distance_m / duration_sec) * 3.6 if duration_sec > 0 else None
         avg_pace_sec_per_km = (duration_sec / distance_m) * 1000.0 if distance_m > 0 else None
         candidates.append({
-            "start_idx": active_low_idx,
-            "end_idx": idx,
+            "start_idx": start_idx,
+            "end_idx": end_idx,
             "distance_m": distance_m,
             "duration_sec": duration_sec,
-            "gain_m": max(altitudes[idx] - altitudes[active_low_idx], 0.0),
-            "drop_m": max(altitudes[active_low_idx] - altitudes[idx], 0.0),
-            "start_distance_m": distances[active_low_idx],
-            "end_distance_m": distances[idx],
-            "start_time_sec": times[active_low_idx],
-            "end_time_sec": times[idx],
-            "start_altitude_m": altitudes[active_low_idx],
-            "end_altitude_m": altitudes[idx],
-            "start_altitude_smoothed_m": smoothed_altitudes[active_low_idx],
-            "end_altitude_smoothed_m": smoothed_altitudes[idx],
+            "gain_m": max(altitudes[end_idx] - altitudes[start_idx], 0.0),
+            "drop_m": max(altitudes[start_idx] - altitudes[end_idx], 0.0),
+            "start_distance_m": distances[start_idx],
+            "end_distance_m": distances[end_idx],
+            "start_time_sec": times[start_idx],
+            "end_time_sec": times[end_idx],
+            "start_altitude_m": altitudes[start_idx],
+            "end_altitude_m": altitudes[end_idx],
+            "start_altitude_smoothed_m": smoothed_altitudes[start_idx],
+            "end_altitude_smoothed_m": smoothed_altitudes[end_idx],
             "vertical_m": net_vertical_m,
             "net_vertical_m": net_vertical_m,
             "avg_grade_pct": avg_grade_pct,

@@ -236,9 +236,11 @@
                       <div><label style="display:block; font-size:0.8rem; color:#4b5563;">Email LibreLinkUp</label><input type="email" name="email" value="{{ libre_email or '' }}" required></div>
                       <div>
                         <label style="display:block; font-size:0.8rem; color:#4b5563;">Mot de passe</label>
-                        <div style="position:relative;">
-                          <input type="password" name="password" id="libre-password-edit" required style="padding-right:32px;">
-                          <button type="button" onclick="togglePassword('libre-password-edit', this)" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);border:none;background:transparent;cursor:pointer;font-size:0.9rem;">👁️</button>
+                        <div style="display:flex; gap:8px;">
+                          <input type="password" name="password" id="libre-password-edit" required autocomplete="current-password" style="flex:1;">
+                          <button type="button" onclick="togglePassword('libre-password-edit', this)" style="padding:8px 10px; font-size:0.8rem; border-radius:4px; border:1px solid #d1d5db; background:#fff; color:#374151;">
+                            Afficher
+                          </button>
                         </div>
                       </div>
                       <div>
@@ -271,9 +273,11 @@
                     <div><label style="display:block; font-size:0.8rem; color:#4b5563;">Email LibreLinkUp</label><input type="email" name="email" value="{{ libre_email or '' }}" required></div>
                     <div>
                       <label style="display:block; font-size:0.8rem; color:#4b5563;">Mot de passe</label>
-                      <div style="position:relative;">
-                        <input type="password" name="password" id="libre-password-new" required style="padding-right:32px;">
-                        <button type="button" onclick="togglePassword('libre-password-new', this)" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);border:none;background:transparent;cursor:pointer;font-size:0.9rem;">👁️</button>
+                      <div style="display:flex; gap:8px;">
+                        <input type="password" name="password" id="libre-password-new" required autocomplete="current-password" style="flex:1;">
+                        <button type="button" onclick="togglePassword('libre-password-new', this)" style="padding:8px 10px; font-size:0.8rem; border-radius:4px; border:1px solid #d1d5db; background:#fff; color:#374151;">
+                          Afficher
+                        </button>
                       </div>
                     </div>
                     <div>
@@ -436,7 +440,7 @@
     if (!input) return;
     const isPassword = input.type === 'password';
     input.type = isPassword ? 'text' : 'password';
-    btn.textContent = isPassword ? '🙈' : '👁️';
+    btn.textContent = isPassword ? 'Masquer' : 'Afficher';
   }
 
   function startProfileImport(userId) {

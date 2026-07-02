@@ -91,7 +91,7 @@ import time
 from datetime import datetime, timedelta
 from collections import Counter, defaultdict, deque
 import re
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlencode, urlsplit
 from bisect import bisect_left
 from sqlalchemy import desc, func, and_
 from sqlalchemy.orm import Session
@@ -1167,6 +1167,69 @@ def _guard_admin(request: Request):
     if session_user_id != 1:
         return RedirectResponse(url=f"/ui/user/{session_user_id}", status_code=302)
     return None
+
+
+def _normalize_connection_filter(value: str | None) -> str:
+    value = (value or "all").strip().lower()
+    if value in {"connected", "disconnected"}:
+        return value
+    return "all"
+
+
+def _matches_connection_filter(is_connected: bool, filter_value: str) -> bool:
+    if filter_value == "connected":
+        return is_connected
+    if filter_value == "disconnected":
+        return not is_connected
+    return True
+
+
+def _safe_positive_int(value: str | None, default: int) -> int:
+    try:
+        parsed = int(value or "")
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed > 0 else default
+
+
+def _build_url_with_query(request: Request, **updates) -> str:
+    params = dict(request.query_params)
+    for key, value in updates.items():
+        if value is None:
+            params.pop(key, None)
+        else:
+            params[key] = str(value)
+    query = urlencode(params)
+    return f"{request.url.path}?{query}" if query else request.url.path
+
+
+def _collect_admin_user_rows(
+    db: Session,
+    *,
+    strava_filter: str = "all",
+    libre_filter: str = "all",
+    dexcom_filter: str = "all",
+) -> list[dict]:
+    users = db.query(User).order_by(User.id.asc()).all()
+    rows: list[dict] = []
+    for u in users:
+        row = {
+            "id": u.id,
+            "email": u.email,
+            "has_strava": bool(u.strava_tokens),
+            "libre_email": u.libre_credentials.email if u.libre_credentials else None,
+            "has_dexcom": has_dexcom_share_credentials(u.dexcom_tokens),
+            "cgm_source": (u.cgm_source or "").upper() if u.cgm_source else None,
+        }
+        has_libre = bool(row["libre_email"])
+        if not _matches_connection_filter(row["has_strava"], strava_filter):
+            continue
+        if not _matches_connection_filter(has_libre, libre_filter):
+            continue
+        if not _matches_connection_filter(row["has_dexcom"], dexcom_filter):
+            continue
+        rows.append(row)
+    return rows
 
 
 # -----------------------------------------------------------------------------
@@ -2603,27 +2666,58 @@ def ui_home(request: Request):
     if guard:
         return guard
 
+    user_page_size = _safe_positive_int(request.query_params.get("user_page_size"), 10)
+    if user_page_size not in {10, 50, 100}:
+        user_page_size = 10
+    user_page = _safe_positive_int(request.query_params.get("user_page"), 1)
+    strava_filter = _normalize_connection_filter(request.query_params.get("strava_filter"))
+    libre_filter = _normalize_connection_filter(request.query_params.get("libre_filter"))
+    dexcom_filter = _normalize_connection_filter(request.query_params.get("dexcom_filter"))
+    activity_page = _safe_positive_int(request.query_params.get("activity_page"), 1)
+    activity_page_size = 5
+
     recent_activities = []
+    total_filtered_users = 0
+    total_activity_count = 0
+    user_pagination = {}
+    activity_pagination = {}
+    admin_status = request.query_params.get("admin_status")
+    admin_message = request.query_params.get("admin_msg")
 
     db = SessionLocal()
     try:
-        users = db.query(User).all()
-        ui_users = []
-        for u in users:
-            ui_users.append({
-                "id": u.id,
-                "email": u.email,
-                "has_strava": bool(u.strava_tokens),
-                "libre_email": u.libre_credentials.email if u.libre_credentials else None,
-                "has_dexcom": has_dexcom_share_credentials(u.dexcom_tokens),
-                "cgm_source": (u.cgm_source or "").upper() if u.cgm_source else None,
-            })
+        filtered_users = _collect_admin_user_rows(
+            db,
+            strava_filter=strava_filter,
+            libre_filter=libre_filter,
+            dexcom_filter=dexcom_filter,
+        )
 
+        total_filtered_users = len(filtered_users)
+        user_offset = (user_page - 1) * user_page_size
+        ui_users = filtered_users[user_offset:user_offset + user_page_size]
+        user_has_prev = user_page > 1
+        user_has_next = user_offset + user_page_size < total_filtered_users
+        user_pagination = {
+            "page": user_page,
+            "page_size": user_page_size,
+            "total": total_filtered_users,
+            "start_index": user_offset + 1 if total_filtered_users else 0,
+            "end_index": min(user_offset + user_page_size, total_filtered_users),
+            "has_prev": user_has_prev,
+            "has_next": user_has_next,
+            "prev_url": _build_url_with_query(request, user_page=user_page - 1) if user_has_prev else None,
+            "next_url": _build_url_with_query(request, user_page=user_page + 1) if user_has_next else None,
+        }
+
+        total_activity_count = db.query(Activity.id).count()
+        activity_offset = (activity_page - 1) * activity_page_size
         recent_activities_rows = (
             db.query(Activity, User)
             .join(User, Activity.user_id == User.id)
             .order_by(Activity.start_date.desc())
-            .limit(30)
+            .offset(activity_offset)
+            .limit(activity_page_size)
             .all()
         )
 
@@ -2641,6 +2735,20 @@ def ui_home(request: Request):
                 "dplus": int(round(act.total_elevation_gain)) if act.total_elevation_gain is not None else None,
                 "summary_block": normalize_summary_block_layout(act.glucose_summary_block or ""),
             })
+
+        activity_has_prev = activity_page > 1
+        activity_has_next = activity_offset + activity_page_size < total_activity_count
+        activity_pagination = {
+            "page": activity_page,
+            "page_size": activity_page_size,
+            "total": total_activity_count,
+            "start_index": activity_offset + 1 if total_activity_count else 0,
+            "end_index": min(activity_offset + activity_page_size, total_activity_count),
+            "has_prev": activity_has_prev,
+            "has_next": activity_has_next,
+            "prev_url": _build_url_with_query(request, activity_page=activity_page - 1) if activity_has_prev else None,
+            "next_url": _build_url_with_query(request, activity_page=activity_page + 1) if activity_has_next else None,
+        }
     finally:
         db.close()
 
@@ -2651,7 +2759,143 @@ def ui_home(request: Request):
             "users": ui_users,
             "recent_activities": recent_activities,
             "current_user_id": _get_session_user_id(request),
+            "user_pagination": user_pagination,
+            "activity_pagination": activity_pagination,
+            "filters": {
+                "strava": strava_filter,
+                "libre": libre_filter,
+                "dexcom": dexcom_filter,
+            },
+            "total_filtered_users": total_filtered_users,
+            "admin_status": admin_status,
+            "admin_message": admin_message,
         },
+    )
+
+
+@app.post("/admin/users/send-email")
+def admin_send_email(
+    request: Request,
+    subject: str = Form(""),
+    body: str = Form(""),
+    strava_filter: str = Form("all"),
+    libre_filter: str = Form("all"),
+    dexcom_filter: str = Form("all"),
+):
+    guard = _guard_admin(request)
+    if guard:
+        return guard
+
+    subject = (subject or "").strip()
+    body = (body or "").strip()
+    strava_filter = _normalize_connection_filter(strava_filter)
+    libre_filter = _normalize_connection_filter(libre_filter)
+    dexcom_filter = _normalize_connection_filter(dexcom_filter)
+
+    if not subject or not body:
+        return RedirectResponse(
+            url=(
+                f"/ui?strava_filter={strava_filter}&libre_filter={libre_filter}&dexcom_filter={dexcom_filter}"
+                "&admin_status=error&admin_msg="
+                + quote_plus("Sujet et contenu de l'email requis.")
+            ),
+            status_code=303,
+        )
+
+    db = SessionLocal()
+    try:
+        rows = _collect_admin_user_rows(
+            db,
+            strava_filter=strava_filter,
+            libre_filter=libre_filter,
+            dexcom_filter=dexcom_filter,
+        )
+        recipients = [row["email"] for row in rows if row.get("email")]
+        sent_count = _send_plain_email(recipients=recipients, subject=subject, body=body)
+    except Exception as exc:  # noqa: BLE001
+        return RedirectResponse(
+            url=(
+                f"/ui?strava_filter={strava_filter}&libre_filter={libre_filter}&dexcom_filter={dexcom_filter}"
+                "&admin_status=error&admin_msg="
+                + quote_plus(f"Envoi impossible : {exc}")
+            ),
+            status_code=303,
+        )
+    finally:
+        db.close()
+
+    return RedirectResponse(
+        url=(
+            f"/ui?strava_filter={strava_filter}&libre_filter={libre_filter}&dexcom_filter={dexcom_filter}"
+            "&admin_status=ok&admin_msg="
+            + quote_plus(f"Email envoyé à {sent_count} utilisateur(s).")
+        ),
+        status_code=303,
+    )
+
+
+@app.post("/admin/users/bulk-delete")
+async def admin_bulk_delete_users(request: Request):
+    guard = _guard_admin(request)
+    if guard:
+        return guard
+
+    form = await request.form()
+    raw_ids = form.getlist("selected_user_ids")
+    selected_user_ids = sorted({int(value) for value in raw_ids if str(value).isdigit()})
+    user_page = _safe_positive_int(form.get("user_page"), 1)
+    user_page_size = _safe_positive_int(form.get("user_page_size"), 10)
+    if user_page_size not in {10, 50, 100}:
+        user_page_size = 10
+    strava_filter = _normalize_connection_filter(form.get("strava_filter"))
+    libre_filter = _normalize_connection_filter(form.get("libre_filter"))
+    dexcom_filter = _normalize_connection_filter(form.get("dexcom_filter"))
+    activity_page = _safe_positive_int(form.get("activity_page"), 1)
+
+    if not selected_user_ids:
+        return RedirectResponse(
+            url=(
+                f"/ui?user_page={user_page}&user_page_size={user_page_size}"
+                f"&strava_filter={strava_filter}&libre_filter={libre_filter}&dexcom_filter={dexcom_filter}"
+                f"&activity_page={activity_page}&admin_status=warn&admin_msg="
+                + quote_plus("Aucun utilisateur sélectionné.")
+            ),
+            status_code=303,
+        )
+
+    current_admin_id = _get_session_user_id(request)
+    db = SessionLocal()
+    try:
+        users = db.query(User).filter(User.id.in_(selected_user_ids)).order_by(User.id.asc()).all()
+        deleted_count = 0
+        skipped_admin = False
+        for user in users:
+            if current_admin_id is not None and user.id == current_admin_id:
+                skipped_admin = True
+                continue
+            _delete_user_account_data(db, user)
+            deleted_count += 1
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+    message = f"{deleted_count} utilisateur(s) supprimé(s)."
+    status = "ok"
+    if skipped_admin:
+        message += " Le compte admin courant a été ignoré."
+        status = "warn" if deleted_count == 0 else "ok"
+
+    return RedirectResponse(
+        url=(
+            f"/ui?user_page={user_page}&user_page_size={user_page_size}"
+            f"&strava_filter={strava_filter}&libre_filter={libre_filter}&dexcom_filter={dexcom_filter}"
+            f"&activity_page={activity_page}&admin_status={status}&admin_msg="
+            + quote_plus(message)
+        ),
+        status_code=303,
     )
 
 
@@ -4247,6 +4491,32 @@ def _hash_reset_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+def _get_login_url() -> str:
+    base_url = (settings.APP_BASE_URL or "").strip().rstrip("/")
+    if not base_url:
+        for candidate in (settings.STRAVA_REDIRECT_URI, settings.DEXCOM_REDIRECT_URI):
+            raw = (candidate or "").strip()
+            if not raw:
+                continue
+            parts = urlsplit(raw)
+            if parts.scheme and parts.netloc:
+                base_url = f"{parts.scheme}://{parts.netloc}"
+                break
+    if not base_url:
+        base_url = "http://127.0.0.1:8000"
+    return f"{base_url}/ui/login"
+
+
+def _append_login_link_footer(body: str) -> str:
+    login_url = _get_login_url()
+    clean_body = (body or "").rstrip()
+    return (
+        f"{clean_body}\n\n"
+        "Se connecter à Strava Glucose :\n"
+        f"{login_url}\n"
+    )
+
+
 def _send_reset_email(*, to_email: str, reset_url: str) -> None:
     if not settings.SMTP_HOST or not settings.SMTP_PORT:
         raise RuntimeError("SMTP settings missing (host/port).")
@@ -4260,17 +4530,64 @@ def _send_reset_email(*, to_email: str, reset_url: str) -> None:
     msg["Subject"] = "Réinitialisation du mot de passe"
     msg["From"] = f"{from_name} <{from_email}>"
     msg["To"] = to_email
-    msg.set_content(
+    msg.set_content(_append_login_link_footer(
         "Bonjour,\n\n"
         "Vous avez demandé une réinitialisation de mot de passe.\n"
         f"Utilisez ce lien (valide 1 heure) :\n{reset_url}\n\n"
         "Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.\n"
-    )
+    ))
 
     with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
         server.starttls()
         server.login(settings.SMTP_USER, settings.SMTP_PASS)
         server.send_message(msg)
+
+
+def _send_plain_email(*, recipients: list[str], subject: str, body: str) -> int:
+    if not settings.SMTP_HOST or not settings.SMTP_PORT:
+        raise RuntimeError("SMTP settings missing (host/port).")
+    if not settings.SMTP_USER or not settings.SMTP_PASS:
+        raise RuntimeError("SMTP settings missing (user/pass).")
+
+    clean_recipients = [email.strip() for email in recipients if email and email.strip()]
+    if not clean_recipients:
+        return 0
+
+    from_name = settings.SMTP_FROM_NAME or "Strava Glucose"
+    from_email = settings.SMTP_FROM_EMAIL or settings.SMTP_USER
+
+    sent_count = 0
+    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+        server.starttls()
+        server.login(settings.SMTP_USER, settings.SMTP_PASS)
+        for to_email in clean_recipients:
+            msg = EmailMessage()
+            msg["Subject"] = subject
+            msg["From"] = f"{from_name} <{from_email}>"
+            msg["To"] = to_email
+            msg.set_content(_append_login_link_footer(body))
+            server.send_message(msg)
+            sent_count += 1
+    return sent_count
+
+
+def _delete_user_account_data(db: Session, user: User) -> None:
+    activities = db.query(Activity).filter(Activity.user_id == user.id).all()
+    for activity in activities:
+        db.delete(activity)
+
+    db.query(StravaToken).filter(StravaToken.user_id == user.id).delete()
+    db.query(LibreCredentials).filter(LibreCredentials.user_id == user.id).delete()
+    db.query(DexcomToken).filter(DexcomToken.user_id == user.id).delete()
+    db.query(GlucosePoint).filter(GlucosePoint.user_id == user.id).delete()
+    db.query(UserSettings).filter(UserSettings.user_id == user.id).delete()
+    db.query(models.UserVamPR).filter(models.UserVamPR.user_id == user.id).delete()
+    db.query(ActivityVamPeak).filter(ActivityVamPeak.user_id == user.id).delete()
+    db.query(models.RunnerProfileActivityContribution).filter(
+        models.RunnerProfileActivityContribution.user_id == user.id
+    ).delete()
+    db.query(models.RunnerProfileMonthly).filter(models.RunnerProfileMonthly.user_id == user.id).delete()
+    db.delete(user)
 
 def _render_login_page(request: Request):
     hero_points = [
@@ -4924,6 +5241,8 @@ def ui_user_activities(user_id: int, request: Request):
         return guard
 
     db = SessionLocal()
+    page = _safe_positive_int(request.query_params.get("page"), 1)
+    page_size = 5
 
     WINDOW_DEFS = [
         {"id": "15m", "label": "15 min", "seconds": 15 * 60},
@@ -5012,15 +5331,20 @@ def ui_user_activities(user_id: int, request: Request):
         if not user:
             return HTMLResponse(status_code=404, content="Utilisateur introuvable")
 
+        total_activities = db.query(Activity.id).filter(Activity.user_id == user_id).count()
+        offset = (page - 1) * page_size
         activities = (
             db.query(Activity)
             .filter(Activity.user_id == user_id)
             .order_by(desc(Activity.start_date))
-            .limit(30)
+            .offset(offset)
+            .limit(page_size)
             .all()
         )
 
         activity_rows = [_build_activity_row(act) for act in activities]
+        has_prev = page > 1
+        has_next = offset + page_size < total_activities
 
     finally:
         db.close()
@@ -5032,6 +5356,17 @@ def ui_user_activities(user_id: int, request: Request):
             "user": user,
             "activities": activity_rows,
             "window_defs": WINDOW_DEFS,
+            "pagination": {
+                "page": page,
+                "page_size": page_size,
+                "total": total_activities,
+                "start_index": offset + 1 if total_activities else 0,
+                "end_index": min(offset + page_size, total_activities),
+                "has_prev": has_prev,
+                "has_next": has_next,
+                "prev_url": f"/ui/user/{user_id}/activities?page={page - 1}" if has_prev else None,
+                "next_url": f"/ui/user/{user_id}/activities?page={page + 1}" if has_next else None,
+            },
         },
     )
 
@@ -6400,23 +6735,7 @@ def ui_user_delete_account(request: Request, user_id: int):
                 status_code=404,
             )
 
-        activities = db.query(Activity).filter(Activity.user_id == user_id).all()
-        for activity in activities:
-            db.delete(activity)
-
-        db.query(StravaToken).filter(StravaToken.user_id == user_id).delete()
-        db.query(LibreCredentials).filter(LibreCredentials.user_id == user_id).delete()
-        db.query(DexcomToken).filter(DexcomToken.user_id == user_id).delete()
-        db.query(GlucosePoint).filter(GlucosePoint.user_id == user_id).delete()
-        db.query(UserSettings).filter(UserSettings.user_id == user_id).delete()
-        db.query(models.UserVamPR).filter(models.UserVamPR.user_id == user_id).delete()
-        db.query(ActivityVamPeak).filter(ActivityVamPeak.user_id == user_id).delete()
-        db.query(models.RunnerProfileActivityContribution).filter(
-            models.RunnerProfileActivityContribution.user_id == user_id
-        ).delete()
-        db.query(models.RunnerProfileMonthly).filter(models.RunnerProfileMonthly.user_id == user_id).delete()
-
-        db.delete(user)
+        _delete_user_account_data(db, user)
         db.commit()
     except Exception:
         db.rollback()

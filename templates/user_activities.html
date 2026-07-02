@@ -40,7 +40,7 @@
   <div>
     <h1 style="margin:0; font-size:1.2rem;">📚 Activités récentes</h1>
     <p class="muted" style="margin:4px 0 0 0;">
-      Les 30 dernières activités de {{ user.first_name or user.email }} avec distance, D+/D- et fenêtres D+.
+      Les 5 dernières activités de {{ user.first_name or user.email }} avec distance, D+/D- et fenêtres D+.
     </p>
   </div>
   <a href="/ui/user/{{ user.id }}"
@@ -50,6 +50,25 @@
 </div>
 
 <div class="card" style="padding:16px;">
+  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+    <div class="muted" style="font-size:0.9rem;">
+      {% if pagination.total %}
+        {{ pagination.start_index }}–{{ pagination.end_index }} / {{ pagination.total }}
+      {% else %}
+        0 activité
+      {% endif %}
+    </div>
+    <div style="display:flex; gap:8px; align-items:center;">
+      {% if pagination.has_prev %}
+        <a href="{{ pagination.prev_url }}" style="text-decoration:none;">← Précédentes</a>
+      {% endif %}
+      <span class="muted" style="font-size:0.9rem;">Page {{ pagination.page }}</span>
+      {% if pagination.has_next %}
+        <a href="{{ pagination.next_url }}" style="text-decoration:none;">Suivantes →</a>
+      {% endif %}
+    </div>
+  </div>
+
   {% if activities %}
     <div class="table-wrapper">
       <table class="activities-table">

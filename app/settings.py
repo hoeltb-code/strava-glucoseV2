@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     SMTP_PASS: str | None = Field(default=None)
     SMTP_FROM_NAME: str | None = Field(default=None)
     SMTP_FROM_EMAIL: str | None = Field(default=None)
+    APP_BASE_URL: str | None = Field(default=None)
 
     # Lecture automatique du fichier .env
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

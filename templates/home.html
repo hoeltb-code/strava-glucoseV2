@@ -3,6 +3,11 @@
 {% block title %}Dashboard · Strava x Glucose{% endblock %}
 
 {% block content %}
+  {% set filters = filters|default({'strava': 'all', 'libre': 'all', 'dexcom': 'all'}) %}
+  {% set user_pagination = user_pagination|default({'page': 1, 'page_size': 10, 'total': 0, 'start_index': 0, 'end_index': 0, 'has_prev': False, 'has_next': False, 'prev_url': None, 'next_url': None}) %}
+  {% set activity_pagination = activity_pagination|default({'page': 1, 'page_size': 5, 'total': 0, 'start_index': 0, 'end_index': 0, 'has_prev': False, 'has_next': False, 'prev_url': None, 'next_url': None}) %}
+  {% set admin_status = admin_status|default(None) %}
+  {% set admin_message = admin_message|default(None) %}
   <div class="card">
     <h2>👥 Utilisateurs</h2>
     <p style="color: var(--text-muted); margin-top: -4px;">
@@ -18,68 +23,193 @@
       </div>
     {% endif %}
 
+    {% if admin_status and admin_message %}
+      <div style="margin-top:12px; padding:10px 12px; border-radius:8px;
+                  {% if admin_status == 'ok' %}
+                    background:#dcfce7; color:#166534; border:1px solid #bbf7d0;
+                  {% elif admin_status == 'warn' %}
+                    background:#fef3c7; color:#92400e; border:1px solid #fde68a;
+                  {% else %}
+                    background:#fee2e2; color:#991b1b; border:1px solid #fecaca;
+                  {% endif %}">
+        {{ admin_message }}
+      </div>
+    {% endif %}
+
+    <form method="get" action="/ui" style="margin-top:14px; display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; align-items:end;">
+      <input type="hidden" name="activity_page" value="{{ activity_pagination.page or 1 }}">
+      <div>
+        <label style="display:block; font-size:0.82rem; color:var(--text-muted); margin-bottom:4px;">Strava</label>
+        <select name="strava_filter">
+          <option value="all" {% if filters.strava == 'all' %}selected{% endif %}>Tous</option>
+          <option value="connected" {% if filters.strava == 'connected' %}selected{% endif %}>Connectés</option>
+          <option value="disconnected" {% if filters.strava == 'disconnected' %}selected{% endif %}>Non connectés</option>
+        </select>
+      </div>
+      <div>
+        <label style="display:block; font-size:0.82rem; color:var(--text-muted); margin-bottom:4px;">LibreLinkUp</label>
+        <select name="libre_filter">
+          <option value="all" {% if filters.libre == 'all' %}selected{% endif %}>Tous</option>
+          <option value="connected" {% if filters.libre == 'connected' %}selected{% endif %}>Connectés</option>
+          <option value="disconnected" {% if filters.libre == 'disconnected' %}selected{% endif %}>Non connectés</option>
+        </select>
+      </div>
+      <div>
+        <label style="display:block; font-size:0.82rem; color:var(--text-muted); margin-bottom:4px;">Dexcom</label>
+        <select name="dexcom_filter">
+          <option value="all" {% if filters.dexcom == 'all' %}selected{% endif %}>Tous</option>
+          <option value="connected" {% if filters.dexcom == 'connected' %}selected{% endif %}>Connectés</option>
+          <option value="disconnected" {% if filters.dexcom == 'disconnected' %}selected{% endif %}>Non connectés</option>
+        </select>
+      </div>
+      <div>
+        <label style="display:block; font-size:0.82rem; color:var(--text-muted); margin-bottom:4px;">Affichage</label>
+        <select name="user_page_size">
+          <option value="10" {% if user_pagination.page_size == 10 %}selected{% endif %}>10</option>
+          <option value="50" {% if user_pagination.page_size == 50 %}selected{% endif %}>50</option>
+          <option value="100" {% if user_pagination.page_size == 100 %}selected{% endif %}>100</option>
+        </select>
+      </div>
+      <input type="hidden" name="user_page" value="1">
+      <div style="display:flex; gap:8px;">
+        <button type="submit">Filtrer</button>
+        <a href="/ui" style="display:inline-flex; align-items:center; justify-content:center; padding:8px 12px; border-radius:8px; border:1px solid var(--border); text-decoration:none; color:var(--text-main); background:#fff;">
+          Réinitialiser
+        </a>
+      </div>
+    </form>
+
+    <div class="card" style="margin-top:14px; padding:14px; background:#f8fafc;">
+      <h3 style="margin:0 0 8px 0; font-size:1rem;">✉️ Email ciblé</h3>
+      <p style="margin:0 0 10px 0; color:var(--text-muted); font-size:0.88rem;">
+        L’email sera envoyé à tous les utilisateurs correspondant aux filtres actuels.
+      </p>
+      <form method="post" action="/admin/users/send-email" style="display:grid; gap:10px;">
+        <input type="hidden" name="strava_filter" value="{{ filters.strava }}">
+        <input type="hidden" name="libre_filter" value="{{ filters.libre }}">
+        <input type="hidden" name="dexcom_filter" value="{{ filters.dexcom }}">
+        <div>
+          <label style="display:block; font-size:0.82rem; color:var(--text-muted); margin-bottom:4px;">Sujet</label>
+          <input type="text" name="subject" required>
+        </div>
+        <div>
+          <label style="display:block; font-size:0.82rem; color:var(--text-muted); margin-bottom:4px;">Message</label>
+          <textarea name="body" rows="5" required style="width:100%; border:1px solid var(--border); border-radius:8px; padding:10px;"></textarea>
+        </div>
+        <div>
+          <button type="submit">Envoyer l’email aux utilisateurs filtrés</button>
+        </div>
+      </form>
+    </div>
+
     {% if users %}
-      <table style="width: 100%; border-collapse: collapse; margin-top: 12px;">
-        <thead>
-          <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
-            <th style="text-align:left; padding: 6px;">ID</th>
-            <th style="text-align:left; padding: 6px;">Utilisateur</th>
-            <th style="text-align:left; padding: 6px;">Strava</th>
-            <th style="text-align:left; padding: 6px;">LibreLinkUp</th>
-            <th style="text-align:left; padding: 6px;">Dexcom</th>
-            <th style="text-align:right; padding: 6px;">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for u in users %}
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
-              <td style="padding: 6px;">#{{ u.id }}</td>
-              <td style="padding: 6px;">{{ u.email }}</td>
-              <td style="padding: 6px;">
-                {% if u.has_strava %}
-                  <span style="color: #4ade80;">Connecté</span>
-                {% else %}
-                  <span style="color: #f87171;">Non connecté</span>
-                {% endif %}
-              </td>
-              <td style="padding: 6px;">
-                {% if u.libre_email %}
-                  <span style="color: #4ade80;">{{ u.libre_email }}</span>
-                {% elif u.has_dexcom %}
-                  <span style="color: #facc15;">Dexcom actif</span>
-                {% else %}
-                  <span style="color: #f87171;">Non configuré</span>
-                {% endif %}
-              </td>
-              <td style="padding: 6px;">
-                {% if u.has_dexcom %}
-                  <span style="color: #4ade80;">Connecté</span>
-                {% else %}
-                  <span style="color: #f87171;">Non connecté</span>
-                {% endif %}
-              </td>
-              <td style="text-align:right; padding: 6px;">
-                <form method="post" action="/ui/enrich-last" style="display:inline;">
-                  <input type="hidden" name="user_id" value="{{ u.id }}">
-                  <button type="submit"
-                          style="background: var(--accent); color: white; border: none;
-                                 border-radius: 6px; padding: 5px 10px; cursor: pointer;">
-                    Enrichir
-                  </button>
-                </form>
-                <a href="/ui/user/{{ u.id }}"
-                   style="margin-left: 6px; color: var(--accent); font-size: 0.9rem;">
-                  Voir
-                </a>
-              </td>
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-top:12px;">
+        <div style="color:var(--text-muted); font-size:0.9rem;">
+          Affichage par ID croissant :
+          {% if user_pagination.total %}
+            {{ user_pagination.start_index }}–{{ user_pagination.end_index }} / {{ user_pagination.total }}
+          {% else %}
+            0 résultat
+          {% endif %}
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          {% if user_pagination.has_prev %}
+            <a href="{{ user_pagination.prev_url }}" style="text-decoration:none;">← Précédents</a>
+          {% endif %}
+          <span style="font-size:0.9rem; color:var(--text-muted);">Page {{ user_pagination.page }}</span>
+          {% if user_pagination.has_next %}
+            <a href="{{ user_pagination.next_url }}" style="text-decoration:none;">Suivants →</a>
+          {% endif %}
+        </div>
+      </div>
+
+      <form id="bulk-delete-form" method="post" action="/admin/users/bulk-delete" onsubmit="return confirm('Supprimer définitivement les utilisateurs sélectionnés et toutes leurs données ?');">
+        <input type="hidden" name="user_page" value="{{ user_pagination.page }}">
+        <input type="hidden" name="user_page_size" value="{{ user_pagination.page_size }}">
+        <input type="hidden" name="strava_filter" value="{{ filters.strava }}">
+        <input type="hidden" name="libre_filter" value="{{ filters.libre }}">
+        <input type="hidden" name="dexcom_filter" value="{{ filters.dexcom }}">
+        <input type="hidden" name="activity_page" value="{{ activity_pagination.page }}">
+      </form>
+      <div style="margin-top:10px;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+          <button type="button" onclick="toggleAdminUserSelection(true)">Tout cocher (affichés)</button>
+          <button type="button" onclick="toggleAdminUserSelection(false)">Tout décocher</button>
+          <button type="submit" form="bulk-delete-form" style="background:#991b1b; color:#fff;">Supprimer la sélection</button>
+          <span style="font-size:0.85rem; color:var(--text-muted);">
+            Astuce : filtre `Strava = Non connectés`, puis supprime la sélection affichée.
+          </span>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; margin-top: 12px;">
+          <thead>
+            <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
+              <th style="text-align:center; padding: 6px; width:36px;">
+                <input type="checkbox" onclick="toggleAdminUserSelection(this.checked)">
+              </th>
+              <th style="text-align:left; padding: 6px;">ID</th>
+              <th style="text-align:left; padding: 6px;">Utilisateur</th>
+              <th style="text-align:left; padding: 6px;">Strava</th>
+              <th style="text-align:left; padding: 6px;">LibreLinkUp</th>
+              <th style="text-align:left; padding: 6px;">Dexcom</th>
+              <th style="text-align:left; padding: 6px;">Source CGM</th>
+              <th style="text-align:right; padding: 6px;">Actions</th>
             </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {% for u in users %}
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+                <td style="padding: 6px; text-align:center;">
+                  <input class="admin-user-checkbox" type="checkbox" name="selected_user_ids" value="{{ u.id }}" form="bulk-delete-form">
+                </td>
+                <td style="padding: 6px;">#{{ u.id }}</td>
+                <td style="padding: 6px;">{{ u.email }}</td>
+                <td style="padding: 6px;">
+                  {% if u.has_strava %}
+                    <span style="color: #4ade80;">Connecté</span>
+                  {% else %}
+                    <span style="color: #f87171;">Non connecté</span>
+                  {% endif %}
+                </td>
+                <td style="padding: 6px;">
+                  {% if u.libre_email %}
+                    <span style="color: #4ade80;">{{ u.libre_email }}</span>
+                  {% elif u.has_dexcom %}
+                    <span style="color: #facc15;">Dexcom actif</span>
+                  {% else %}
+                    <span style="color: #f87171;">Non configuré</span>
+                  {% endif %}
+                </td>
+                <td style="padding: 6px;">
+                  {% if u.has_dexcom %}
+                    <span style="color: #4ade80;">Connecté</span>
+                  {% else %}
+                    <span style="color: #f87171;">Non connecté</span>
+                  {% endif %}
+                </td>
+                <td style="padding: 6px;">{{ u.cgm_source or "AUTO" }}</td>
+                <td style="text-align:right; padding: 6px;">
+                  <form method="post" action="/ui/enrich-last" style="display:inline;">
+                    <input type="hidden" name="user_id" value="{{ u.id }}">
+                    <button type="submit"
+                            style="background: var(--accent); color: white; border: none;
+                                   border-radius: 6px; padding: 5px 10px; cursor: pointer;">
+                      Enrichir
+                    </button>
+                  </form>
+                  <a href="/ui/user/{{ u.id }}"
+                     style="margin-left: 6px; color: var(--accent); font-size: 0.9rem;">
+                    Voir
+                  </a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     {% else %}
       <p style="margin-top: 12px; color: var(--text-muted);">
-        Aucun utilisateur enregistré pour le moment.<br>
-        Crée un utilisateur via <a href="/ui/signup">la page d'inscription</a>.
+        Aucun utilisateur ne correspond aux filtres actuels.
       </p>
     {% endif %}
   </div>
@@ -87,10 +217,29 @@
   <div class="card" style="margin-top:20px;">
     <h3>🕒 Dernières activités</h3>
     <p style="color: var(--text-muted); margin-top:-4px;">
-      Les 30 dernières activités (tous utilisateurs) avec leur bloc Strava.
+      Les 5 dernières activités (tous utilisateurs) avec navigation par pages.
     </p>
 
     {% if recent_activities %}
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-top:12px;">
+        <div style="color:var(--text-muted); font-size:0.9rem;">
+          {% if activity_pagination.total %}
+            {{ activity_pagination.start_index }}–{{ activity_pagination.end_index }} / {{ activity_pagination.total }}
+          {% else %}
+            0 activité
+          {% endif %}
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          {% if activity_pagination.has_prev %}
+            <a href="{{ activity_pagination.prev_url }}" style="text-decoration:none;">← Précédentes</a>
+          {% endif %}
+          <span style="font-size:0.9rem; color:var(--text-muted);">Page {{ activity_pagination.page }}</span>
+          {% if activity_pagination.has_next %}
+            <a href="{{ activity_pagination.next_url }}" style="text-decoration:none;">Suivantes →</a>
+          {% endif %}
+        </div>
+      </div>
+
       <div style="overflow-x:auto; margin-top:12px;">
         <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
           <thead>
@@ -155,4 +304,12 @@
       <li>4️⃣ Clique sur <em>“Enrichir”</em> pour récupérer la glycémie et la lier à la dernière activité Strava.</li>
     </ul>
   </div>
+
+  <script>
+    function toggleAdminUserSelection(checked) {
+      document.querySelectorAll('.admin-user-checkbox').forEach((el) => {
+        el.checked = checked;
+      });
+    }
+  </script>
 {% endblock %}

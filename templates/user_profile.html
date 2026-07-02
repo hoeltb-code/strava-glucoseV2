@@ -311,20 +311,74 @@
         <div id="dexcom" style="border:1px solid #e5e7eb; border-radius:4px; padding:10px 12px;">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
             <div style="flex:1;">
-          <div style="font-size:0.95rem; font-weight:600; color:#111827;">Dexcom</div>
-          <p style="margin:4px 0 10px; font-size:0.8rem; color:#b45309;">
-            ⚠️ Le module d’intégration Dexcom est en attente de validation officielle. Nous te préviendrons dès qu’il sera opérationnel.
-          </p>
+              <div style="font-size:0.95rem; font-weight:600; color:#111827;">Dexcom Share</div>
+              <p style="margin:4px 0 10px; font-size:0.8rem; color:#4b5563;">
+                Cette connexion passe par Dexcom Share / Follow. Il faut un compte Dexcom actif, un capteur qui remonte bien des valeurs, et au moins un follower configuré côté Dexcom.
+              </p>
+
+              {% if dexcom_status %}
+                <div style="margin:8px 0 10px; padding:8px 10px; border-radius:4px; font-size:0.8rem;
+                            {% if dexcom_status == 'ok' %}
+                              background:#ecfdf5; color:#166534; border:1px solid #bbf7d0;
+                            {% elif dexcom_status == 'warn' %}
+                              background:#fffbeb; color:#92400e; border:1px solid #fde68a;
+                            {% else %}
+                              background:#fef2f2; color:#991b1b; border:1px solid #fecaca;
+                            {% endif %}">
+                  {{ dexcom_status_message }}
+                </div>
+              {% endif %}
 
               {% if has_dexcom %}
-                <div style="font-size:0.85rem; color:#16a34a; margin-top:2px;">✅ Connecté à Dexcom</div>
-                <p style="margin-top:6px; font-size:0.8rem; color:#4b5563;">Les tokens d'accès Dexcom sont stockés localement pour récupérer tes valeurs de glycémie.</p>
+                <div style="font-size:0.85rem; color:#16a34a; margin-top:2px;">Connecté à Dexcom Share</div>
+                <p style="margin-top:6px; font-size:0.8rem; color:#4b5563;">
+                  Compte configuré : <strong>{{ dexcom_username }}</strong>
+                  {% if dexcom_region %} (région {{ dexcom_region|upper }}){% endif %}.
+                </p>
               {% elif has_libre %}
-                <div style="font-size:0.85rem; color:#9ca3af; margin-top:2px;">🔒 Dexcom désactivé car LibreLinkUp est déjà connecté.</div>
-                <p style="margin-top:6px; font-size:0.8rem; color:#6b7280;">Déconnecte LibreLinkUp si tu veux utiliser Dexcom comme capteur.</p>
+                <div style="font-size:0.85rem; color:#9ca3af; margin-top:2px;">Dexcom Share désactivé car LibreLinkUp est déjà connecté.</div>
+                <p style="margin-top:6px; font-size:0.8rem; color:#6b7280;">Déconnecte LibreLinkUp si tu veux basculer vers Dexcom Share.</p>
               {% else %}
-                <div style="font-size:0.85rem; color:#dc2626; margin-top:2px;">⚠️ Aucun compte Dexcom connecté</div>
-                <p style="margin-top:6px; font-size:0.8rem; color:#4b5563;">Connecte ton compte Dexcom pour récupérer les données CGM via l'API Dexcom.</p>
+                <div style="font-size:0.85rem; color:#dc2626; margin-top:2px;">Aucun compte Dexcom Share connecté</div>
+              {% endif %}
+
+              {% if not has_libre or has_dexcom %}
+                <form method="post" action="/ui/user/{{ user.id }}/dexcom/credentials" style="margin-top:12px; display:grid; gap:10px; max-width:420px;">
+                  <div>
+                    <label for="dexcom-username" style="display:block; font-size:0.8rem; font-weight:600; color:#374151; margin-bottom:4px;">Identifiant Dexcom</label>
+                    <input id="dexcom-username" name="username" type="text" value="{{ dexcom_username or '' }}" autocomplete="username"
+                           style="width:100%; border:1px solid #d1d5db; border-radius:4px; padding:8px 10px; font-size:0.85rem;">
+                  </div>
+                  <div>
+                    <label for="dexcom-password" style="display:block; font-size:0.8rem; font-weight:600; color:#374151; margin-bottom:4px;">Mot de passe</label>
+                    <div style="display:flex; gap:8px;">
+                      <input id="dexcom-password" name="password" type="password" value="" autocomplete="current-password"
+                             style="flex:1; border:1px solid #d1d5db; border-radius:4px; padding:8px 10px; font-size:0.85rem;">
+                      <button type="button"
+                              onclick="const el=document.getElementById('dexcom-password'); this.textContent = el.type === 'password' ? 'Masquer' : 'Afficher'; el.type = el.type === 'password' ? 'text' : 'password';"
+                              style="padding:8px 10px; font-size:0.8rem; border-radius:4px; border:1px solid #d1d5db; background:#fff; color:#374151;">
+                        Afficher
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label for="dexcom-region" style="display:block; font-size:0.8rem; font-weight:600; color:#374151; margin-bottom:4px;">Région Share</label>
+                    <select id="dexcom-region" name="region"
+                            style="width:100%; border:1px solid #d1d5db; border-radius:4px; padding:8px 10px; font-size:0.85rem; background:#fff;">
+                      <option value="ous" {% if dexcom_region == "ous" %}selected{% endif %}>OUS / Europe</option>
+                      <option value="us" {% if dexcom_region == "us" %}selected{% endif %}>US</option>
+                      <option value="jp" {% if dexcom_region == "jp" %}selected{% endif %}>JP</option>
+                    </select>
+                  </div>
+                  <div style="font-size:0.75rem; color:#6b7280;">
+                    Les identifiants sont testés immédiatement puis stockés localement pour relire les glycémies.
+                  </div>
+                  <div>
+                    <button type="submit" style="padding:8px 14px; font-size:0.82rem; border-radius:4px; border:1px solid transparent; background:#0d6efd; color:#fff;">
+                      {% if has_dexcom %}Mettre à jour Dexcom Share{% else %}Connecter Dexcom Share{% endif %}
+                    </button>
+                  </div>
+                </form>
               {% endif %}
 
               <details style="margin-top:10px; font-size:0.8rem; color:#475569;">
@@ -333,13 +387,13 @@
                   <span style="font-size:0.7rem; color:#94a3b8;">▼</span>
                 </summary>
                 <div style="margin-top:8px; line-height:1.5;">
-                  En vous connectant à Dexcom, vous autorisez Strava Glucose à accéder à vos données de glycémie via l’API sécurisée de Dexcom. Ces données servent uniquement à :
+                  En configurant Dexcom Share, tu autorises Strava Glucose à relire tes données de glycémie déjà partagées via l’infrastructure Dexcom. Ces données servent uniquement à :
                   <ul style="margin:8px 0 8px 18px; padding:0;">
                     <li>analyser vos séances sportives,</li>
                     <li>fournir des retours éducatifs et des indicateurs de sécurité,</li>
                     <li>mieux comprendre l’impact de l’effort sur votre glycémie.</li>
                   </ul>
-                  Votre autorisation est volontaire et peut être retirée à tout moment dans les paramètres du compte. Aucune donnée Dexcom n’est vendue, partagée ou rendue publique.
+                  Tu peux retirer cette connexion à tout moment depuis ton profil. Aucune donnée Dexcom n’est vendue, partagée ou rendue publique.
                 </div>
               </details>
             </div>
@@ -351,13 +405,6 @@
                     Déconnecter
                   </button>
                 </form>
-                <a href="/auth/dexcom?user_id={{ user.id }}" style="padding:4px 10px;font-size:0.8rem;border-radius:4px;border:1px solid transparent;background:#0d6efd;color:#fff;text-decoration:none;">
-                  Reconnecter Dexcom
-                </a>
-              {% elif not has_libre %}
-                <a href="/auth/dexcom?user_id={{ user.id }}" style="padding:4px 10px;font-size:0.8rem;border-radius:4px;border:1px solid transparent;background:#0d6efd;color:#fff;text-decoration:none;">
-                  Connecter Dexcom
-                </a>
               {% endif %}
             </div>
           </div>

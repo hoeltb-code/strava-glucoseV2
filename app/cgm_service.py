@@ -30,7 +30,7 @@ import datetime as dt
 from app.database import SessionLocal
 from app.models import User, LibreCredentials, GlucosePoint, DexcomToken
 from app.libre_client import read_graph
-from app.dexcom_client import DexcomClient
+from app.dexcom_client import DexcomClient, has_dexcom_share_credentials
 
 POLL_INTERVAL_SECONDS = int(os.getenv("CGM_POLL_INTERVAL_SECONDS", "420") or "420")
 REALTIME_RETENTION_HOURS = int(os.getenv("CGM_REALTIME_RETENTION_HOURS", "48") or "48")
@@ -178,8 +178,8 @@ def _get_realtime_points_for_user(db, user: User):
             return []
 
     def try_dexcom():
-        # Si l'utilisateur n'a pas de tokens Dexcom, on skip
-        if not user.dexcom_tokens:
+        # Si l'utilisateur n'a pas d'identifiants Dexcom Share, on skip
+        if not has_dexcom_share_credentials(user.dexcom_tokens):
             return []
         try:
             now = dt.datetime.now(dt.timezone.utc)

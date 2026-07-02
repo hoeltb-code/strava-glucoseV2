@@ -1,6 +1,6 @@
 # app/database.py
 import os
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./strava_glucose.db")
@@ -10,6 +10,28 @@ connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite")
 engine = create_engine(DATABASE_URL, connect_args=connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
+
+def _ensure_column(table_name: str, column_name: str, ddl: str):
+    inspector = inspect(engine)
+    if table_name not in inspector.get_table_names():
+        return
+    columns = {col["name"] for col in inspector.get_columns(table_name)}
+    if column_name in columns:
+        return
+    with engine.begin() as conn:
+        conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {ddl}"))
+
+
+def _run_local_schema_fixes():
+    _ensure_column("dexcom_tokens", "share_username", "share_username TEXT")
+    _ensure_column("dexcom_tokens", "share_password", "share_password TEXT")
+    _ensure_column("dexcom_tokens", "share_region", "share_region VARCHAR(16)")
+    _ensure_column(
+        "user_settings",
+        "desc_enable_auto_block",
+        "desc_enable_auto_block BOOLEAN DEFAULT 1",
+    )
 
 def get_db():
     db = SessionLocal()
@@ -21,3 +43,4 @@ def get_db():
 def init_db():
     from app import models
     Base.metadata.create_all(bind=engine)
+    _run_local_schema_fixes()

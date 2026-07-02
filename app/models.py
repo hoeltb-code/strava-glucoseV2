@@ -115,6 +115,10 @@ class DexcomToken(Base):
     refresh_token = Column(Text, nullable=False)
     expires_at = Column(BigInteger, nullable=False)  # Unix
 
+    share_username = Column(String, nullable=True)
+    share_password = Column(Text, nullable=True)
+    share_region = Column(String(16), nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

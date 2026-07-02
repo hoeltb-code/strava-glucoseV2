@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     LIBRE_PASSWORD: str = Field(...)
     LIBRE_REGION: str = Field(default="fr")
 
-    # === DEXCOM (OAuth2) ===
+    # === DEXCOM (OAuth2 historique / Dexcom Share local) ===
     # Identifiants (à placer dans .env)
     DEXCOM_CLIENT_ID: str = Field(...)
     DEXCOM_CLIENT_SECRET: str = Field(...)
@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     DEXCOM_TOKEN_URL: str = Field(default="https://sandbox-api.dexcom.com/v2/oauth2/token")
     DEXCOM_EGV_URL: str = Field(default="https://sandbox-api.dexcom.com/v2/users/self/egvs")
     DEXCOM_SCOPE: str = Field(default="offline_access")
+    DEXCOM_SHARE_REGION_DEFAULT: str = Field(default="ous")
 
     # === SÉCURITÉ / AUTRES ===
     SECRET_KEY: str = Field(...)

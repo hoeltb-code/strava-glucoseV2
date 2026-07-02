@@ -151,7 +151,12 @@ from .logic import (
 from .settings import settings
 from .strava_client import StravaClient
 from .libre_client import read_graph, test_libre_credentials, get_last_libre_status
-from .dexcom_client import DexcomClient
+from .dexcom_client import (
+    DexcomClient,
+    get_last_dexcom_status,
+    has_dexcom_share_credentials,
+    test_dexcom_credentials,
+)
 from app.database import SessionLocal, init_db, get_db
 from app.models import (
     StravaToken,
@@ -201,6 +206,15 @@ SLOPE_BAND_CENTER = {
     band_id: _slope_band_center(min_v, max_v)
     for min_v, max_v, band_id, _label in SLOPE_BANDS_DEF
 }
+
+
+def _get_dexcom_share_record(tokens: list[DexcomToken] | None) -> Optional[DexcomToken]:
+    if not tokens:
+        return None
+    for token in sorted(tokens, key=lambda item: item.id or 0, reverse=True):
+        if has_dexcom_share_credentials(token):
+            return token
+    return None
 
 
 def _build_pace_lookup_from_profile(profile_data: dict | None, hr_zone_names: list[str] | None) -> dict:
@@ -2601,7 +2615,7 @@ def ui_home(request: Request):
                 "email": u.email,
                 "has_strava": bool(u.strava_tokens),
                 "libre_email": u.libre_credentials.email if u.libre_credentials else None,
-                "has_dexcom": bool(u.dexcom_tokens),
+                "has_dexcom": has_dexcom_share_credentials(u.dexcom_tokens),
                 "cgm_source": (u.cgm_source or "").upper() if u.cgm_source else None,
             })
 
@@ -3446,18 +3460,21 @@ def ui_user_profile(user_id: int, request: Request):
         # Statuts connexions
         has_strava = bool(user.strava_tokens)
         has_libre = user.libre_credentials is not None
-        has_dexcom = bool(user.dexcom_tokens)
+        dexcom_record = _get_dexcom_share_record(user.dexcom_tokens)
+        has_dexcom = dexcom_record is not None
 
         libre_email = user.libre_credentials.email if user.libre_credentials else ""
         libre_region = user.libre_credentials.region if user.libre_credentials else ""
+        dexcom_username = dexcom_record.share_username if dexcom_record else ""
+        dexcom_region = dexcom_record.share_region if dexcom_record else settings.DEXCOM_SHARE_REGION_DEFAULT
 
         strava_athlete_id = user.strava_tokens[0].athlete_id if user.strava_tokens else None
         cgm_source = user.cgm_source or ""
 
         # ✅ EAGER: lire les préférences et créer un bool simple
-        settings = db.query(UserSettings).filter(UserSettings.user_id == user_id).one_or_none()
-        if settings and settings.desc_enable_auto_block is not None:
-            auto_block_enabled = bool(settings.desc_enable_auto_block)
+        user_settings = db.query(UserSettings).filter(UserSettings.user_id == user_id).one_or_none()
+        if user_settings and user_settings.desc_enable_auto_block is not None:
+            auto_block_enabled = bool(user_settings.desc_enable_auto_block)
         else:
             auto_block_enabled = True
 
@@ -3468,6 +3485,13 @@ def ui_user_profile(user_id: int, request: Request):
             if status_flag:
                 libre_status, libre_status_message = status_flag
 
+        dexcom_status = request.query_params.get("dexcom_status")
+        dexcom_status_message = request.query_params.get("dexcom_msg")
+        if dexcom_status is None and has_dexcom:
+            status_flag = get_last_dexcom_status(user_id)
+            if status_flag:
+                dexcom_status, dexcom_status_message = status_flag
+
         # On rend la page en passant des primitives (pas d’accès lazy après fermeture)
         ctx = {
             "request": request,
@@ -3477,33 +3501,20 @@ def ui_user_profile(user_id: int, request: Request):
             "has_dexcom": has_dexcom,
             "libre_email": libre_email,
             "libre_region": libre_region,
+            "dexcom_username": dexcom_username,
+            "dexcom_region": dexcom_region,
             "strava_athlete_id": strava_athlete_id,
             "cgm_source": cgm_source,
             "auto_block_enabled": auto_block_enabled,
             "libre_status": libre_status,
             "libre_status_message": libre_status_message,
+            "dexcom_status": dexcom_status,
+            "dexcom_status_message": dexcom_status_message,
         }
         return templates.TemplateResponse("user_profile.html", ctx)
 
     finally:
         db.close()
-
-
-    return templates.TemplateResponse(
-        "user_profile.html",
-        {
-            "request": request,
-            "user": user,
-            "has_strava": has_strava,
-            "has_libre": has_libre,
-            "has_dexcom": has_dexcom,
-            "libre_email": libre_email,
-            "libre_region": libre_region,
-            "strava_athlete_id": strava_athlete_id,
-            "cgm_source": cgm_source,
-            "settings": settings,  # 👈 NEW: passé au template
-        },
-    )
 
 
 @app.post("/ui/user/{user_id}/profile", response_class=HTMLResponse)
@@ -3742,8 +3753,8 @@ def ui_runner_profile(
     libre_connected = (
         db.query(LibreCredentials.id).filter(LibreCredentials.user_id == user_id).first() is not None
     )
-    dexcom_connected = (
-        db.query(DexcomToken.id).filter(DexcomToken.user_id == user_id).first() is not None
+    dexcom_connected = has_dexcom_share_credentials(
+        db.query(DexcomToken).filter(DexcomToken.user_id == user_id).all()
     )
     show_glucose_tabs = libre_connected or dexcom_connected
 
@@ -6224,6 +6235,96 @@ def ui_strava_disconnect(request: Request, user_id: int):
 
     return RedirectResponse(
         url=f"/ui/user/{user_id}/profile",
+        status_code=303,
+    )
+
+
+@app.post("/ui/user/{user_id}/dexcom/credentials")
+def ui_dexcom_credentials_save(
+    request: Request,
+    user_id: int,
+    username: str = Form(""),
+    password: str = Form(""),
+    region: str = Form(""),
+):
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+
+    username = (username or "").strip()
+    password = password or ""
+    region_value = (region or settings.DEXCOM_SHARE_REGION_DEFAULT or "ous").strip().lower()
+
+    if not username or not password:
+        msg = quote_plus("Identifiant et mot de passe Dexcom Share requis.")
+        return RedirectResponse(
+            url=f"/ui/user/{user_id}/profile?dexcom_status=error&dexcom_msg={msg}#dexcom",
+            status_code=303,
+        )
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).get(user_id)
+        if not user:
+            return templates.TemplateResponse(
+                "error.html",
+                {
+                    "request": request,
+                    "title": "Utilisateur introuvable",
+                    "message": f"Aucun utilisateur avec id={user_id}",
+                    "back_url": "/ui/login",
+                },
+                status_code=404,
+            )
+
+        if user.libre_credentials and not has_dexcom_share_credentials(user.dexcom_tokens):
+            msg = quote_plus("Déconnecte d'abord LibreLinkUp avant d'activer Dexcom Share.")
+            return RedirectResponse(
+                url=f"/ui/user/{user_id}/profile?dexcom_status=warn&dexcom_msg={msg}#dexcom",
+                status_code=303,
+            )
+
+        status, msg = test_dexcom_credentials(
+            username=username,
+            password=password,
+            region=region_value,
+            user_id=user_id,
+        )
+        if status == "error":
+            return RedirectResponse(
+                url=f"/ui/user/{user_id}/profile?dexcom_status={status}&dexcom_msg={quote_plus(msg)}#dexcom",
+                status_code=303,
+            )
+
+        existing_records = (
+            db.query(DexcomToken)
+            .filter(DexcomToken.user_id == user_id)
+            .order_by(DexcomToken.id.desc())
+            .all()
+        )
+        token = _get_dexcom_share_record(existing_records)
+        if token is None:
+            token = existing_records[0] if existing_records else DexcomToken(
+                user_id=user_id,
+                access_token="",
+                refresh_token="",
+                expires_at=0,
+            )
+            if token.id is None:
+                db.add(token)
+
+        token.share_username = username
+        token.share_password = password
+        token.share_region = region_value
+        token.access_token = token.access_token or ""
+        token.refresh_token = token.refresh_token or ""
+        token.expires_at = token.expires_at or 0
+        db.commit()
+    finally:
+        db.close()
+
+    return RedirectResponse(
+        url=f"/ui/user/{user_id}/profile?dexcom_status={status}&dexcom_msg={quote_plus(msg)}#dexcom",
         status_code=303,
     )
 

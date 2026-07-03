@@ -1,118 +1,342 @@
 {% extends "base.html" %}
 {% block title %}Strava Glucose · Connexion{% endblock %}
 
+{% block extra_head %}
+<style>
+  .login-shell {
+    min-height: calc(100vh - 128px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 24px;
+  }
+
+  .login-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+    gap: 24px;
+    align-items: stretch;
+  }
+
+  .login-hero,
+  .login-panel,
+  .login-flow {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .login-hero {
+    padding: 28px;
+    border-radius: 24px;
+    background:
+      radial-gradient(circle at top right, rgba(184, 255, 69, 0.16), transparent 22%),
+      linear-gradient(160deg, rgba(17, 35, 59, 0.98) 0%, rgba(10, 19, 35, 0.98) 56%, rgba(8, 17, 31, 0.98) 100%);
+    border: 1px solid rgba(77, 226, 255, 0.2);
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.32);
+  }
+
+  .login-hero::after,
+  .login-panel::after,
+  .login-flow::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: inherit;
+  }
+
+  .login-kicker {
+    margin: 0 0 8px 0;
+    color: var(--accent);
+    font-family: "Orbitron", sans-serif;
+    font-size: 0.82rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .login-title {
+    margin: 0 0 14px 0;
+    font-family: "Orbitron", sans-serif;
+    font-size: clamp(2rem, 6vw, 3.45rem);
+    line-height: 0.98;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  .login-copy {
+    margin: 0;
+    max-width: 44rem;
+    color: var(--text-muted);
+    font-size: 1.02rem;
+    line-height: 1.55;
+  }
+
+  .login-meta {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 22px;
+  }
+
+  .login-meta-card,
+  .login-point {
+    background: rgba(8, 17, 31, 0.58);
+    border: 1px solid rgba(77, 226, 255, 0.14);
+    border-radius: 18px;
+  }
+
+  .login-meta-card {
+    padding: 14px;
+  }
+
+  .login-meta-value {
+    display: block;
+    font-family: "Orbitron", sans-serif;
+    font-size: 1.35rem;
+    color: var(--text-main);
+  }
+
+  .login-meta-label {
+    display: block;
+    margin-top: 6px;
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .login-points {
+    display: grid;
+    gap: 12px;
+    margin-top: 24px;
+  }
+
+  .login-point {
+    padding: 14px 16px;
+  }
+
+  .login-point-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+    color: var(--text-main);
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .login-point-index {
+    width: 28px;
+    height: 28px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--grad-accent);
+    color: #08111f;
+    font-family: "Orbitron", sans-serif;
+    font-size: 0.8rem;
+  }
+
+  .login-point-copy {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.92rem;
+    line-height: 1.45;
+  }
+
+  .login-panel {
+    padding: 24px;
+    border-radius: 24px;
+    background: linear-gradient(180deg, rgba(14, 26, 45, 0.96), rgba(8, 17, 31, 0.98));
+    border: 1px solid rgba(77, 226, 255, 0.18);
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+  }
+
+  .login-panel h2 {
+    margin: 0 0 8px 0;
+    font-family: "Orbitron", sans-serif;
+    font-size: 1.3rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .login-panel-subtitle {
+    margin: 0 0 18px 0;
+    color: var(--text-muted);
+    line-height: 1.45;
+  }
+
+  .login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .login-panel .password-toggle {
+    margin-top: -4px;
+    color: var(--text-muted);
+  }
+
+  .login-form button {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  .login-panel-footer {
+    margin-top: 18px;
+    color: var(--text-muted);
+    text-align: center;
+    font-size: 0.96rem;
+  }
+
+  .login-panel-footer a {
+    font-weight: 700;
+  }
+
+  .login-flow {
+    padding: 20px 22px;
+    border-radius: 20px;
+    background: rgba(9, 20, 37, 0.82);
+    border: 1px solid rgba(108, 135, 175, 0.2);
+  }
+
+  .login-flow h3 {
+    margin: 0 0 12px 0;
+    font-family: "Orbitron", sans-serif;
+    font-size: 1rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .login-flow ol {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--text-muted);
+    line-height: 1.55;
+  }
+
+  @media (max-width: 900px) {
+    .login-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .login-shell {
+      min-height: auto;
+      gap: 18px;
+    }
+
+    .login-hero,
+    .login-panel,
+    .login-flow {
+      padding: 18px;
+      border-radius: 18px;
+    }
+
+    .login-meta {
+      grid-template-columns: 1fr;
+    }
+
+    .login-title {
+      font-size: 2rem;
+    }
+
+    .login-copy {
+      font-size: 0.95rem;
+    }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div style="
-  min-height: calc(100vh - 120px);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 32px;
-">
-  <div style="
-    display:grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap:28px;
-    align-items:stretch;
-  ">
-    <section style="
-      background:#ffffff;
-      color:#0f172a;
-      border-radius:16px;
-      padding:32px;
-      display:flex;
-      flex-direction:column;
-      justify-content:space-between;
-      box-shadow:0 25px 60px rgba(15,23,42,0.08);
-      border:1px solid #e2e8f0;
-    ">
+<div class="login-shell">
+  <div class="login-grid">
+    <section class="login-hero">
       <div>
-        <p style="font-size:0.85rem; letter-spacing:0.12em; text-transform:uppercase; color:#94a3b8; margin:0;">
-          Strava Glucose
-        </p>
-        <h1 style="font-size:2.1rem; margin:10px 0 12px 0; color:#0f172a;">
-          Le cockpit data des passionnés de dénivelé
+        <p class="login-kicker">Strava Glucose // Tactical HUD</p>
+        <h1 class="login-title">
+          Le cockpit trail version jeu vidéo
         </h1>
-        <p style="margin:0; font-size:1rem; line-height:1.5; color:#475569;">
+        <p class="login-copy">
           Anticipe tes chronos en fonction des pentes, compare tes VAM, allures et cadences, et si tu
           utilises un capteur CGM, visualise aussi l’impact glycémique de chaque sortie pour faire
           progresser toute la communauté sur la gestion énergétique en montagne.
         </p>
-      </div>
 
-      <div style="margin-top:24px;">
-        <div style="display:flex; flex-direction:column; gap:14px;">
-          {% for point in hero_points or [] %}
-          <div style="
-            background:#f8fafc;
-            border:1px solid #e2e8f0;
-            border-radius:10px;
-            padding:12px 14px;
-          ">
-            <div style="font-weight:600; color:#0f172a;">{{ point.title }}</div>
-            <div style="font-size:0.9rem; color:#475569;">{{ point.detail }}</div>
+        <div class="login-meta">
+          <div class="login-meta-card">
+            <span class="login-meta-value">HUD</span>
+            <span class="login-meta-label">Interface mobile-first</span>
           </div>
-          {% endfor %}
+          <div class="login-meta-card">
+            <span class="login-meta-value">VAM</span>
+            <span class="login-meta-label">Lecture tactique du D+</span>
+          </div>
+          <div class="login-meta-card">
+            <span class="login-meta-value">CGM</span>
+            <span class="login-meta-label">Énergie en temps réel</span>
+          </div>
         </div>
       </div>
 
+      <div class="login-points">
+          {% for point in hero_points or [] %}
+          <div class="login-point">
+            <div class="login-point-title">
+              <span class="login-point-index">{{ loop.index }}</span>
+              <span>{{ point.title }}</span>
+            </div>
+            <p class="login-point-copy">{{ point.detail }}</p>
+          </div>
+          {% endfor %}
+      </div>
     </section>
 
-    <section id="login-card" class="card" style="
-      padding:28px;
-      border-radius:14px;
-      background:white;
-      box-shadow:0 20px 40px rgba(15,23,42,0.12);
-    ">
-      <h2 style="font-size:1.4rem; margin-bottom:0.5rem; color:#0f172a; font-weight:700;">
+    <section id="login-card" class="login-panel">
+      <h2>
         Connexion sécurisée
       </h2>
-      <p style="margin:0 0 1.5rem 0; font-size:0.9rem; color:#475569;">
+      <p class="login-panel-subtitle">
         Accède à ton cockpit Strava Glucose pour suivre tes dernières activités enrichies.
       </p>
 
-      <form method="post" action="/ui/login" style="display:flex; flex-direction:column; gap:18px;">
+      <form method="post" action="/ui/login" class="login-form">
         <div>
-          <label for="email" style="font-weight:600; color:#0f172a; font-size:0.9rem;">Email</label>
-          <input type="email" id="email" name="email" required
-                 style="width:100%; padding:10px 12px; border:1px solid #cbd5f5; border-radius:8px; margin-top:6px;">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" required placeholder="athlete@terrain.run">
         </div>
 
         <div>
-          <label for="password" style="font-weight:600; color:#0f172a; font-size:0.9rem;">Mot de passe</label>
-          <input type="password" id="password" name="password" required
-                 style="width:100%; padding:10px 12px; border:1px solid #cbd5f5; border-radius:8px; margin-top:6px;">
+          <label for="password">Mot de passe</label>
+          <input type="password" id="password" name="password" required placeholder="••••••••••">
         </div>
-        <label class="password-toggle" style="margin-top:-6px;">
+        <label class="password-toggle">
           <input type="checkbox" onchange="togglePasswordField('password', this)">
           Afficher le mot de passe
         </label>
 
-        <div style="text-align:right; margin-top:-8px;">
-          <a href="/ui/forgot-password" style="color:#0d6efd; font-size:0.85rem; text-decoration:none;">Mot de passe oublié ?</a>
+        <div style="text-align:right; margin-top:-4px;">
+          <a href="/ui/forgot-password">Mot de passe oublié ?</a>
         </div>
 
-        <button type="submit"
-                style="background:#0d6efd; color:white; border:none; border-radius:10px; padding:12px 0; font-weight:600; cursor:pointer;">
+        <button type="submit">
           Se connecter
         </button>
       </form>
 
-      <div style="margin-top:1.25rem; text-align:center; font-size:0.9rem; color:#475569;">
+      <div class="login-panel-footer">
         Pas encore de compte ?
-        <a href="/ui/signup" style="color:#0d6efd; font-weight:600; text-decoration:none;">Inscris-toi ici</a>
+        <a href="/ui/signup">Inscris-toi ici</a>
       </div>
     </section>
   </div>
 
-  <div class="card" style="
-    padding:24px;
-    border-radius:12px;
-    background:#f8fafc;
-    border:1px solid #e2e8f0;
-  ">
-    <h3 style="margin:0 0 12px 0; font-size:1rem; color:#0f172a;">Comment ça marche ?</h3>
-    <ol style="margin:0; padding-left:20px; color:#1f2937; line-height:1.6;">
+  <div class="login-flow">
+    <h3>Comment ça marche ?</h3>
+    <ol>
       {% for step in onboarding_steps or [] %}
       <li>{{ step }}</li>
       {% endfor %}

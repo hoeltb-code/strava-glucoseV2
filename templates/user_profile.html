@@ -4,10 +4,69 @@
 
 {% block extra_head %}
 <style>
+  .profile-page {
+    --profile-panel-border: rgba(77, 226, 255, 0.15);
+  }
+
   .profile-layout {
     display:grid;
     grid-template-columns:minmax(0,2fr) minmax(0,1.4fr);
     gap:16px;
+  }
+
+  .profile-page .card {
+    border-color: var(--profile-panel-border);
+  }
+  .profile-page [style*="color:#0f172a"],
+  .profile-page [style*="color:#111827"],
+  .profile-page [style*="color:#374151"] {
+    color:var(--text-main) !important;
+  }
+  .profile-page [style*="color:#4b5563"],
+  .profile-page [style*="color:#6b7280"],
+  .profile-page [style*="color:#9ca3af"],
+  .profile-page [style*="color:#475569"] {
+    color:var(--text-muted) !important;
+  }
+  .profile-page [style*="background:#fff"],
+  .profile-page [style*="background:#ffffff"],
+  .profile-page [style*="background:#fdfdfd"],
+  .profile-page [style*="background:#fefefe"] {
+    background:rgba(8, 17, 31, 0.78) !important;
+  }
+  .profile-page [style*="border:1px solid #e5e7eb"],
+  .profile-page [style*="border:1px solid #d1d5db"],
+  .profile-page [style*="border-top:1px solid #e5e7eb"],
+  .profile-page [style*="border-top:1px dashed #e5e7eb"] {
+    border-color:rgba(108, 135, 175, 0.22) !important;
+  }
+  .profile-page [style*="background:#dcfce7"],
+  .profile-page [style*="background:#ecfdf5"],
+  .profile-page [style*="background:#fef3c7"],
+  .profile-page [style*="background:#fffbeb"],
+  .profile-page [style*="background:#fee2e2"],
+  .profile-page [style*="background:#fef2f2"] {
+    color: inherit;
+  }
+  .profile-page .dropzone-panel {
+    margin-top:12px;
+    padding:24px;
+    border:2px dashed rgba(108, 135, 175, 0.28);
+    border-radius:16px;
+    text-align:center;
+    color:var(--text-main);
+    cursor:pointer;
+    transition:0.2s border-color ease, background-color .2s ease;
+    background:rgba(8, 17, 31, 0.5);
+  }
+  .profile-page .dropzone-panel:hover {
+    background:rgba(77, 226, 255, 0.04);
+  }
+  .profile-page .danger-card {
+    margin-top:16px;
+    border:1px solid rgba(255, 122, 89, 0.3) !important;
+    background:rgba(34, 12, 15, 0.76) !important;
+    padding:18px;
   }
 
   @media (max-width: 820px) {
@@ -19,6 +78,7 @@
 {% endblock %}
 
 {% block content %}
+<div class="profile-page">
 
 <!-- ========================================================= -->
 <!-- 🧍 En-tête style Strava avec avatar pentagone (version bleue) -->
@@ -136,7 +196,7 @@
         </p>
 
         <div id="profile-dropzone"
-          style="margin-top:12px;padding:24px;border:2px dashed #cbd5e1;border-radius:6px;text-align:center;color:#475569;cursor:pointer;transition:0.2s border-color ease;"
+          class="dropzone-panel"
           ondragover="this.style.borderColor='var(--accent)'; event.preventDefault();"
           ondragleave="this.style.borderColor='#cbd5e1';"
           onclick="document.getElementById('profile-file-input').click();">
@@ -429,7 +489,7 @@
   </div>
 </div>
 
-<div class="card" style="margin-top:16px; border:1px solid #fee2e2; background:#fff; padding:18px;">
+<div class="card danger-card">
   <h3 style="margin-top:0; color:#b91c1c;">Supprimer mon compte</h3>
   <p style="margin:0 0 12px 0; font-size:0.9rem; color:#4b5563;">
     Cette action efface définitivement ton profil, tes activités, tokens et données de glycémie. Impossible de revenir en arrière.
@@ -476,4 +536,5 @@
   }
 </script>
 
+</div>
 {% endblock %}

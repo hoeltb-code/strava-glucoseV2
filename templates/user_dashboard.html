@@ -4,6 +4,9 @@
 
 {% block extra_head %}
 <style>
+  .dashboard-page {
+    --dashboard-panel-border: rgba(77, 226, 255, 0.15);
+  }
   .dashboard-grid {
     display:grid;
     grid-template-columns:repeat(2, minmax(0, 1fr));
@@ -38,12 +41,66 @@
   .mini-table th,
   .mini-table td {
     padding:4px 6px;
-    border-bottom:1px solid #e5e7eb;
+    border-bottom:1px solid rgba(108, 135, 175, 0.2);
+    color:var(--text-main);
+  }
+  .dashboard-page .mini-table th {
+    color:var(--text-main);
+  }
+  .dashboard-page .card {
+    border-color: var(--dashboard-panel-border);
+  }
+  .dashboard-page [style*="color:#0f172a"],
+  .dashboard-page [style*="color:#111827"],
+  .dashboard-page [style*="color:#374151"] {
+    color:var(--text-main) !important;
+  }
+  .dashboard-page [style*="color:#4b5563"],
+  .dashboard-page [style*="color:#6b7280"],
+  .dashboard-page [style*="color:#9ca3af"] {
+    color:var(--text-muted) !important;
+  }
+  .dashboard-page [style*="background:#ffffff"],
+  .dashboard-page [style*="background:#fff"] {
+    background:rgba(8, 17, 31, 0.78) !important;
+  }
+  .dashboard-page [style*="border:1px solid #e5e7eb"],
+  .dashboard-page [style*="border-bottom:1px solid #e5e7eb"] {
+    border-color:rgba(108, 135, 175, 0.2) !important;
+  }
+  .dashboard-page p,
+  .dashboard-page li,
+  .dashboard-page td,
+  .dashboard-page strong,
+  .dashboard-page span {
+    color:inherit;
+  }
+  .dashboard-page .activity-meta {
+    font-size:0.85rem;
+    color:var(--text-main);
+    margin-top:4px;
+  }
+  .dashboard-page .activity-summary {
+    background:rgba(8, 17, 31, 0.78);
+    color:var(--text-main);
+    padding:10px;
+    border-radius:12px;
+    border:1px solid rgba(108, 135, 175, 0.2);
+    font-size:0.85rem;
+    line-height:1.5;
+    white-space:pre-wrap;
+    font-family:inherit;
+  }
+  .dashboard-page .map-frame {
+    height:160px;
+    border:1px solid rgba(108, 135, 175, 0.2);
+    border-radius:12px;
   }
 </style>
 {% endblock %}
 
 {% block content %}
+<div class="dashboard-page">
 
 <!-- ========================================================= -->
 <!-- 🧍 En-tête utilisateur (avatar ovale doré style vieux tableau) -->
@@ -267,7 +324,7 @@
         {{ (a.name or ('Activité #' ~ a.id))|truncate(60, True, '…') }}
       </a>
     </div>
-    <div style="font-size:0.85rem; color:#0f172a; margin-top:4px;">
+    <div class="activity-meta">
       {{ a.date_str }} · {{ a.dist_km }} km · D+ {{ a.dplus }} m ·
       Durée {{ (a.duration_sec // 3600)|int }}h{{ ((a.duration_sec % 3600) // 60)|int }} ·
       {% if a.tir_percent is not none %}TIR {{ a.tir_percent|round(0) }}%{% else %}TIR n/a{% endif %}
@@ -275,13 +332,11 @@
 
     <div style="display:flex; flex-wrap:wrap; gap:16px; margin-top:12px;">
       <div style="flex:0 0 220px;">
-        <div id="map-{{ a.id }}" style="height:160px; border:1px solid #e5e7eb; border-radius:4px;"></div>
+        <div id="map-{{ a.id }}" class="map-frame"></div>
       </div>
       <div style="flex:1 1 320px;">
         {% if a.summary_block_clean %}
-          <div style="background:#ffffff; color:#0f172a; padding:10px; border-radius:4px;
-                      border:1px solid transparent; font-size:0.85rem; line-height:1.5;
-                      white-space:pre-wrap; font-family:inherit;">
+          <div class="activity-summary">
             {{ a.summary_block_clean }}
           </div>
         {% else %}
@@ -323,4 +378,5 @@
   } catch (e) {}
 </script>
 
+</div>
 {% endblock %}

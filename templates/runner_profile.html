@@ -3,24 +3,135 @@
 
 {% block extra_head %}
 <style>
+  .runner-page {
+    --runner-panel: rgba(9, 20, 37, 0.86);
+    --runner-panel-border: rgba(77, 226, 255, 0.15);
+  }
+
   .runner-layout {
     display:grid;
     grid-template-columns:210px minmax(0,1fr);
-    gap:16px;
+    gap:18px;
     align-items:flex-start;
+  }
+  .runner-topbar {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    padding:12px 0 16px;
+    border-bottom:1px solid var(--border);
+    margin-bottom:16px;
+  }
+  .runner-topbar-title {
+    font-size:1.15rem;
+    font-weight:700;
+    color:var(--text-main);
+  }
+  .runner-topbar-subtitle {
+    margin-top:4px;
+    color:var(--text-muted);
+    font-size:0.88rem;
+    letter-spacing:0.03em;
+    text-transform:uppercase;
+  }
+  .runner-intro {
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:16px;
+    padding:18px;
+    margin-bottom:16px;
+    border-radius:22px;
+    background:
+      radial-gradient(circle at top right, rgba(184, 255, 69, 0.14), transparent 20%),
+      linear-gradient(160deg, rgba(15, 29, 49, 0.96) 0%, rgba(8, 17, 31, 0.98) 72%);
+    border:1px solid rgba(77, 226, 255, 0.18);
+    box-shadow:0 18px 42px rgba(0, 0, 0, 0.28);
+  }
+  .runner-intro h2 {
+    margin:0 0 8px 0;
+    font-family:"Orbitron", sans-serif;
+    font-size:1.18rem;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    color:var(--text-main);
+  }
+  .runner-intro p {
+    margin:0;
+    max-width:56rem;
+    color:var(--text-muted) !important;
+    line-height:1.5;
+  }
+  .runner-filter-form {
+    display:flex;
+    gap:10px;
+    align-items:center;
+    flex-wrap:wrap;
+    min-width:min(100%, 240px);
+    padding:12px 14px;
+    border-radius:16px;
+    background:rgba(8, 17, 31, 0.74);
+    border:1px solid var(--runner-panel-border);
   }
   .runner-sidebar a {
     display:block;
-    padding:8px 10px;
-    border-radius:4px;
+    padding:11px 12px;
+    border-radius:12px;
     text-decoration:none;
-    margin-bottom:4px;
+    margin-bottom:6px;
+  }
+  .runner-sidebar {
+    position:sticky;
+    top:88px;
+    background:linear-gradient(180deg, rgba(12, 23, 42, 0.98), rgba(8, 17, 31, 0.98));
+    border:1px solid var(--runner-panel-border);
+    box-shadow:0 16px 36px rgba(0,0,0,0.24);
+  }
+  .runner-sidebar-title {
+    font-family:"Orbitron", sans-serif;
+    font-weight:600;
+    font-size:0.8rem;
+    margin-bottom:10px;
+    text-transform:uppercase;
+    letter-spacing:0.12em;
+    color:var(--accent);
+  }
+  .runner-nav-link {
+    background:rgba(77, 226, 255, 0.04);
+    border:1px solid transparent;
+    color:var(--text-muted) !important;
+    transition:transform .15s ease, border-color .15s ease, background-color .15s ease, color .15s ease;
+  }
+  .runner-nav-link:hover {
+    transform:translateY(-1px);
+    border-color:var(--runner-panel-border);
+    background:rgba(77, 226, 255, 0.09);
+    color:var(--text-main) !important;
+  }
+  .runner-nav-link.is-active {
+    background:linear-gradient(135deg, rgba(77, 226, 255, 0.2), rgba(28, 140, 255, 0.18));
+    border-color:rgba(77, 226, 255, 0.34);
+    color:var(--text-main) !important;
+    box-shadow:0 0 0 1px rgba(77, 226, 255, 0.14), 0 10px 22px rgba(0, 0, 0, 0.18);
   }
   .runner-section {
     display:none;
+    background:linear-gradient(180deg, rgba(13, 24, 41, 0.98), rgba(8, 17, 31, 0.98));
+    border:1px solid var(--runner-panel-border);
+    border-radius:20px;
+    box-shadow:0 18px 42px rgba(0, 0, 0, 0.24);
   }
   .runner-section.is-active {
     display:block;
+  }
+
+  .runner-section h3,
+  .runner-section h4 {
+    color:var(--text-main) !important;
+    font-family:"Orbitron", sans-serif;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
   }
 
   .runner-section table {
@@ -42,37 +153,87 @@
   .runner-section p,
   .runner-section .muted {
     font-size:0.78rem !important;
-    color:#0f172a !important;
+    color:var(--text-muted) !important;
   }
   .runner-section .muted.duration-label {
     font-size:0.45rem !important;
   }
+  .runner-page .card .card,
+  .runner-page .projection-card {
+    background:rgba(8, 17, 31, 0.76) !important;
+    border-color:var(--runner-panel-border) !important;
+    box-shadow:none;
+  }
+  .runner-page [style*="background:#fff"],
+  .runner-page [style*="background:#fefefe"],
+  .runner-page [style*="background:#fdfdfd"],
+  .runner-page [style*="background:#fcfcfc"] {
+    background:rgba(8, 17, 31, 0.76) !important;
+  }
+  .runner-page [style*="color:#0f172a"],
+  .runner-page [style*="color:#111827"],
+  .runner-page [style*="color:#374151"] {
+    color:var(--text-main) !important;
+  }
+  .runner-page [style*="color:#4b5563"],
+  .runner-page [style*="color:#6b7280"],
+  .runner-page [style*="color:#9ca3af"] {
+    color:var(--text-muted) !important;
+  }
+  .runner-page [style*="border:1px solid #e5e7eb"],
+  .runner-page [style*="border-top:1px dashed #e5e7eb"],
+  .runner-page [style*="border-bottom:1px solid #e5e7eb"],
+  .runner-page [style*="border-bottom:1px solid #f3f4f6"] {
+    border-color:rgba(108, 135, 175, 0.18) !important;
+  }
+  .runner-page a {
+    color:var(--link);
+  }
+  .runner-page a:hover {
+    color:var(--link-hover);
+  }
+  .runner-page td,
+  .runner-page th {
+    color:var(--text-main);
+  }
+  .runner-page .muted,
+  .runner-page p.muted {
+    color:var(--text-muted) !important;
+  }
 
   @media (max-width: 640px) {
-    body, p, div, table, th, td, a {
-      font-size:0.8rem !important;
-    }
     .runner-section p,
     .runner-section .muted {
-      font-size:0.7rem !important;
+      font-size:0.78rem !important;
     }
     .runner-section table {
       table-layout:fixed;
     }
     .runner-section table th,
     .runner-section table td {
-      font-size:0.7rem !important;
-      padding:3px 2px !important;
+      font-size:0.72rem !important;
+      padding:5px 4px !important;
     }
     .runner-section table th span {
       font-size:0.65rem !important;
     }
     .series-pace {
-      font-weight:400 !important;
-      font-size:0.65rem !important;
+      font-weight:500 !important;
+      font-size:0.72rem !important;
     }
     .series-date {
       display:none !important;
+    }
+    .runner-topbar {
+      align-items:flex-start;
+    }
+    .runner-intro {
+      padding:16px;
+      border-radius:18px;
+    }
+    .runner-filter-form {
+      width:100%;
+      padding:10px 12px;
     }
   }
 
@@ -87,8 +248,15 @@
       display:block !important;
       margin-bottom:16px;
     }
-    body, p, div, table, th, td, a {
-      font-size:0.85rem !important;
+    .runner-sidebar {
+      position:static;
+    }
+    .runner-intro {
+      flex-direction:column;
+    }
+    .runner-topbar {
+      flex-direction:column;
+      align-items:flex-start;
     }
   }
 
@@ -125,15 +293,15 @@
   }
 
   .projection-card {
-    border:1px solid #e5e7eb;
-    border-radius:6px;
-    padding:10px;
-    background:#fcfcfc;
+    border:1px solid var(--runner-panel-border);
+    border-radius:16px;
+    padding:12px;
+    background:rgba(8, 17, 31, 0.76);
     font-size:0.8rem;
   }
   .series-pace {
     font-weight:600;
-    color:#0f172a;
+    color:var(--text-main);
   }
   .series-date {
     font-size:0.55rem;
@@ -146,13 +314,14 @@
   .projection-card .title {
     font-weight:600;
     margin-bottom:4px;
-    color:#111827;
+    color:var(--text-main);
   }
 
   .projection-card .value {
     font-size:0.95rem;
     font-weight:600;
-    color:#0f172a;
+    color:var(--accent-2);
+    font-family:"Orbitron", sans-serif;
   }
 </style>
 {% set needs_chart_js = show_glucose_tabs and (
@@ -167,25 +336,22 @@
 {% endblock %}
 
 {% block content %}
+<div class="runner-page">
 
 <!-- ╔══════════════════════════════╗ -->
 <!--   🧍 Header utilisateur + actions  -->
 <!-- ╚══════════════════════════════╝ -->
-<div style="
-  display:flex; align-items:center; justify-content:space-between;
-  padding:16px 0 12px; border-bottom:1px solid var(--border-soft);
-  margin-bottom:16px;
-">
+<div class="runner-topbar">
   <div style="display:flex; align-items:center; gap:14px;">
     <div>
-      <div style="font-size:1.1rem; font-weight:600; color:#0f172a;">
+      <div class="runner-topbar-title">
         {% if user.first_name or user.last_name %}
           {{ user.first_name or "" }} {{ user.last_name or "" }}
         {% else %}
           {{ user.email }}
         {% endif %}
       </div>
-      <div style="margin-top:2px; color:#0f172a;">Profil coureur · id={{ user.id }}</div>
+      <div class="runner-topbar-subtitle">Profil coureur · id={{ user.id }}</div>
     </div>
   </div>
 
@@ -195,17 +361,17 @@
 <!-- ╔══════════════════════════════╗ -->
 <!--      🎯 En-tête profil coureur -->
 <!-- ╚══════════════════════════════╝ -->
-<div class="card" style="padding:14px; margin-bottom:14px;">
-  <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+<div class="runner-intro">
+  <div style="flex:1;">
     <div>
-      <h2 style="margin:0 0 4px 0; font-size:1.05rem; font-weight:600;">
+      <h2>
         {% if sport|lower == 'run' %}
           Voici ton profil (running & trail)
         {% else %}
           Profil coureur – {{ sport }}
         {% endif %}
       </h2>
-      <p style="margin:0; font-size:0.85rem; color:#0f172a;">
+      <p>
         Ce profil agrège toutes tes sorties pour estimer VAM, rythmes selon la pente et zones cardio,
         projeter tes chronos à partir d’un GPX, et, si tu portes un CGM, afficher les analyses glycémie.
         Pense à renseigner ta FC max dans ton profil pour des zones cardio plus précises.
@@ -214,15 +380,15 @@
 
     <form method="get"
           action="{{ request.url.path }}"
-          style="display:flex; gap:8px; align-items:center; font-size:0.85rem; flex-wrap:wrap;">
+          class="runner-filter-form">
 
       <input type="hidden" name="sport" value="{{ sport }}">
       <input type="hidden" name="tab" value="{{ tab }}">
 
-      <label for="period" style="white-space:nowrap;">Période :</label>
+      <label for="period" style="white-space:nowrap; margin:0;">Période</label>
       <select id="period" name="period"
               onchange="this.form.submit()"
-              style="padding:4px 6px; border-radius:4px; border:1px solid #d1d5db; min-width:150px;">
+              style="min-width:170px;">
         <option value="all" {% if period == 'all' %}selected{% endif %}>
           Tout l’historique
         </option>
@@ -250,8 +416,7 @@
 
   <!-- 🧭 Colonne gauche : menu onglets -->
   <aside class="card runner-sidebar" style="padding:12px; font-size:0.9rem;">
-    <div style="font-weight:600; font-size:0.85rem; margin-bottom:8px;
-                text-transform:uppercase; color:#0f172a;">
+    <div class="runner-sidebar-title">
       Profil coureur
     </div>
 
@@ -259,100 +424,44 @@
 
     <!-- Onglet Allure + projections -->
     <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=pace"
-       style="
-         display:block; padding:8px 10px; border-radius:4px;
-         text-decoration:none; margin-bottom:4px;
-         {% if tab == 'pace' %}
-           background:#0f172a; color:#f9fafb; font-weight:600;
-         {% else %}
-         color:#111827;
-         {% endif %}
-       ">
+       class="runner-nav-link {% if tab == 'pace' %}is-active{% endif %}">
       Allure par pente × cardio & <span style="color:#dc2626; font-weight:600;">projections Chrono (GPX)</span>
     </a>
 
     <!-- Onglet Projection chrono route -->
     <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=series"
-       style="
-         display:block; padding:8px 10px; border-radius:4px;
-         text-decoration:none; margin-bottom:4px;
-         {% if tab == 'series' %}
-           background:#0f172a; color:#f9fafb; font-weight:600;
-         {% else %}
-           color:#111827;
-         {% endif %}
-       ">
+       class="runner-nav-link {% if tab == 'series' %}is-active{% endif %}">
       <span style="color:#dc2626; font-weight:600;">Projection Chrono Route</span> & séances clef
     </a>
 
     <!-- Onglet D+ -->
     <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=ascent"
-       style="
-         display:block; padding:8px 10px; border-radius:4px;
-         text-decoration:none; margin-bottom:4px;
-         {% if tab == 'ascent' %}
-           background:#0f172a; color:#f9fafb; font-weight:600;
-         {% else %}
-           color:#111827;
-         {% endif %}
-       ">
+       class="runner-nav-link {% if tab == 'ascent' %}is-active{% endif %}">
       D+ max (fenêtres)
     </a>
 
     <!-- Onglet VAM -->
     <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=vam"
-       style="
-         display:block; padding:8px 10px; border-radius:4px;
-         text-decoration:none; margin-bottom:4px;
-         {% if tab == 'vam' %}
-           background:#0f172a; color:#f9fafb; font-weight:600;
-         {% else %}
-           color:#111827;
-         {% endif %}
-      ">
+       class="runner-nav-link {% if tab == 'vam' %}is-active{% endif %}">
       VAM par pente × cardio
     </a>
 
     <!-- Onglet Cadence -->
     <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=cadence"
-       style="
-         display:block; padding:8px 10px; border-radius:4px;
-         text-decoration:none; margin-bottom:4px;
-         {% if tab == 'cadence' %}
-           background:#0f172a; color:#f9fafb; font-weight:600;
-         {% else %}
-           color:#111827;
-         {% endif %}
-       ">
+       class="runner-nav-link {% if tab == 'cadence' %}is-active{% endif %}">
       Cadence par pente × cardio
     </a>
 
     {% if show_glucose_tabs %}
       <!-- Onglet Glycémie -->
       <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=glucose"
-         style="
-           display:block; padding:8px 10px; border-radius:4px;
-           text-decoration:none; margin-bottom:4px;
-           {% if tab == 'glucose' %}
-             background:#0f172a; color:#f9fafb; font-weight:600;
-           {% else %}
-             color:#111827;
-           {% endif %}
-         ">
+         class="runner-nav-link {% if tab == 'glucose' %}is-active{% endif %}">
         Glycémie (temps dans la zone)
       </a>
 
       <!-- Onglet Glycémie + activités -->
       <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=glucose_activities"
-         style="
-           display:block; padding:8px 10px; border-radius:4px;
-           text-decoration:none;
-           {% if tab == 'glucose_activities' %}
-             background:#0f172a; color:#f9fafb; font-weight:600;
-           {% else %}
-             color:#111827;
-           {% endif %}
-         ">
+         class="runner-nav-link {% if tab == 'glucose_activities' %}is-active{% endif %}">
         Glycémie & activités
       </a>
     {% endif %}
@@ -1624,4 +1733,5 @@
   }
 </script>
 
+</div>
 {% endblock %}

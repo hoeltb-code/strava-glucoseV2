@@ -58,8 +58,9 @@
   .login-title {
     margin: 0 0 14px 0;
     font-family: "Orbitron", sans-serif;
-    font-size: clamp(2rem, 6vw, 3.45rem);
-    line-height: 0.98;
+    max-width: 14ch;
+    font-size: clamp(1.7rem, 4.2vw, 2.7rem);
+    line-height: 1.04;
     letter-spacing: 0.03em;
     text-transform: uppercase;
   }
@@ -241,7 +242,8 @@
     }
 
     .login-title {
-      font-size: 2rem;
+      max-width: none;
+      font-size: 1.85rem;
     }
 
     .login-copy {
@@ -258,7 +260,7 @@
       <div>
         <p class="login-kicker">Strava Glucose // Tactical HUD</p>
         <h1 class="login-title">
-          Le cockpit trail version jeu vidéo
+          Le cockpit trail
         </h1>
         <p class="login-copy">
           Anticipe tes chronos en fonction des pentes, compare tes VAM, allures et cadences, et si tu

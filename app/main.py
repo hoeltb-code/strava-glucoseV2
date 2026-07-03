@@ -1899,6 +1899,7 @@ async def process_activity_core(
 
         if auto_block_enabled:
             time_stream_full = streams.get("time", {}).get("data") or []
+            hr_stream_full = streams.get("heartrate", {}).get("data") or []
             altitude_stream = streams.get("altitude", {}).get("data") or []
             distance_stream = streams.get("distance", {}).get("data") or []
             cadence_stream = streams.get("cadence", {}).get("data") or []
@@ -1948,6 +1949,15 @@ async def process_activity_core(
 
             sport_norm = (activity_obj.sport or "").lower()
             raw_activity_type = (activity_obj.activity_type or act.get("type") or "").strip().lower()
+            strength_sport_aliases = {
+                "crossfit",
+                "muscu",
+                "musculation",
+                "strengthtraining",
+                "strength_training",
+                "weighttraining",
+                "weightsession",
+            }
             has_significant_climb = False
             if total_distance_m and total_gain_m and float(total_distance_m) > 0:
                 has_significant_climb = (float(total_gain_m) / float(total_distance_m)) >= 0.02
@@ -2152,6 +2162,28 @@ async def process_activity_core(
 
                 if ride_lines:
                     blocks_ordered.append("\n".join(ride_lines))
+
+            elif sport_norm in strength_sport_aliases or raw_activity_type in strength_sport_aliases:
+                user = db.query(User).get(user_id)
+                fc_max = compute_user_fc_max(user)
+                hr_zones = compute_hr_zones(
+                    samples=samples,
+                    activity_start=start_aw,
+                    time_stream=time_stream_full,
+                    hr_stream=hr_stream_full,
+                    fc_max=fc_max,
+                )
+                if hr_zones:
+                    zone_lines = []
+                    for zone in hr_zones:
+                        duration_sec = float(zone.get("duration_sec") or 0.0)
+                        gly_avg = zone.get("gly_avg")
+                        gly_label = f"{round(gly_avg)} mg/dL" if gly_avg is not None else "n/a"
+                        zone_lines.append(
+                            f"{zone['name']} : {_format_duration(duration_sec)} | Gly moy : {gly_label}"
+                        )
+                    if zone_lines:
+                        blocks_ordered.append("\n".join(zone_lines))
 
             elif stats and stats.get("block"):
                 # Autres sports : on ne garde que la glycémie si disponible

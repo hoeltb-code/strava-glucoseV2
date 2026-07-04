@@ -80,10 +80,13 @@
   .activity-delete-button {
     display:inline-flex;
     align-items:center;
+    justify-content:center;
     gap:6px;
     padding:10px 16px;
     font-size:.95rem;
     font-weight:700;
+    line-height:1.15;
+    min-height:48px;
     border-radius:12px;
     border:1px solid rgba(255, 122, 89, 0.32);
     background:linear-gradient(135deg, rgba(255, 122, 89, 0.9), rgba(220, 38, 38, 0.9));
@@ -99,10 +102,14 @@
   .activity-story-button {
     display:inline-flex;
     align-items:center;
+    justify-content:center;
     gap:8px;
     padding:10px 16px;
-    font-size:.95rem;
-    font-weight:700;
+    font-size:.72rem;
+    font-weight:500;
+    line-height:1.15;
+    text-align:center;
+    min-height:48px;
     border-radius:12px;
     border:1px solid rgba(77, 226, 255, 0.34);
     background:linear-gradient(135deg, rgba(77, 226, 255, 0.18), rgba(28, 140, 255, 0.24));
@@ -402,7 +409,7 @@
       class="activity-story-button"
       id="activityStoryExportButton"
       {% if not story_export_data %}disabled title="Pas assez de données glycémie pour exporter une story"{% endif %}>
-      ⬇ Story PNG
+      Télécharger les data<br>pour mettre en story
     </button>
 
     <!-- Bouton danger : Supprimer -->
@@ -1705,43 +1712,130 @@
       return "#f6cf46";
     }
 
-    function buildSmoothedPoints(points, samplesPerSegment) {
+    function buildMonotoneInterpolatedPoints(points, samplesPerSegment) {
       if (points.length < 2) return points.slice();
-      const smoothed = [];
+      if (points.length <= 3) {
+        return buildSparseHermitePoints(points, samplesPerSegment);
+      }
+
+      const xs = points.map((point) => point.elapsed_sec);
+      const ys = points.map((point) => point.mgdl);
+      const dx = [];
+      const slopes = [];
 
       for (let i = 0; i < points.length - 1; i += 1) {
-        const p0 = points[Math.max(0, i - 1)];
-        const p1 = points[i];
-        const p2 = points[i + 1];
-        const p3 = points[Math.min(points.length - 1, i + 2)];
+        const deltaX = xs[i + 1] - xs[i];
+        const deltaY = ys[i + 1] - ys[i];
+        dx.push(deltaX);
+        slopes.push(deltaX > 0 ? deltaY / deltaX : 0);
+      }
 
-        if (i === 0) {
-          smoothed.push({ x: p1.x, y: p1.y, mgdl: p1.mgdl });
+      const tangents = new Array(points.length).fill(0);
+      if (points.length === 2) {
+        tangents[0] = slopes[0];
+        tangents[1] = slopes[0];
+      } else {
+        const h0 = dx[0];
+        const h1 = dx[1];
+        const d0 = slopes[0];
+        const d1 = slopes[1];
+        let startTangent = (((2 * h0) + h1) * d0 - (h0 * d1)) / (h0 + h1);
+        if (startTangent * d0 <= 0) {
+          startTangent = 0;
+        } else if (d0 * d1 < 0 && Math.abs(startTangent) > Math.abs(3 * d0)) {
+          startTangent = 3 * d0;
+        }
+        tangents[0] = startTangent;
+
+        const hn1 = dx[dx.length - 1];
+        const hn2 = dx[dx.length - 2];
+        const dn1 = slopes[slopes.length - 1];
+        const dn2 = slopes[slopes.length - 2];
+        let endTangent = (((2 * hn1) + hn2) * dn1 - (hn1 * dn2)) / (hn1 + hn2);
+        if (endTangent * dn1 <= 0) {
+          endTangent = 0;
+        } else if (dn1 * dn2 < 0 && Math.abs(endTangent) > Math.abs(3 * dn1)) {
+          endTangent = 3 * dn1;
+        }
+        tangents[points.length - 1] = endTangent;
+      }
+
+      for (let i = 1; i < points.length - 1; i += 1) {
+        if (slopes[i - 1] === 0 || slopes[i] === 0 || slopes[i - 1] * slopes[i] < 0) {
+          tangents[i] = 0;
+          continue;
+        }
+        const w1 = 2 * dx[i] + dx[i - 1];
+        const w2 = dx[i] + 2 * dx[i - 1];
+        tangents[i] = (w1 + w2) / ((w1 / slopes[i - 1]) + (w2 / slopes[i]));
+      }
+
+      const interpolated = [];
+      for (let i = 0; i < points.length - 1; i += 1) {
+        const x0 = xs[i];
+        const x1 = xs[i + 1];
+        const y0 = ys[i];
+        const y1 = ys[i + 1];
+        const h = x1 - x0;
+        if (h <= 0) {
+          continue;
         }
 
-        for (let step = 1; step <= samplesPerSegment; step += 1) {
-          const t = step / samplesPerSegment;
+        if (i === 0) {
+          interpolated.push({ elapsed_sec: x0, mgdl: y0 });
+        }
+
+        const segmentSamples = Math.max(12, samplesPerSegment);
+        for (let step = 1; step <= segmentSamples; step += 1) {
+          const t = step / segmentSamples;
           const t2 = t * t;
           const t3 = t2 * t;
+          const h00 = (2 * t3) - (3 * t2) + 1;
+          const h10 = t3 - (2 * t2) + t;
+          const h01 = (-2 * t3) + (3 * t2);
+          const h11 = t3 - t2;
+          interpolated.push({
+            elapsed_sec: x0 + (h * t),
+            mgdl: (h00 * y0) + (h10 * h * tangents[i]) + (h01 * y1) + (h11 * h * tangents[i + 1]),
+          });
+        }
+      }
+
+      return interpolated;
+    }
+
+    function buildSparseHermitePoints(points, samplesPerSegment) {
+      if (points.length < 2) return points.slice();
+
+      const tangents = new Array(points.length).fill(0);
+      if (points.length === 3) {
+        const span = points[2].elapsed_sec - points[0].elapsed_sec;
+        tangents[1] = span > 0 ? (points[2].mgdl - points[0].mgdl) / span : 0;
+      }
+
+      const smoothed = [];
+      for (let i = 0; i < points.length - 1; i += 1) {
+        const p0 = points[i];
+        const p1 = points[i + 1];
+        const h = p1.elapsed_sec - p0.elapsed_sec;
+        if (h <= 0) continue;
+
+        if (i === 0) {
+          smoothed.push({ elapsed_sec: p0.elapsed_sec, mgdl: p0.mgdl });
+        }
+
+        const segmentSamples = Math.max(24, samplesPerSegment * 2);
+        for (let step = 1; step <= segmentSamples; step += 1) {
+          const t = step / segmentSamples;
+          const t2 = t * t;
+          const t3 = t2 * t;
+          const h00 = (2 * t3) - (3 * t2) + 1;
+          const h10 = t3 - (2 * t2) + t;
+          const h01 = (-2 * t3) + (3 * t2);
+          const h11 = t3 - t2;
           smoothed.push({
-            x: 0.5 * (
-              (2 * p1.x) +
-              (-p0.x + p2.x) * t +
-              (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 +
-              (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3
-            ),
-            y: 0.5 * (
-              (2 * p1.y) +
-              (-p0.y + p2.y) * t +
-              (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 +
-              (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3
-            ),
-            mgdl: 0.5 * (
-              (2 * p1.mgdl) +
-              (-p0.mgdl + p2.mgdl) * t +
-              (2 * p0.mgdl - 5 * p1.mgdl + 4 * p2.mgdl - p3.mgdl) * t2 +
-              (-p0.mgdl + 3 * p1.mgdl - 3 * p2.mgdl + p3.mgdl) * t3
-            ),
+            elapsed_sec: p0.elapsed_sec + (h * t),
+            mgdl: (h00 * p0.mgdl) + (h10 * h * tangents[i]) + (h01 * p1.mgdl) + (h11 * h * tangents[i + 1]),
           });
         }
       }
@@ -1821,29 +1915,45 @@
       const leftLabelX = metrics.x;
       const leftValueX = metrics.x;
       const rightStartX = metrics.x + 520;
+      const row1Y = metrics.y;
+      const row2Y = metrics.y + 102;
+      const row3Y = metrics.y + 204;
+
+      ctx.fillStyle = "rgba(220, 238, 255, 0.70)";
+      ctx.font = "700 14px Orbitron, sans-serif";
+      ctx.fillText("ACTIVITE", leftLabelX, metrics.y - 6);
 
       ctx.fillStyle = "rgba(220, 238, 255, 0.92)";
       ctx.font = "700 16px Orbitron, sans-serif";
-      ctx.fillText("DISTANCE", leftLabelX, metrics.y + 20);
+      ctx.fillText("DISTANCE", leftLabelX, row1Y + 20);
       ctx.fillStyle = "#ffffff";
       ctx.font = "700 40px Rajdhani, sans-serif";
-      ctx.fillText(data.distance_label || "–", leftValueX, metrics.y + 66);
+      ctx.fillText(data.distance_label || "–", leftValueX, row1Y + 66);
 
       ctx.fillStyle = "rgba(220, 238, 255, 0.92)";
       ctx.font = "700 16px Orbitron, sans-serif";
-      ctx.fillText("DUREE", leftLabelX, metrics.y + 122);
+      ctx.fillText("DUREE", leftLabelX, row2Y + 20);
       ctx.fillStyle = "#ffffff";
       ctx.font = "700 40px Rajdhani, sans-serif";
-      ctx.fillText(data.duration_label || "–", leftValueX, metrics.y + 168);
+      ctx.fillText(data.duration_label || "–", leftValueX, row2Y + 66);
+
+      if (data.effort_metric_label && data.effort_metric_value) {
+        ctx.fillStyle = "rgba(220, 238, 255, 0.92)";
+        ctx.font = "700 16px Orbitron, sans-serif";
+        ctx.fillText(data.effort_metric_label, leftLabelX, row3Y + 20);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "700 40px Rajdhani, sans-serif";
+        ctx.fillText(data.effort_metric_value, leftValueX, row3Y + 66);
+      }
 
       ctx.fillStyle = "rgba(220, 238, 255, 0.70)";
       ctx.font = "700 14px Orbitron, sans-serif";
       ctx.fillText("GLYCEMIE", rightStartX, metrics.y - 6);
 
       const glucoseStats = [
-        { label: "TIR", value: data.tir_label || "–", x: rightStartX, y: metrics.y + 26 },
-        { label: "MIN", value: data.min_label || "–", x: rightStartX, y: metrics.y + 102 },
-        { label: "MAX", value: data.max_label || "–", x: rightStartX, y: metrics.y + 178 }
+        { label: "TIR", value: data.tir_label || "–", x: rightStartX, y: row1Y },
+        { label: "MIN", value: data.min_label || "–", x: rightStartX, y: row2Y },
+        { label: "MAX", value: data.max_label || "–", x: rightStartX, y: row3Y }
       ];
 
       glucoseStats.forEach((stat) => {
@@ -1851,8 +1961,8 @@
         ctx.font = "700 16px Orbitron, sans-serif";
         ctx.fillText(stat.label, stat.x, stat.y + 20);
         ctx.fillStyle = "#ffffff";
-        ctx.font = "700 31px Rajdhani, sans-serif";
-        ctx.fillText(stat.value, stat.x, stat.y + 64);
+        ctx.font = "700 40px Rajdhani, sans-serif";
+        ctx.fillText(stat.value, stat.x, stat.y + 66);
       });
 
       const points = data.glucose_points
@@ -1875,14 +1985,10 @@
       const mapX = (elapsedSec) => chart.x + ((elapsedSec - minTime) / timeRange) * chart.width;
       const mapY = (mgdl) => chart.y + chart.height - ((mgdl - yMin) / glucoseRange) * chart.height;
 
-      const plotPoints = points.map((point) => ({
+      const interpolatedPoints = buildMonotoneInterpolatedPoints(points, 20);
+      const plotPoints = interpolatedPoints.map((point) => ({
         x: mapX(point.elapsed_sec),
         y: mapY(point.mgdl),
-        mgdl: point.mgdl
-      }));
-      const smoothPoints = buildSmoothedPoints(plotPoints, 72).map((point) => ({
-        x: clamp(point.x, chart.x, chart.x + chart.width),
-        y: clamp(point.y, chart.y, chart.y + chart.height),
         mgdl: point.mgdl
       }));
 
@@ -1926,21 +2032,27 @@
       ctx.save();
       ctx.shadowColor = "transparent";
       ctx.shadowBlur = 0;
-      for (let i = 0; i < smoothPoints.length - 1; i += 1) {
-        const p1 = smoothPoints[i];
-        const p2 = smoothPoints[i + 1];
-        ctx.strokeStyle = zoneColor((p1.mgdl + p2.mgdl) / 2);
+      for (let i = 0; i < plotPoints.length - 1; i += 1) {
+        const current = plotPoints[i];
+        const next = plotPoints[i + 1];
+        ctx.strokeStyle = zoneColor((current.mgdl + next.mgdl) / 2);
         ctx.lineWidth = 2.4;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
         ctx.beginPath();
-        ctx.moveTo(p1.x, p1.y);
-        ctx.lineTo(p2.x, p2.y);
+        ctx.moveTo(
+          clamp(current.x, chart.x, chart.x + chart.width),
+          clamp(current.y, chart.y, chart.y + chart.height)
+        );
+        ctx.lineTo(
+          clamp(next.x, chart.x, chart.x + chart.width),
+          clamp(next.y, chart.y, chart.y + chart.height)
+        );
         ctx.stroke();
       }
       ctx.restore();
 
-      const lastPoint = smoothPoints[smoothPoints.length - 1];
+      const lastPoint = plotPoints[plotPoints.length - 1];
       ctx.fillStyle = zoneColor(lastPoint.mgdl);
       ctx.beginPath();
       ctx.arc(lastPoint.x, lastPoint.y, 3.5, 0, Math.PI * 2);

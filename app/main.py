@@ -5533,6 +5533,23 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
         km = float(meters) / 1000.0
         return f"{km:.2f}".rstrip("0").rstrip(".") + " km"
 
+    def format_pace_short(meters: float | None, seconds: float | None) -> str:
+        if meters is None or seconds is None or meters <= 0 or seconds <= 0:
+            return "–"
+        sec_per_km = float(seconds) / (float(meters) / 1000.0)
+        mins = int(sec_per_km // 60)
+        secs = int(round(sec_per_km % 60))
+        if secs == 60:
+            mins += 1
+            secs = 0
+        return f"{mins}:{secs:02d}/km"
+
+    def format_speed_short(meters: float | None, seconds: float | None) -> str:
+        if meters is None or seconds is None or meters <= 0 or seconds <= 0:
+            return "–"
+        kmh = (float(meters) / float(seconds)) * 3.6
+        return f"{kmh:.1f} km/h"
+
     def build_summary(label: str, detail: str, tone: str = "neutral") -> dict:
         palette = {
             "positive": ("#dcfce7", "#166534"),
@@ -5817,12 +5834,23 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
         gly_avg = round(activity.avg_glucose) if activity.avg_glucose else None
 
         if has_glucose and len(glucose_chart_points) > 1:
+            effort_metric_label = None
+            effort_metric_value = None
+            if sport_norm == "run":
+                effort_metric_label = "ALLURE"
+                effort_metric_value = format_pace_short(activity.distance, activity.elapsed_time)
+            elif sport_norm == "ride":
+                effort_metric_label = "VITESSE"
+                effort_metric_value = format_speed_short(activity.distance, activity.elapsed_time)
+
             story_export_data = {
                 "activity_id": activity.id,
                 "activity_name": activity.name or "Activite",
                 "activity_date": _safe_dt(activity.start_date).strftime("%d/%m/%Y") if _safe_dt(activity.start_date) else None,
                 "distance_label": format_distance_short(activity.distance),
                 "duration_label": format_duration_short(activity.elapsed_time),
+                "effort_metric_label": effort_metric_label,
+                "effort_metric_value": effort_metric_value,
                 "tir_label": (
                     f"{round(float(activity.time_in_range_percent))}%"
                     if activity.time_in_range_percent is not None

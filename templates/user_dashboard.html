@@ -502,14 +502,14 @@
           const right = Math.min(chartArea.right, Math.max(xStart, xEnd));
           if (right <= left) return;
 
-          ctx.fillStyle = window.color || 'rgba(255,255,255,0.08)';
-          ctx.strokeStyle = window.stroke || 'rgba(255,255,255,0.35)';
+          ctx.fillStyle = 'rgba(255,255,255,0.10)';
+          ctx.strokeStyle = 'rgba(255,255,255,0.70)';
           ctx.lineWidth = 1;
           ctx.fillRect(left, chartArea.top, right - left, chartArea.bottom - chartArea.top);
           ctx.strokeRect(left, chartArea.top, right - left, chartArea.bottom - chartArea.top);
 
           const labelY = chartArea.top + 14 + (index % 3) * 14;
-          ctx.fillStyle = window.stroke || '#fff';
+          ctx.fillStyle = 'rgba(255,255,255,0.96)';
           ctx.font = '600 11px Rajdhani, sans-serif';
           ctx.fillText(window.label || 'Sport', left + 4, labelY);
         });

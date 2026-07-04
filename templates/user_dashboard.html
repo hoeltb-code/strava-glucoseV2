@@ -37,6 +37,12 @@
     border-collapse:collapse;
     font-size:0.85rem;
     margin-top:8px;
+    min-width:420px;
+  }
+  .mini-table-wrap {
+    width:100%;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
   }
   .mini-table th,
   .mini-table td {
@@ -121,6 +127,17 @@
     height:12px;
     border-radius:999px;
     border:1px solid rgba(255,255,255,0.18);
+  }
+  @media (max-width: 640px) {
+    .mini-table {
+      font-size:0.74rem;
+      min-width:360px;
+    }
+    .mini-table th,
+    .mini-table td {
+      padding:5px 4px;
+      white-space:nowrap;
+    }
   }
 </style>
 {% endblock %}
@@ -215,6 +232,7 @@
       </p>
     {% endif %}
 
+    <div class="mini-table-wrap">
     <table class="mini-table" style="margin-top:10px;">
       <thead>
         <tr>
@@ -233,12 +251,14 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
 
     {% if fc_info.recent_usage and fc_info.recent_usage.total_seconds > 0 %}
     <div style="margin-top:16px;">
       <div style="font-size:0.85rem; font-weight:600;">
         Temps passé par zone ({{ fc_info.recent_usage.window_days }} derniers jours)
       </div>
+      <div class="mini-table-wrap">
       <table class="mini-table" style="margin-top:6px;">
         <thead>
           <tr>
@@ -263,6 +283,7 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
     </div>
     {% endif %}
 
@@ -276,6 +297,7 @@
     {% if sport_distribution %}
     <div style="margin-bottom:10px;">
       <div style="font-size:0.85rem; font-weight:600;">Répartition des sports (28 derniers jours)</div>
+      <div class="mini-table-wrap">
       <table class="mini-table">
         <thead>
           <tr>
@@ -298,6 +320,7 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
     </div>
     {% endif %}
 
@@ -306,6 +329,7 @@
       <div style="font-size:0.85rem; font-weight:600; color:#dc2626;">
         Fenêtres D+ / VAM records (Running)
       </div>
+      <div class="mini-table-wrap">
       <table class="mini-table">
         <thead>
           <tr><th style="text-align:left;">Fenêtre</th><th style="text-align:right;">D+</th><th style="text-align:right;">VAM</th></tr>
@@ -320,12 +344,14 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
     </div>
     {% endif %}
 
     {% if dash_distance_projections %}
     <div>
       <div style="font-size:0.85rem; font-weight:600;">Projections chrono route</div>
+      <div class="mini-table-wrap">
       <table class="mini-table">
         <thead>
           <tr><th style="text-align:left;">Distance</th><th style="text-align:center;">Allure</th><th style="text-align:right;">Chrono</th></tr>
@@ -352,6 +378,7 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
     </div>
     {% endif %}
   </div>

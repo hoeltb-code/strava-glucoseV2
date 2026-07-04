@@ -2,7 +2,46 @@
 
 {% block title %}Dashboard · Strava x Glucose{% endblock %}
 
+{% block extra_head %}
+<style>
+  .admin-page {
+    --admin-surface: rgba(8, 17, 31, 0.78);
+    --admin-surface-soft: rgba(77, 226, 255, 0.06);
+    --admin-border: rgba(108, 135, 175, 0.2);
+  }
+  .admin-page [style*="background:#fff"],
+  .admin-page [style*="background:#ffffff"],
+  .admin-page [style*="background:white"],
+  .admin-page [style*="background:#f8fafc"] {
+    background: var(--admin-surface) !important;
+    color: var(--text-main) !important;
+    border-color: var(--admin-border) !important;
+  }
+  .admin-page [style*="color:#0f172a"],
+  .admin-page [style*="color:#111827"],
+  .admin-page [style*="color:#374151"] {
+    color: var(--text-main) !important;
+  }
+  .admin-page [style*="color:#6b7280"],
+  .admin-page [style*="color:#9ca3af"] {
+    color: var(--text-muted) !important;
+  }
+  .admin-page [style*="border:1px solid #e5e7eb"],
+  .admin-page [style*="border-bottom:1px solid #e5e7eb"] {
+    border-color: var(--admin-border) !important;
+  }
+  .admin-page .admin-subcard {
+    background: var(--admin-surface-soft) !important;
+    border: 1px solid var(--admin-border);
+  }
+  .admin-page .admin-table-wrap {
+    overflow-x: auto;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
+<div class="admin-page">
   {% set filters = filters|default({'strava': 'all', 'libre': 'all', 'dexcom': 'all'}) %}
   {% set user_pagination = user_pagination|default({'page': 1, 'page_size': 10, 'total': 0, 'start_index': 0, 'end_index': 0, 'has_prev': False, 'has_next': False, 'prev_url': None, 'next_url': None}) %}
   {% set activity_pagination = activity_pagination|default({'page': 1, 'page_size': 5, 'total': 0, 'start_index': 0, 'end_index': 0, 'has_prev': False, 'has_next': False, 'prev_url': None, 'next_url': None}) %}
@@ -79,7 +118,7 @@
       </div>
     </form>
 
-    <div class="card" style="margin-top:14px; padding:14px; background:#f8fafc;">
+    <div class="card admin-subcard" style="margin-top:14px; padding:14px; background:#f8fafc;">
       <h3 style="margin:0 0 8px 0; font-size:1rem;">✉️ Email ciblé</h3>
       <p style="margin:0 0 10px 0; color:var(--text-muted); font-size:0.88rem;">
         L’email sera envoyé à tous les utilisateurs correspondant aux filtres actuels.
@@ -131,7 +170,7 @@
         <input type="hidden" name="dexcom_filter" value="{{ filters.dexcom }}">
         <input type="hidden" name="activity_page" value="{{ activity_pagination.page }}">
       </form>
-      <div style="margin-top:10px;">
+      <div class="admin-table-wrap" style="margin-top:10px;">
         <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
           <button type="button" onclick="toggleAdminUserSelection(true)">Tout cocher (affichés)</button>
           <button type="button" onclick="toggleAdminUserSelection(false)">Tout décocher</button>
@@ -240,7 +279,7 @@
         </div>
       </div>
 
-      <div style="overflow-x:auto; margin-top:12px;">
+      <div class="admin-table-wrap" style="overflow-x:auto; margin-top:12px;">
         <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
           <thead>
             <tr style="border-bottom:1px solid var(--border); color:var(--text-muted);">
@@ -312,4 +351,5 @@
       });
     }
   </script>
+</div>
 {% endblock %}

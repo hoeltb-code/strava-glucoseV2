@@ -96,6 +96,73 @@
   .activity-delete-button:hover {
     filter:brightness(1.06);
   }
+  .activity-story-button {
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:10px 16px;
+    font-size:.95rem;
+    font-weight:700;
+    border-radius:12px;
+    border:1px solid rgba(77, 226, 255, 0.34);
+    background:linear-gradient(135deg, rgba(77, 226, 255, 0.18), rgba(28, 140, 255, 0.24));
+    color:var(--activity-text);
+    box-shadow:0 12px 28px rgba(10, 25, 47, 0.28), inset 0 1px 0 rgba(255,255,255,0.08);
+    transition:filter .15s ease, transform .06s ease, border-color .15s ease;
+    cursor:pointer;
+  }
+  .activity-story-button:hover:not(:disabled) {
+    filter:brightness(1.08);
+    border-color:rgba(77, 226, 255, 0.5);
+  }
+  .activity-story-button:disabled {
+    opacity:0.5;
+    cursor:not-allowed;
+    box-shadow:none;
+  }
+  .activity-story-preview {
+    position:fixed;
+    inset:0;
+    z-index:1200;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    background:rgba(2, 6, 23, 0.82);
+    backdrop-filter:blur(10px);
+  }
+  .activity-story-preview.is-visible {
+    display:flex;
+  }
+  .activity-story-preview-card {
+    width:min(420px, 100%);
+    padding:18px;
+    border-radius:22px;
+    border:1px solid rgba(77, 226, 255, 0.24);
+    background:linear-gradient(180deg, rgba(16, 33, 58, 0.96), rgba(10, 23, 41, 0.98));
+    box-shadow:0 24px 60px rgba(0, 0, 0, 0.4);
+  }
+  .activity-story-preview-card img {
+    display:block;
+    width:100%;
+    max-height:72vh;
+    object-fit:contain;
+    border-radius:18px;
+    background:
+      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size:20px 20px;
+  }
+  .activity-story-preview-actions {
+    margin-top:14px;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .activity-story-preview-actions a,
+  .activity-story-preview-actions button {
+    flex:1 1 140px;
+  }
   .activity-tab-link {
     display:block;
     padding:8px 10px;
@@ -331,8 +398,12 @@
   </div>
 
   <div class="activity-header-actions">
-
-
+    <button type="button"
+      class="activity-story-button"
+      id="activityStoryExportButton"
+      {% if not story_export_data %}disabled title="Pas assez de données glycémie pour exporter une story"{% endif %}>
+      ⬇ Story PNG
+    </button>
 
     <!-- Bouton danger : Supprimer -->
     <form method="post"
@@ -348,6 +419,27 @@
       </button>
     </form>
 
+  </div>
+</div>
+
+<div class="activity-story-preview" id="activityStoryPreview" aria-hidden="true">
+  <div class="activity-story-preview-card">
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:12px;">
+      <div>
+        <div style="font-family:'Orbitron', sans-serif; font-size:0.82rem; letter-spacing:0.16em; text-transform:uppercase; color:var(--activity-text-muted);">
+          Story export
+        </div>
+        <div class="muted" style="margin-top:4px; font-size:0.78rem;">
+          Fallback mobile si le téléchargement direct n’est pas supporté.
+        </div>
+      </div>
+      <button type="button" class="activity-story-button" id="activityStoryPreviewClose" style="padding:8px 12px;">Fermer</button>
+    </div>
+    <img id="activityStoryPreviewImage" alt="Aperçu de la story exportée">
+    <div class="activity-story-preview-actions">
+      <a id="activityStoryPreviewOpen" class="activity-story-button" href="#" target="_blank" rel="noopener">Ouvrir l’image</a>
+      <a id="activityStoryPreviewSave" class="activity-story-button" href="#" download="story-glucose.png">Enregistrer</a>
+    </div>
   </div>
 </div>
 
@@ -1573,5 +1665,385 @@
   </main>
 </div>
 </div>
+
+{% if story_export_data %}
+<script>
+  (function() {
+    const exportButton = document.getElementById("activityStoryExportButton");
+    const preview = document.getElementById("activityStoryPreview");
+    const previewImage = document.getElementById("activityStoryPreviewImage");
+    const previewOpen = document.getElementById("activityStoryPreviewOpen");
+    const previewSave = document.getElementById("activityStoryPreviewSave");
+    const previewClose = document.getElementById("activityStoryPreviewClose");
+    const storyData = {{ story_export_data | tojson | safe }};
+
+    if (!exportButton || !storyData || !storyData.glucose_points || storyData.glucose_points.length < 2) return;
+
+    const originalLabel = exportButton.textContent;
+    const size = { width: 1080, height: 1920 };
+    const metrics = { x: 92, y: 108, width: 896, height: 260 };
+    const chart = { x: 240, y: 560, width: 600, height: 220 };
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function roundedRect(ctx, x, y, width, height, radius) {
+      const r = Math.min(radius, width / 2, height / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + width, y, x + width, y + height, r);
+      ctx.arcTo(x + width, y + height, x, y + height, r);
+      ctx.arcTo(x, y + height, x, y, r);
+      ctx.arcTo(x, y, x + width, y, r);
+      ctx.closePath();
+    }
+
+    function zoneColor(mgdl) {
+      if (mgdl < 70) return "#ff5b61";
+      if (mgdl <= 180) return "#2fe08b";
+      return "#f6cf46";
+    }
+
+    function buildSmoothedPoints(points, samplesPerSegment) {
+      if (points.length < 2) return points.slice();
+      const smoothed = [];
+
+      for (let i = 0; i < points.length - 1; i += 1) {
+        const p0 = points[Math.max(0, i - 1)];
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const p3 = points[Math.min(points.length - 1, i + 2)];
+
+        if (i === 0) {
+          smoothed.push({ x: p1.x, y: p1.y, mgdl: p1.mgdl });
+        }
+
+        for (let step = 1; step <= samplesPerSegment; step += 1) {
+          const t = step / samplesPerSegment;
+          const t2 = t * t;
+          const t3 = t2 * t;
+          smoothed.push({
+            x: 0.5 * (
+              (2 * p1.x) +
+              (-p0.x + p2.x) * t +
+              (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 +
+              (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3
+            ),
+            y: 0.5 * (
+              (2 * p1.y) +
+              (-p0.y + p2.y) * t +
+              (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 +
+              (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3
+            ),
+            mgdl: 0.5 * (
+              (2 * p1.mgdl) +
+              (-p0.mgdl + p2.mgdl) * t +
+              (2 * p0.mgdl - 5 * p1.mgdl + 4 * p2.mgdl - p3.mgdl) * t2 +
+              (-p0.mgdl + 3 * p1.mgdl - 3 * p2.mgdl + p3.mgdl) * t3
+            ),
+          });
+        }
+      }
+
+      return smoothed;
+    }
+
+    function filenameFromStory(data) {
+      const rawName = String(data.activity_name || "story-glucose").toLowerCase();
+      const normalized = typeof rawName.normalize === "function"
+        ? rawName.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        : rawName;
+      const slug = normalized
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 48) || "story-glucose";
+      return slug + ".png";
+    }
+
+    function isLikelyIOS() {
+      const ua = navigator.userAgent || "";
+      return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    }
+
+    async function canvasToBlob(canvas) {
+      if (typeof canvas.toBlob !== "function") {
+        const dataUrl = canvas.toDataURL("image/png");
+        const response = await fetch(dataUrl);
+        return await response.blob();
+      }
+      return await new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error("Impossible de generer le PNG"));
+          }
+        }, "image/png");
+      });
+    }
+
+    function showPreviewUrl(url, fileName) {
+      previewImage.src = url;
+      previewOpen.href = url;
+      previewSave.href = url;
+      previewSave.download = fileName;
+      preview.classList.add("is-visible");
+      preview.setAttribute("aria-hidden", "false");
+    }
+
+    function hidePreview() {
+      preview.classList.remove("is-visible");
+      preview.setAttribute("aria-hidden", "true");
+      if (previewImage.src && previewImage.src.startsWith("blob:")) {
+        URL.revokeObjectURL(previewImage.src);
+      }
+      previewImage.removeAttribute("src");
+      previewOpen.href = "#";
+      previewSave.href = "#";
+    }
+
+    async function renderStoryCanvas(data) {
+      if (document.fonts && document.fonts.ready) {
+        await document.fonts.ready;
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = size.width;
+      canvas.height = size.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        throw new Error("Canvas 2D indisponible");
+      }
+
+      ctx.clearRect(0, 0, size.width, size.height);
+
+      const leftLabelX = metrics.x;
+      const leftValueX = metrics.x;
+      const rightStartX = metrics.x + 520;
+
+      ctx.fillStyle = "rgba(220, 238, 255, 0.92)";
+      ctx.font = "700 16px Orbitron, sans-serif";
+      ctx.fillText("DISTANCE", leftLabelX, metrics.y + 20);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "700 40px Rajdhani, sans-serif";
+      ctx.fillText(data.distance_label || "–", leftValueX, metrics.y + 66);
+
+      ctx.fillStyle = "rgba(220, 238, 255, 0.92)";
+      ctx.font = "700 16px Orbitron, sans-serif";
+      ctx.fillText("DUREE", leftLabelX, metrics.y + 122);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "700 40px Rajdhani, sans-serif";
+      ctx.fillText(data.duration_label || "–", leftValueX, metrics.y + 168);
+
+      ctx.fillStyle = "rgba(220, 238, 255, 0.70)";
+      ctx.font = "700 14px Orbitron, sans-serif";
+      ctx.fillText("GLYCEMIE", rightStartX, metrics.y - 6);
+
+      const glucoseStats = [
+        { label: "TIR", value: data.tir_label || "–", x: rightStartX, y: metrics.y + 26 },
+        { label: "MIN", value: data.min_label || "–", x: rightStartX, y: metrics.y + 102 },
+        { label: "MAX", value: data.max_label || "–", x: rightStartX, y: metrics.y + 178 }
+      ];
+
+      glucoseStats.forEach((stat) => {
+        ctx.fillStyle = "rgba(220, 238, 255, 0.92)";
+        ctx.font = "700 16px Orbitron, sans-serif";
+        ctx.fillText(stat.label, stat.x, stat.y + 20);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "700 31px Rajdhani, sans-serif";
+        ctx.fillText(stat.value, stat.x, stat.y + 64);
+      });
+
+      const points = data.glucose_points
+        .filter((point) => typeof point.elapsed_sec === "number" && typeof point.mgdl === "number")
+        .filter((point) => Number.isFinite(point.elapsed_sec) && Number.isFinite(point.mgdl))
+        .sort((a, b) => a.elapsed_sec - b.elapsed_sec);
+      if (points.length < 2) {
+        throw new Error("Pas assez de points glucose exportables");
+      }
+
+      const minTime = points[0].elapsed_sec;
+      const maxTime = points[points.length - 1].elapsed_sec;
+      const minGlucose = Math.min.apply(null, points.map((point) => point.mgdl));
+      const maxGlucose = Math.max.apply(null, points.map((point) => point.mgdl));
+      const yMin = Math.max(45, Math.floor((Math.min(minGlucose, 70) - 15) / 5) * 5);
+      const yMax = Math.min(260, Math.ceil((Math.max(maxGlucose, 180) + 15) / 5) * 5);
+      const timeRange = Math.max(1, maxTime - minTime);
+      const glucoseRange = Math.max(20, yMax - yMin);
+
+      const mapX = (elapsedSec) => chart.x + ((elapsedSec - minTime) / timeRange) * chart.width;
+      const mapY = (mgdl) => chart.y + chart.height - ((mgdl - yMin) / glucoseRange) * chart.height;
+
+      const plotPoints = points.map((point) => ({
+        x: mapX(point.elapsed_sec),
+        y: mapY(point.mgdl),
+        mgdl: point.mgdl
+      }));
+      const smoothPoints = buildSmoothedPoints(plotPoints, 72).map((point) => ({
+        x: clamp(point.x, chart.x, chart.x + chart.width),
+        y: clamp(point.y, chart.y, chart.y + chart.height),
+        mgdl: point.mgdl
+      }));
+
+      const tickValues = [yMin, Math.round((yMin + yMax) / 2), yMax];
+
+      ctx.fillStyle = "rgba(220, 238, 255, 0.74)";
+      ctx.font = "700 14px Orbitron, sans-serif";
+      ctx.fillText("GLYCEMIE", chart.x, chart.y - 24);
+
+      tickValues.forEach((tick) => {
+        const y = mapY(tick);
+        ctx.strokeStyle = "rgba(255,255,255,0.22)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(chart.x - 8, y);
+        ctx.lineTo(chart.x + chart.width, y);
+        ctx.stroke();
+        ctx.fillStyle = "rgba(235, 245, 255, 0.85)";
+        ctx.font = "500 16px Rajdhani, sans-serif";
+        ctx.fillText(String(Math.round(tick)), chart.x - 52, y + 5);
+      });
+
+      for (let i = 1; i < 4; i += 1) {
+        const x = chart.x + (chart.width * i) / 4;
+        ctx.strokeStyle = "rgba(255,255,255,0.16)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, chart.y);
+        ctx.lineTo(x, chart.y + chart.height);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = "rgba(255,255,255,0.42)";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(chart.x, chart.y);
+      ctx.lineTo(chart.x, chart.y + chart.height);
+      ctx.lineTo(chart.x + chart.width, chart.y + chart.height);
+      ctx.stroke();
+
+      ctx.save();
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+      for (let i = 0; i < smoothPoints.length - 1; i += 1) {
+        const p1 = smoothPoints[i];
+        const p2 = smoothPoints[i + 1];
+        ctx.strokeStyle = zoneColor((p1.mgdl + p2.mgdl) / 2);
+        ctx.lineWidth = 2.4;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      const lastPoint = smoothPoints[smoothPoints.length - 1];
+      ctx.fillStyle = zoneColor(lastPoint.mgdl);
+      ctx.beginPath();
+      ctx.arc(lastPoint.x, lastPoint.y, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.85)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      const timeLabels = [
+        { x: chart.x, value: "0" },
+        { x: chart.x + chart.width / 2, value: Math.round(timeRange / 120) * 2 },
+        { x: chart.x + chart.width, value: Math.round(timeRange / 60) }
+      ];
+      ctx.fillStyle = "rgba(235, 245, 255, 0.82)";
+      ctx.font = "500 16px Rajdhani, sans-serif";
+      timeLabels.forEach((item, index) => {
+        const text = index === 0 ? "0 min" : `${item.value} min`;
+        const textWidth = ctx.measureText(text).width;
+        const drawX = index === 0 ? item.x : index === timeLabels.length - 1 ? item.x - textWidth : item.x - (textWidth / 2);
+        ctx.fillText(text, drawX, chart.y + chart.height + 28);
+      });
+
+      return canvas;
+    }
+
+    async function exportStory() {
+      exportButton.disabled = true;
+      exportButton.textContent = "Generation...";
+      try {
+        const canvas = await renderStoryCanvas(storyData);
+        const blob = await canvasToBlob(canvas);
+        const fileName = filenameFromStory(storyData);
+        const url = URL.createObjectURL(blob);
+        let file = null;
+        if (typeof File !== "undefined") {
+          try {
+            file = new File([blob], fileName, { type: "image/png" });
+          } catch (fileError) {
+            console.warn("File constructor unavailable for story export", fileError);
+          }
+        }
+
+        if (navigator.share && file) {
+          try {
+            const canShareFiles = !navigator.canShare || navigator.canShare({ files: [file] });
+            if (canShareFiles) {
+              await navigator.share({
+                files: [file],
+                title: fileName,
+                text: "Story glucose"
+              });
+              URL.revokeObjectURL(url);
+              return;
+            }
+          } catch (shareError) {
+            if (shareError && shareError.name === "AbortError") {
+              URL.revokeObjectURL(url);
+              return;
+            }
+            console.warn("Native share failed, fallback to download/preview", shareError);
+          }
+        }
+
+        showPreviewUrl(url, fileName);
+
+        if (!isLikelyIOS()) {
+          try {
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = fileName;
+            link.rel = "noopener";
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            return;
+          } catch (downloadError) {
+            console.warn("Direct download failed, fallback to preview", downloadError);
+          }
+        }
+      } catch (error) {
+        console.error(error);
+        if (error && error.name === "AbortError") {
+          return;
+        }
+        window.alert("Impossible de generer la story PNG.");
+      } finally {
+        exportButton.disabled = false;
+        exportButton.textContent = originalLabel;
+      }
+    }
+
+    exportButton.addEventListener("click", exportStory);
+    previewClose.addEventListener("click", hidePreview);
+    preview.addEventListener("click", (event) => {
+      if (event.target === preview) hidePreview();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && preview.classList.contains("is-visible")) {
+        hidePreview();
+      }
+    });
+  })();
+</script>
+{% endif %}
 
 {% endblock %}

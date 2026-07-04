@@ -5527,6 +5527,12 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
             return f"{m} min"
         return f"{s}s"
 
+    def format_distance_short(meters: float | None) -> str:
+        if meters is None or meters <= 0:
+            return "–"
+        km = float(meters) / 1000.0
+        return f"{km:.2f}".rstrip("0").rstrip(".") + " km"
+
     def build_summary(label: str, detail: str, tone: str = "neutral") -> dict:
         palette = {
             "positive": ("#dcfce7", "#166534"),
@@ -5588,6 +5594,7 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
         glucose_profile_summary = None
         hr_zone_summary = []
         activity_type_summary = None
+        story_export_data = None
 
         if has_glucose:
             # Définition des zones (à ajuster si tu veux plus tard)
@@ -5808,6 +5815,31 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
         duration_sec = int(activity.elapsed_time or 0)
         fc = round(activity.average_heartrate) if activity.average_heartrate else None
         gly_avg = round(activity.avg_glucose) if activity.avg_glucose else None
+
+        if has_glucose and len(glucose_chart_points) > 1:
+            story_export_data = {
+                "activity_id": activity.id,
+                "activity_name": activity.name or "Activite",
+                "activity_date": _safe_dt(activity.start_date).strftime("%d/%m/%Y") if _safe_dt(activity.start_date) else None,
+                "distance_label": format_distance_short(activity.distance),
+                "duration_label": format_duration_short(activity.elapsed_time),
+                "tir_label": (
+                    f"{round(float(activity.time_in_range_percent))}%"
+                    if activity.time_in_range_percent is not None
+                    else "–"
+                ),
+                "min_label": (
+                    f"{round(float(activity.min_glucose))} mg/dL"
+                    if activity.min_glucose is not None
+                    else "–"
+                ),
+                "max_label": (
+                    f"{round(float(activity.max_glucose))} mg/dL"
+                    if activity.max_glucose is not None
+                    else "–"
+                ),
+                "glucose_points": glucose_chart_points,
+            }
 
         # --- 4) GPS simplified ---
         gps = []
@@ -6620,6 +6652,7 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
             "glucose_profile_summary": glucose_profile_summary,
             "hr_zone_summary": hr_zone_summary,
             "activity_type_summary": activity_type_summary,
+            "story_export_data": story_export_data,
             "has_vam": has_vam,
             "vam_zone_rows": vam_zone_rows,
             "vam_hr_filter": vam_hr_filter,             # 🔸 on envoie l’onglet au template

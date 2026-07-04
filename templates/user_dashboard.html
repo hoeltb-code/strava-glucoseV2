@@ -96,6 +96,32 @@
     border:1px solid rgba(108, 135, 175, 0.2);
     border-radius:12px;
   }
+  .daily-glucose-card {
+    margin-bottom:16px;
+  }
+  .daily-glucose-chart-wrap {
+    height:300px;
+    margin-top:12px;
+  }
+  .daily-glucose-legend {
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-top:10px;
+    font-size:0.78rem;
+    color:var(--text-muted);
+  }
+  .daily-glucose-legend-item {
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+  }
+  .daily-glucose-legend-swatch {
+    width:12px;
+    height:12px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,0.18);
+  }
 </style>
 {% endblock %}
 
@@ -139,6 +165,38 @@
     capteur CGM.
   </p>
 </div>
+
+{% if show_daily_glucose %}
+<div class="card daily-glucose-card" style="padding:16px;">
+  <h2 style="font-size:1rem; font-weight:600; margin:0 0 6px 0;">
+    Glycémie du jour{% if daily_glucose_window_label %} · {{ daily_glucose_window_label }}{% endif %}
+  </h2>
+  <p style="margin:0; font-size:0.85rem; color:#6b7280;">
+    La courbe affiche les points CGM de la journée. Les zones colorées indiquent les créneaux où une activité sportive est enregistrée.
+  </p>
+
+  {% if daily_glucose_chart and daily_glucose_chart|length > 1 %}
+    <div class="daily-glucose-chart-wrap">
+      <canvas id="dailyGlucoseChart" height="280"></canvas>
+    </div>
+  {% else %}
+    <p style="margin:12px 0 0 0; font-size:0.85rem; color:#9ca3af;">
+      Pas assez de points glycémie aujourd’hui pour tracer la courbe.
+    </p>
+  {% endif %}
+
+  {% if daily_activity_windows %}
+    <div class="daily-glucose-legend">
+      {% for window in daily_activity_windows %}
+        <div class="daily-glucose-legend-item">
+          <span class="daily-glucose-legend-swatch" style="background:{{ window.color }}; border-color:{{ window.stroke }};"></span>
+          <span>{{ window.label }} · {{ window.activity_name }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+{% endif %}
 
 {% if fc_info or sport_distribution or vam_highlights or dash_distance_projections %}
 <div class="dashboard-grid">
@@ -377,6 +435,115 @@
     console.log("Dashboard data:", dbg);
   } catch (e) {}
 </script>
+
+{% if daily_glucose_chart and daily_glucose_chart|length > 1 %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+<script>
+  (function() {
+    const rawPoints = {{ daily_glucose_chart | tojson | safe }};
+    const activityWindows = {{ daily_activity_windows | tojson | safe }};
+    const dayStart = new Date({{ daily_glucose_day_start | tojson | safe }});
+    const dayEnd = new Date({{ daily_glucose_day_end | tojson | safe }});
+    if (!rawPoints || rawPoints.length < 2) return;
+
+    const canvas = document.getElementById('dailyGlucoseChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    const series = rawPoints.map((pt) => ({
+      x: new Date(pt.ts),
+      y: pt.mgdl,
+    }));
+
+    const activityOverlayPlugin = {
+      id: 'activityOverlayPlugin',
+      beforeDatasetsDraw(chart) {
+        const { ctx, chartArea, scales } = chart;
+        const xScale = scales.x;
+        const yScale = scales.y;
+        if (!ctx || !chartArea || !xScale || !yScale || !activityWindows || !activityWindows.length) return;
+
+        ctx.save();
+        activityWindows.forEach((window, index) => {
+          const start = new Date(window.start_ts);
+          const end = new Date(window.end_ts);
+          const xStart = xScale.getPixelForValue(start);
+          const xEnd = xScale.getPixelForValue(end);
+          if (!Number.isFinite(xStart) || !Number.isFinite(xEnd)) return;
+
+          const left = Math.max(chartArea.left, Math.min(xStart, xEnd));
+          const right = Math.min(chartArea.right, Math.max(xStart, xEnd));
+          if (right <= left) return;
+
+          ctx.fillStyle = window.color || 'rgba(255,255,255,0.08)';
+          ctx.strokeStyle = window.stroke || 'rgba(255,255,255,0.35)';
+          ctx.lineWidth = 1;
+          ctx.fillRect(left, chartArea.top, right - left, chartArea.bottom - chartArea.top);
+          ctx.strokeRect(left, chartArea.top, right - left, chartArea.bottom - chartArea.top);
+
+          const labelY = chartArea.top + 14 + (index % 3) * 14;
+          ctx.fillStyle = window.stroke || '#fff';
+          ctx.font = '600 11px Rajdhani, sans-serif';
+          ctx.fillText(window.label || 'Sport', left + 4, labelY);
+        });
+        ctx.restore();
+      }
+    };
+
+    const ctx = canvas.getContext('2d');
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        datasets: [{
+          label: 'Glycémie (mg/dL)',
+          data: series,
+          borderColor: '#ef4444',
+          backgroundColor: 'rgba(239, 68, 68, 0.12)',
+          tension: 0.2,
+          pointRadius: 0,
+          borderWidth: 2,
+          fill: true,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title: (items) => {
+                const point = items[0]?.raw;
+                return point?.x ? new Date(point.x).toLocaleString('fr-FR') : '';
+              },
+              label: (item) => `${item.raw.y.toFixed(0)} mg/dL`,
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: 'time',
+            min: dayStart,
+            max: dayEnd,
+            time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } },
+            ticks: { maxTicksLimit: 10, color: '#c8d7ef' },
+            grid: { color: 'rgba(148, 163, 184, 0.14)' },
+          },
+          y: {
+            suggestedMin: 60,
+            suggestedMax: 220,
+            ticks: { color: '#c8d7ef' },
+            grid: { color: 'rgba(148, 163, 184, 0.18)' },
+            title: { display: true, text: 'mg/dL', color: '#c8d7ef' },
+          }
+        }
+      },
+      plugins: [activityOverlayPlugin]
+    });
+  })();
+</script>
+{% endif %}
 
 </div>
 {% endblock %}

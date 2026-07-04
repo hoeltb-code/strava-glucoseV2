@@ -4841,6 +4841,12 @@ def ui_user_dashboard(user_id: int, request: Request):
     sport_distribution = []
     vam_highlights = []
     dash_distance_projections = []
+    daily_glucose_chart = []
+    daily_activity_windows = []
+    daily_glucose_window_label = None
+    daily_glucose_day_start = None
+    daily_glucose_day_end = None
+    show_daily_glucose = False
 
     try:
         user = db.query(User).get(user_id)
@@ -4982,6 +4988,95 @@ def ui_user_dashboard(user_id: int, request: Request):
             it["vam_5"]  = float(a.max_vam_5m)  if a and a.max_vam_5m  is not None else None
             it["vam_15"] = float(a.max_vam_15m) if a and a.max_vam_15m is not None else None
             it["vam_30"] = float(a.max_vam_30m) if a and a.max_vam_30m is not None else None
+
+        libre_connected = (
+            db.query(LibreCredentials.id).filter(LibreCredentials.user_id == user_id).first() is not None
+        )
+        dexcom_connected = has_dexcom_share_credentials(
+            db.query(DexcomToken).filter(DexcomToken.user_id == user_id).all()
+        )
+        show_daily_glucose = libre_connected or dexcom_connected
+
+        # ---------------------------
+        # 📈 Glycémie du jour + plages de sport
+        # ---------------------------
+        if show_daily_glucose:
+            now_local = dt.datetime.now().astimezone()
+            day_start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+            day_end_local = day_start_local + dt.timedelta(days=1)
+            day_start_utc_naive = day_start_local.astimezone(dt.timezone.utc).replace(tzinfo=None)
+            day_end_utc_naive = day_end_local.astimezone(dt.timezone.utc).replace(tzinfo=None)
+            daily_glucose_window_label = day_start_local.strftime("%d/%m/%Y")
+            daily_glucose_day_start = day_start_local.isoformat()
+            daily_glucose_day_end = day_end_local.isoformat()
+
+            glucose_points_today = (
+                db.query(GlucosePoint)
+                .filter(GlucosePoint.user_id == user_id)
+                .filter(GlucosePoint.ts >= day_start_utc_naive)
+                .filter(GlucosePoint.ts < day_end_utc_naive)
+                .order_by(GlucosePoint.ts.asc())
+                .all()
+            )
+
+            daily_glucose_chart = [
+                {
+                    "ts": _safe_dt(point.ts).isoformat(),
+                    "mgdl": float(point.mgdl),
+                }
+                for point in glucose_points_today
+                if point.ts is not None and point.mgdl is not None
+            ]
+
+            sport_windows_today = (
+                db.query(Activity)
+                .filter(Activity.user_id == user_id)
+                .filter(Activity.start_date.isnot(None))
+                .filter(Activity.start_date >= day_start_utc_naive - dt.timedelta(days=1))
+                .filter(Activity.start_date < day_end_utc_naive)
+                .order_by(Activity.start_date.asc())
+                .all()
+            )
+
+            sport_style_map = {
+                "run": {"label": "Course", "color": "rgba(239, 68, 68, 0.18)", "stroke": "rgba(239, 68, 68, 0.8)"},
+                "trailrun": {"label": "Trail", "color": "rgba(249, 115, 22, 0.18)", "stroke": "rgba(249, 115, 22, 0.85)"},
+                "ride": {"label": "Vélo", "color": "rgba(77, 226, 255, 0.18)", "stroke": "rgba(77, 226, 255, 0.85)"},
+                "virtualride": {"label": "Home trainer", "color": "rgba(59, 130, 246, 0.18)", "stroke": "rgba(59, 130, 246, 0.85)"},
+                "hike": {"label": "Rando", "color": "rgba(184, 255, 69, 0.18)", "stroke": "rgba(184, 255, 69, 0.85)"},
+                "walk": {"label": "Marche", "color": "rgba(148, 163, 184, 0.2)", "stroke": "rgba(148, 163, 184, 0.85)"},
+                "ski_rando": {"label": "Ski rando", "color": "rgba(168, 85, 247, 0.18)", "stroke": "rgba(168, 85, 247, 0.85)"},
+                "ski_alpine": {"label": "Ski", "color": "rgba(14, 165, 233, 0.18)", "stroke": "rgba(14, 165, 233, 0.85)"},
+            }
+
+            for activity in sport_windows_today:
+                if not activity.start_date:
+                    continue
+                start_aware = _safe_dt(activity.start_date)
+                elapsed_sec = int(activity.elapsed_time or 0)
+                if elapsed_sec <= 0:
+                    continue
+                end_aware = start_aware + dt.timedelta(seconds=elapsed_sec)
+                day_start_aware_utc = day_start_local.astimezone(dt.timezone.utc)
+                day_end_aware_utc = day_end_local.astimezone(dt.timezone.utc)
+                if end_aware <= day_start_aware_utc or start_aware >= day_end_aware_utc:
+                    continue
+
+                clipped_start = max(start_aware, day_start_aware_utc)
+                clipped_end = min(end_aware, day_end_aware_utc)
+                sport_key = normalize_activity_type(activity.sport or activity.activity_type or "") or (activity.sport or "").lower()
+                style = sport_style_map.get(sport_key, {"label": "Sport", "color": "rgba(255,255,255,0.1)", "stroke": "rgba(255,255,255,0.55)"})
+
+                daily_activity_windows.append(
+                    {
+                        "start_ts": clipped_start.isoformat(),
+                        "end_ts": clipped_end.isoformat(),
+                        "label": style["label"],
+                        "activity_name": activity.name or style["label"],
+                        "color": style["color"],
+                        "stroke": style["stroke"],
+                    }
+                )
 
         # ---------------------------
         # ❤️ FC max + zones cardio (profil rapide)
@@ -5259,6 +5354,12 @@ def ui_user_dashboard(user_id: int, request: Request):
             "vam_highlights": vam_highlights,
             "dash_distance_projections": dash_distance_projections,
             "sport_distribution": sport_distribution,
+            "daily_glucose_chart": daily_glucose_chart,
+            "daily_activity_windows": daily_activity_windows,
+            "daily_glucose_window_label": daily_glucose_window_label,
+            "daily_glucose_day_start": daily_glucose_day_start,
+            "daily_glucose_day_end": daily_glucose_day_end,
+            "show_daily_glucose": show_daily_glucose,
         },
     )
 

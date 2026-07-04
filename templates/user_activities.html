@@ -16,8 +16,22 @@
     white-space:nowrap;
   }
   .activities-table th {
-    background:#f8fafc;
+    background:rgba(77, 226, 255, 0.08);
+    color:var(--text-main);
     font-weight:600;
+  }
+  .activities-table .activity-link {
+    color:var(--link);
+    font-weight:600;
+  }
+  .activities-table .activity-link:hover {
+    color:var(--link-hover);
+  }
+  .activities-back-link {
+    color:var(--link);
+  }
+  .activities-back-link:hover {
+    color:var(--link-hover);
   }
   .activities-table td:last-child,
   .activities-table th:last-child {
@@ -44,7 +58,8 @@
     </p>
   </div>
   <a href="/ui/user/{{ user.id }}"
-     style="text-decoration:none; font-weight:600; color:#0f172a;">
+     class="activities-back-link"
+     style="text-decoration:none; font-weight:600;">
     ← Retour au dashboard
   </a>
 </div>
@@ -107,7 +122,8 @@
               </td>
               <td>
                 <a href="/ui/user/{{ user.id }}/activity/{{ row.id }}"
-                   style="text-decoration:none; color:#1d4ed8; font-weight:600;">
+                   class="activity-link"
+                   style="text-decoration:none;">
                   {{ row.name|truncate(30, True, '…') }}
                 </a>
               </td>

@@ -3,6 +3,17 @@
 
 {% block extra_head %}
 <style>
+  .activity-page {
+    --activity-surface: rgba(16, 33, 58, 0.52);
+    --activity-surface-strong: rgba(24, 48, 81, 0.9);
+    --activity-surface-soft: rgba(77, 226, 255, 0.08);
+    --activity-border: rgba(148, 174, 214, 0.28);
+    --activity-border-strong: rgba(77, 226, 255, 0.24);
+    --activity-text: var(--text-main);
+    --activity-text-muted: var(--text-muted);
+    --activity-text-dim: var(--text-dim);
+    --activity-row-hover: rgba(77, 226, 255, 0.08);
+  }
   .activity-header-actions {
     display:flex;
     gap:10px;
@@ -38,7 +49,7 @@
   .activity-tab p,
   .activity-tab .muted {
     font-size:0.82rem !important;
-    color:#0f172a !important;
+    color:var(--activity-text-muted) !important;
   }
   .activity-tab table {
     width:100%;
@@ -50,6 +61,13 @@
     padding:3px 2px !important;
     font-size:0.75rem !important;
     white-space:normal !important;
+    border-bottom:1px solid var(--activity-border);
+  }
+  .activity-tab table th {
+    color:var(--activity-text-muted);
+  }
+  .activity-tab table td {
+    color:var(--activity-text);
   }
   .activity-tab table th span {
     display:block;
@@ -57,7 +75,142 @@
     line-height:1.2;
   }
   .overview-vam {
-    border-top:1px solid #e5e7eb;
+    border-top:1px solid var(--activity-border);
+  }
+  .activity-delete-button {
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:10px 16px;
+    font-size:.95rem;
+    font-weight:700;
+    border-radius:12px;
+    border:1px solid rgba(255, 122, 89, 0.32);
+    background:linear-gradient(135deg, rgba(255, 122, 89, 0.9), rgba(220, 38, 38, 0.9));
+    color:#fff;
+    text-decoration:none;
+    box-shadow:0 10px 24px rgba(127, 29, 29, 0.28);
+    transition:filter .15s ease, transform .06s ease;
+    cursor:pointer;
+  }
+  .activity-delete-button:hover {
+    filter:brightness(1.06);
+  }
+  .activity-tab-link {
+    display:block;
+    padding:8px 10px;
+    border-radius:10px;
+    margin-bottom:6px;
+    color:var(--activity-text-muted);
+    border:1px solid transparent;
+    background:transparent;
+    transition:background-color .15s ease, border-color .15s ease, color .15s ease, transform .15s ease;
+  }
+  .activity-tab-link:hover {
+    color:var(--activity-text);
+    background:rgba(77, 226, 255, 0.06);
+    border-color:var(--activity-border-strong);
+    transform:translateY(-1px);
+  }
+  .activity-tab-link.is-active {
+    color:var(--activity-text);
+    background:linear-gradient(135deg, rgba(77, 226, 255, 0.16), rgba(28, 140, 255, 0.12));
+    border-color:var(--activity-border-strong);
+    font-weight:700;
+    box-shadow:inset 0 0 0 1px rgba(77, 226, 255, 0.08);
+  }
+  .activity-select {
+    padding:4px 8px;
+    font-size:0.85rem;
+    border:1px solid var(--activity-border);
+    border-radius:8px;
+    background:var(--activity-surface-strong);
+    color:var(--activity-text);
+  }
+  .activity-select option {
+    background:#183154;
+    color:var(--activity-text);
+  }
+  .activity-section-panel {
+    padding:16px;
+    margin-top:16px;
+    border:1px solid var(--activity-border);
+    border-radius:14px;
+    background:var(--activity-surface);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+  .activity-inline-panel {
+    border:1px solid var(--activity-border);
+    border-radius:14px;
+    background:var(--activity-surface);
+  }
+  .activity-inline-panel + .activity-inline-panel {
+    margin-top:16px;
+  }
+  .activity-progress-track {
+    background:rgba(255,255,255,0.08);
+    border-radius:999px;
+    overflow:hidden;
+    height:14px;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04);
+  }
+  .activity-progress-fill-vam {
+    background:linear-gradient(90deg, #4de2ff, #1c8cff);
+  }
+  .activity-progress-fill-low {
+    background:linear-gradient(90deg, #f97316, #ef4444);
+  }
+  .activity-progress-fill-mid {
+    background:linear-gradient(90deg, #4de2ff, #22c55e);
+  }
+  .activity-progress-fill-high {
+    background:linear-gradient(90deg, #facc15, #f97316);
+  }
+  .activity-legend-note {
+    margin-top:10px;
+    font-size:0.7rem;
+    color:var(--activity-text-dim);
+  }
+  .activity-hover-row {
+    transition:background-color .15s ease;
+  }
+  .activity-hover-row:hover {
+    background:var(--activity-row-hover) !important;
+  }
+  .activity-page h3,
+  .activity-page h4,
+  .activity-page strong {
+    color:var(--activity-text);
+  }
+  .activity-page [style*="background:white"],
+  .activity-page [style*="background:#fff"],
+  .activity-page [style*="background:#ffffff"] {
+    background:var(--activity-surface) !important;
+    color:var(--activity-text) !important;
+    border-color:var(--activity-border) !important;
+  }
+  .activity-page [style*="background:#f9fafb"] {
+    background:rgba(255,255,255,0.04) !important;
+  }
+  .activity-page [style*="background:#e5e7eb"] {
+    background:var(--activity-border) !important;
+  }
+  .activity-page [style*="border:1px solid #e5e7eb"],
+  .activity-page [style*="border-top:1px solid #e5e7eb"],
+  .activity-page [style*="border-bottom:1px solid #e5e7eb"],
+  .activity-page [style*="border-bottom:1px solid #f3f4f6"],
+  .activity-page [style*="border:1px solid #d1d5db"] {
+    border-color:var(--activity-border) !important;
+  }
+  .activity-page [style*="color:#0f172a"],
+  .activity-page [style*="color:#111827"],
+  .activity-page [style*="color:#000"] {
+    color:var(--activity-text) !important;
+  }
+  .activity-page [style*="color:#4b5563"],
+  .activity-page [style*="color:#6b7280"],
+  .activity-page [style*="color:#9ca3af"] {
+    color:var(--activity-text-dim) !important;
   }
   .vam-table th:first-child,
   .vam-table td:first-child {
@@ -158,6 +311,7 @@
 {% endblock %}
 
 {% block content %}
+<div class="activity-page">
 
 <!-- ╔══════════════════════════════╗ -->
 <!--   🧍 Header utilisateur + actions  -->
@@ -185,11 +339,7 @@
           action="/ui/user/{{ user.id }}/activity/{{ activity.id }}/delete"
           onsubmit="return confirm('Supprimer définitivement ?')">
       <button type="submit"
-        style="display:inline-flex; align-items:center; gap:6px;
-               padding:10px 16px; font-size:.95rem; font-weight:600; border-radius:2px;
-               border:1px solid transparent; background:#0d6efd; color:#fff;
-               text-decoration:none; box-shadow:0 6px 16px rgba(13,110,253,.25);
-               transition:filter .15s ease, transform .06s ease; cursor:pointer;"
+        class="activity-delete-button"
         onmouseover="this.style.filter='brightness(1.08)'"
         onmouseout="this.style.filter='none'"
         onmousedown="this.style.transform='translateY(1px)'"
@@ -261,30 +411,12 @@
     {% set base_url = request.url.path %}
 
     <a href="{{ base_url }}?tab=overview"
-       style="
-         display:block; padding:8px 10px; border-radius:4px;
-         text-decoration:none;
-         margin-bottom:4px;
-         {% if tab == 'overview' %}
-           background:#0f172a; color:#f9fafb; font-weight:600;
-         {% else %}
-           color:#111827;
-         {% endif %}
-       ">
+       class="activity-tab-link {% if tab == 'overview' %}is-active{% endif %}">
       Vue d’ensemble
     </a>
 
     <a href="{{ base_url }}?tab=segments"
-       style="
-         display:block; padding:8px 10px; border-radius:4px;
-         text-decoration:none;
-         margin-bottom:4px;
-         {% if tab == 'segments' %}
-           background:#0f172a; color:#f9fafb; font-weight:600;
-         {% else %}
-           color:#111827;
-         {% endif %}
-       ">
+       class="activity-tab-link {% if tab == 'segments' %}is-active{% endif %}">
       {% if is_running_activity %}
         Marche ou course ?
       {% else %}
@@ -293,72 +425,27 @@
     </a>
 
     <a href="{{ base_url }}?tab=climbs"
-       style="
-         display:block; padding:8px 10px; border-radius:4px;
-         text-decoration:none;
-         margin-bottom:4px;
-         {% if tab == 'climbs' %}
-           background:#0f172a; color:#f9fafb; font-weight:600;
-         {% else %}
-           color:#111827;
-         {% endif %}
-       ">
+       class="activity-tab-link {% if tab == 'climbs' %}is-active{% endif %}">
       Montées remarquables
     </a>
 
     <a href="{{ base_url }}?tab=cardio"
-       style="
-         display:block; padding:8px 10px; border-radius:4px;
-         text-decoration:none;
-         margin-bottom:4px;
-         {% if tab == 'cardio' %}
-           background:#0f172a; color:#f9fafb; font-weight:600;
-         {% else %}
-           color:#111827;
-         {% endif %}
-       ">
+       class="activity-tab-link {% if tab == 'cardio' %}is-active{% endif %}">
       Zones cardio
     </a>
 
     <a href="{{ base_url }}?tab=glycemia"
-       style="
-         display:block; padding:8px 10px; border-radius:4px;
-         text-decoration:none;
-         margin-bottom:4px;
-         {% if tab == 'glycemia' %}
-           background:#0f172a; color:#f9fafb; font-weight:600;
-         {% else %}
-           color:#111827;
-         {% endif %}
-       ">
+       class="activity-tab-link {% if tab == 'glycemia' %}is-active{% endif %}">
       Suivi de la glycémie
     </a>
 
     <a href="{{ base_url }}?tab=vam"
-       style="
-         display:block; padding:8px 10px; border-radius:4px;
-         text-decoration:none;
-         margin-bottom:4px;
-         {% if tab == 'vam' %}
-           background:#0f172a; color:#f9fafb; font-weight:600;
-         {% else %}
-           color:#111827;
-         {% endif %}
-       ">
+       class="activity-tab-link {% if tab == 'vam' %}is-active{% endif %}">
       Vitesse ascensionnelle (m/hr)
     </a>
 
     <a href="{{ base_url }}?tab=splits"
-       style="
-         display:block; padding:8px 10px; border-radius:4px;
-         text-decoration:none;
-         margin-bottom:4px;
-         {% if tab == 'splits' %}
-           background:#0f172a; color:#f9fafb; font-weight:600;
-         {% else %}
-           color:#111827;
-         {% endif %}
-       ">
+       class="activity-tab-link {% if tab == 'splits' %}is-active{% endif %}">
       Détail de la course
     </a>
 
@@ -460,8 +547,8 @@
               datasets: [{
                 label: 'Altitude',
                 data: series,
-                borderColor: '#0f172a',
-                backgroundColor: 'rgba(15, 23, 42, 0.10)',
+                borderColor: '#4de2ff',
+                backgroundColor: 'rgba(77, 226, 255, 0.14)',
                 borderWidth: 2,
                 pointRadius: 0,
                 fill: true,
@@ -529,14 +616,8 @@
         <select id="segments-seg"
                 name="segments"
                 onchange="this.form.submit()"
-                style="
-                  padding:4px 6px;
-                  font-size:0.85rem;
-                  width:110px;
-                  border:1px solid #d1d5db;
-                  border-radius:4px;
-                  background:white;
-                ">
+                class="activity-select"
+                style="width:110px;">
           {% for n in range(2, 8) %}
             <option value="{{ n }}"
                     {% if n == current_seg_count %}selected{% endif %}>
@@ -636,7 +717,7 @@
       </div>
 
       <!-- Cadence & Mouvement -->
-      <div style="padding:16px; border-top:1px solid #e5e7eb; margin-top:16px; background:white; border-radius:4px;">
+      <div class="activity-section-panel">
 
         <h3 style="margin:0 0 10px 0;">
           {% if is_running_activity %}
@@ -669,11 +750,11 @@
                 {% set bg = "" %}
                 {% if is_running_activity %}
                   {% if cell.class == "MARCHE" %}
-                      {% set bg = "background:#fecaca;" %}
+                      {% set bg = "background:rgba(239, 68, 68, 0.24);" %}
                   {% elif cell.class == "TROTTINAGE" %}
-                      {% set bg = "background:#fef9c3;" %}
+                      {% set bg = "background:rgba(250, 204, 21, 0.22);" %}
                   {% elif cell.class == "COURSE" %}
-                      {% set bg = "background:#bbf7d0;" %}
+                      {% set bg = "background:rgba(34, 197, 94, 0.22);" %}
                   {% endif %}
                 {% endif %}
 
@@ -712,7 +793,8 @@
 
       <!-- Montées remarquables -->
       <div id="climbs-section"
-           style="padding:16px; border-top:1px solid #e5e7eb; margin-top:0; background:white; border-radius:4px;">
+           class="activity-inline-panel"
+           style="padding:16px; margin-top:0;">
           <h3 style="margin:0 0 10px 0;">
             Montées remarquables de la sortie
             <span style="font-weight:400; font-size:0.8em; opacity:0.9;">
@@ -744,15 +826,9 @@
 
             <tbody>
               {% for c in climbs %}
-                <tr
+                <tr class="activity-hover-row"
                   onclick="window.location='{{ request.url.path }}?tab=climbs&segments={{ current_seg_count }}&climb_start={{ c.start_idx }}&climb_end={{ c.end_idx }}#climbs-section';"
-                  style="
-                    cursor:pointer;
-                    border-bottom:1px solid #f3f4f6;
-                    transition:background 0.15s ease;
-                  "
-                  onmouseover="this.style.background='#f9fafb';"
-                  onmouseout="this.style.background='white';"
+                  style="cursor:pointer; border-bottom:1px solid #f3f4f6;"
                 >
                   <td style="text-align:center; padding:4px 2px;">{{ c.km_debut|round(1) }}</td>
                   <td style="text-align:center; padding:4px 2px;">{{ c.km_fin|round(1) }}</td>
@@ -802,7 +878,7 @@
       {% if selected_climb %}
 
         <!-- Bloc détails + profil altitude en dessous -->
-        <div style="margin:16px 0 0 0; padding:12px; border:1px solid #e5e7eb; border-radius:4px; background:white;">
+        <div class="activity-section-panel" style="margin:16px 0 0 0; padding:12px;">
 
           <h4 style="margin:0 0 8px 0;">Détails de la montée sélectionnée</h4>
 
@@ -878,7 +954,7 @@
                   {
                     label: 'Profil altitude',
                     data: altData,
-                    borderColor: '#000099',
+                    borderColor: '#4de2ff',
                     borderWidth: 1,
                     pointRadius: 0,
                     tension: 0.25,
@@ -889,7 +965,7 @@
                   {
                     label: 'Montée sélectionnée',
                     data: highlightedClimbData,
-                    borderColor: '#000099',
+                    borderColor: '#b8ff45',
                     borderWidth: 1,
                     pointRadius: 2,
                     tension: 0.25,
@@ -900,8 +976,8 @@
                     type: 'scatter',
                     label: 'Début montée',
                     data: startPoint,
-                    backgroundColor: '#000099',
-                    borderColor: '#000099',
+                    backgroundColor: '#4de2ff',
+                    borderColor: '#4de2ff',
                     pointRadius: 5,
                     pointHoverRadius: 7,
                     showLine: false,
@@ -911,8 +987,8 @@
                     type: 'scatter',
                     label: 'Fin montée',
                     data: endPoint,
-                    backgroundColor: '#000099',
-                    borderColor: '#000099',
+                    backgroundColor: '#b8ff45',
+                    borderColor: '#b8ff45',
                     pointRadius: 5,
                     pointHoverRadius: 7,
                     showLine: false,
@@ -1054,12 +1130,7 @@
               <td style="text-align:right;">{{ row.percent }}%</td>
 
               <td style="width:25%;">
-                <div style="
-                  background:#e5e7eb;
-                  border-radius:999px;
-                  overflow:hidden;
-                  height:14px;
-                ">
+                <div class="activity-progress-track">
                   <div style="
                     width:{{ row.percent }}%;
                     height:100%;
@@ -1073,7 +1144,7 @@
         </table>
         </div>
 
-        <p style="margin-top:10px; font-size:0.7rem; color:#6b7280;">
+        <p class="activity-legend-note">
           Zones actuelles : &lt;70, 70–100, 100–140, 140–180, &gt;180 mg/dL.
           (personnalisables).
         </p>
@@ -1142,7 +1213,7 @@
                       text-align:center;
                       font-size:0.85rem;
                       font-weight:600;
-                      color:#0f172a;
+                      color:var(--text-main);
                       padding-bottom:6px;
                     ">
                   Colonnes = zones cardio
@@ -1268,7 +1339,7 @@
                 y: {
                   suggestedMin: 60,
                   suggestedMax: 220,
-                  grid: { color: '#e5e7eb' },
+                  grid: { color: 'rgba(148, 163, 184, 0.2)' },
                   title: { display: true, text: 'mg/dL' },
                 }
               }
@@ -1304,7 +1375,8 @@
             <select id="vam_hr"
                     name="vam_hr"
                     onchange="this.form.submit()"
-                    style="font-size:0.85rem; padding:2px 4px; border-radius:3px; border:1px solid #d1d5db;">
+                    class="activity-select"
+                    style="font-size:0.85rem; padding:2px 4px;">
               <option value="ALL" {% if vam_hr_filter == 'ALL' %}selected{% endif %}>
                 Toutes zones
               </option>
@@ -1337,16 +1409,11 @@
               <td style="text-align:right;">{{ row.time_str }}</td>
               <td style="text-align:right;">{{ row.percent }}%</td>
               <td>
-                <div style="
-                  background:#e5e7eb;
-                  border-radius:999px;
-                  overflow:hidden;
-                  height:14px;
-                ">
+                <div class="activity-progress-track">
                   <div style="
                     width:{{ row.percent }}%;
                     height:100%;
-                    background:#000099;  /* bleu */
+                    background:linear-gradient(90deg, #4de2ff, #1c8cff);
                   "></div>
                 </div>
               </td>
@@ -1356,7 +1423,7 @@
         </table>
         </div>
 
-        <p style="margin-top:10px; font-size:0.7rem; color:#6b7280;">
+        <p class="activity-legend-note">
           Zones VAM utilisées : &lt;300, 300–600, 600–900, 900–1200, &gt;1200 m/h
           (ajustables dans le code).
           <br>
@@ -1391,7 +1458,8 @@
         <select id="split_km"
                 name="split_km"
                 onchange="this.form.submit()"
-                style="font-size:0.85rem; padding:2px 4px; border-radius:3px; border:1px solid #d1d5db;">
+                class="activity-select"
+                style="font-size:0.85rem; padding:2px 4px;">
           {% for opt in split_km_options %}
             <option value="{{ opt }}"
                     {% if opt == split_km %}selected{% endif %}>
@@ -1426,9 +1494,9 @@
           <tr
             style="
               {% if loop.index is even %}
-                background:#f9fafb;
+                background:rgba(255,255,255,0.04);
               {% else %}
-                background:white;
+                background:rgba(255,255,255,0.01);
               {% endif %}
               border-bottom:1px solid #e5e7eb;
             "
@@ -1503,6 +1571,7 @@
 
 
   </main>
+</div>
 </div>
 
 {% endblock %}

@@ -26,6 +26,7 @@
 import os
 import time
 import datetime as dt
+import threading
 
 from app.database import SessionLocal
 from app.models import User, LibreCredentials, GlucosePoint, DexcomToken
@@ -61,6 +62,7 @@ LAST_POLL_ATTEMPTS = {}
 
 # Empêche deux appels CGM successifs à moins de MIN_SECONDS_BETWEEN_GLOBAL_CALLS
 LAST_GLOBAL_CGM_CALL = None
+GLOBAL_CGM_CALL_LOCK = threading.Lock()
 
 
 def _global_throttle_allows_call():
@@ -83,6 +85,39 @@ def _global_throttle_allows_call():
 def _mark_global_call():
     global LAST_GLOBAL_CGM_CALL
     LAST_GLOBAL_CGM_CALL = dt.datetime.utcnow()
+
+
+def _reserve_global_call_slot(source_label: str, user_id: int, context: str) -> None:
+    """
+    Réserve le prochain créneau API disponible.
+
+    Les appels CGM sont sérialisés sous verrou pour réellement espacer les hits
+    réseau, y compris si plusieurs threads/requests déclenchent des fetchs en parallèle.
+    """
+    waited_seconds = 0.0
+
+    with GLOBAL_CGM_CALL_LOCK:
+        while True:
+            can_call_now, remaining = _global_throttle_allows_call()
+            if can_call_now:
+                _mark_global_call()
+                if waited_seconds > 0:
+                    print(
+                        f"[CGM] user={user_id} -> créneau {source_label} libéré après "
+                        f"{waited_seconds:.1f}s d'attente ({context})."
+                    )
+                return
+
+            sleep_for = max(float(remaining or 0), 0.0)
+            if sleep_for <= 0:
+                sleep_for = 0.5
+
+            print(
+                f"[CGM] user={user_id} -> attente {sleep_for:.1f}s avant appel "
+                f"{source_label} ({context})."
+            )
+            time.sleep(sleep_for)
+            waited_seconds += sleep_for
 
 
 def _mark_libre_rate_limited(now_utc: dt.datetime):
@@ -135,7 +170,7 @@ def _should_skip_user_poll(db, user_id: int):
     return False, None
 
 
-def _get_realtime_points_for_user(db, user: User):
+def fetch_realtime_points_for_user(db, user: User, *, context: str = "polling"):
     """
     Récupère une liste de points CGM pour un user donné en respectant sa
     préférence de source (user.cgm_source) et les disponibilités réelles :
@@ -167,17 +202,19 @@ def _get_realtime_points_for_user(db, user: User):
             return []
 
         try:
+            _reserve_global_call_slot("LibreLinkUp", user_id, context)
             pts = read_graph(user_id=user_id) or []
             libre_status = get_last_libre_status(user_id)
             if is_libre_status_rate_limited(libre_status):
                 _mark_libre_rate_limited(now_utc)
                 return []
             if pts:
-                print(f"[CGM] user={user_id} -> {len(pts)} points LibreLinkUp (polling)")
+                print(f"[CGM] user={user_id} -> {len(pts)} points LibreLinkUp ({context})")
             return pts
         except Exception as e:
+            now_utc = dt.datetime.utcnow()
             msg = str(e)
-            print(f"[CGM] user={user_id} -> erreur LibreLinkUp (polling) : {msg}")
+            print(f"[CGM] user={user_id} -> erreur LibreLinkUp ({context}) : {msg}")
 
             # Si on détecte un rate limit (429 / Error 1015), on enclenche le cooldown global
             if "429" in msg or "Error 1015" in msg or "rate limited" in msg.lower():
@@ -191,16 +228,17 @@ def _get_realtime_points_for_user(db, user: User):
         if not has_dexcom_share_credentials(user.dexcom_tokens):
             return []
         try:
+            _reserve_global_call_slot("Dexcom", user_id, context)
             now = dt.datetime.now(dt.timezone.utc)
             # on récupère une fenêtre raisonnable récente
             start = now - dt.timedelta(hours=REALTIME_RETENTION_HOURS)
             cli = DexcomClient(user_id=user_id, db=db)
             pts = cli.get_graph(start=start, end=now) or []
             if pts:
-                print(f"[CGM] user={user_id} -> {len(pts)} points Dexcom (polling)")
+                print(f"[CGM] user={user_id} -> {len(pts)} points Dexcom ({context})")
             return pts
         except Exception as e:
-            print(f"[CGM] user={user_id} -> erreur Dexcom (polling) : {e}")
+            print(f"[CGM] user={user_id} -> erreur Dexcom ({context}) : {e}")
             return []
 
     points = []
@@ -239,8 +277,8 @@ def poll_glucose_once():
     """
     Récupère une fois les données CGM pour tous les utilisateurs qui ont
     une source CGM disponible (LibreCredentials et/ou DexcomToken).
-    Le passage est batché (MAX_USERS_PER_POLL) et saute un utilisateur qui a
-    déjà été interrogé récemment afin d'éviter un ban côté API.
+    Le passage est batché (MAX_USERS_PER_POLL) et saute seulement les utilisateurs
+    interrogés récemment. Les appels API eux-mêmes sont cadencés par un verrou global.
     """
     now = dt.datetime.utcnow().isoformat()
     print(f"[CGM] poll_glucose_once() appelé à {now}")
@@ -301,17 +339,13 @@ def poll_glucose_once():
                 print(f"[CGM] user={user_id} -> on saute le polling ({reason}).")
                 continue
 
-            can_call_now, remaining = _global_throttle_allows_call()
-            if not can_call_now:
-                print(
-                    f"[CGM] user={user_id} -> on saute le polling (quota global, +{remaining}s)."
-                )
-                continue
-
             # 2.1 Points CGM selon la source prioritaire de l'utilisateur
             LAST_POLL_ATTEMPTS[user_id] = dt.datetime.utcnow()
-            _mark_global_call()
-            points, source_label = _get_realtime_points_for_user(db, user_db)
+            points, source_label = fetch_realtime_points_for_user(
+                db,
+                user_db,
+                context="polling",
+            )
 
             if not points or not source_label:
                 print(f"[CGM] user={user_id} -> aucun point CGM (Libre/Dexcom) reçu, on passe.")
@@ -413,8 +447,12 @@ def run_polling_loop():
     """
     print(f"[CGM] Démarrage du polling glycémie (toutes les {POLL_INTERVAL_SECONDS} secondes)...")
     while True:
+        started_at = time.monotonic()
         try:
             poll_glucose_once()
         except Exception as e:
             print("[CGM] Erreur dans la boucle de polling :", e)
-        time.sleep(POLL_INTERVAL_SECONDS)
+        elapsed = time.monotonic() - started_at
+        sleep_for = max(0.0, POLL_INTERVAL_SECONDS - elapsed)
+        if sleep_for > 0:
+            time.sleep(sleep_for)

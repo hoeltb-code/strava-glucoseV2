@@ -150,9 +150,8 @@ from .logic import (
 )
 from .settings import settings
 from .strava_client import StravaClient
-from .libre_client import read_graph, test_libre_credentials, get_last_libre_status
+from .libre_client import test_libre_credentials, get_last_libre_status
 from .dexcom_client import (
-    DexcomClient,
     get_last_dexcom_status,
     has_dexcom_share_credentials,
     test_dexcom_credentials,
@@ -350,7 +349,7 @@ def _classify_activity_profile(zone_durations: dict[str, float]) -> str | None:
 from app import auth
 from app import models
 from app.auth import pwd_context
-from app.cgm_service import run_polling_loop
+from app.cgm_service import run_polling_loop, fetch_realtime_points_for_user
 from app.indicators.slope_cadence import build_slope_cadence_data
 from app.routers import auth_strava, auth_dexcom, webhooks
 
@@ -1422,61 +1421,7 @@ def get_cgm_graph_for_user(
     user = db.query(User).get(user_id)
     if not user:
         return [], None
-
-    def try_libre():
-        try:
-            g = read_graph(user_id=user_id) or []
-            if g:
-                print(f"[CGM] {len(g)} points obtenus via LibreLinkUp pour user_id={user_id}")
-            return g
-        except Exception as e:
-            print(f"[CGM] Erreur LibreLinkUp pour user_id={user_id} :", e)
-            return []
-
-    def try_dexcom():
-        try:
-            cli = DexcomClient(user_id=user_id, db=db)
-            # Dexcom: préfère souvent des datetimes *aware* en UTC
-            start_aw = start if start.tzinfo is not None else start.replace(tzinfo=dt.timezone.utc)
-            end_aw   = end   if end.tzinfo   is not None else end.replace(tzinfo=dt.timezone.utc)
-            g = cli.get_graph(start=start_aw, end=end_aw) or []
-            if g:
-                print(f"[CGM] {len(g)} points obtenus via Dexcom pour user_id={user_id}")
-            return g
-        except Exception as e:
-            print(f"[CGM] Erreur Dexcom pour user_id={user_id} :", e)
-            return []
-
-    graph = []
-    source_label: Optional[str] = None
-
-    if user.cgm_source == "libre":
-        graph = try_libre()
-        if graph:
-            source_label = "libre"
-        else:
-            graph = try_dexcom()
-            if graph:
-                source_label = "dexcom"
-    elif user.cgm_source == "dexcom":
-        graph = try_dexcom()
-        if graph:
-            source_label = "dexcom"
-        else:
-            graph = try_libre()
-            if graph:
-                source_label = "libre"
-    else:
-        # Auto / None → priorité Dexcom puis Libre
-        graph = try_dexcom()
-        if graph:
-            source_label = "dexcom"
-        else:
-            graph = try_libre()
-            if graph:
-                source_label = "libre"
-
-    return graph, source_label
+    return fetch_realtime_points_for_user(db, user, context="activity_import")
 
 
 # -----------------------------------------------------------------------------

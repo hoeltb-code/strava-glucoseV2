@@ -59,6 +59,19 @@ def get_last_libre_status(user_id: int) -> Optional[Tuple[str, str]]:
     return LAST_LIBRE_STATUS.get(user_id)
 
 
+def is_libre_status_rate_limited(status: Optional[Tuple[str, str]]) -> bool:
+    if not status:
+        return False
+    level, message = status
+    text = (message or "").lower()
+    return level == "warn" and (
+        "429" in text
+        or "1015" in text
+        or "rate limit" in text
+        or "limite temporairement" in text
+    )
+
+
 def _get_user_libre_credentials(user_id: int) -> Optional[LibreCredentials]:
     """
     Récupère les identifiants LibreLinkUp pour un utilisateur donné.

@@ -1129,7 +1129,7 @@ def match_glucose_to_time_stream(
     graph: list,
     start: dt.datetime,
     time_stream: list,
-    max_delta_sec: int = 600,
+    max_delta_sec: int = 900,
 ):
     if not graph or not time_stream:
         n = len(time_stream) if time_stream else 0

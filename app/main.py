@@ -1754,11 +1754,22 @@ async def process_activity_core(
 
         # 2) Glycémie depuis la BASE -> on récupère en AWARE UTC
         graph_db = load_glucose_graph_from_db(
-            db, user_id=user_id, start=start_aw, end=end_aw, margin_min=10
+            db,
+            user_id=user_id,
+            start=start_aw,
+            end=end_aw,
+            margin_min=CGM_MATCH_MARGIN_MIN,
         )
 
-        # Fallback : si trop peu de points, on lit “live”, on insère, puis on recharge DB
-        if not graph_db or len(graph_db) < 2:
+        needs_live_fetch = not glucose_graph_has_activity_coverage(
+            graph_db,
+            start_aw,
+            end_aw,
+            max_delta_sec=CGM_MATCH_MAX_DELTA_SEC,
+        )
+
+        # Fallback : si la couverture est insuffisante, on lit “live”, on insère, puis on recharge DB
+        if needs_live_fetch:
             try:
                 # Les clients externes préfèrent souvent des datetimes aware
                 graph_live, source_label = get_cgm_graph_for_user(
@@ -1769,7 +1780,11 @@ async def process_activity_core(
                     # L’insertion normalise côté DB (peu importe), on rechargera en aware
                     store_glucose_points_from_graph(db, user_id=user_id, points=graph_live, source=src)
                     graph_db = load_glucose_graph_from_db(
-                        db, user_id=user_id, start=start_aw, end=end_aw, margin_min=10
+                        db,
+                        user_id=user_id,
+                        start=start_aw,
+                        end=end_aw,
+                        margin_min=CGM_MATCH_MARGIN_MIN,
                     )
             except Exception as e:
                 print(f"[CGM] Fallback live KO : {e}")
@@ -1783,7 +1798,7 @@ async def process_activity_core(
             graph=graph_db,
             start=start_aw,
             time_stream=time_stream,
-            max_delta_sec=600,
+            max_delta_sec=CGM_MATCH_MAX_DELTA_SEC,
         )
         streams["glucose_mgdl"]   = {"data": g_vals}
         streams["glucose_trend"]  = {"data": g_trends}
@@ -2553,6 +2568,10 @@ def debug_db_activities(
 #-----------------------------------------------------------------------------
 # --- Helper : lecture glycémie depuis la base ---
 #-----------------------------------------------------------------------------
+CGM_MATCH_MAX_DELTA_SEC = int(os.getenv("CGM_MATCH_MAX_DELTA_SEC", "900") or "900")
+CGM_MATCH_MARGIN_MIN = max(10, math.ceil(CGM_MATCH_MAX_DELTA_SEC / 60))
+
+
 def load_glucose_graph_from_db(db, user_id: int, start: dt.datetime, end: dt.datetime, margin_min: int = 10):
     """
     Lit les points de glycémie autour d'une activité.
@@ -2594,6 +2613,44 @@ def load_glucose_graph_from_db(db, user_id: int, start: dt.datetime, end: dt.dat
             "source": r.source,
         })
     return out
+
+
+def glucose_graph_has_activity_coverage(
+    graph: list,
+    start: dt.datetime,
+    end: dt.datetime,
+    *,
+    max_delta_sec: int = CGM_MATCH_MAX_DELTA_SEC,
+    min_points: int = 2,
+) -> bool:
+    if not graph or not start or not end:
+        return False
+
+    valid = []
+    for point in graph:
+        ts = point.get("ts")
+        mgdl = point.get("mgdl")
+        if ts is None or mgdl is None:
+            continue
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=dt.timezone.utc)
+        else:
+            ts = ts.astimezone(dt.timezone.utc)
+        valid.append(ts)
+
+    if len(valid) < min_points:
+        return False
+
+    start_utc = start if start.tzinfo is not None else start.replace(tzinfo=dt.timezone.utc)
+    end_utc = end if end.tzinfo is not None else end.replace(tzinfo=dt.timezone.utc)
+    window_pad = dt.timedelta(seconds=max_delta_sec)
+    in_window = [ts for ts in sorted(valid) if start_utc - window_pad <= ts <= end_utc + window_pad]
+    if len(in_window) < min_points:
+        return False
+
+    start_gap = min(abs((ts - start_utc).total_seconds()) for ts in in_window)
+    end_gap = min(abs((ts - end_utc).total_seconds()) for ts in in_window)
+    return start_gap <= max_delta_sec and end_gap <= max_delta_sec
 
 # -----------------------------------------------------------------------------
 # UI : Enregistrer les identifiants LibreLinkUp pour un utilisateur

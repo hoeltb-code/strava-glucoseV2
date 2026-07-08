@@ -140,10 +140,16 @@ def _classify_libre_error(raw_stdout: str, err: str) -> Tuple[str, str]:
     text_lower = text.lower()
 
     if "429" in text or "1015" in text_lower or "rate limited" in text_lower:
+        cooldown_minutes = int(os.getenv("LIBRE_RATE_LIMIT_COOLDOWN_MINUTES", "15") or "15")
+        retry_label = (
+            "quelques minutes"
+            if cooldown_minutes <= 5
+            else f"environ {cooldown_minutes} minutes"
+        )
         return (
             "warn",
             "Identifiants enregistrés, mais LibreLinkUp limite temporairement cet IP (HTTP 429). "
-            "Nous réessaierons automatiquement dans environ une heure."
+            f"Nous réessaierons automatiquement dans {retry_label}."
         )
 
     if "bad credentials" in text_lower or "invalid" in text_lower:

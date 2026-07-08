@@ -27,6 +27,12 @@ def _run_local_schema_fixes():
     _ensure_column("dexcom_tokens", "share_username", "share_username TEXT")
     _ensure_column("dexcom_tokens", "share_password", "share_password TEXT")
     _ensure_column("dexcom_tokens", "share_region", "share_region VARCHAR(16)")
+    _ensure_column("libre_credentials", "last_fetch_at", "last_fetch_at DATETIME")
+    _ensure_column(
+        "libre_credentials",
+        "last_fetch_context",
+        "last_fetch_context VARCHAR(32)",
+    )
     _ensure_column(
         "user_settings",
         "desc_enable_auto_block",

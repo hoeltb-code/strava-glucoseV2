@@ -349,7 +349,11 @@ def _classify_activity_profile(zone_durations: dict[str, float]) -> str | None:
 from app import auth
 from app import models
 from app.auth import pwd_context
-from app.cgm_service import run_polling_loop, fetch_realtime_points_for_user
+from app.cgm_service import (
+    run_polling_loop,
+    fetch_realtime_points_for_user,
+    should_attempt_libre_page_refresh,
+)
 from app.indicators.slope_cadence import build_slope_cadence_data
 from app.routers import auth_strava, auth_dexcom, webhooks
 
@@ -1421,7 +1425,39 @@ def get_cgm_graph_for_user(
     user = db.query(User).get(user_id)
     if not user:
         return [], None
-    return fetch_realtime_points_for_user(db, user, context="activity_import")
+    points, source_label, _meta = fetch_realtime_points_for_user(
+        db,
+        user,
+        context="activity_import",
+    )
+    return points, source_label
+
+
+def _maybe_refresh_glucose_for_page_view(db, user: User, *, page_name: str) -> None:
+    should_refresh, reason = should_attempt_libre_page_refresh(user)
+    if not should_refresh:
+        if reason:
+            print(f"[CGM] user={user.id} -> refresh {page_name} ignoré ({reason}).")
+        return
+
+    points, source_label, fetch_meta = fetch_realtime_points_for_user(
+        db,
+        user,
+        context=f"page_view:{page_name}",
+    )
+    if not points or not source_label:
+        if fetch_meta["reason"] == "libre_cooldown":
+            print(f"[CGM] user={user.id} -> refresh {page_name} reporté (cooldown Libre global).")
+        else:
+            print(f"[CGM] user={user.id} -> refresh {page_name} sans nouvelle donnée.")
+        return
+
+    source = "dexcom" if source_label == "dexcom" else "archive_libre"
+    inserted = store_glucose_points_from_graph(db, user_id=user.id, points=points, source=source)
+    print(
+        f"[CGM] user={user.id} -> refresh {page_name} via {source_label}: "
+        f"{len(points)} points lus, {inserted} nouveaux points."
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -3735,6 +3771,8 @@ def ui_user_profile(user_id: int, request: Request):
                 status_code=404,
             )
 
+        _maybe_refresh_glucose_for_page_view(db, user, page_name="profile")
+
         # Statuts connexions
         has_strava = bool(user.strava_tokens)
         has_libre = user.libre_credentials is not None
@@ -4866,6 +4904,8 @@ def ui_user_dashboard(user_id: int, request: Request):
                 """,
                 status_code=404,
             )
+
+        _maybe_refresh_glucose_for_page_view(db, user, page_name="dashboard")
 
         # ---------------------------
         # 📊 Liste des activités (pour le sélecteur)

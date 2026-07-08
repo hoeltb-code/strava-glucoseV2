@@ -30,7 +30,12 @@ import threading
 
 from app.database import SessionLocal
 from app.models import User, LibreCredentials, GlucosePoint, DexcomToken
-from app.libre_client import read_graph, get_last_libre_status, is_libre_status_rate_limited
+from app.libre_client import (
+    read_graph,
+    get_last_libre_status,
+    is_libre_status_rate_limited,
+    set_libre_status_flag,
+)
 from app.dexcom_client import DexcomClient, has_dexcom_share_credentials
 
 POLL_INTERVAL_SECONDS = int(os.getenv("CGM_POLL_INTERVAL_SECONDS", "420") or "420")
@@ -45,6 +50,12 @@ MAX_USERS_PER_POLL = int(os.getenv("CGM_MAX_USERS_PER_POLL", "0") or "0")
 MIN_SECONDS_BETWEEN_POLLS_PER_USER = int(os.getenv("CGM_MIN_SECONDS_PER_USER", "420") or "420")
 MIN_SECONDS_BETWEEN_GLOBAL_CALLS = int(
     os.getenv("CGM_MIN_SECONDS_BETWEEN_GLOBAL_CALLS", "10") or "10"
+)
+LIBRE_BACKGROUND_POLL_INTERVAL_HOURS = int(
+    os.getenv("LIBRE_BACKGROUND_POLL_INTERVAL_HOURS", "24") or "24"
+)
+LIBRE_PAGE_REFRESH_MINUTES = int(
+    os.getenv("LIBRE_PAGE_REFRESH_MINUTES", "30") or "30"
 )
 
 # Flag global pour gérer le rate limit LibreLinkUp :
@@ -131,6 +142,105 @@ def _mark_libre_rate_limited(now_utc: dt.datetime):
     )
 
 
+def _normalize_utc_naive(ts: dt.datetime | None) -> dt.datetime | None:
+    if ts is None:
+        return None
+    if ts.tzinfo is None:
+        return ts
+    return ts.astimezone(dt.timezone.utc).replace(tzinfo=None)
+
+
+def _format_remaining_delay(seconds: int) -> str:
+    if seconds <= 0:
+        return "0 min"
+    minutes = (seconds + 59) // 60
+    if minutes < 60:
+        return f"{minutes} min"
+    hours = minutes // 60
+    rem_minutes = minutes % 60
+    if rem_minutes == 0:
+        return f"{hours} h"
+    return f"{hours} h {rem_minutes} min"
+
+
+def _current_libre_cooldown_message(until_utc: dt.datetime) -> str:
+    remaining_seconds = max(int((until_utc - dt.datetime.utcnow()).total_seconds()), 0)
+    remaining_minutes = max(1, (remaining_seconds + 59) // 60)
+    return (
+        "LibreLinkUp est temporairement en cooldown global sur cette IP. "
+        f"Prochaine tentative automatique dans environ {remaining_minutes} min."
+    )
+
+
+def _record_libre_fetch_attempt(user_id: int, context: str) -> None:
+    db = SessionLocal()
+    try:
+        cred = db.query(LibreCredentials).filter(LibreCredentials.user_id == user_id).first()
+        if not cred:
+            return
+        cred.last_fetch_at = dt.datetime.utcnow()
+        cred.last_fetch_context = (context or "")[:32] or None
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        print(f"[CGM] user={user_id} -> impossible d'enregistrer last_fetch_at Libre : {exc}")
+    finally:
+        db.close()
+
+
+def should_attempt_libre_background_fetch(user: User) -> tuple[bool, str | None]:
+    cred = user.libre_credentials
+    if not cred:
+        return False, "aucun compte LibreLinkUp"
+
+    if LIBRE_BACKGROUND_POLL_INTERVAL_HOURS <= 0:
+        return True, None
+
+    last_fetch_at = _normalize_utc_naive(getattr(cred, "last_fetch_at", None))
+    if last_fetch_at is None:
+        return True, None
+
+    now = dt.datetime.utcnow()
+    age_seconds = max(int((now - last_fetch_at).total_seconds()), 0)
+    interval_seconds = LIBRE_BACKGROUND_POLL_INTERVAL_HOURS * 3600
+    if age_seconds >= interval_seconds:
+        return True, None
+
+    remaining = interval_seconds - age_seconds
+    return False, (
+        "fetch Libre quotidien déjà effectué "
+        f"(reste {_format_remaining_delay(remaining)})"
+    )
+
+
+def should_attempt_libre_page_refresh(user: User) -> tuple[bool, str | None]:
+    cred = user.libre_credentials
+    if not cred:
+        return False, "aucun compte LibreLinkUp"
+
+    if has_dexcom_share_credentials(user.dexcom_tokens) and user.cgm_source != "libre":
+        return False, "Dexcom reste prioritaire pour cette page"
+
+    if LIBRE_PAGE_REFRESH_MINUTES <= 0:
+        return True, None
+
+    last_fetch_at = _normalize_utc_naive(getattr(cred, "last_fetch_at", None))
+    if last_fetch_at is None:
+        return True, None
+
+    now = dt.datetime.utcnow()
+    age_seconds = max(int((now - last_fetch_at).total_seconds()), 0)
+    min_interval_seconds = LIBRE_PAGE_REFRESH_MINUTES * 60
+    if age_seconds >= min_interval_seconds:
+        return True, None
+
+    remaining = min_interval_seconds - age_seconds
+    return False, (
+        "refresh page récent "
+        f"(reste {_format_remaining_delay(remaining)})"
+    )
+
+
 def _should_skip_user_poll(db, user_id: int):
     """Retourne (True, raison) si l'utilisateur a été interrogé trop récemment."""
     if MIN_SECONDS_BETWEEN_POLLS_PER_USER <= 0:
@@ -170,7 +280,13 @@ def _should_skip_user_poll(db, user_id: int):
     return False, None
 
 
-def fetch_realtime_points_for_user(db, user: User, *, context: str = "polling"):
+def fetch_realtime_points_for_user(
+    db,
+    user: User,
+    *,
+    context: str = "polling",
+    allow_libre_fetch: bool = True,
+):
     """
     Récupère une liste de points CGM pour un user donné en respectant sa
     préférence de source (user.cgm_source) et les disponibilités réelles :
@@ -178,23 +294,41 @@ def fetch_realtime_points_for_user(db, user: User, *, context: str = "polling"):
       - 'dexcom' => Dexcom d'abord, puis LibreLinkUp en fallback
       - None     => Dexcom puis LibreLinkUp
 
-    Retourne (points, source_label) où :
+    Retourne (points, source_label, meta) où :
       - points : liste de dicts {"ts": datetime, "mgdl": int, "trend": str|None}
       - source_label : "libre", "dexcom" ou None si aucune source dispo
+      - meta : informations de diagnostic sur les appels tentés/sautés
     """
     global LIBRE_RATE_LIMIT_UNTIL
 
     user_id = user.id
+    meta = {
+        "attempted_sources": [],
+        "skipped_sources": [],
+        "reason": None,
+    }
 
     def try_libre():
         # Si l'utilisateur n'a pas d'identifiants Libre, on skip
         if not user.libre_credentials:
             return []
 
+        if not allow_libre_fetch:
+            meta["skipped_sources"].append("libre")
+            meta["reason"] = "libre_deferred"
+            return []
+
         now_utc = dt.datetime.utcnow()
 
         # Si on est encore dans la période de rate-limit, on n'appelle même pas l'API
         if LIBRE_RATE_LIMIT_UNTIL and now_utc < LIBRE_RATE_LIMIT_UNTIL:
+            meta["skipped_sources"].append("libre")
+            meta["reason"] = "libre_cooldown"
+            set_libre_status_flag(
+                user_id,
+                "warn",
+                _current_libre_cooldown_message(LIBRE_RATE_LIMIT_UNTIL),
+            )
             print(
                 f"[CGM] user={user_id} -> LibreLinkUp est en cooldown jusqu'à "
                 f"{LIBRE_RATE_LIMIT_UNTIL}, on saute l'appel."
@@ -202,11 +336,14 @@ def fetch_realtime_points_for_user(db, user: User, *, context: str = "polling"):
             return []
 
         try:
+            meta["attempted_sources"].append("libre")
+            _record_libre_fetch_attempt(user_id, context)
             _reserve_global_call_slot("LibreLinkUp", user_id, context)
             pts = read_graph(user_id=user_id) or []
             libre_status = get_last_libre_status(user_id)
             if is_libre_status_rate_limited(libre_status):
                 _mark_libre_rate_limited(now_utc)
+                meta["reason"] = "libre_rate_limited"
                 return []
             if pts:
                 print(f"[CGM] user={user_id} -> {len(pts)} points LibreLinkUp ({context})")
@@ -219,6 +356,7 @@ def fetch_realtime_points_for_user(db, user: User, *, context: str = "polling"):
             # Si on détecte un rate limit (429 / Error 1015), on enclenche le cooldown global
             if "429" in msg or "Error 1015" in msg or "rate limited" in msg.lower():
                 _mark_libre_rate_limited(now_utc)
+                meta["reason"] = "libre_rate_limited"
 
             # On retourne [] pour permettre le fallback Dexcom éventuel
             return []
@@ -228,6 +366,7 @@ def fetch_realtime_points_for_user(db, user: User, *, context: str = "polling"):
         if not has_dexcom_share_credentials(user.dexcom_tokens):
             return []
         try:
+            meta["attempted_sources"].append("dexcom")
             _reserve_global_call_slot("Dexcom", user_id, context)
             now = dt.datetime.now(dt.timezone.utc)
             # on récupère une fenêtre raisonnable récente
@@ -270,7 +409,7 @@ def fetch_realtime_points_for_user(db, user: User, *, context: str = "polling"):
             if points:
                 source_label = "libre"
 
-    return points, source_label
+    return points, source_label, meta
 
 
 def poll_glucose_once():
@@ -334,21 +473,49 @@ def poll_glucose_once():
             if not user_db:
                 continue
 
+            allow_libre_fetch, libre_reason = should_attempt_libre_background_fetch(user_db)
+            if (
+                user_db.libre_credentials
+                and not allow_libre_fetch
+                and not has_dexcom_share_credentials(user_db.dexcom_tokens)
+            ):
+                print(f"[CGM] user={user_id} -> polling Libre reporté ({libre_reason}).")
+                continue
+
             skip_poll, reason = _should_skip_user_poll(db, user_id)
             if skip_poll:
                 print(f"[CGM] user={user_id} -> on saute le polling ({reason}).")
                 continue
 
             # 2.1 Points CGM selon la source prioritaire de l'utilisateur
-            LAST_POLL_ATTEMPTS[user_id] = dt.datetime.utcnow()
-            points, source_label = fetch_realtime_points_for_user(
+            points, source_label, fetch_meta = fetch_realtime_points_for_user(
                 db,
                 user_db,
                 context="polling",
+                allow_libre_fetch=allow_libre_fetch,
             )
+            if fetch_meta["attempted_sources"]:
+                LAST_POLL_ATTEMPTS[user_id] = dt.datetime.utcnow()
 
             if not points or not source_label:
-                print(f"[CGM] user={user_id} -> aucun point CGM (Libre/Dexcom) reçu, on passe.")
+                if fetch_meta["reason"] == "libre_cooldown":
+                    print(
+                        f"[CGM] user={user_id} -> polling reporté : LibreLinkUp en cooldown global "
+                        f"et aucune autre source disponible."
+                    )
+                elif fetch_meta["reason"] == "libre_deferred":
+                    print(
+                        f"[CGM] user={user_id} -> polling Libre différé ({libre_reason or 'quota journalier'})."
+                    )
+                elif not fetch_meta["attempted_sources"] and not fetch_meta["skipped_sources"]:
+                    print(
+                        f"[CGM] user={user_id} -> aucune source CGM exploitable pour ce cycle, on passe."
+                    )
+                else:
+                    print(
+                        f"[CGM] user={user_id} -> aucun point CGM reçu après tentative "
+                        f"({','.join(fetch_meta['attempted_sources']) or 'aucune'}), on passe."
+                    )
                 continue
 
             print(f"[CGM] user={user_id} -> {len(points)} points reçus (source={source_label})")

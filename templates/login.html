@@ -306,6 +306,9 @@
       </p>
 
       <form method="post" action="/ui/login" class="login-form">
+        {% if login_next %}
+          <input type="hidden" name="next" value="{{ login_next }}">
+        {% endif %}
         <div>
           <label for="email">Email</label>
           <input type="email" id="email" name="email" required placeholder="athlete@terrain.run">

@@ -1150,10 +1150,38 @@ def _get_session_user_id(request: Request) -> int | None:
         return None
 
 
+def _request_relative_url(request: Request) -> str:
+    query = request.url.query
+    if query:
+        return f"{request.url.path}?{query}"
+    return request.url.path
+
+
+def _sanitize_next_path(raw: str | None) -> str | None:
+    candidate = (raw or "").strip()
+    if not candidate:
+        return None
+    parts = urlsplit(candidate)
+    if parts.scheme or parts.netloc:
+        return None
+    if not parts.path.startswith("/"):
+        return None
+    if not parts.path.startswith("/ui/"):
+        return None
+    safe = parts.path
+    if parts.query:
+        safe = f"{safe}?{parts.query}"
+    return safe
+
+
 def _guard_user_route(request: Request, user_id: int | None = None):
     session_user_id = _get_session_user_id(request)
     if session_user_id is None:
-        return RedirectResponse(url="/ui/login", status_code=302)
+        next_path = _sanitize_next_path(_request_relative_url(request))
+        login_url = "/ui/login"
+        if next_path:
+            login_url = f"{login_url}?next={quote_plus(next_path)}"
+        return RedirectResponse(url=login_url, status_code=302)
 
     if user_id is not None and session_user_id != int(user_id):
         if session_user_id == 1:
@@ -4677,6 +4705,7 @@ def _delete_user_account_data(db: Session, user: User) -> None:
     db.delete(user)
 
 def _render_login_page(request: Request):
+    login_next = _sanitize_next_path(request.query_params.get("next"))
     hero_points = [
         {
             "title": "Projection chrono & VAM",
@@ -4702,6 +4731,7 @@ def _render_login_page(request: Request):
             "request": request,
             "hero_points": hero_points,
             "onboarding_steps": onboarding_steps,
+            "login_next": login_next or "",
         },
     )
 
@@ -4715,7 +4745,12 @@ def ui_login_form(request: Request):
 
 
 @app.post("/ui/login", response_class=HTMLResponse)
-def ui_login(request: Request, email: str = Form(...), password: str = Form(...)):
+def ui_login(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    next: str = Form(""),
+):
     """
     Traite le formulaire de login :
     - vérifie email + mot de passe,
@@ -4728,15 +4763,17 @@ def ui_login(request: Request, email: str = Form(...), password: str = Form(...)
     finally:
         db.close()
 
+    next_path = _sanitize_next_path(next)
+
     if not user or not pwd_context.verify(password, user.password_hash):
         return templates.TemplateResponse(
             "login_error.html",
-            {"request": request, "email": email},
+            {"request": request, "email": email, "login_next": next_path or ""},
             status_code=401
         )
 
     request.session["user_id"] = int(user.id)
-    return RedirectResponse(url=f"/ui/user/{user.id}", status_code=302)
+    return RedirectResponse(url=next_path or f"/ui/user/{user.id}", status_code=302)
 
 
 @app.get("/ui/forgot-password", response_class=HTMLResponse)

@@ -27,9 +27,11 @@ import os
 import time
 import datetime as dt
 import threading
+from zoneinfo import ZoneInfo
 
 from app.database import SessionLocal
 from app.models import User, LibreCredentials, GlucosePoint, DexcomToken, Activity
+from app.settings import settings
 from app.libre_client import (
     read_graph,
     get_last_libre_status,
@@ -52,12 +54,27 @@ MIN_SECONDS_BETWEEN_POLLS_PER_USER = int(os.getenv("CGM_MIN_SECONDS_PER_USER", "
 MIN_SECONDS_BETWEEN_GLOBAL_CALLS = int(
     os.getenv("CGM_MIN_SECONDS_BETWEEN_GLOBAL_CALLS", "10") or "10"
 )
+MIN_SECONDS_BETWEEN_LIBRE_CALLS = int(
+    os.getenv("CGM_MIN_SECONDS_BETWEEN_LIBRE_CALLS", "60") or "60"
+)
 LIBRE_BACKGROUND_POLL_INTERVAL_HOURS = int(
-    os.getenv("LIBRE_BACKGROUND_POLL_INTERVAL_HOURS", "12") or "12"
+    os.getenv("LIBRE_BACKGROUND_POLL_INTERVAL_HOURS", "24") or "24"
 )
 LIBRE_BACKGROUND_FETCH_FOR_INACTIVE_USERS = (
-    os.getenv("LIBRE_BACKGROUND_FETCH_FOR_INACTIVE_USERS", "0").strip().lower()
+    os.getenv("LIBRE_BACKGROUND_FETCH_FOR_INACTIVE_USERS", "1").strip().lower()
     in {"1", "true", "yes", "on"}
+)
+LIBRE_BACKGROUND_FETCH_NIGHT_ONLY = (
+    os.getenv("LIBRE_BACKGROUND_FETCH_NIGHT_ONLY", "1").strip().lower()
+    in {"1", "true", "yes", "on"}
+)
+LIBRE_BACKGROUND_NIGHT_START_HOUR = min(
+    23,
+    max(0, int(os.getenv("LIBRE_BACKGROUND_NIGHT_START_HOUR", "21") or "21")),
+)
+LIBRE_BACKGROUND_NIGHT_END_HOUR = min(
+    23,
+    max(0, int(os.getenv("LIBRE_BACKGROUND_NIGHT_END_HOUR", "9") or "9")),
 )
 LIBRE_PAGE_REFRESH_MINUTES = int(
     os.getenv("LIBRE_PAGE_REFRESH_MINUTES", "30") or "30"
@@ -97,6 +114,7 @@ LAST_GLUCOSE_PAGE_VIEWS = {}
 
 # Empêche deux appels CGM successifs à moins de MIN_SECONDS_BETWEEN_GLOBAL_CALLS
 LAST_GLOBAL_CGM_CALL = None
+LAST_SOURCE_CGM_CALLS: dict[str, dt.datetime] = {}
 GLOBAL_CGM_CALL_LOCK = threading.Lock()
 
 
@@ -122,6 +140,34 @@ def _mark_global_call():
     LAST_GLOBAL_CGM_CALL = dt.datetime.utcnow()
 
 
+def _source_min_interval_seconds(source_label: str) -> int:
+    if source_label == "LibreLinkUp":
+        return max(MIN_SECONDS_BETWEEN_LIBRE_CALLS, 0)
+    return max(MIN_SECONDS_BETWEEN_GLOBAL_CALLS, 0)
+
+
+def _source_throttle_allows_call(source_label: str):
+    min_interval = _source_min_interval_seconds(source_label)
+    if min_interval <= 0:
+        return True, None
+
+    now = dt.datetime.utcnow()
+    last_call = LAST_SOURCE_CGM_CALLS.get(source_label)
+    if last_call is None:
+        return True, None
+
+    delta = (now - last_call).total_seconds()
+    if delta >= min_interval:
+        return True, None
+
+    remaining = int(min_interval - delta)
+    return False, remaining
+
+
+def _mark_source_call(source_label: str) -> None:
+    LAST_SOURCE_CGM_CALLS[source_label] = dt.datetime.utcnow()
+
+
 def _reserve_global_call_slot(source_label: str, user_id: int, context: str) -> None:
     """
     Réserve le prochain créneau API disponible.
@@ -133,9 +179,11 @@ def _reserve_global_call_slot(source_label: str, user_id: int, context: str) -> 
 
     with GLOBAL_CGM_CALL_LOCK:
         while True:
-            can_call_now, remaining = _global_throttle_allows_call()
-            if can_call_now:
+            can_call_now, global_remaining = _global_throttle_allows_call()
+            can_call_source, source_remaining = _source_throttle_allows_call(source_label)
+            if can_call_now and can_call_source:
                 _mark_global_call()
+                _mark_source_call(source_label)
                 if waited_seconds > 0:
                     print(
                         f"[CGM] user={user_id} -> créneau {source_label} libéré après "
@@ -143,7 +191,7 @@ def _reserve_global_call_slot(source_label: str, user_id: int, context: str) -> 
                     )
                 return
 
-            sleep_for = max(float(remaining or 0), 0.0)
+            sleep_for = max(float(global_remaining or 0), float(source_remaining or 0), 0.0)
             if sleep_for <= 0:
                 sleep_for = 0.5
 
@@ -189,6 +237,26 @@ def _format_remaining_delay(seconds: int) -> str:
     if rem_minutes == 0:
         return f"{hours} h"
     return f"{hours} h {rem_minutes} min"
+
+
+def _get_local_now() -> dt.datetime:
+    tz_name = (settings.TZ or os.getenv("TZ") or "Europe/Paris").strip() or "Europe/Paris"
+    try:
+        tz = ZoneInfo(tz_name)
+    except Exception:
+        tz = dt.datetime.now().astimezone().tzinfo or dt.timezone.utc
+    return dt.datetime.now(tz)
+
+
+def _is_within_night_window(now_local: dt.datetime) -> bool:
+    start = LIBRE_BACKGROUND_NIGHT_START_HOUR
+    end = LIBRE_BACKGROUND_NIGHT_END_HOUR
+    hour = now_local.hour
+    if start == end:
+        return True
+    if start < end:
+        return start <= hour < end
+    return hour >= start or hour < end
 
 
 def _current_libre_cooldown_message(until_utc: dt.datetime) -> str:
@@ -297,6 +365,14 @@ def should_attempt_libre_background_fetch(db, user: User) -> tuple[bool, str | N
 
     if not LIBRE_BACKGROUND_FETCH_FOR_INACTIVE_USERS:
         return False, "polling Libre de fond desactive pour les utilisateurs inactifs"
+
+    if LIBRE_BACKGROUND_FETCH_NIGHT_ONLY:
+        now_local = _get_local_now()
+        if not _is_within_night_window(now_local):
+            return False, (
+                "polling Libre de fond reserve a la nuit "
+                f"({LIBRE_BACKGROUND_NIGHT_START_HOUR:02d}h-{LIBRE_BACKGROUND_NIGHT_END_HOUR:02d}h)"
+            )
 
     if LIBRE_BACKGROUND_POLL_INTERVAL_HOURS <= 0:
         return True, None

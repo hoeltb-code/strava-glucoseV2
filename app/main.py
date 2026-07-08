@@ -2186,7 +2186,17 @@ async def process_activity_core(
                 pass
 
             if blocks_ordered:
-                blocks_ordered.append("Pour tous les fans de data —> Join us : https://strava-glucosev2.onrender.com/")
+                app_base_url = _get_app_base_url()
+                activity_link = (
+                    f"{app_base_url}/ui/user/{user_id}/activity/{activity_obj.id}"
+                    if activity_obj.id is not None
+                    else None
+                )
+                if activity_link:
+                    blocks_ordered.append(f"Voir l'analyse complète : {activity_link}")
+                blocks_ordered.append(
+                    f"Pour tous les fans de data —> Join us : {app_base_url}/"
+                )
                 full_block = normalize_summary_block_layout("\n".join(blocks_ordered))
 
         # 7) Mise à jour Strava + persistance du block (optionnel)
@@ -4563,7 +4573,7 @@ def _hash_reset_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-def _get_login_url() -> str:
+def _get_app_base_url() -> str:
     base_url = (settings.APP_BASE_URL or "").strip().rstrip("/")
     if not base_url:
         for candidate in (settings.STRAVA_REDIRECT_URI, settings.DEXCOM_REDIRECT_URI):
@@ -4576,6 +4586,11 @@ def _get_login_url() -> str:
                 break
     if not base_url:
         base_url = "http://127.0.0.1:8000"
+    return base_url
+
+
+def _get_login_url() -> str:
+    base_url = _get_app_base_url()
     return f"{base_url}/ui/login"
 
 
@@ -4990,9 +5005,10 @@ def ui_user_dashboard(user_id: int, request: Request):
                 lines = block.splitlines()
                 signature_tokens = [
                     "join us",
+                    "voir l'analyse complète",
                     "made with ❤️",
                     "made with love",
-                    "https://strava-glucosev2.onrender.com",
+                    "/ui/user/",
                 ]
                 while lines:
                     last = lines[-1].strip().lower()

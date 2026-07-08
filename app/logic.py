@@ -866,9 +866,11 @@ def merge_desc(existing: str, block: str) -> str:
         "🔁 Cadence vélo",             # bloc cadence vélo
         "Cardio moy",                   # bloc cardio
         "Zone 1 :", "Zone 2 :", "Zone 3 :", "Zone 4 :", "Zone 5 :",  # zones FC
+        "Voir l'analyse complète :",    # lien direct vers la page activité
         "—> Made with ❤️ by Benoit",    # signature historique
         "Pour tous les fans de data —> Join us : https://strava-glucosev2.onrender.com/",
         "—> Join us : https://strava-glucosev2.onrender.com/",
+        "Pour tous les fans de data —> Join us :",
     ]
 
     # Cherche le premier marqueur (le plus tôt dans le texte)

@@ -1922,7 +1922,7 @@
 
       ctx.clearRect(0, 0, size.width, size.height);
 
-      applyStoryTextStyle(ctx, "700 42px Rajdhani, sans-serif", "#ffffff");
+      applyStoryTextStyle(ctx, "700 50px Rajdhani, sans-serif", "#ffffff");
       ctx.fillText(data.activity_name || "Activite", metrics.x, 92);
 
       const leftLabelX = metrics.x;
@@ -1932,27 +1932,27 @@
       const row2Y = metrics.y + 102;
       const row3Y = metrics.y + 204;
 
-      applyStoryTextStyle(ctx, "700 18px Orbitron, sans-serif", "rgba(220, 238, 255, 0.82)");
+      applyStoryTextStyle(ctx, "700 22px Orbitron, sans-serif", "rgba(220, 238, 255, 0.82)");
       ctx.fillText("ACTIVITE", leftLabelX, metrics.y - 6);
 
-      applyStoryTextStyle(ctx, "700 20px Orbitron, sans-serif", "rgba(220, 238, 255, 0.96)");
+      applyStoryTextStyle(ctx, "700 24px Orbitron, sans-serif", "rgba(220, 238, 255, 0.96)");
       ctx.fillText("DISTANCE", leftLabelX, row1Y + 20);
-      applyStoryTextStyle(ctx, "700 50px Rajdhani, sans-serif", "#ffffff");
+      applyStoryTextStyle(ctx, "700 60px Rajdhani, sans-serif", "#ffffff");
       ctx.fillText(data.distance_label || "–", leftValueX, row1Y + 66);
 
-      applyStoryTextStyle(ctx, "700 20px Orbitron, sans-serif", "rgba(220, 238, 255, 0.96)");
+      applyStoryTextStyle(ctx, "700 24px Orbitron, sans-serif", "rgba(220, 238, 255, 0.96)");
       ctx.fillText("DUREE", leftLabelX, row2Y + 20);
-      applyStoryTextStyle(ctx, "700 50px Rajdhani, sans-serif", "#ffffff");
+      applyStoryTextStyle(ctx, "700 60px Rajdhani, sans-serif", "#ffffff");
       ctx.fillText(data.duration_label || "–", leftValueX, row2Y + 66);
 
       if (data.effort_metric_label && data.effort_metric_value) {
-        applyStoryTextStyle(ctx, "700 20px Orbitron, sans-serif", "rgba(220, 238, 255, 0.96)");
+        applyStoryTextStyle(ctx, "700 24px Orbitron, sans-serif", "rgba(220, 238, 255, 0.96)");
         ctx.fillText(data.effort_metric_label, leftLabelX, row3Y + 20);
-        applyStoryTextStyle(ctx, "700 50px Rajdhani, sans-serif", "#ffffff");
+        applyStoryTextStyle(ctx, "700 60px Rajdhani, sans-serif", "#ffffff");
         ctx.fillText(data.effort_metric_value, leftValueX, row3Y + 66);
       }
 
-      applyStoryTextStyle(ctx, "700 18px Orbitron, sans-serif", "rgba(220, 238, 255, 0.82)");
+      applyStoryTextStyle(ctx, "700 22px Orbitron, sans-serif", "rgba(220, 238, 255, 0.82)");
       ctx.fillText("GLYCEMIE", rightStartX, metrics.y - 6);
 
       const glucoseStats = [
@@ -1962,9 +1962,9 @@
       ];
 
       glucoseStats.forEach((stat) => {
-        applyStoryTextStyle(ctx, "700 20px Orbitron, sans-serif", "rgba(220, 238, 255, 0.96)");
+        applyStoryTextStyle(ctx, "700 24px Orbitron, sans-serif", "rgba(220, 238, 255, 0.96)");
         ctx.fillText(stat.label, stat.x, stat.y + 20);
-        applyStoryTextStyle(ctx, "700 50px Rajdhani, sans-serif", "#ffffff");
+        applyStoryTextStyle(ctx, "700 60px Rajdhani, sans-serif", "#ffffff");
         ctx.fillText(stat.value, stat.x, stat.y + 66);
       });
 
@@ -1997,7 +1997,7 @@
 
       const tickValues = [yMin, Math.round((yMin + yMax) / 2), yMax];
 
-      applyStoryTextStyle(ctx, "700 18px Orbitron, sans-serif", "rgba(220, 238, 255, 0.84)");
+      applyStoryTextStyle(ctx, "700 22px Orbitron, sans-serif", "rgba(220, 238, 255, 0.84)");
       ctx.fillText("GLYCEMIE", chart.x, chart.y - 24);
 
       tickValues.forEach((tick) => {
@@ -2008,7 +2008,7 @@
         ctx.moveTo(chart.x - 8, y);
         ctx.lineTo(chart.x + chart.width, y);
         ctx.stroke();
-        applyStoryTextStyle(ctx, "600 19px Rajdhani, sans-serif", "rgba(235, 245, 255, 0.92)");
+        applyStoryTextStyle(ctx, "700 23px Rajdhani, sans-serif", "rgba(235, 245, 255, 0.92)");
         ctx.fillText(String(Math.round(tick)), chart.x - 52, y + 5);
       });
 
@@ -2037,7 +2037,7 @@
         const current = plotPoints[i];
         const next = plotPoints[i + 1];
         ctx.strokeStyle = zoneColor((current.mgdl + next.mgdl) / 2);
-        ctx.lineWidth = 2.4;
+        ctx.lineWidth = 4.2;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
         ctx.beginPath();
@@ -2056,10 +2056,10 @@
       const lastPoint = plotPoints[plotPoints.length - 1];
       ctx.fillStyle = zoneColor(lastPoint.mgdl);
       ctx.beginPath();
-      ctx.arc(lastPoint.x, lastPoint.y, 3.5, 0, Math.PI * 2);
+      ctx.arc(lastPoint.x, lastPoint.y, 5.5, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = "rgba(255,255,255,0.85)";
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.6;
       ctx.stroke();
 
       const timeLabels = [
@@ -2067,7 +2067,7 @@
         { x: chart.x + chart.width / 2, value: Math.round(timeRange / 120) * 2 },
         { x: chart.x + chart.width, value: Math.round(timeRange / 60) }
       ];
-      applyStoryTextStyle(ctx, "600 19px Rajdhani, sans-serif", "rgba(235, 245, 255, 0.9)");
+      applyStoryTextStyle(ctx, "700 23px Rajdhani, sans-serif", "rgba(235, 245, 255, 0.9)");
       timeLabels.forEach((item, index) => {
         const text = index === 0 ? "0 min" : `${item.value} min`;
         const textWidth = ctx.measureText(text).width;
@@ -2075,9 +2075,9 @@
         ctx.fillText(text, drawX, chart.y + chart.height + 28);
       });
 
-      applyStoryTextStyle(ctx, "700 24px Orbitron, sans-serif", "rgba(255,255,255,0.96)", "center");
+      applyStoryTextStyle(ctx, "700 28px Orbitron, sans-serif", "rgba(255,255,255,0.96)", "center");
       ctx.fillText("STRAVA x GLUCOSE", chart.x + (chart.width / 2), chart.y + chart.height + 78);
-      applyStoryTextStyle(ctx, "italic 600 18px Rajdhani, sans-serif", "rgba(220, 238, 255, 0.86)", "center");
+      applyStoryTextStyle(ctx, "italic 700 22px Rajdhani, sans-serif", "rgba(220, 238, 255, 0.86)", "center");
       ctx.fillText("by @dt1_runner", chart.x + (chart.width / 2), chart.y + chart.height + 102);
       ctx.shadowColor = "transparent";
       ctx.shadowBlur = 0;

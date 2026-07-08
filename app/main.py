@@ -1279,6 +1279,8 @@ RETENTION_JOB_INTERVAL_DAYS = max(1, int(os.getenv("ACTIVITY_RETENTION_JOB_INTER
 RETENTION_JOB_HOUR_LOCAL = min(23, max(0, int(os.getenv("ACTIVITY_RETENTION_JOB_HOUR_LOCAL", "3") or "3")))
 RETENTION_JOB_MINUTE_LOCAL = min(59, max(0, int(os.getenv("ACTIVITY_RETENTION_JOB_MINUTE_LOCAL", "0") or "0")))
 RETENTION_JOB_ANCHOR_DATE = dt.date(2026, 1, 1)
+PAGE_VIEW_REFRESH_LOCK = threading.Lock()
+PAGE_VIEW_REFRESH_USERS: set[int] = set()
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -1468,32 +1470,61 @@ def get_cgm_graph_for_user(
     return points, source_label
 
 
+def _run_page_view_glucose_refresh(user_id: int, page_name: str) -> None:
+    db = SessionLocal()
+    try:
+        user = db.query(User).get(user_id)
+        if not user:
+            return
+
+        should_refresh, reason = should_attempt_libre_page_refresh(user)
+        if not should_refresh:
+            if reason:
+                print(f"[CGM] user={user.id} -> refresh {page_name} ignoré ({reason}).")
+            return
+
+        points, source_label, fetch_meta = fetch_realtime_points_for_user(
+            db,
+            user,
+            context=f"page_view:{page_name}",
+        )
+        if not points or not source_label:
+            if fetch_meta["reason"] == "libre_cooldown":
+                print(f"[CGM] user={user.id} -> refresh {page_name} reporté (cooldown Libre global).")
+            else:
+                print(f"[CGM] user={user.id} -> refresh {page_name} sans nouvelle donnée.")
+            return
+
+        source = "dexcom" if source_label == "dexcom" else "archive_libre"
+        inserted = store_glucose_points_from_graph(db, user_id=user.id, points=points, source=source)
+        print(
+            f"[CGM] user={user.id} -> refresh {page_name} via {source_label}: "
+            f"{len(points)} points lus, {inserted} nouveaux points."
+        )
+    except Exception:
+        logger.exception("Erreur pendant le refresh glucose de page user=%s page=%s", user_id, page_name)
+    finally:
+        db.close()
+        with PAGE_VIEW_REFRESH_LOCK:
+            PAGE_VIEW_REFRESH_USERS.discard(user_id)
+
+
 def _maybe_refresh_glucose_for_page_view(db, user: User, *, page_name: str) -> None:
     record_glucose_page_view(user.id, page_name)
-    should_refresh, reason = should_attempt_libre_page_refresh(user)
-    if not should_refresh:
-        if reason:
-            print(f"[CGM] user={user.id} -> refresh {page_name} ignoré ({reason}).")
-        return
+    with PAGE_VIEW_REFRESH_LOCK:
+        if user.id in PAGE_VIEW_REFRESH_USERS:
+            print(
+                f"[CGM] user={user.id} -> refresh {page_name} déjà en cours, "
+                "on laisse la page se charger."
+            )
+            return
+        PAGE_VIEW_REFRESH_USERS.add(user.id)
 
-    points, source_label, fetch_meta = fetch_realtime_points_for_user(
-        db,
-        user,
-        context=f"page_view:{page_name}",
-    )
-    if not points or not source_label:
-        if fetch_meta["reason"] == "libre_cooldown":
-            print(f"[CGM] user={user.id} -> refresh {page_name} reporté (cooldown Libre global).")
-        else:
-            print(f"[CGM] user={user.id} -> refresh {page_name} sans nouvelle donnée.")
-        return
-
-    source = "dexcom" if source_label == "dexcom" else "archive_libre"
-    inserted = store_glucose_points_from_graph(db, user_id=user.id, points=points, source=source)
-    print(
-        f"[CGM] user={user.id} -> refresh {page_name} via {source_label}: "
-        f"{len(points)} points lus, {inserted} nouveaux points."
-    )
+    threading.Thread(
+        target=_run_page_view_glucose_refresh,
+        args=(user.id, page_name),
+        daemon=True,
+    ).start()
 
 
 # -----------------------------------------------------------------------------

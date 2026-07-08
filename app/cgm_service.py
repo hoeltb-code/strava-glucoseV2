@@ -65,6 +65,10 @@ LIBRE_PAGE_REFRESH_MINUTES = int(
 LIBRE_RECENT_STRAVA_ACTIVITY_HOURS = int(
     os.getenv("LIBRE_RECENT_STRAVA_ACTIVITY_HOURS", "12") or "12"
 )
+LIBRE_BACKGROUND_FETCH_FOR_RECENT_STRAVA_ACTIVITY = (
+    os.getenv("LIBRE_BACKGROUND_FETCH_FOR_RECENT_STRAVA_ACTIVITY", "0").strip().lower()
+    in {"1", "true", "yes", "on"}
+)
 LIBRE_PAGE_VIEW_PRIORITY_MINUTES = int(
     os.getenv("LIBRE_PAGE_VIEW_PRIORITY_MINUTES", "45") or "45"
 )
@@ -278,7 +282,10 @@ def should_attempt_libre_background_fetch(db, user: User) -> tuple[bool, str | N
         remaining = priority_seconds - age_seconds
         return False, f"page recente deja servie (reste {_format_remaining_delay(remaining)})"
 
-    if _user_has_recent_strava_activity(db, user.id, now):
+    if (
+        LIBRE_BACKGROUND_FETCH_FOR_RECENT_STRAVA_ACTIVITY
+        and _user_has_recent_strava_activity(db, user.id, now)
+    ):
         if last_success_at is None:
             return True, None
         age_seconds = max(int((now - last_success_at).total_seconds()), 0)

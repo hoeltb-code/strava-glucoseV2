@@ -2239,6 +2239,11 @@ async def process_activity_core(
         if auto_block_enabled and full_block and update_strava_description and cli is not None and activity_id is not None:
             new_desc = merge_desc(act.get("description") or "", full_block)
             await cli.update_activity_description(activity_id, new_desc)
+        elif update_strava_description and activity_id is not None:
+            print(
+                f"[STRAVA] activity_id={activity_id} user_id={user_id} -> aucun export description "
+                f"(auto_block={auto_block_enabled}, full_block={'yes' if full_block else 'no'})."
+            )
 
         activity_obj.glucose_summary_block = full_block or None
         db.add(activity_obj)

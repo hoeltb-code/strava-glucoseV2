@@ -29,11 +29,12 @@ import datetime as dt
 import threading
 
 from app.database import SessionLocal
-from app.models import User, LibreCredentials, GlucosePoint, DexcomToken
+from app.models import User, LibreCredentials, GlucosePoint, DexcomToken, Activity
 from app.libre_client import (
     read_graph,
     get_last_libre_status,
     is_libre_status_rate_limited,
+    is_libre_status_credentials_error,
     set_libre_status_flag,
 )
 from app.dexcom_client import DexcomClient, has_dexcom_share_credentials
@@ -52,10 +53,16 @@ MIN_SECONDS_BETWEEN_GLOBAL_CALLS = int(
     os.getenv("CGM_MIN_SECONDS_BETWEEN_GLOBAL_CALLS", "10") or "10"
 )
 LIBRE_BACKGROUND_POLL_INTERVAL_HOURS = int(
-    os.getenv("LIBRE_BACKGROUND_POLL_INTERVAL_HOURS", "24") or "24"
+    os.getenv("LIBRE_BACKGROUND_POLL_INTERVAL_HOURS", "12") or "12"
 )
 LIBRE_PAGE_REFRESH_MINUTES = int(
     os.getenv("LIBRE_PAGE_REFRESH_MINUTES", "30") or "30"
+)
+LIBRE_RECENT_STRAVA_ACTIVITY_HOURS = int(
+    os.getenv("LIBRE_RECENT_STRAVA_ACTIVITY_HOURS", "12") or "12"
+)
+LIBRE_PAGE_VIEW_PRIORITY_MINUTES = int(
+    os.getenv("LIBRE_PAGE_VIEW_PRIORITY_MINUTES", "45") or "45"
 )
 
 # Flag global pour gérer le rate limit LibreLinkUp :
@@ -70,6 +77,7 @@ USER_POLL_CURSOR = 0
 
 # Historique des tentatives de polling par utilisateur (en mémoire)
 LAST_POLL_ATTEMPTS = {}
+LAST_GLUCOSE_PAGE_VIEWS = {}
 
 # Empêche deux appels CGM successifs à moins de MIN_SECONDS_BETWEEN_GLOBAL_CALLS
 LAST_GLOBAL_CGM_CALL = None
@@ -172,43 +180,100 @@ def _current_libre_cooldown_message(until_utc: dt.datetime) -> str:
     )
 
 
-def _record_libre_fetch_attempt(user_id: int, context: str) -> None:
+def record_glucose_page_view(user_id: int, page_name: str) -> None:
+    LAST_GLUCOSE_PAGE_VIEWS[user_id] = dt.datetime.utcnow()
+    print(f"[CGM] user={user_id} -> page glucose ouverte ({page_name}), priorite haute active.")
+
+
+def _record_libre_fetch_success(user_id: int, context: str) -> None:
     db = SessionLocal()
     try:
         cred = db.query(LibreCredentials).filter(LibreCredentials.user_id == user_id).first()
         if not cred:
             return
-        cred.last_fetch_at = dt.datetime.utcnow()
+        now = dt.datetime.utcnow()
+        cred.last_fetch_at = now
+        cred.last_success_at = now
         cred.last_fetch_context = (context or "")[:32] or None
         db.commit()
     except Exception as exc:
         db.rollback()
-        print(f"[CGM] user={user_id} -> impossible d'enregistrer last_fetch_at Libre : {exc}")
+        print(f"[CGM] user={user_id} -> impossible d'enregistrer le succes Libre : {exc}")
     finally:
         db.close()
 
 
-def should_attempt_libre_background_fetch(user: User) -> tuple[bool, str | None]:
+def _libre_is_disabled(cred: LibreCredentials | None) -> bool:
+    return bool(cred and getattr(cred, "disabled_at", None) is not None)
+
+
+def _user_has_recent_page_view(user_id: int, now: dt.datetime) -> bool:
+    last_view = LAST_GLUCOSE_PAGE_VIEWS.get(user_id)
+    if last_view is None:
+        return False
+    return (now - last_view).total_seconds() <= LIBRE_PAGE_VIEW_PRIORITY_MINUTES * 60
+
+
+def _user_has_recent_strava_activity(db, user_id: int, now: dt.datetime) -> bool:
+    if LIBRE_RECENT_STRAVA_ACTIVITY_HOURS <= 0:
+        return False
+
+    cutoff = now - dt.timedelta(hours=LIBRE_RECENT_STRAVA_ACTIVITY_HOURS)
+    recent_activity = (
+        db.query(Activity.id)
+        .filter(Activity.user_id == user_id, Activity.start_date.isnot(None), Activity.start_date >= cutoff)
+        .order_by(Activity.start_date.desc())
+        .first()
+    )
+    return recent_activity is not None
+
+
+def should_attempt_libre_background_fetch(db, user: User) -> tuple[bool, str | None]:
     cred = user.libre_credentials
     if not cred:
         return False, "aucun compte LibreLinkUp"
+    if _libre_is_disabled(cred):
+        reason = cred.disabled_reason or "Libre desactive jusqu'a correction des identifiants"
+        set_libre_status_flag(user.id, "error", reason)
+        return False, reason
+
+    now = dt.datetime.utcnow()
+    last_success_at = _normalize_utc_naive(getattr(cred, "last_success_at", None))
+
+    if _user_has_recent_page_view(user.id, now):
+        if last_success_at is None:
+            return True, None
+        age_seconds = max(int((now - last_success_at).total_seconds()), 0)
+        priority_seconds = max(LIBRE_PAGE_REFRESH_MINUTES, 1) * 60
+        if age_seconds >= priority_seconds:
+            return True, None
+        remaining = priority_seconds - age_seconds
+        return False, f"page recente deja servie (reste {_format_remaining_delay(remaining)})"
+
+    if _user_has_recent_strava_activity(db, user.id, now):
+        if last_success_at is None:
+            return True, None
+        age_seconds = max(int((now - last_success_at).total_seconds()), 0)
+        priority_seconds = max(LIBRE_PAGE_REFRESH_MINUTES, 1) * 60
+        if age_seconds >= priority_seconds:
+            return True, None
+        remaining = priority_seconds - age_seconds
+        return False, f"activite Strava recente deja servie (reste {_format_remaining_delay(remaining)})"
 
     if LIBRE_BACKGROUND_POLL_INTERVAL_HOURS <= 0:
         return True, None
 
-    last_fetch_at = _normalize_utc_naive(getattr(cred, "last_fetch_at", None))
-    if last_fetch_at is None:
+    if last_success_at is None:
         return True, None
 
-    now = dt.datetime.utcnow()
-    age_seconds = max(int((now - last_fetch_at).total_seconds()), 0)
+    age_seconds = max(int((now - last_success_at).total_seconds()), 0)
     interval_seconds = LIBRE_BACKGROUND_POLL_INTERVAL_HOURS * 3600
     if age_seconds >= interval_seconds:
         return True, None
 
     remaining = interval_seconds - age_seconds
     return False, (
-        "fetch Libre quotidien déjà effectué "
+        "fetch Libre inactif deja effectue "
         f"(reste {_format_remaining_delay(remaining)})"
     )
 
@@ -217,6 +282,10 @@ def should_attempt_libre_page_refresh(user: User) -> tuple[bool, str | None]:
     cred = user.libre_credentials
     if not cred:
         return False, "aucun compte LibreLinkUp"
+    if _libre_is_disabled(cred):
+        reason = cred.disabled_reason or "Libre desactive jusqu'a correction des identifiants"
+        set_libre_status_flag(user.id, "error", reason)
+        return False, reason
 
     if has_dexcom_share_credentials(user.dexcom_tokens) and user.cgm_source != "libre":
         return False, "Dexcom reste prioritaire pour cette page"
@@ -224,12 +293,12 @@ def should_attempt_libre_page_refresh(user: User) -> tuple[bool, str | None]:
     if LIBRE_PAGE_REFRESH_MINUTES <= 0:
         return True, None
 
-    last_fetch_at = _normalize_utc_naive(getattr(cred, "last_fetch_at", None))
-    if last_fetch_at is None:
+    last_success_at = _normalize_utc_naive(getattr(cred, "last_success_at", None))
+    if last_success_at is None:
         return True, None
 
     now = dt.datetime.utcnow()
-    age_seconds = max(int((now - last_fetch_at).total_seconds()), 0)
+    age_seconds = max(int((now - last_success_at).total_seconds()), 0)
     min_interval_seconds = LIBRE_PAGE_REFRESH_MINUTES * 60
     if age_seconds >= min_interval_seconds:
         return True, None
@@ -337,7 +406,6 @@ def fetch_realtime_points_for_user(
 
         try:
             meta["attempted_sources"].append("libre")
-            _record_libre_fetch_attempt(user_id, context)
             _reserve_global_call_slot("LibreLinkUp", user_id, context)
             pts = read_graph(user_id=user_id) or []
             libre_status = get_last_libre_status(user_id)
@@ -345,6 +413,11 @@ def fetch_realtime_points_for_user(
                 _mark_libre_rate_limited(now_utc)
                 meta["reason"] = "libre_rate_limited"
                 return []
+            if is_libre_status_credentials_error(libre_status):
+                meta["reason"] = "libre_credentials_disabled"
+                return []
+            if libre_status and libre_status[0] == "ok":
+                _record_libre_fetch_success(user_id, context)
             if pts:
                 print(f"[CGM] user={user_id} -> {len(pts)} points LibreLinkUp ({context})")
             return pts
@@ -473,7 +546,7 @@ def poll_glucose_once():
             if not user_db:
                 continue
 
-            allow_libre_fetch, libre_reason = should_attempt_libre_background_fetch(user_db)
+            allow_libre_fetch, libre_reason = should_attempt_libre_background_fetch(db, user_db)
             if (
                 user_db.libre_credentials
                 and not allow_libre_fetch
@@ -506,6 +579,10 @@ def poll_glucose_once():
                 elif fetch_meta["reason"] == "libre_deferred":
                     print(
                         f"[CGM] user={user_id} -> polling Libre différé ({libre_reason or 'quota journalier'})."
+                    )
+                elif fetch_meta["reason"] == "libre_credentials_disabled":
+                    print(
+                        f"[CGM] user={user_id} -> polling Libre suspendu ({libre_reason or 'identifiants invalides'})."
                     )
                 elif not fetch_meta["attempted_sources"] and not fetch_meta["skipped_sources"]:
                     print(

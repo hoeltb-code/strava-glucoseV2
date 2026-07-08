@@ -352,6 +352,7 @@ from app.auth import pwd_context
 from app.cgm_service import (
     run_polling_loop,
     fetch_realtime_points_for_user,
+    record_glucose_page_view,
     should_attempt_libre_page_refresh,
 )
 from app.indicators.slope_cadence import build_slope_cadence_data
@@ -1462,6 +1463,7 @@ def get_cgm_graph_for_user(
 
 
 def _maybe_refresh_glucose_for_page_view(db, user: User, *, page_name: str) -> None:
+    record_glucose_page_view(user.id, page_name)
     should_refresh, reason = should_attempt_libre_page_refresh(user)
     if not should_refresh:
         if reason:
@@ -5667,6 +5669,8 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
         user = db.query(User).get(user_id)
         if not user:
             return HTMLResponse("Utilisateur introuvable", status_code=404)
+
+        _maybe_refresh_glucose_for_page_view(db, user, page_name="activity_detail")
 
         activity = (
             db.query(Activity)

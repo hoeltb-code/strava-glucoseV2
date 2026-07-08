@@ -99,7 +99,11 @@ class LibreCredentials(Base):
     region = Column(String, default="fr", nullable=False)
     client_version = Column(String, default="4.16.0", nullable=False)
     last_fetch_at = Column(DateTime, nullable=True)
+    last_success_at = Column(DateTime, nullable=True)
     last_fetch_context = Column(String(32), nullable=True)
+    disabled_at = Column(DateTime, nullable=True)
+    disabled_reason = Column(String(255), nullable=True)
+    disabled_notified_at = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

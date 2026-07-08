@@ -31,14 +31,16 @@
 # -----------------------------------------------------------------------------
 import os
 import json
+import smtplib
 import subprocess
 import pathlib
 import datetime as dt
+from email.message import EmailMessage
 from typing import List, Dict, Any, Optional, Tuple
 
 from .settings import settings
 from app.database import SessionLocal
-from app.models import LibreCredentials
+from app.models import LibreCredentials, User
 
 
 class LibreError(RuntimeError):
@@ -72,6 +74,19 @@ def is_libre_status_rate_limited(status: Optional[Tuple[str, str]]) -> bool:
     )
 
 
+def is_libre_status_credentials_error(status: Optional[Tuple[str, str]]) -> bool:
+    if not status:
+        return False
+    level, message = status
+    text = (message or "").lower()
+    return level == "error" and (
+        "identifiants librelinkup invalides" in text
+        or "formulaire incomplet" in text
+        or "desactivee" in text
+        or "desactive" in text
+    )
+
+
 def _get_user_libre_credentials(user_id: int) -> Optional[LibreCredentials]:
     """
     Récupère les identifiants LibreLinkUp pour un utilisateur donné.
@@ -81,6 +96,104 @@ def _get_user_libre_credentials(user_id: int) -> Optional[LibreCredentials]:
     try:
         cred = db.query(LibreCredentials).filter(LibreCredentials.user_id == user_id).first()
         return cred
+    finally:
+        db.close()
+
+
+def _send_libre_disabled_email(to_email: str, reason: str) -> None:
+    if not settings.SMTP_HOST or not settings.SMTP_PORT:
+        raise RuntimeError("SMTP settings missing (host/port).")
+    if not settings.SMTP_USER or not settings.SMTP_PASS:
+        raise RuntimeError("SMTP settings missing (user/pass).")
+
+    from_name = settings.SMTP_FROM_NAME or "Strava Glucose"
+    from_email = settings.SMTP_FROM_EMAIL or settings.SMTP_USER
+    profile_url = f"{(settings.APP_BASE_URL or '').rstrip('/')}/ui/login" if settings.APP_BASE_URL else None
+
+    body = (
+        "Bonjour,\n\n"
+        "La synchronisation LibreLinkUp a ete desactivee sur votre compte car vos identifiants "
+        "semblent invalides ou incomplets.\n\n"
+        f"Detail : {reason}\n\n"
+        "Mettez a jour vos identifiants LibreLinkUp dans votre profil pour reactiver la synchronisation."
+    )
+    if profile_url:
+        body += f"\n\nConnexion : {profile_url}"
+
+    msg = EmailMessage()
+    msg["Subject"] = "Action requise : corriger vos identifiants LibreLinkUp"
+    msg["From"] = f"{from_name} <{from_email}>"
+    msg["To"] = to_email
+    msg.set_content(body)
+
+    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+        server.starttls()
+        server.login(settings.SMTP_USER, settings.SMTP_PASS)
+        server.send_message(msg)
+
+
+def _clear_libre_disabled_state(user_id: Optional[int]) -> None:
+    if user_id is None:
+        return
+
+    db = SessionLocal()
+    try:
+        cred = db.query(LibreCredentials).filter(LibreCredentials.user_id == user_id).first()
+        if not cred:
+            return
+        if (
+            cred.disabled_at is None
+            and cred.disabled_reason is None
+            and cred.disabled_notified_at is None
+        ):
+            return
+        cred.disabled_at = None
+        cred.disabled_reason = None
+        cred.disabled_notified_at = None
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        print(f"⚠️ Impossible de reinitialiser l'etat Libre desactive pour user_id={user_id} : {exc}")
+    finally:
+        db.close()
+
+
+def _disable_libre_for_user(user_id: Optional[int], reason: str) -> None:
+    if user_id is None:
+        return
+
+    db = SessionLocal()
+    try:
+        cred = db.query(LibreCredentials).filter(LibreCredentials.user_id == user_id).first()
+        user = db.query(User).filter(User.id == user_id).first()
+        if not cred:
+            return
+
+        now = dt.datetime.utcnow()
+        should_notify = bool(
+            user
+            and user.email
+            and (
+                cred.disabled_at is None
+                or cred.disabled_notified_at is None
+                or (cred.disabled_reason or "") != reason
+            )
+        )
+
+        cred.disabled_at = cred.disabled_at or now
+        cred.disabled_reason = reason
+        if should_notify:
+            cred.disabled_notified_at = now
+        db.commit()
+
+        if should_notify:
+            try:
+                _send_libre_disabled_email(user.email, reason)
+            except Exception as exc:
+                print(f"⚠️ Email d'alerte Libre non envoye pour user_id={user_id} : {exc}")
+    except Exception as exc:
+        db.rollback()
+        print(f"⚠️ Impossible de desactiver Libre pour user_id={user_id} : {exc}")
     finally:
         db.close()
 
@@ -135,7 +248,7 @@ def _run_libre_helper(email: str, password: str, region: str, client_version: st
     return True, stdout, ""
 
 
-def _classify_libre_error(raw_stdout: str, err: str) -> Tuple[str, str]:
+def _classify_libre_error_detail(raw_stdout: str, err: str) -> Tuple[str, str, str]:
     text = " ".join(filter(None, [err or "", raw_stdout or ""]))
     text_lower = text.lower()
 
@@ -149,25 +262,34 @@ def _classify_libre_error(raw_stdout: str, err: str) -> Tuple[str, str]:
         return (
             "warn",
             "Identifiants enregistrés, mais LibreLinkUp limite temporairement cet IP (HTTP 429). "
-            f"Nous réessaierons automatiquement dans {retry_label}."
+            f"Nous réessaierons automatiquement dans {retry_label}.",
+            "rate_limited",
         )
 
     if "bad credentials" in text_lower or "invalid" in text_lower:
         return (
             "error",
-            "Identifiants LibreLinkUp invalides (email ou mot de passe incorrect)."
+            "Identifiants LibreLinkUp invalides (email ou mot de passe incorrect).",
+            "bad_credentials",
         )
 
     if "missing libre_email" in text_lower or "missing libre_password" in text_lower:
         return (
             "error",
-            "Formulaire incomplet : email ou mot de passe LibreLinkUp manquant."
+            "Formulaire incomplet : email ou mot de passe LibreLinkUp manquant.",
+            "missing_credentials",
         )
 
     return (
         "error",
-        "Impossible de contacter LibreLinkUp pour l'instant. Vérifie l'app officielle puis réessaie."
+        "Impossible de contacter LibreLinkUp pour l'instant. Vérifie l'app officielle puis réessaie.",
+        "unknown_error",
     )
+
+
+def _classify_libre_error(raw_stdout: str, err: str) -> Tuple[str, str]:
+    status, message, _error_code = _classify_libre_error_detail(raw_stdout, err)
+    return status, message
 
 
 def test_libre_credentials(
@@ -177,6 +299,7 @@ def test_libre_credentials(
     client_version: Optional[str] = None,
     *,
     user_id: Optional[int] = None,
+    disable_user_on_auth_error: bool = False,
 ) -> Tuple[str, str]:
     """Teste les identifiants fournis et retourne (status, message).
 
@@ -189,8 +312,10 @@ def test_libre_credentials(
     client_version = client_version or os.getenv("LIBRE_CLIENT_VERSION", "4.16.0")
     ok, stdout, err = _run_libre_helper(email, password, region, client_version)
     if not ok:
-        status, msg = _classify_libre_error(stdout, err)
+        status, msg, error_code = _classify_libre_error_detail(stdout, err)
         set_libre_status_flag(user_id, status, msg)
+        if disable_user_on_auth_error and error_code in {"bad_credentials", "missing_credentials"}:
+            _disable_libre_for_user(user_id, msg)
         return status, msg
 
     nb_points = 0
@@ -207,6 +332,7 @@ def test_libre_credentials(
         msg += f" ({nb_points} points récupérés)."
     else:
         msg += "."
+    _clear_libre_disabled_state(user_id)
     set_libre_status_flag(user_id, "ok", msg)
     return "ok", msg
 
@@ -240,6 +366,12 @@ def read_graph(user_id: Optional[int] = None) -> List[Dict[str, Any]]:
     if user_id is not None:
         cred = _get_user_libre_credentials(user_id)
         if cred:
+            if cred.disabled_at is not None:
+                msg = cred.disabled_reason or (
+                    "Synchronisation LibreLinkUp desactivee jusqu'a correction des identifiants."
+                )
+                set_libre_status_flag(user_id, "error", msg)
+                return []
             # Pour l'instant, password_encrypted contient le mot de passe en clair.
             email = cred.email
             password = cred.password_encrypted
@@ -258,8 +390,10 @@ def read_graph(user_id: Optional[int] = None) -> List[Dict[str, Any]]:
 
     ok, stdout, err = _run_libre_helper(email, password, region, client_version)
     if not ok:
-        status, msg = _classify_libre_error(stdout, err)
+        status, msg, error_code = _classify_libre_error_detail(stdout, err)
         set_libre_status_flag(user_id, status, msg)
+        if error_code in {"bad_credentials", "missing_credentials"}:
+            _disable_libre_for_user(user_id, msg)
         return []
 
     if not stdout:
@@ -309,5 +443,6 @@ def read_graph(user_id: Optional[int] = None) -> List[Dict[str, Any]]:
     # 7️⃣ Tri défensif par timestamp
     out.sort(key=lambda x: x["ts"])
     if user_id is not None:
+        _clear_libre_disabled_state(user_id)
         set_libre_status_flag(user_id, "ok", "Connexion LibreLinkUp opérationnelle.")
     return out

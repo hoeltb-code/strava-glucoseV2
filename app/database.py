@@ -37,8 +37,28 @@ def _run_local_schema_fixes():
     )
     _ensure_column(
         "libre_credentials",
+        "last_success_at",
+        f"last_success_at {libre_last_fetch_type}",
+    )
+    _ensure_column(
+        "libre_credentials",
         "last_fetch_context",
         "last_fetch_context VARCHAR(32)",
+    )
+    _ensure_column(
+        "libre_credentials",
+        "disabled_at",
+        f"disabled_at {libre_last_fetch_type}",
+    )
+    _ensure_column(
+        "libre_credentials",
+        "disabled_reason",
+        "disabled_reason VARCHAR(255)",
+    )
+    _ensure_column(
+        "libre_credentials",
+        "disabled_notified_at",
+        f"disabled_notified_at {libre_last_fetch_type}",
     )
     _ensure_column(
         "user_settings",

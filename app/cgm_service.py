@@ -203,6 +203,16 @@ def _record_libre_fetch_success(user_id: int, context: str) -> None:
         db.close()
 
 
+def _get_effective_last_libre_success(cred: LibreCredentials | None) -> dt.datetime | None:
+    if not cred:
+        return None
+    last_success_at = _normalize_utc_naive(getattr(cred, "last_success_at", None))
+    if last_success_at is not None:
+        return last_success_at
+    # Compat migration: reuse previous successful fetch timestamp if present.
+    return _normalize_utc_naive(getattr(cred, "last_fetch_at", None))
+
+
 def _libre_is_disabled(cred: LibreCredentials | None) -> bool:
     return bool(cred and getattr(cred, "disabled_at", None) is not None)
 
@@ -238,7 +248,7 @@ def should_attempt_libre_background_fetch(db, user: User) -> tuple[bool, str | N
         return False, reason
 
     now = dt.datetime.utcnow()
-    last_success_at = _normalize_utc_naive(getattr(cred, "last_success_at", None))
+    last_success_at = _get_effective_last_libre_success(cred)
 
     if _user_has_recent_page_view(user.id, now):
         if last_success_at is None:
@@ -293,7 +303,7 @@ def should_attempt_libre_page_refresh(user: User) -> tuple[bool, str | None]:
     if LIBRE_PAGE_REFRESH_MINUTES <= 0:
         return True, None
 
-    last_success_at = _normalize_utc_naive(getattr(cred, "last_success_at", None))
+    last_success_at = _get_effective_last_libre_success(cred)
     if last_success_at is None:
         return True, None
 

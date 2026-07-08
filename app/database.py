@@ -66,6 +66,15 @@ def _run_local_schema_fixes():
         "desc_enable_auto_block BOOLEAN DEFAULT 1",
     )
 
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "UPDATE libre_credentials "
+                "SET last_success_at = last_fetch_at "
+                "WHERE last_success_at IS NULL AND last_fetch_at IS NOT NULL"
+            )
+        )
+
 def get_db():
     db = SessionLocal()
     try:

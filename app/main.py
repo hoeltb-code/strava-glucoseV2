@@ -150,7 +150,13 @@ from .logic import (
 )
 from .settings import settings
 from .strava_client import StravaClient
-from .libre_client import test_libre_credentials, get_last_libre_status
+from .libre_client import (
+    test_libre_credentials,
+    get_last_libre_status,
+    clear_libre_disabled_state,
+    is_libre_auth_error_message,
+    set_libre_status_flag,
+)
 from .dexcom_client import (
     get_last_dexcom_status,
     has_dexcom_share_credentials,
@@ -2690,6 +2696,8 @@ def ui_set_libre_credentials(
 
     test_status = "error"
     test_msg = ""
+    final_status = "error"
+    final_msg = ""
 
     db = SessionLocal()
     try:
@@ -2729,7 +2737,10 @@ def ui_set_libre_credentials(
             test_status = "error"
             test_msg = f"Erreur de vérification LibreLinkUp : {e}"
 
-        if test_status != "error":
+        auth_error = is_libre_auth_error_message(test_msg, level=test_status)
+        should_persist_credentials = test_status != "error" or not auth_error
+
+        if should_persist_credentials:
             if existing_cred:
                 cred = existing_cred
                 cred.email = email
@@ -2745,16 +2756,32 @@ def ui_set_libre_credentials(
                     client_version=client_version,
                 )
                 db.add(cred)
+            if test_status == "error":
+                clear_libre_disabled_state(user_id)
             db.commit()
             db.refresh(cred)
+
+            if test_status == "error":
+                final_status = "warn"
+                final_msg = (
+                    f"{test_msg} Les nouveaux identifiants ont ete enregistres et seront reessayes automatiquement."
+                )
+                set_libre_status_flag(user_id, final_status, final_msg)
+            else:
+                final_status = test_status
+                final_msg = test_msg
+        else:
+            final_status = test_status
+            final_msg = test_msg
 
     finally:
         db.close()
 
-    status = test_status or "error"
+    status = final_status or test_status or "error"
+    message = final_msg or test_msg
     params = f"?libre_status={status}"
-    if test_msg:
-        params += f"&libre_msg={quote_plus(test_msg)}"
+    if message:
+        params += f"&libre_msg={quote_plus(message)}"
 
     return RedirectResponse(
         url=f"/ui/user/{user_id}/profile{params}#libre",

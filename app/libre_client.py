@@ -78,8 +78,12 @@ def is_libre_status_credentials_error(status: Optional[Tuple[str, str]]) -> bool
     if not status:
         return False
     level, message = status
+    return is_libre_auth_error_message(message, level=level)
+
+
+def is_libre_auth_error_message(message: str | None, *, level: str | None = None) -> bool:
     text = (message or "").lower()
-    return level == "error" and (
+    return (level in {None, "error"}) and (
         "identifiants librelinkup invalides" in text
         or "formulaire incomplet" in text
         or "desactivee" in text
@@ -156,6 +160,10 @@ def _clear_libre_disabled_state(user_id: Optional[int]) -> None:
         print(f"⚠️ Impossible de reinitialiser l'etat Libre desactive pour user_id={user_id} : {exc}")
     finally:
         db.close()
+
+
+def clear_libre_disabled_state(user_id: Optional[int]) -> None:
+    _clear_libre_disabled_state(user_id)
 
 
 def _disable_libre_for_user(user_id: Optional[int], reason: str) -> None:

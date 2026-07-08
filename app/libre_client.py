@@ -253,7 +253,7 @@ def _classify_libre_error_detail(raw_stdout: str, err: str) -> Tuple[str, str, s
     text_lower = text.lower()
 
     if "429" in text or "1015" in text_lower or "rate limited" in text_lower:
-        cooldown_minutes = int(os.getenv("LIBRE_RATE_LIMIT_COOLDOWN_MINUTES", "15") or "15")
+        cooldown_minutes = int(os.getenv("LIBRE_RATE_LIMIT_COOLDOWN_MINUTES", "60") or "60")
         retry_label = (
             "quelques minutes"
             if cooldown_minutes <= 5

@@ -69,8 +69,16 @@ LIBRE_PAGE_VIEW_PRIORITY_MINUTES = int(
 # si on reçoit un 429 / Error 1015, on n'appelle plus Libre jusqu'à LIBRE_RATE_LIMIT_UNTIL
 LIBRE_RATE_LIMIT_UNTIL = None
 LIBRE_RATE_LIMIT_COOLDOWN_MINUTES = int(
-    os.getenv("LIBRE_RATE_LIMIT_COOLDOWN_MINUTES", "15") or "15"
+    os.getenv("LIBRE_RATE_LIMIT_COOLDOWN_MINUTES", "60") or "60"
 )
+LIBRE_RATE_LIMIT_MAX_COOLDOWN_MINUTES = int(
+    os.getenv("LIBRE_RATE_LIMIT_MAX_COOLDOWN_MINUTES", "360") or "360"
+)
+LIBRE_RATE_LIMIT_BACKOFF_FACTOR = max(
+    1,
+    int(os.getenv("LIBRE_RATE_LIMIT_BACKOFF_FACTOR", "2") or "2"),
+)
+LIBRE_RATE_LIMIT_STREAK = 0
 
 # Pointeur sur le prochain utilisateur à traiter quand on limite la taille des lots
 USER_POLL_CURSOR = 0
@@ -140,13 +148,17 @@ def _reserve_global_call_slot(source_label: str, user_id: int, context: str) -> 
 
 
 def _mark_libre_rate_limited(now_utc: dt.datetime):
-    global LIBRE_RATE_LIMIT_UNTIL
-    LIBRE_RATE_LIMIT_UNTIL = now_utc + dt.timedelta(
-        minutes=LIBRE_RATE_LIMIT_COOLDOWN_MINUTES
+    global LIBRE_RATE_LIMIT_UNTIL, LIBRE_RATE_LIMIT_STREAK
+    LIBRE_RATE_LIMIT_STREAK += 1
+    cooldown_minutes = LIBRE_RATE_LIMIT_COOLDOWN_MINUTES * (
+        LIBRE_RATE_LIMIT_BACKOFF_FACTOR ** max(LIBRE_RATE_LIMIT_STREAK - 1, 0)
     )
+    cooldown_minutes = min(cooldown_minutes, LIBRE_RATE_LIMIT_MAX_COOLDOWN_MINUTES)
+    LIBRE_RATE_LIMIT_UNTIL = now_utc + dt.timedelta(minutes=cooldown_minutes)
     print(
         f"[CGM] LibreLinkUp rate-limité. "
-        f"On désactive les appels Libre jusqu'à {LIBRE_RATE_LIMIT_UNTIL}."
+        f"On désactive les appels Libre jusqu'à {LIBRE_RATE_LIMIT_UNTIL} "
+        f"(cooldown={cooldown_minutes} min, streak={LIBRE_RATE_LIMIT_STREAK})."
     )
 
 
@@ -186,6 +198,7 @@ def record_glucose_page_view(user_id: int, page_name: str) -> None:
 
 
 def _record_libre_fetch_success(user_id: int, context: str) -> None:
+    global LIBRE_RATE_LIMIT_STREAK
     db = SessionLocal()
     try:
         cred = db.query(LibreCredentials).filter(LibreCredentials.user_id == user_id).first()
@@ -195,6 +208,7 @@ def _record_libre_fetch_success(user_id: int, context: str) -> None:
         cred.last_fetch_at = now
         cred.last_success_at = now
         cred.last_fetch_context = (context or "")[:32] or None
+        LIBRE_RATE_LIMIT_STREAK = 0
         db.commit()
     except Exception as exc:
         db.rollback()

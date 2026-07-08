@@ -4973,6 +4973,8 @@ def ui_user_dashboard(user_id: int, request: Request):
     daily_glucose_day_start = None
     daily_glucose_day_end = None
     show_daily_glucose = False
+    dashboard_warning = None
+    debug_js = "{}"
 
     try:
         user = db.query(User).get(user_id)
@@ -5457,6 +5459,44 @@ def ui_user_dashboard(user_id: int, request: Request):
                 "num_points": int(row.num_points or 0),
                 "sport": row.sport or "run",
             })
+        debug_js = json.dumps(
+            {
+                "user_id": user_id,
+                "activities_count": len(activities),
+                "last_activities_count": len(last_activities),
+                "show_daily_glucose": show_daily_glucose,
+                "daily_glucose_points": len(daily_glucose_chart),
+                "sport_distribution_count": len(sport_distribution),
+                "vam_highlights_count": len(vam_highlights),
+                "distance_projections_count": len(dash_distance_projections),
+            },
+            ensure_ascii=False,
+        )
+    except Exception as exc:
+        logger.exception("Erreur pendant le rendu du dashboard user=%s", user_id)
+        if user is None:
+            return HTMLResponse(
+                content=(
+                    "<html><head><meta charset='utf-8'><title>Erreur dashboard</title></head>"
+                    "<body><h1>Erreur dashboard</h1>"
+                    "<p>Impossible de charger cette page pour le moment.</p>"
+                    "<p><a href='/ui/login'>Retour à la connexion</a></p></body></html>"
+                ),
+                status_code=500,
+            )
+        dashboard_warning = (
+            "Certaines statistiques du dashboard n'ont pas pu être chargées. "
+            "Le contenu principal reste disponible."
+        )
+        debug_js = json.dumps(
+            {
+                "user_id": user_id,
+                "error": str(exc),
+                "activities_count": len(activities),
+                "last_activities_count": len(last_activities),
+            },
+            ensure_ascii=False,
+        )
 
     finally:
         db.close()
@@ -5489,6 +5529,8 @@ def ui_user_dashboard(user_id: int, request: Request):
             "daily_glucose_day_start": daily_glucose_day_start,
             "daily_glucose_day_end": daily_glucose_day_end,
             "show_daily_glucose": show_daily_glucose,
+            "dashboard_warning": dashboard_warning,
+            "debug_js": debug_js,
         },
     )
 

@@ -213,7 +213,7 @@ def _mark_libre_rate_limited(now_utc: dt.datetime):
     LIBRE_RATE_LIMIT_UNTIL = now_utc + dt.timedelta(minutes=cooldown_minutes)
     print(
         f"[CGM] LibreLinkUp rate-limité. "
-        f"On désactive les appels Libre jusqu'à {LIBRE_RATE_LIMIT_UNTIL} "
+        f"On désactive les appels Libre jusqu'à {_format_local_datetime(LIBRE_RATE_LIMIT_UNTIL)} "
         f"(cooldown={cooldown_minutes} min, streak={LIBRE_RATE_LIMIT_STREAK})."
     )
 
@@ -242,10 +242,19 @@ def _format_remaining_delay(seconds: int) -> str:
 def _get_local_now() -> dt.datetime:
     tz_name = (settings.TZ or os.getenv("TZ") or "Europe/Paris").strip() or "Europe/Paris"
     try:
-        tz = ZoneInfo(tz_name)
+        return dt.datetime.now(ZoneInfo(tz_name))
     except Exception:
         tz = dt.datetime.now().astimezone().tzinfo or dt.timezone.utc
-    return dt.datetime.now(tz)
+        return dt.datetime.now(tz)
+
+
+def _format_local_datetime(ts: dt.datetime | None) -> str:
+    if ts is None:
+        return "n/a"
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=dt.timezone.utc)
+    local_ts = ts.astimezone(_get_local_now().tzinfo or dt.timezone.utc)
+    return local_ts.strftime("%Y-%m-%d %H:%M:%S %Z")
 
 
 def _is_within_night_window(now_local: dt.datetime) -> bool:
@@ -514,7 +523,7 @@ def fetch_realtime_points_for_user(
             )
             print(
                 f"[CGM] user={user_id} -> LibreLinkUp est en cooldown jusqu'à "
-                f"{LIBRE_RATE_LIMIT_UNTIL}, on saute l'appel."
+                f"{_format_local_datetime(LIBRE_RATE_LIMIT_UNTIL)}, on saute l'appel."
             )
             return []
 
@@ -606,8 +615,12 @@ def poll_glucose_once():
     Le passage est batché (MAX_USERS_PER_POLL) et saute seulement les utilisateurs
     interrogés récemment. Les appels API eux-mêmes sont cadencés par un verrou global.
     """
-    now = dt.datetime.utcnow().isoformat()
-    print(f"[CGM] poll_glucose_once() appelé à {now}")
+    now_local = _get_local_now()
+    now_utc = dt.datetime.utcnow().replace(tzinfo=dt.timezone.utc)
+    print(
+        f"[CGM] poll_glucose_once() appelé à {_format_local_datetime(now_local)} "
+        f"(UTC {now_utc.strftime('%Y-%m-%d %H:%M:%S %Z')})"
+    )
 
     # 1️⃣ Récupération des users concernés (au moins une source CGM)
     global USER_POLL_CURSOR

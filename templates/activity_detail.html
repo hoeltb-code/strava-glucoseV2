@@ -1712,6 +1712,16 @@
       return "#f6cf46";
     }
 
+    function applyStoryTextStyle(ctx, font, fillStyle, align) {
+      ctx.font = font;
+      ctx.fillStyle = fillStyle;
+      ctx.textAlign = align || "start";
+      ctx.shadowColor = "rgba(0, 0, 0, 0.88)";
+      ctx.shadowBlur = 14;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 4;
+    }
+
     function buildMonotoneInterpolatedPoints(points, samplesPerSegment) {
       if (points.length < 2) return points.slice();
       if (points.length <= 3) {
@@ -1912,8 +1922,7 @@
 
       ctx.clearRect(0, 0, size.width, size.height);
 
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "700 34px Rajdhani, sans-serif";
+      applyStoryTextStyle(ctx, "700 42px Rajdhani, sans-serif", "#ffffff");
       ctx.fillText(data.activity_name || "Activite", metrics.x, 92);
 
       const leftLabelX = metrics.x;
@@ -1923,35 +1932,27 @@
       const row2Y = metrics.y + 102;
       const row3Y = metrics.y + 204;
 
-      ctx.fillStyle = "rgba(220, 238, 255, 0.70)";
-      ctx.font = "700 14px Orbitron, sans-serif";
+      applyStoryTextStyle(ctx, "700 18px Orbitron, sans-serif", "rgba(220, 238, 255, 0.82)");
       ctx.fillText("ACTIVITE", leftLabelX, metrics.y - 6);
 
-      ctx.fillStyle = "rgba(220, 238, 255, 0.92)";
-      ctx.font = "700 16px Orbitron, sans-serif";
+      applyStoryTextStyle(ctx, "700 20px Orbitron, sans-serif", "rgba(220, 238, 255, 0.96)");
       ctx.fillText("DISTANCE", leftLabelX, row1Y + 20);
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "700 40px Rajdhani, sans-serif";
+      applyStoryTextStyle(ctx, "700 50px Rajdhani, sans-serif", "#ffffff");
       ctx.fillText(data.distance_label || "–", leftValueX, row1Y + 66);
 
-      ctx.fillStyle = "rgba(220, 238, 255, 0.92)";
-      ctx.font = "700 16px Orbitron, sans-serif";
+      applyStoryTextStyle(ctx, "700 20px Orbitron, sans-serif", "rgba(220, 238, 255, 0.96)");
       ctx.fillText("DUREE", leftLabelX, row2Y + 20);
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "700 40px Rajdhani, sans-serif";
+      applyStoryTextStyle(ctx, "700 50px Rajdhani, sans-serif", "#ffffff");
       ctx.fillText(data.duration_label || "–", leftValueX, row2Y + 66);
 
       if (data.effort_metric_label && data.effort_metric_value) {
-        ctx.fillStyle = "rgba(220, 238, 255, 0.92)";
-        ctx.font = "700 16px Orbitron, sans-serif";
+        applyStoryTextStyle(ctx, "700 20px Orbitron, sans-serif", "rgba(220, 238, 255, 0.96)");
         ctx.fillText(data.effort_metric_label, leftLabelX, row3Y + 20);
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "700 40px Rajdhani, sans-serif";
+        applyStoryTextStyle(ctx, "700 50px Rajdhani, sans-serif", "#ffffff");
         ctx.fillText(data.effort_metric_value, leftValueX, row3Y + 66);
       }
 
-      ctx.fillStyle = "rgba(220, 238, 255, 0.70)";
-      ctx.font = "700 14px Orbitron, sans-serif";
+      applyStoryTextStyle(ctx, "700 18px Orbitron, sans-serif", "rgba(220, 238, 255, 0.82)");
       ctx.fillText("GLYCEMIE", rightStartX, metrics.y - 6);
 
       const glucoseStats = [
@@ -1961,11 +1962,9 @@
       ];
 
       glucoseStats.forEach((stat) => {
-        ctx.fillStyle = "rgba(220, 238, 255, 0.92)";
-        ctx.font = "700 16px Orbitron, sans-serif";
+        applyStoryTextStyle(ctx, "700 20px Orbitron, sans-serif", "rgba(220, 238, 255, 0.96)");
         ctx.fillText(stat.label, stat.x, stat.y + 20);
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "700 40px Rajdhani, sans-serif";
+        applyStoryTextStyle(ctx, "700 50px Rajdhani, sans-serif", "#ffffff");
         ctx.fillText(stat.value, stat.x, stat.y + 66);
       });
 
@@ -1998,8 +1997,7 @@
 
       const tickValues = [yMin, Math.round((yMin + yMax) / 2), yMax];
 
-      ctx.fillStyle = "rgba(220, 238, 255, 0.74)";
-      ctx.font = "700 14px Orbitron, sans-serif";
+      applyStoryTextStyle(ctx, "700 18px Orbitron, sans-serif", "rgba(220, 238, 255, 0.84)");
       ctx.fillText("GLYCEMIE", chart.x, chart.y - 24);
 
       tickValues.forEach((tick) => {
@@ -2010,8 +2008,7 @@
         ctx.moveTo(chart.x - 8, y);
         ctx.lineTo(chart.x + chart.width, y);
         ctx.stroke();
-        ctx.fillStyle = "rgba(235, 245, 255, 0.85)";
-        ctx.font = "500 16px Rajdhani, sans-serif";
+        applyStoryTextStyle(ctx, "600 19px Rajdhani, sans-serif", "rgba(235, 245, 255, 0.92)");
         ctx.fillText(String(Math.round(tick)), chart.x - 52, y + 5);
       });
 
@@ -2070,8 +2067,7 @@
         { x: chart.x + chart.width / 2, value: Math.round(timeRange / 120) * 2 },
         { x: chart.x + chart.width, value: Math.round(timeRange / 60) }
       ];
-      ctx.fillStyle = "rgba(235, 245, 255, 0.82)";
-      ctx.font = "500 16px Rajdhani, sans-serif";
+      applyStoryTextStyle(ctx, "600 19px Rajdhani, sans-serif", "rgba(235, 245, 255, 0.9)");
       timeLabels.forEach((item, index) => {
         const text = index === 0 ? "0 min" : `${item.value} min`;
         const textWidth = ctx.measureText(text).width;
@@ -2079,13 +2075,14 @@
         ctx.fillText(text, drawX, chart.y + chart.height + 28);
       });
 
-      ctx.fillStyle = "rgba(255,255,255,0.92)";
-      ctx.font = "700 20px Orbitron, sans-serif";
-      ctx.textAlign = "center";
+      applyStoryTextStyle(ctx, "700 24px Orbitron, sans-serif", "rgba(255,255,255,0.96)", "center");
       ctx.fillText("STRAVA x GLUCOSE", chart.x + (chart.width / 2), chart.y + chart.height + 78);
-      ctx.fillStyle = "rgba(220, 238, 255, 0.78)";
-      ctx.font = "italic 500 15px Rajdhani, sans-serif";
+      applyStoryTextStyle(ctx, "italic 600 18px Rajdhani, sans-serif", "rgba(220, 238, 255, 0.86)", "center");
       ctx.fillText("by @dt1_runner", chart.x + (chart.width / 2), chart.y + chart.height + 102);
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
       ctx.textAlign = "start";
 
       return canvas;

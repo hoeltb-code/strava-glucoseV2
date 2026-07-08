@@ -55,6 +55,10 @@ MIN_SECONDS_BETWEEN_GLOBAL_CALLS = int(
 LIBRE_BACKGROUND_POLL_INTERVAL_HOURS = int(
     os.getenv("LIBRE_BACKGROUND_POLL_INTERVAL_HOURS", "12") or "12"
 )
+LIBRE_BACKGROUND_FETCH_FOR_INACTIVE_USERS = (
+    os.getenv("LIBRE_BACKGROUND_FETCH_FOR_INACTIVE_USERS", "0").strip().lower()
+    in {"1", "true", "yes", "on"}
+)
 LIBRE_PAGE_REFRESH_MINUTES = int(
     os.getenv("LIBRE_PAGE_REFRESH_MINUTES", "30") or "30"
 )
@@ -283,6 +287,9 @@ def should_attempt_libre_background_fetch(db, user: User) -> tuple[bool, str | N
             return True, None
         remaining = priority_seconds - age_seconds
         return False, f"activite Strava recente deja servie (reste {_format_remaining_delay(remaining)})"
+
+    if not LIBRE_BACKGROUND_FETCH_FOR_INACTIVE_USERS:
+        return False, "polling Libre de fond desactive pour les utilisateurs inactifs"
 
     if LIBRE_BACKGROUND_POLL_INTERVAL_HOURS <= 0:
         return True, None

@@ -151,7 +151,6 @@ from .logic import (
 from .settings import settings
 from .strava_client import StravaClient
 from .libre_client import (
-    test_libre_credentials,
     get_last_libre_status,
     clear_libre_disabled_state,
     is_libre_auth_error_message,
@@ -360,6 +359,7 @@ from app.cgm_service import (
     fetch_realtime_points_for_user,
     record_glucose_page_view,
     should_attempt_libre_page_refresh,
+    test_libre_credentials_guarded,
 )
 from app.indicators.slope_cadence import build_slope_cadence_data
 from app.routers import auth_strava, auth_dexcom, webhooks
@@ -2763,12 +2763,13 @@ def ui_set_libre_credentials(
         )
 
         try:
-            test_status, test_msg = test_libre_credentials(
+            test_status, test_msg = test_libre_credentials_guarded(
                 email=email,
                 password=password,
                 region=region or "fr",
                 client_version=client_version,
                 user_id=user_id,
+                context="credentials_test",
             )
         except Exception as e:
             test_status = "error"

@@ -34,6 +34,7 @@ from app.models import User, LibreCredentials, GlucosePoint, DexcomToken, Activi
 from app.settings import settings
 from app.libre_client import (
     read_graph,
+    test_libre_credentials,
     get_last_libre_status,
     is_libre_status_rate_limited,
     is_libre_status_credentials_error,
@@ -286,9 +287,52 @@ def _current_libre_cooldown_message(until_utc: dt.datetime) -> str:
     )
 
 
+def _current_libre_slot_wait_message(seconds: int) -> str:
+    return (
+        "Un autre appel LibreLinkUp vient d'avoir lieu sur ce serveur. "
+        f"Réessaie dans environ {_format_remaining_delay(seconds)}."
+    )
+
+
 def record_glucose_page_view(user_id: int, page_name: str) -> None:
     LAST_GLUCOSE_PAGE_VIEWS[user_id] = dt.datetime.utcnow()
     print(f"[CGM] user={user_id} -> page glucose ouverte ({page_name}), priorite haute active.")
+
+
+def test_libre_credentials_guarded(
+    *,
+    user_id: int | None,
+    email: str,
+    password: str,
+    region: str = "fr",
+    client_version: str | None = None,
+    context: str = "credentials_test",
+) -> tuple[str, str]:
+    now_utc = dt.datetime.utcnow()
+    if LIBRE_RATE_LIMIT_UNTIL and now_utc < LIBRE_RATE_LIMIT_UNTIL:
+        msg = _current_libre_cooldown_message(LIBRE_RATE_LIMIT_UNTIL)
+        set_libre_status_flag(user_id, "warn", msg)
+        return "warn", msg
+
+    can_call_now, global_remaining = _global_throttle_allows_call()
+    can_call_source, source_remaining = _source_throttle_allows_call("LibreLinkUp")
+    if not can_call_now or not can_call_source:
+        wait_seconds = max(int(global_remaining or 0), int(source_remaining or 0), 1)
+        msg = _current_libre_slot_wait_message(wait_seconds)
+        set_libre_status_flag(user_id, "warn", msg)
+        return "warn", msg
+
+    _reserve_global_call_slot("LibreLinkUp", user_id or 0, context)
+    status, msg = test_libre_credentials(
+        email=email,
+        password=password,
+        region=region,
+        client_version=client_version,
+        user_id=user_id,
+    )
+    if is_libre_status_rate_limited((status, msg)):
+        _mark_libre_rate_limited(dt.datetime.utcnow())
+    return status, msg
 
 
 def _record_libre_fetch_success(user_id: int, context: str) -> None:

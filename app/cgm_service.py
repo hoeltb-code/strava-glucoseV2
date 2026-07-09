@@ -187,8 +187,8 @@ def _reserve_global_call_slot(source_label: str, user_id: int, context: str) -> 
     """
     waited_seconds = 0.0
 
-    with GLOBAL_CGM_CALL_LOCK:
-        while True:
+    while True:
+        with GLOBAL_CGM_CALL_LOCK:
             can_call_now, global_remaining = _global_throttle_allows_call()
             can_call_source, source_remaining = _source_throttle_allows_call(source_label)
             if can_call_now and can_call_source:
@@ -205,12 +205,12 @@ def _reserve_global_call_slot(source_label: str, user_id: int, context: str) -> 
             if sleep_for <= 0:
                 sleep_for = 0.5
 
-            print(
-                f"[CGM] user={user_id} -> attente {sleep_for:.1f}s avant appel "
-                f"{source_label} ({context})."
-            )
-            time.sleep(sleep_for)
-            waited_seconds += sleep_for
+        print(
+            f"[CGM] user={user_id} -> attente {sleep_for:.1f}s avant appel "
+            f"{source_label} ({context})."
+        )
+        time.sleep(sleep_for)
+        waited_seconds += sleep_for
 
 
 def _mark_libre_rate_limited(now_utc: dt.datetime):

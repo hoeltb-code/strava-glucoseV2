@@ -592,6 +592,10 @@ def fetch_realtime_points_for_user(
 
         try:
             meta["attempted_sources"].append("libre")
+            print(
+                f"[CGM] user={user_id} -> tentative LibreLinkUp "
+                f"(context={context}, allow_libre_fetch={allow_libre_fetch})."
+            )
             _reserve_global_call_slot("LibreLinkUp", user_id, context)
             pts = read_graph(user_id=user_id) or []
             libre_status = get_last_libre_status(user_id)

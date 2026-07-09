@@ -1520,6 +1520,7 @@ def _maybe_refresh_glucose_for_page_view(db, user: User, *, page_name: str) -> N
             return
         PAGE_VIEW_REFRESH_USERS.add(user.id)
 
+    print(f"[CGM] user={user.id} -> refresh {page_name} thread démarré.")
     threading.Thread(
         target=_run_page_view_glucose_refresh,
         args=(user.id, page_name),

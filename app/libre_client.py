@@ -39,6 +39,7 @@ from email.message import EmailMessage
 from typing import List, Dict, Any, Optional, Tuple
 
 from .settings import settings
+from .secrets import decrypt_secret
 from app.database import SessionLocal
 from app.models import LibreCredentials, User
 
@@ -383,9 +384,8 @@ def read_graph(user_id: Optional[int] = None) -> List[Dict[str, Any]]:
                 )
                 set_libre_status_flag(user_id, "error", msg)
                 return []
-            # Pour l'instant, password_encrypted contient le mot de passe en clair.
             email = cred.email
-            password = cred.password_encrypted
+            password = decrypt_secret(cred.password_encrypted) or ""
             region = cred.region or "fr"
             client_version = cred.client_version or "4.16.0"
         else:

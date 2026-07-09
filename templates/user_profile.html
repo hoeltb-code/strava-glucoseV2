@@ -181,6 +181,19 @@
           </label>
         </div>
 
+        <div class="card" style="margin-top:16px; padding:12px 14px;">
+          <h3 style="font-size:0.95rem; font-weight:600; margin:0 0 6px;">Fournisseur de glycémie actif</h3>
+          <p class="muted" style="margin:0 0 10px; font-size:0.85rem; color:#6b7280;">
+            Choisis le provider prioritaire pour l’enrichissement Strava. Si aucun n’est sélectionné, l’application reste en mode auto.
+          </p>
+          <select name="glucose_provider">
+            <option value="" {% if not glucose_provider %}selected{% endif %}>Auto</option>
+            <option value="abbott" {% if glucose_provider == "abbott" %}selected{% endif %}>Abbott / LibreLinkUp</option>
+            <option value="dexcom" {% if glucose_provider == "dexcom" %}selected{% endif %}>Dexcom Share</option>
+            <option value="medtronic_carelink" {% if glucose_provider == "medtronic_carelink" %}selected{% endif %}>Medtronic CareLink — bêta</option>
+          </select>
+        </div>
+
         <div style="margin-top:16px; display:flex; justify-content:flex-end;">
           <button type="submit" style="padding:6px 16px;font-size:0.9rem;border-radius:4px;border:1px solid transparent;background:#0d6efd;color:#fff;">
             Enregistrer les modifications
@@ -259,8 +272,7 @@
         <div>
           <div style="font-size:0.95rem; font-weight:600; color:#111827; margin-bottom:4px;">Capteurs de glycémie</div>
           <p style="margin:0; font-size:0.8rem; color:#6b7280;">
-            Tu veux suivre ta glycémie pendant tes sorties ? Connecte ton capteur LibreLinkUp ou ton Dexcom
-            (intégration à venir) pour afficher ces données dans Strava x D+.
+            Tu veux suivre ta glycémie pendant tes sorties ? Connecte LibreLinkUp, Dexcom Share ou Medtronic CareLink — bêta pour afficher ces données dans Strava x D+.
           </p>
         </div>
 
@@ -326,10 +338,6 @@
                     </button>
                   </form>
                 </details>
-
-              {% elif has_dexcom %}
-                <div style="font-size:0.85rem; color:#9ca3af; margin-top:2px;">🔒 LibreLinkUp désactivé car Dexcom est déjà connecté.</div>
-                <p style="margin-top:6px; font-size:0.8rem; color:#6b7280;">Déconnecte Dexcom si tu veux utiliser LibreLinkUp comme capteur.</p>
 
               {% else %}
                 <div style="font-size:0.85rem; color:#dc2626; margin-top:2px;">⚠️ Aucun compte LibreLinkUp connecté</div>
@@ -407,51 +415,46 @@
                   Compte configuré : <strong>{{ dexcom_username }}</strong>
                   {% if dexcom_region %} (région {{ dexcom_region|upper }}){% endif %}.
                 </p>
-              {% elif has_libre %}
-                <div style="font-size:0.85rem; color:#9ca3af; margin-top:2px;">Dexcom Share désactivé car LibreLinkUp est déjà connecté.</div>
-                <p style="margin-top:6px; font-size:0.8rem; color:#6b7280;">Déconnecte LibreLinkUp si tu veux basculer vers Dexcom Share.</p>
               {% else %}
                 <div style="font-size:0.85rem; color:#dc2626; margin-top:2px;">Aucun compte Dexcom Share connecté</div>
               {% endif %}
 
-              {% if not has_libre or has_dexcom %}
-                <form method="post" action="/ui/user/{{ user.id }}/dexcom/credentials" style="margin-top:12px; display:grid; gap:10px; max-width:420px;">
-                  <div>
-                    <label for="dexcom-username" style="display:block; font-size:0.8rem; font-weight:600; color:#374151; margin-bottom:4px;">Identifiant Dexcom</label>
-                    <input id="dexcom-username" name="username" type="text" value="{{ dexcom_username or '' }}" autocomplete="username"
-                           style="width:100%; border:1px solid #d1d5db; border-radius:4px; padding:8px 10px; font-size:0.85rem;">
-                  </div>
-                  <div>
-                    <label for="dexcom-password" style="display:block; font-size:0.8rem; font-weight:600; color:#374151; margin-bottom:4px;">Mot de passe</label>
-                    <div style="display:flex; gap:8px;">
-                      <input id="dexcom-password" name="password" type="password" value="" autocomplete="current-password"
-                             style="flex:1; border:1px solid #d1d5db; border-radius:4px; padding:8px 10px; font-size:0.85rem;">
-                      <button type="button"
-                              onclick="const el=document.getElementById('dexcom-password'); this.textContent = el.type === 'password' ? 'Masquer' : 'Afficher'; el.type = el.type === 'password' ? 'text' : 'password';"
-                              style="padding:8px 10px; font-size:0.8rem; border-radius:4px; border:1px solid #d1d5db; background:#fff; color:#374151;">
-                        Afficher
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <label for="dexcom-region" style="display:block; font-size:0.8rem; font-weight:600; color:#374151; margin-bottom:4px;">Région Share</label>
-                    <select id="dexcom-region" name="region"
-                            style="width:100%; border:1px solid #d1d5db; border-radius:4px; padding:8px 10px; font-size:0.85rem; background:#fff;">
-                      <option value="ous" {% if dexcom_region == "ous" %}selected{% endif %}>OUS / Europe</option>
-                      <option value="us" {% if dexcom_region == "us" %}selected{% endif %}>US</option>
-                      <option value="jp" {% if dexcom_region == "jp" %}selected{% endif %}>JP</option>
-                    </select>
-                  </div>
-                  <div style="font-size:0.75rem; color:#6b7280;">
-                    Les identifiants sont testés immédiatement puis stockés localement pour relire les glycémies.
-                  </div>
-                  <div>
-                    <button type="submit" style="padding:8px 14px; font-size:0.82rem; border-radius:4px; border:1px solid transparent; background:#0d6efd; color:#fff;">
-                      {% if has_dexcom %}Mettre à jour Dexcom Share{% else %}Connecter Dexcom Share{% endif %}
+              <form method="post" action="/ui/user/{{ user.id }}/dexcom/credentials" style="margin-top:12px; display:grid; gap:10px; max-width:420px;">
+                <div>
+                  <label for="dexcom-username" style="display:block; font-size:0.8rem; font-weight:600; color:#374151; margin-bottom:4px;">Identifiant Dexcom</label>
+                  <input id="dexcom-username" name="username" type="text" value="{{ dexcom_username or '' }}" autocomplete="username"
+                         style="width:100%; border:1px solid #d1d5db; border-radius:4px; padding:8px 10px; font-size:0.85rem;">
+                </div>
+                <div>
+                  <label for="dexcom-password" style="display:block; font-size:0.8rem; font-weight:600; color:#374151; margin-bottom:4px;">Mot de passe</label>
+                  <div style="display:flex; gap:8px;">
+                    <input id="dexcom-password" name="password" type="password" value="" autocomplete="current-password"
+                           style="flex:1; border:1px solid #d1d5db; border-radius:4px; padding:8px 10px; font-size:0.85rem;">
+                    <button type="button"
+                            onclick="const el=document.getElementById('dexcom-password'); this.textContent = el.type === 'password' ? 'Masquer' : 'Afficher'; el.type = el.type === 'password' ? 'text' : 'password';"
+                            style="padding:8px 10px; font-size:0.8rem; border-radius:4px; border:1px solid #d1d5db; background:#fff; color:#374151;">
+                      Afficher
                     </button>
                   </div>
-                </form>
-              {% endif %}
+                </div>
+                <div>
+                  <label for="dexcom-region" style="display:block; font-size:0.8rem; font-weight:600; color:#374151; margin-bottom:4px;">Région Share</label>
+                  <select id="dexcom-region" name="region"
+                          style="width:100%; border:1px solid #d1d5db; border-radius:4px; padding:8px 10px; font-size:0.85rem; background:#fff;">
+                    <option value="ous" {% if dexcom_region == "ous" %}selected{% endif %}>OUS / Europe</option>
+                    <option value="us" {% if dexcom_region == "us" %}selected{% endif %}>US</option>
+                    <option value="jp" {% if dexcom_region == "jp" %}selected{% endif %}>JP</option>
+                  </select>
+                </div>
+                <div style="font-size:0.75rem; color:#6b7280;">
+                  Les identifiants sont testés immédiatement puis stockés localement pour relire les glycémies.
+                </div>
+                <div>
+                  <button type="submit" style="padding:8px 14px; font-size:0.82rem; border-radius:4px; border:1px solid transparent; background:#0d6efd; color:#fff;">
+                    {% if has_dexcom %}Mettre à jour Dexcom Share{% else %}Connecter Dexcom Share{% endif %}
+                  </button>
+                </div>
+              </form>
 
               <details style="margin-top:10px; font-size:0.8rem; color:#475569;">
                 <summary style="cursor:pointer; list-style:none; display:flex; align-items:center; gap:6px;">
@@ -479,6 +482,91 @@
                 </form>
               {% endif %}
             </div>
+          </div>
+        </div>
+
+        <div id="carelink" style="border:1px solid #e5e7eb; border-radius:4px; padding:14px 14px;">
+          <div style="font-size:0.95rem; font-weight:600; color:#111827;">Medtronic CareLink — bêta</div>
+          <p style="margin:6px 0 10px; font-size:0.82rem; color:#4b5563; line-height:1.5;">
+            Connecte ton compte CareLink pour retrouver automatiquement tes données de glycémie dans Strava x D+.
+            Tes informations restent privées et sont utilisées uniquement pour synchroniser tes données.
+          </p>
+          <div style="margin:0 0 12px; padding:9px 10px; border-radius:4px; font-size:0.8rem; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe;">
+            Étapes : saisis ton identifiant CareLink, ton mot de passe, choisis ta région puis valide la connexion.
+            Si ton compte demande une vérification supplémentaire, il pourra être nécessaire de reconnecter CareLink plus tard.
+          </div>
+
+          {% if carelink_status %}
+            <div style="margin:8px 0 10px; padding:8px 10px; border-radius:4px; font-size:0.8rem;
+                        {% if carelink_status in ['connected', 'ok'] %}
+                          background:#ecfdf5; color:#166534; border:1px solid #bbf7d0;
+                        {% elif carelink_status in ['warn', 'needs_reauth'] %}
+                          background:#fffbeb; color:#92400e; border:1px solid #fde68a;
+                        {% else %}
+                          background:#fef2f2; color:#991b1b; border:1px solid #fecaca;
+                        {% endif %}">
+              {{ carelink_status_message }}
+            </div>
+          {% endif %}
+
+          {% if has_carelink %}
+            <div style="font-size:0.85rem; color:#16a34a; margin-top:2px;">
+              Connecté · <strong>{{ carelink_username }}</strong> ({{ carelink_region }})
+              {% if carelink_last_sync_at %} · dernière synchro {{ carelink_last_sync_at.strftime('%Y-%m-%d %H:%M') }}{% endif %}
+            </div>
+          {% else %}
+            <div style="font-size:0.85rem; color:#dc2626; margin-top:2px;">Aucun compte CareLink connecté</div>
+          {% endif %}
+
+          <form method="post" action="/ui/user/{{ user.id }}/carelink/credentials" style="margin-top:14px; display:grid; gap:10px; max-width:460px;">
+            <div>
+              <label for="carelink-username" style="display:block; font-size:0.8rem; font-weight:600; color:#374151; margin-bottom:4px;">Identifiant CareLink</label>
+              <input id="carelink-username" name="username" type="text" value="{{ carelink_username or '' }}" autocomplete="username"
+                     placeholder="Email ou identifiant CareLink"
+                     style="width:100%; border:1px solid #d1d5db; border-radius:4px; padding:8px 10px; font-size:0.85rem;">
+            </div>
+            <div>
+              <label for="carelink-password" style="display:block; font-size:0.8rem; font-weight:600; color:#374151; margin-bottom:4px;">Mot de passe CareLink</label>
+              <div style="display:flex; gap:8px;">
+                <input id="carelink-password" name="password" type="password" value="" autocomplete="current-password"
+                       style="flex:1; border:1px solid #d1d5db; border-radius:4px; padding:8px 10px; font-size:0.85rem;">
+                <button type="button"
+                        onclick="const el=document.getElementById('carelink-password'); this.textContent = el.type === 'password' ? 'Masquer' : 'Afficher'; el.type = el.type === 'password' ? 'text' : 'password';"
+                        style="padding:8px 10px; font-size:0.8rem; border-radius:4px; border:1px solid #d1d5db; background:#fff; color:#374151;">
+                  Afficher
+                </button>
+              </div>
+            </div>
+            <div>
+              <label for="carelink-region" style="display:block; font-size:0.8rem; font-weight:600; color:#374151; margin-bottom:4px;">Région</label>
+              <select id="carelink-region" name="region"
+                      style="width:100%; border:1px solid #d1d5db; border-radius:4px; padding:8px 10px; font-size:0.85rem; background:#fff;">
+                <option value="EU" {% if carelink_region == "EU" %}selected{% endif %}>Europe</option>
+                <option value="US" {% if carelink_region == "US" %}selected{% endif %}>États-Unis</option>
+              </select>
+            </div>
+            <div style="font-size:0.75rem; color:#6b7280;">
+              Tu peux modifier ou retirer cette connexion à tout moment depuis ton profil.
+            </div>
+            <div>
+              <button type="submit" style="padding:8px 14px; font-size:0.82rem; border-radius:4px; border:1px solid transparent; background:#0d6efd; color:#fff;">
+                {% if has_carelink %}Mettre à jour CareLink{% else %}Connecter CareLink{% endif %}
+              </button>
+            </div>
+          </form>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px;">
+            <form method="post" action="/ui/user/{{ user.id }}/carelink/test" style="display:inline;">
+              <button type="submit" style="padding:8px 14px;font-size:0.82rem;border-radius:4px;border:1px solid #d1d5db;background:#fff;color:#374151;">
+                Vérifier la connexion
+              </button>
+            </form>
+            {% if has_carelink %}
+              <form method="post" action="/ui/user/{{ user.id }}/carelink/disconnect" style="display:inline;">
+                <button type="submit" style="padding:8px 14px;font-size:0.82rem;border-radius:4px;border:1px solid #d1d5db;background:#fff;color:#374151;">
+                  Déconnecter
+                </button>
+              </form>
+            {% endif %}
           </div>
         </div>
 

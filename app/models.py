@@ -53,11 +53,13 @@ class User(Base):
 
     # Source CGM préférée : None / "libre" / "dexcom"
     cgm_source = Column(String(20), nullable=True, default=None)
+    glucose_provider = Column(String(32), nullable=True, default=None)
 
     # Relations
     strava_tokens = relationship("StravaToken", back_populates="user")
     libre_credentials = relationship("LibreCredentials", back_populates="user", uselist=False)
     dexcom_tokens = relationship("DexcomToken", back_populates="user")
+    carelink_credentials = relationship("CareLinkCredential", back_populates="user", uselist=False)
     activities = relationship("Activity", back_populates="user")
 
     # NEW
@@ -129,6 +131,36 @@ class DexcomToken(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = relationship("User", back_populates="dexcom_tokens")
+
+
+class CareLinkCredential(Base):
+    __tablename__ = "carelink_credentials"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+
+    username = Column(String, nullable=False)
+    password_encrypted = Column(Text, nullable=True)
+    region = Column(String(8), nullable=False, default="EU")
+    patient_id = Column(String, nullable=True)
+
+    access_token = Column(Text, nullable=True)
+    refresh_token = Column(Text, nullable=True)
+    token_expires_at = Column(DateTime, nullable=True)
+    last_sync_at = Column(DateTime, nullable=True)
+    status = Column(String(32), nullable=False, default="not_configured")
+    error_message = Column(String(255), nullable=True)
+
+    scope = Column(String, nullable=True)
+    client_id = Column(String, nullable=True)
+    client_secret = Column(Text, nullable=True)
+    mag_identifier = Column(String, nullable=True)
+    bootstrap_payload = Column(JSON, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", back_populates="carelink_credentials")
 
 
 class Activity(Base):

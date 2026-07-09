@@ -42,7 +42,7 @@
 
 {% block content %}
 <div class="admin-page">
-  {% set filters = filters|default({'strava': 'all', 'libre': 'all', 'dexcom': 'all'}) %}
+  {% set filters = filters|default({'strava': 'all', 'libre': 'all', 'dexcom': 'all', 'carelink': 'all'}) %}
   {% set user_pagination = user_pagination|default({'page': 1, 'page_size': 10, 'total': 0, 'start_index': 0, 'end_index': 0, 'has_prev': False, 'has_next': False, 'prev_url': None, 'next_url': None}) %}
   {% set activity_pagination = activity_pagination|default({'page': 1, 'page_size': 5, 'total': 0, 'start_index': 0, 'end_index': 0, 'has_prev': False, 'has_next': False, 'prev_url': None, 'next_url': None}) %}
   {% set admin_status = admin_status|default(None) %}
@@ -102,6 +102,14 @@
         </select>
       </div>
       <div>
+        <label style="display:block; font-size:0.82rem; color:var(--text-muted); margin-bottom:4px;">CareLink</label>
+        <select name="carelink_filter">
+          <option value="all" {% if filters.carelink == 'all' %}selected{% endif %}>Tous</option>
+          <option value="connected" {% if filters.carelink == 'connected' %}selected{% endif %}>Connectés</option>
+          <option value="disconnected" {% if filters.carelink == 'disconnected' %}selected{% endif %}>Non connectés</option>
+        </select>
+      </div>
+      <div>
         <label style="display:block; font-size:0.82rem; color:var(--text-muted); margin-bottom:4px;">Affichage</label>
         <select name="user_page_size">
           <option value="10" {% if user_pagination.page_size == 10 %}selected{% endif %}>10</option>
@@ -127,6 +135,7 @@
         <input type="hidden" name="strava_filter" value="{{ filters.strava }}">
         <input type="hidden" name="libre_filter" value="{{ filters.libre }}">
         <input type="hidden" name="dexcom_filter" value="{{ filters.dexcom }}">
+        <input type="hidden" name="carelink_filter" value="{{ filters.carelink }}">
         <div>
           <label style="display:block; font-size:0.82rem; color:var(--text-muted); margin-bottom:4px;">Sujet</label>
           <input type="text" name="subject" required>
@@ -168,6 +177,7 @@
         <input type="hidden" name="strava_filter" value="{{ filters.strava }}">
         <input type="hidden" name="libre_filter" value="{{ filters.libre }}">
         <input type="hidden" name="dexcom_filter" value="{{ filters.dexcom }}">
+        <input type="hidden" name="carelink_filter" value="{{ filters.carelink }}">
         <input type="hidden" name="activity_page" value="{{ activity_pagination.page }}">
       </form>
       <div class="admin-table-wrap" style="margin-top:10px;">
@@ -191,7 +201,8 @@
               <th style="text-align:left; padding: 6px;">Strava</th>
               <th style="text-align:left; padding: 6px;">LibreLinkUp</th>
               <th style="text-align:left; padding: 6px;">Dexcom</th>
-              <th style="text-align:left; padding: 6px;">Source CGM</th>
+              <th style="text-align:left; padding: 6px;">CareLink</th>
+              <th style="text-align:left; padding: 6px;">Provider</th>
               <th style="text-align:right; padding: 6px;">Actions</th>
             </tr>
           </thead>
@@ -226,7 +237,25 @@
                     <span style="color: #f87171;">Non connecté</span>
                   {% endif %}
                 </td>
-                <td style="padding: 6px;">{{ u.cgm_source or "AUTO" }}</td>
+                <td style="padding: 6px;">
+                  {% if u.has_carelink %}
+                    <span style="color: #4ade80;">{{ u.carelink_status or "Connecté" }}</span>
+                    {% if u.carelink_region %}<span style="color: var(--text-muted);"> · {{ u.carelink_region }}</span>{% endif %}
+                    {% if u.carelink_last_sync_at %}
+                      <div style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;">
+                        Dernière synchro: {{ u.carelink_last_sync_at.strftime('%Y-%m-%d %H:%M') }}
+                      </div>
+                    {% endif %}
+                    {% if u.carelink_error_message %}
+                      <div style="font-size:0.78rem; color:#fca5a5; margin-top:2px;">
+                        {{ u.carelink_error_message }}
+                      </div>
+                    {% endif %}
+                  {% else %}
+                    <span style="color: #f87171;">Non connecté</span>
+                  {% endif %}
+                </td>
+                <td style="padding: 6px;">{{ u.glucose_provider or u.cgm_source or "AUTO" }}</td>
                 <td style="text-align:right; padding: 6px;">
                   <form method="post" action="/ui/enrich-last" style="display:inline;">
                     <input type="hidden" name="user_id" value="{{ u.id }}">

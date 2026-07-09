@@ -1,0 +1,16 @@
+{
+  "recentData": {
+    "sensorGlucoseValues": [
+      {
+        "dateTime": "2026-07-09T08:00:00Z",
+        "sg": 112,
+        "trend": "FLAT"
+      },
+      {
+        "dateTime": "2026-07-09T08:05:00Z",
+        "sg": 118,
+        "trend": "UP"
+      }
+    ]
+  }
+}

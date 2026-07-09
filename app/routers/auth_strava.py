@@ -8,6 +8,8 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from app.database import SessionLocal
+from app.models import StravaToken, User
 from app.settings import settings
 from app.strava_client import StravaClient
 
@@ -82,9 +84,50 @@ async def auth_callback(
     user_id, next_path = _decode_state(state)
 
     cli = StravaClient(user_id=user_id)
-    data = await cli.exchange_code(code)
+    data = await cli.exchange_code_payload(code)
 
     athlete_id = data.get("athlete", {}).get("id")
+    db = SessionLocal()
+    try:
+        existing_token = None
+        if athlete_id is not None:
+            existing_token = (
+                db.query(StravaToken)
+                .filter(StravaToken.athlete_id == athlete_id, StravaToken.user_id != user_id)
+                .order_by(StravaToken.id.desc())
+                .first()
+            )
+        if existing_token:
+            existing_user = db.query(User).filter(User.id == existing_token.user_id).first()
+            existing_email = existing_user.email if existing_user else "un autre compte"
+            return templates.TemplateResponse(
+                "error.html",
+                {
+                    "request": request,
+                    "title": "Compte Strava déjà rattaché",
+                    "message": (
+                        "Ce compte Strava est déjà attaché au compte "
+                        f"{existing_email}. Déconnecte d'abord Strava de ce compte "
+                        "avant de l'associer à un nouvel utilisateur."
+                    ),
+                    "back_url": next_path or f"/ui/user/{user_id}/welcome",
+                },
+                status_code=409,
+            )
+    finally:
+        db.close()
+
+    db = SessionLocal()
+    try:
+        cli._save_tokens(
+            db,
+            data["access_token"],
+            data["refresh_token"],
+            data["expires_at"],
+            athlete_id,
+        )
+    finally:
+        db.close()
 
     print(
         "✅ Strava tokens enregistrés en base pour :",

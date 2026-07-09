@@ -75,19 +75,7 @@ class StravaClient:
 
     async def exchange_code(self, code: str) -> Dict[str, Any]:
         """Échange le code obtenu via /auth/callback contre access/refresh tokens et enregistre en base."""
-        async with httpx.AsyncClient() as client:
-            r = await client.post(
-                STRAVA_OAUTH_TOKEN_URL,
-                data={
-                    "client_id": STRAVA_CLIENT_ID,
-                    "client_secret": STRAVA_CLIENT_SECRET,
-                    "code": code,
-                    "grant_type": "authorization_code",
-                },
-                timeout=15.0,
-            )
-        r.raise_for_status()
-        data = r.json()
+        data = await self.exchange_code_payload(code)
 
         access_token = data["access_token"]
         refresh_token = data["refresh_token"]
@@ -102,6 +90,22 @@ class StravaClient:
 
         print("✅ Tokens Strava enregistrés en base")
         return data
+
+    async def exchange_code_payload(self, code: str) -> Dict[str, Any]:
+        """Échange le code OAuth Strava et renvoie la charge utile sans persister les tokens."""
+        async with httpx.AsyncClient() as client:
+            r = await client.post(
+                STRAVA_OAUTH_TOKEN_URL,
+                data={
+                    "client_id": STRAVA_CLIENT_ID,
+                    "client_secret": STRAVA_CLIENT_SECRET,
+                    "code": code,
+                    "grant_type": "authorization_code",
+                },
+                timeout=15.0,
+            )
+        r.raise_for_status()
+        return r.json()
 
     async def ensure_token(self) -> str:
         """Vérifie si le token Strava est valide, sinon le rafraîchit."""

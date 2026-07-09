@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy.orm import Session
 
 from .settings import settings
+from .secrets import decrypt_secret
 from app.models import DexcomToken
 
 
@@ -216,7 +217,7 @@ class DexcomClient:
         try:
             client = _build_share_client(
                 username=credentials.share_username or "",
-                password=credentials.share_password or "",
+                password=decrypt_secret(credentials.share_password) or "",
                 region=credentials.share_region,
             )
             readings = client.get_glucose_readings(minutes=minutes, max_count=max_count)

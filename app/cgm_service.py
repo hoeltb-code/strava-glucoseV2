@@ -30,7 +30,7 @@ import threading
 from zoneinfo import ZoneInfo
 
 from app.database import SessionLocal
-from app.models import User, LibreCredentials, GlucosePoint, DexcomToken, Activity
+from app.models import User, LibreCredentials, GlucosePoint, DexcomToken, Activity, CareLinkCredential
 from app.settings import settings
 from app.libre_client import (
     read_graph,
@@ -41,6 +41,10 @@ from app.libre_client import (
     set_libre_status_flag,
 )
 from app.dexcom_client import DexcomClient, has_dexcom_share_credentials
+from app.providers.medtronic_carelink import (
+    CareLinkNeedsReauthError,
+    fetch_glucose as fetch_carelink_glucose,
+)
 
 POLL_INTERVAL_SECONDS = int(os.getenv("CGM_POLL_INTERVAL_SECONDS", "420") or "420")
 REALTIME_RETENTION_HOURS = int(os.getenv("CGM_REALTIME_RETENTION_HOURS", "48") or "48")
@@ -126,6 +130,11 @@ LAST_GLUCOSE_PAGE_VIEWS = {}
 LAST_GLOBAL_CGM_CALL = None
 LAST_SOURCE_CGM_CALLS: dict[str, dt.datetime] = {}
 GLOBAL_CGM_CALL_LOCK = threading.Lock()
+
+
+def has_carelink_credentials(user: User | None) -> bool:
+    cred = getattr(user, "carelink_credentials", None)
+    return bool(cred and cred.username)
 
 
 def _global_throttle_allows_call():
@@ -535,13 +544,14 @@ def fetch_realtime_points_for_user(
     """
     Récupère une liste de points CGM pour un user donné en respectant sa
     préférence de source (user.cgm_source) et les disponibilités réelles :
-      - 'libre'  => LibreLinkUp d'abord, puis Dexcom en fallback
-      - 'dexcom' => Dexcom d'abord, puis LibreLinkUp en fallback
-      - None     => Dexcom puis LibreLinkUp
+      - 'libre' / 'abbott' => LibreLinkUp d'abord, puis Dexcom/CareLink en fallback
+      - 'dexcom'          => Dexcom d'abord, puis LibreLinkUp/CareLink
+      - 'medtronic_carelink' => CareLink d'abord, puis Dexcom/LibreLinkUp
+      - None              => Dexcom puis LibreLinkUp puis CareLink
 
     Retourne (points, source_label, meta) où :
       - points : liste de dicts {"ts": datetime, "mgdl": int, "trend": str|None}
-      - source_label : "libre", "dexcom" ou None si aucune source dispo
+      - source_label : "libre", "dexcom", "medtronic_carelink" ou None si aucune source dispo
       - meta : informations de diagnostic sur les appels tentés/sautés
     """
     global LIBRE_RATE_LIMIT_UNTIL
@@ -629,10 +639,56 @@ def fetch_realtime_points_for_user(
             print(f"[CGM] user={user_id} -> erreur Dexcom ({context}) : {e}")
             return []
 
+    def try_carelink():
+        if not has_carelink_credentials(user):
+            return []
+        try:
+            meta["attempted_sources"].append("medtronic_carelink")
+            _reserve_global_call_slot("CareLink", user_id, context)
+            now = dt.datetime.now(dt.timezone.utc)
+            start = now - dt.timedelta(hours=REALTIME_RETENTION_HOURS)
+            pts = []
+            try:
+                pts = fetch_carelink_glucose(user, start, now) or []
+            except CareLinkNeedsReauthError as exc:
+                if user.carelink_credentials:
+                    user.carelink_credentials.status = "needs_reauth"
+                    user.carelink_credentials.error_message = str(exc)
+                    db.commit()
+                meta["reason"] = "carelink_needs_reauth"
+                print(f"[CGM] user={user_id} -> CareLink reauth requise ({context}) : {exc}")
+                return []
+            if user.carelink_credentials:
+                user.carelink_credentials.status = "connected"
+                user.carelink_credentials.error_message = None
+                user.carelink_credentials.last_sync_at = dt.datetime.utcnow()
+                db.commit()
+            if pts:
+                print(f"[CGM] user={user_id} -> {len(pts)} points CareLink ({context})")
+            return [
+                {
+                    "ts": point["timestamp"],
+                    "mgdl": point["glucose"],
+                    "trend": point.get("trend"),
+                    "source": point.get("source"),
+                    "raw": point.get("raw"),
+                }
+                for point in pts
+            ]
+        except Exception as e:
+            if user.carelink_credentials:
+                user.carelink_credentials.status = "error"
+                user.carelink_credentials.error_message = str(e)
+                db.commit()
+            print(f"[CGM] user={user_id} -> erreur CareLink ({context}) : {e}")
+            return []
+
     points = []
     source_label = None
 
-    if user.cgm_source == "libre":
+    preferred = (getattr(user, "glucose_provider", None) or user.cgm_source or "").strip().lower()
+
+    if preferred in {"libre", "abbott"}:
         points = try_libre()
         if points:
             source_label = "libre"
@@ -640,7 +696,11 @@ def fetch_realtime_points_for_user(
             points = try_dexcom()
             if points:
                 source_label = "dexcom"
-    elif user.cgm_source == "dexcom":
+            else:
+                points = try_carelink()
+                if points:
+                    source_label = "medtronic_carelink"
+    elif preferred == "dexcom":
         points = try_dexcom()
         if points:
             source_label = "dexcom"
@@ -648,8 +708,24 @@ def fetch_realtime_points_for_user(
             points = try_libre()
             if points:
                 source_label = "libre"
+            else:
+                points = try_carelink()
+                if points:
+                    source_label = "medtronic_carelink"
+    elif preferred == "medtronic_carelink":
+        points = try_carelink()
+        if points:
+            source_label = "medtronic_carelink"
+        else:
+            points = try_dexcom()
+            if points:
+                source_label = "dexcom"
+            else:
+                points = try_libre()
+                if points:
+                    source_label = "libre"
     else:
-        # Auto : on privilégie Dexcom si dispo, sinon Libre
+        # Auto : on privilégie Dexcom si dispo, sinon Libre puis CareLink
         points = try_dexcom()
         if points:
             source_label = "dexcom"
@@ -657,6 +733,10 @@ def fetch_realtime_points_for_user(
             points = try_libre()
             if points:
                 source_label = "libre"
+            else:
+                points = try_carelink()
+                if points:
+                    source_label = "medtronic_carelink"
 
     return points, source_label, meta
 
@@ -664,7 +744,7 @@ def fetch_realtime_points_for_user(
 def poll_glucose_once():
     """
     Récupère une fois les données CGM pour tous les utilisateurs qui ont
-    une source CGM disponible (LibreCredentials et/ou DexcomToken).
+    une source CGM disponible (LibreCredentials, DexcomToken et/ou CareLinkCredential).
     Le passage est batché (MAX_USERS_PER_POLL) et saute seulement les utilisateurs
     interrogés récemment. Les appels API eux-mêmes sont cadencés par un verrou global.
     """
@@ -684,8 +764,11 @@ def poll_glucose_once():
             db.query(User)
             .outerjoin(LibreCredentials, LibreCredentials.user_id == User.id)
             .outerjoin(DexcomToken, DexcomToken.user_id == User.id)
+            .outerjoin(CareLinkCredential, CareLinkCredential.user_id == User.id)
             .filter(
-                (LibreCredentials.user_id != None) | (DexcomToken.user_id != None)
+                (LibreCredentials.user_id != None)
+                | (DexcomToken.user_id != None)
+                | (CareLinkCredential.user_id != None)
             )
             .order_by(User.id)
             .all()
@@ -694,7 +777,7 @@ def poll_glucose_once():
         db.close()
 
     if not users:
-        print("[CGM] Aucun utilisateur avec une source CGM (Libre/Dexcom) en base.")
+        print("[CGM] Aucun utilisateur avec une source CGM (Libre/Dexcom/CareLink) en base.")
         return
 
     total_users = len(users)

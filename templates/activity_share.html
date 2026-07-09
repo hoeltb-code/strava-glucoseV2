@@ -1,0 +1,1097 @@
+{% extends "base.html" %}
+{% block title %}Partager · {{ activity.name or "Activité" }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  .share-page {
+    --share-border: rgba(77, 226, 255, 0.22);
+    --share-panel: rgba(12, 24, 42, 0.72);
+    --share-panel-strong: rgba(17, 33, 56, 0.88);
+    --share-muted: rgba(221, 234, 250, 0.74);
+  }
+  .share-hero {
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:18px;
+    margin-bottom:18px;
+  }
+  .share-back-link {
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:10px 14px;
+    border-radius:12px;
+    border:1px solid var(--share-border);
+    background:rgba(77, 226, 255, 0.08);
+    color:var(--text-main);
+    font-weight:700;
+  }
+  .share-back-link:hover {
+    color:var(--text-main);
+    border-color:rgba(77, 226, 255, 0.42);
+    background:rgba(77, 226, 255, 0.14);
+  }
+  .share-note,
+  .share-theme-panel {
+    padding:16px 18px;
+    border-radius:18px;
+    border:1px solid var(--share-border);
+    background:linear-gradient(180deg, rgba(21, 40, 67, 0.92), rgba(13, 25, 43, 0.98));
+    box-shadow:0 18px 44px rgba(0, 0, 0, 0.2);
+  }
+  .share-note {
+    margin-bottom:14px;
+    color:var(--text-muted);
+  }
+  .share-theme-panel {
+    margin-bottom:18px;
+  }
+  .share-theme-row {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:14px;
+    flex-wrap:wrap;
+  }
+  .share-theme-swatches {
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .share-theme-button {
+    width:42px;
+    height:42px;
+    border-radius:999px;
+    border:2px solid rgba(255,255,255,0.14);
+    background:var(--theme-preview);
+    box-shadow:0 8px 18px rgba(0,0,0,0.2);
+    cursor:pointer;
+    transition:transform .12s ease, border-color .12s ease, box-shadow .12s ease;
+  }
+  .share-theme-button:hover {
+    transform:translateY(-1px) scale(1.03);
+    border-color:rgba(255,255,255,0.32);
+  }
+  .share-theme-button.is-active {
+    border-color:#fff;
+    box-shadow:0 0 0 4px rgba(255,255,255,0.08), 0 12px 24px rgba(0,0,0,0.25);
+  }
+  .share-grid {
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:18px;
+  }
+  .share-card {
+    padding:18px;
+    border-radius:24px;
+    border:1px solid var(--share-border);
+    background:linear-gradient(180deg, rgba(21, 40, 67, 0.92), rgba(13, 25, 43, 0.98));
+    box-shadow:0 24px 56px rgba(0, 0, 0, 0.24);
+  }
+  .share-card-top {
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:14px;
+    margin-bottom:14px;
+  }
+  .share-card h3 {
+    margin:0;
+    font-family:"Orbitron", sans-serif;
+    font-size:1rem;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+  }
+  .share-card p {
+    margin:6px 0 0 0;
+    color:var(--text-muted);
+    font-size:0.9rem;
+  }
+  .share-download-button {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:10px 14px;
+    min-height:44px;
+    border-radius:12px;
+    border:1px solid rgba(77, 226, 255, 0.32);
+    background:linear-gradient(135deg, rgba(77, 226, 255, 0.16), rgba(28, 140, 255, 0.24));
+    color:var(--text-main);
+    font-weight:700;
+    cursor:pointer;
+  }
+  .share-download-button:hover {
+    filter:brightness(1.08);
+    border-color:rgba(77, 226, 255, 0.5);
+  }
+  .share-preview {
+    padding:14px;
+    border-radius:20px;
+    border:1px solid rgba(255, 255, 255, 0.06);
+    background:
+      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px),
+      rgba(7, 15, 28, 0.82);
+    background-size:20px 20px, 20px 20px, auto;
+  }
+  .share-canvas {
+    display:block;
+    width:100%;
+    height:auto;
+    aspect-ratio:9 / 16;
+    border-radius:18px;
+  }
+  .share-caption {
+    margin-top:12px;
+    font-size:0.82rem;
+    color:var(--share-muted);
+  }
+  @media (max-width: 960px) {
+    .share-grid {
+      grid-template-columns:1fr;
+    }
+  }
+  @media (max-width: 720px) {
+    .share-hero {
+      flex-direction:column;
+      align-items:flex-start;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="share-page">
+  <div class="share-hero">
+    <div>
+      <div style="font-family:'Orbitron', sans-serif; font-size:0.78rem; letter-spacing:0.18em; text-transform:uppercase; color:var(--text-dim);">
+        Partage activité
+      </div>
+      <h1 style="margin:8px 0 6px 0; font-size:1.8rem;">5 visuels, une couleur, des récits différents</h1>
+      <p class="muted" style="margin:0; max-width:760px;">
+        Tu choisis un thème couleur, puis tu télécharges l’une des 5 variantes: plus sport, plus glycémie, plus mixte, la trace du parcours, ou un profil avancé.
+      </p>
+    </div>
+    <a class="share-back-link" href="/ui/user/{{ user.id }}/activity/{{ activity.id }}">Retour à l’activité</a>
+  </div>
+
+  <div class="share-note">
+    Export en `PNG` avec fond transparent. Les métriques changent selon le sport: allure pour la course, vitesse pour le vélo, cardio pour les séances type crossfit ou muscu.
+  </div>
+
+  <div class="share-theme-panel">
+    <div class="share-theme-row">
+      <div>
+        <div style="font-family:'Orbitron', sans-serif; font-size:0.82rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-dim);">
+          Couleur
+        </div>
+        <div id="shareThemeLabel" style="margin-top:6px; font-size:1rem; font-weight:700;">Cyan glacier</div>
+      </div>
+      <div class="share-theme-swatches">
+        <button type="button" class="share-theme-button is-active" data-theme-key="cyan" style="--theme-preview:linear-gradient(135deg, #4de2ff, #1c8cff);"></button>
+        <button type="button" class="share-theme-button" data-theme-key="lime" style="--theme-preview:linear-gradient(135deg, #b8ff45, #4de2ff);"></button>
+        <button type="button" class="share-theme-button" data-theme-key="coral" style="--theme-preview:linear-gradient(135deg, #ff8a5b, #f6cf46);"></button>
+        <button type="button" class="share-theme-button" data-theme-key="sunset" style="--theme-preview:linear-gradient(135deg, #ff6b9e, #9d7bff);"></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="share-grid">
+    <article class="share-card">
+      <div class="share-card-top">
+        <div>
+          <h3>Sport + graphique</h3>
+          <p>La version la plus complète avec le graphique glycémie et les stats sport principales.</p>
+        </div>
+        <button type="button" class="share-download-button" data-download-key="performance">Télécharger</button>
+      </div>
+      <div class="share-preview">
+        <canvas class="share-canvas" data-canvas-key="performance" width="1080" height="1920"></canvas>
+      </div>
+      <div class="share-caption">Allure ou vitesse selon le sport, plus TIR, min, max et courbe.</div>
+    </article>
+
+    <article class="share-card">
+      <div class="share-card-top">
+        <div>
+          <h3>Focus glycémie</h3>
+          <p>Sans graphique, mais avec plus d’espace pour les indicateurs glycémiques.</p>
+        </div>
+        <button type="button" class="share-download-button" data-download-key="glucose">Télécharger</button>
+      </div>
+      <div class="share-preview">
+        <canvas class="share-canvas" data-canvas-key="glucose" width="1080" height="1920"></canvas>
+      </div>
+      <div class="share-caption">TIR, moyenne, min, max, hypos, hypers et contexte d’effort.</div>
+    </article>
+
+    <article class="share-card">
+      <div class="share-card-top">
+        <div>
+          <h3>Focus sport</h3>
+          <p>Une composition plus éditoriale, plus sportive, avec les infos redistribuées autrement.</p>
+        </div>
+        <button type="button" class="share-download-button" data-download-key="sport">Télécharger</button>
+      </div>
+      <div class="share-preview">
+        <canvas class="share-canvas" data-canvas-key="sport" width="1080" height="1920"></canvas>
+      </div>
+      <div class="share-caption">Mise en page plus nerveuse, plus centrée effort et séance.</div>
+    </article>
+
+    <article class="share-card">
+      <div class="share-card-top">
+        <div>
+          <h3>Trace blanche</h3>
+          <p>La vue du parcours par le dessus, uniquement la trace en blanc sur fond transparent.</p>
+        </div>
+        <button type="button" class="share-download-button" data-download-key="route">Télécharger</button>
+      </div>
+      <div class="share-preview">
+        <canvas class="share-canvas" data-canvas-key="route" width="1080" height="1920"></canvas>
+      </div>
+      <div class="share-caption">Parfait pour superposer la sortie dans une story plus libre.</div>
+    </article>
+
+    <article class="share-card">
+      <div class="share-card-top">
+        <div>
+          <h3>Profil avancé</h3>
+          <p>Une variante orientée relief et données avancées, utile surtout quand la sortie a du dénivelé.</p>
+        </div>
+        <button type="button" class="share-download-button" data-download-key="profile">Télécharger</button>
+      </div>
+      <div class="share-preview">
+        <canvas class="share-canvas" data-canvas-key="profile" width="1080" height="1920"></canvas>
+      </div>
+      <div class="share-caption">Profil d’élévation, VAM max 5 min si disponible, plus données glycémie.</div>
+    </article>
+  </div>
+</div>
+
+<script>
+  (function() {
+    const storyData = {{ story_export_data | tojson | safe }};
+    const size = { width: 1080, height: 1920 };
+    const themeLabel = document.getElementById("shareThemeLabel");
+    const themes = {
+      cyan: {
+        label: "Cyan glacier",
+        accent: "#4de2ff",
+        accent2: "#1c8cff",
+        accentSoft: "rgba(77, 226, 255, 0.20)",
+        accentSoft2: "rgba(28, 140, 255, 0.18)",
+      },
+      lime: {
+        label: "Lime énergie",
+        accent: "#b8ff45",
+        accent2: "#4de2ff",
+        accentSoft: "rgba(184, 255, 69, 0.20)",
+        accentSoft2: "rgba(77, 226, 255, 0.16)",
+      },
+      coral: {
+        label: "Corail effort",
+        accent: "#ff8a5b",
+        accent2: "#f6cf46",
+        accentSoft: "rgba(255, 138, 91, 0.20)",
+        accentSoft2: "rgba(246, 207, 70, 0.16)",
+      },
+      sunset: {
+        label: "Sunset pulse",
+        accent: "#ff6b9e",
+        accent2: "#9d7bff",
+        accentSoft: "rgba(255, 107, 158, 0.20)",
+        accentSoft2: "rgba(157, 123, 255, 0.18)",
+      }
+    };
+    let currentThemeKey = "cyan";
+
+    function slugify(value) {
+      const raw = String(value || "story-glucose").toLowerCase();
+      const normalized = typeof raw.normalize === "function"
+        ? raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        : raw;
+      return normalized
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 48) || "story-glucose";
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function roundedRect(ctx, x, y, width, height, radius) {
+      const r = Math.min(radius, width / 2, height / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + width, y, x + width, y + height, r);
+      ctx.arcTo(x + width, y + height, x, y + height, r);
+      ctx.arcTo(x, y + height, x, y, r);
+      ctx.arcTo(x, y, x + width, y, r);
+      ctx.closePath();
+    }
+
+    function zoneColor(mgdl) {
+      if (mgdl < 70) return "#ff5b61";
+      if (mgdl <= 180) return "#2fe08b";
+      return "#f6cf46";
+    }
+
+    function applyTextStyle(ctx, font, fillStyle, align) {
+      ctx.font = font;
+      ctx.fillStyle = fillStyle;
+      ctx.textAlign = align || "start";
+      ctx.shadowColor = "rgba(0, 0, 0, 0.78)";
+      ctx.shadowBlur = 16;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 6;
+    }
+
+    function metricValue(value, fallback) {
+      if (value === undefined || value === null || value === "" || value === "–") {
+        return fallback || "–";
+      }
+      return value;
+    }
+
+    function resolveMetric(key) {
+      if (key === "distance") return { label: "DISTANCE", value: metricValue(storyData.distance_label) };
+      if (key === "duration") return { label: "TEMPS", value: metricValue(storyData.duration_label) };
+      if (key === "dplus") return { label: "D+", value: metricValue(storyData.dplus_label) };
+      if (key === "tir") return { label: "TIR", value: metricValue(storyData.tir_label) };
+      if (key === "glyAvg") return { label: "GLY MOY", value: metricValue(storyData.gly_avg_label) };
+      if (key === "fcAvg") return { label: "FC MOY", value: metricValue(storyData.fc_avg_label) };
+      if (key === "min") return { label: "GLY MIN", value: metricValue(storyData.min_label) };
+      if (key === "max") return { label: "GLY MAX", value: metricValue(storyData.max_label) };
+      if (key === "hypo") return { label: "HYPOS", value: metricValue(storyData.hypo_label, "0") };
+      if (key === "hyper") return { label: "HYPERS", value: metricValue(storyData.hyper_label, "0") };
+      if (key === "sport") return { label: "SPORT", value: metricValue(storyData.sport_label) };
+      if (key === "date") return { label: "DATE", value: metricValue(storyData.activity_date) };
+      if (key === "effort") {
+        return {
+          label: metricValue(storyData.effort_metric_label, "SPORT"),
+          value: metricValue(storyData.effort_metric_value, metricValue(storyData.sport_label)),
+        };
+      }
+      return { label: key.toUpperCase(), value: "–" };
+    }
+
+    function performanceMetricKeys() {
+      const profile = storyData.sport_profile || "other";
+      if (profile === "run") return ["distance", "duration", "effort", "dplus", "tir", "min", "max"];
+      if (profile === "ride") return ["distance", "duration", "effort", "fcAvg", "tir", "min", "max"];
+      if (profile === "gym") return ["duration", "fcAvg", "tir", "glyAvg", "min", "max", "hyper"];
+      return ["duration", "effort", "sport", "tir", "glyAvg", "min", "max"];
+    }
+
+    function glucoseMetricKeys() {
+      const profile = storyData.sport_profile || "other";
+      if (profile === "gym") return ["tir", "glyAvg", "min", "max", "hypo", "hyper", "duration", "fcAvg"];
+      return ["tir", "glyAvg", "min", "max", "hypo", "hyper", "effort", "duration"];
+    }
+
+    function sportMetricKeys() {
+      const profile = storyData.sport_profile || "other";
+      if (profile === "run") return ["distance", "duration", "effort", "dplus", "fcAvg", "tir"];
+      if (profile === "ride") return ["distance", "duration", "effort", "fcAvg", "tir", "glyAvg"];
+      if (profile === "gym") return ["duration", "fcAvg", "tir", "glyAvg", "min", "max"];
+      return ["sport", "duration", "effort", "tir", "glyAvg", "fcAvg"];
+    }
+
+    function hasMountainRunProfile() {
+      return (storyData.sport_profile === "run") && Number(storyData.dplus_m || 0) > 300;
+    }
+
+    function buildSparseHermitePoints(points, samplesPerSegment) {
+      if (points.length < 2) return points.slice();
+      const tangents = new Array(points.length).fill(0);
+      if (points.length === 3) {
+        const span = points[2].elapsed_sec - points[0].elapsed_sec;
+        tangents[1] = span > 0 ? (points[2].mgdl - points[0].mgdl) / span : 0;
+      }
+      const smoothed = [];
+      for (let i = 0; i < points.length - 1; i += 1) {
+        const p0 = points[i];
+        const p1 = points[i + 1];
+        const h = p1.elapsed_sec - p0.elapsed_sec;
+        if (h <= 0) continue;
+        if (i === 0) smoothed.push({ elapsed_sec: p0.elapsed_sec, mgdl: p0.mgdl });
+        const segmentSamples = Math.max(24, samplesPerSegment * 2);
+        for (let step = 1; step <= segmentSamples; step += 1) {
+          const t = step / segmentSamples;
+          const t2 = t * t;
+          const t3 = t2 * t;
+          const h00 = (2 * t3) - (3 * t2) + 1;
+          const h10 = t3 - (2 * t2) + t;
+          const h01 = (-2 * t3) + (3 * t2);
+          const h11 = t3 - t2;
+          smoothed.push({
+            elapsed_sec: p0.elapsed_sec + (h * t),
+            mgdl: (h00 * p0.mgdl) + (h10 * h * tangents[i]) + (h01 * p1.mgdl) + (h11 * h * tangents[i + 1]),
+          });
+        }
+      }
+      return smoothed;
+    }
+
+    function buildMonotoneInterpolatedPoints(points, samplesPerSegment) {
+      if (points.length < 2) return points.slice();
+      if (points.length <= 3) return buildSparseHermitePoints(points, samplesPerSegment);
+      const xs = points.map((point) => point.elapsed_sec);
+      const ys = points.map((point) => point.mgdl);
+      const dx = [];
+      const slopes = [];
+      for (let i = 0; i < points.length - 1; i += 1) {
+        const deltaX = xs[i + 1] - xs[i];
+        const deltaY = ys[i + 1] - ys[i];
+        dx.push(deltaX);
+        slopes.push(deltaX > 0 ? deltaY / deltaX : 0);
+      }
+      const tangents = new Array(points.length).fill(0);
+      tangents[0] = slopes[0];
+      tangents[points.length - 1] = slopes[slopes.length - 1];
+      for (let i = 1; i < points.length - 1; i += 1) {
+        if (slopes[i - 1] === 0 || slopes[i] === 0 || slopes[i - 1] * slopes[i] < 0) {
+          tangents[i] = 0;
+          continue;
+        }
+        const w1 = 2 * dx[i] + dx[i - 1];
+        const w2 = dx[i] + 2 * dx[i - 1];
+        tangents[i] = (w1 + w2) / ((w1 / slopes[i - 1]) + (w2 / slopes[i]));
+      }
+      const interpolated = [];
+      for (let i = 0; i < points.length - 1; i += 1) {
+        const x0 = xs[i];
+        const x1 = xs[i + 1];
+        const y0 = ys[i];
+        const y1 = ys[i + 1];
+        const h = x1 - x0;
+        if (h <= 0) continue;
+        if (i === 0) interpolated.push({ elapsed_sec: x0, mgdl: y0 });
+        const segmentSamples = Math.max(12, samplesPerSegment);
+        for (let step = 1; step <= segmentSamples; step += 1) {
+          const t = step / segmentSamples;
+          const t2 = t * t;
+          const t3 = t2 * t;
+          const h00 = (2 * t3) - (3 * t2) + 1;
+          const h10 = t3 - (2 * t2) + t;
+          const h01 = (-2 * t3) + (3 * t2);
+          const h11 = t3 - t2;
+          interpolated.push({
+            elapsed_sec: x0 + (h * t),
+            mgdl: (h00 * y0) + (h10 * h * tangents[i]) + (h01 * y1) + (h11 * h * tangents[i + 1]),
+          });
+        }
+      }
+      return interpolated;
+    }
+
+    function getTheme() {
+      return themes[currentThemeKey] || themes.cyan;
+    }
+
+    function drawBackground(ctx, theme, variantKey) {
+      ctx.save();
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+      if (variantKey !== "route") {
+        ctx.fillStyle = theme.accentSoft;
+        ctx.beginPath();
+        ctx.arc(184, 212, 128, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = theme.accentSoft2;
+        ctx.beginPath();
+        ctx.arc(924, 410, 168, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(248, 1520, 150, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.strokeStyle = variantKey === "route" ? "rgba(255,255,255,0.18)" : theme.accent;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(74, 90);
+      ctx.lineTo(188, 90);
+      ctx.moveTo(74, 90);
+      ctx.lineTo(74, 204);
+      ctx.moveTo(1006, 1830);
+      ctx.lineTo(892, 1830);
+      ctx.moveTo(1006, 1830);
+      ctx.lineTo(1006, 1716);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawMetricCard(ctx, x, y, width, height, metric, theme, large) {
+      roundedRect(ctx, x, y, width, height, 24);
+      ctx.fillStyle = "rgba(10, 20, 36, 0.58)";
+      ctx.fill();
+      ctx.strokeStyle = theme.accentSoft;
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+      applyTextStyle(ctx, "700 20px Orbitron, sans-serif", "rgba(224, 236, 252, 0.74)");
+      ctx.fillText(metric.label, x + 26, y + 34);
+      applyTextStyle(ctx, large ? "700 62px Rajdhani, sans-serif" : "700 48px Rajdhani, sans-serif", "#ffffff");
+      ctx.fillText(metric.value, x + 26, y + (large ? 96 : 82));
+    }
+
+    function drawMetricGrid(ctx, metrics, theme, options) {
+      const columns = options.columns || 2;
+      const cardHeight = options.cardHeight || 104;
+      const gap = options.gap || 18;
+      const width = options.width;
+      const cardWidth = (width - gap * (columns - 1)) / columns;
+      metrics.forEach((metric, index) => {
+        const col = index % columns;
+        const row = Math.floor(index / columns);
+        drawMetricCard(
+          ctx,
+          options.x + col * (cardWidth + gap),
+          options.y + row * (cardHeight + gap),
+          cardWidth,
+          cardHeight,
+          metric,
+          theme,
+          !!options.large,
+        );
+      });
+    }
+
+    function drawHeader(ctx, theme) {
+      applyTextStyle(ctx, "700 70px Rajdhani, sans-serif", "#ffffff");
+      ctx.fillText(storyData.activity_name || "Activite", 88, 122);
+      if (storyData.activity_date) {
+        applyTextStyle(ctx, "700 32px Rajdhani, sans-serif", "rgba(224, 236, 252, 0.86)");
+        ctx.fillText(storyData.activity_date, 88, 166);
+      }
+    }
+
+    function drawChart(ctx, theme, bounds) {
+      const points = (storyData.glucose_points || [])
+        .filter((point) => typeof point.elapsed_sec === "number" && typeof point.mgdl === "number")
+        .filter((point) => Number.isFinite(point.elapsed_sec) && Number.isFinite(point.mgdl))
+        .sort((a, b) => a.elapsed_sec - b.elapsed_sec);
+      if (points.length < 2) throw new Error("Pas assez de points glucose exportables");
+
+      roundedRect(ctx, bounds.x - 24, bounds.y - 54, bounds.width + 48, bounds.height + 132, 34);
+      ctx.fillStyle = "rgba(10, 20, 36, 0.52)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.08)";
+      ctx.lineWidth = 1.3;
+      ctx.stroke();
+
+      const minTime = points[0].elapsed_sec;
+      const maxTime = points[points.length - 1].elapsed_sec;
+      const minGlucose = Math.min.apply(null, points.map((point) => point.mgdl));
+      const maxGlucose = Math.max.apply(null, points.map((point) => point.mgdl));
+      const yMin = Math.max(45, Math.floor((Math.min(minGlucose, 70) - 15) / 5) * 5);
+      const yMax = Math.min(260, Math.ceil((Math.max(maxGlucose, 180) + 15) / 5) * 5);
+      const timeRange = Math.max(1, maxTime - minTime);
+      const glucoseRange = Math.max(20, yMax - yMin);
+      const tickValues = [yMin, Math.round((yMin + yMax) / 2), yMax];
+      const mapX = (elapsedSec) => bounds.x + ((elapsedSec - minTime) / timeRange) * bounds.width;
+      const mapY = (mgdl) => bounds.y + bounds.height - ((mgdl - yMin) / glucoseRange) * bounds.height;
+
+      applyTextStyle(ctx, "700 22px Orbitron, sans-serif", theme.accent);
+      ctx.fillText("GLYCEMIE", bounds.x, bounds.y - 18);
+
+      tickValues.forEach((tick) => {
+        const y = mapY(tick);
+        ctx.strokeStyle = "rgba(255,255,255,0.15)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(bounds.x - 10, y);
+        ctx.lineTo(bounds.x + bounds.width, y);
+        ctx.stroke();
+        applyTextStyle(ctx, "700 24px Rajdhani, sans-serif", "rgba(235, 245, 255, 0.88)");
+        ctx.fillText(String(Math.round(tick)), bounds.x - 58, y + 6);
+      });
+
+      for (let i = 1; i < 4; i += 1) {
+        const x = bounds.x + (bounds.width * i) / 4;
+        ctx.strokeStyle = "rgba(255,255,255,0.12)";
+        ctx.beginPath();
+        ctx.moveTo(x, bounds.y);
+        ctx.lineTo(x, bounds.y + bounds.height);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = "rgba(255,255,255,0.32)";
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      ctx.moveTo(bounds.x, bounds.y);
+      ctx.lineTo(bounds.x, bounds.y + bounds.height);
+      ctx.lineTo(bounds.x + bounds.width, bounds.y + bounds.height);
+      ctx.stroke();
+
+      const plotPoints = buildMonotoneInterpolatedPoints(points, 20).map((point) => ({
+        x: mapX(point.elapsed_sec),
+        y: mapY(point.mgdl),
+        mgdl: point.mgdl,
+      }));
+
+      ctx.save();
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+      for (let i = 0; i < plotPoints.length - 1; i += 1) {
+        const current = plotPoints[i];
+        const next = plotPoints[i + 1];
+        ctx.strokeStyle = zoneColor((current.mgdl + next.mgdl) / 2);
+        ctx.lineWidth = 5;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.beginPath();
+        ctx.moveTo(clamp(current.x, bounds.x, bounds.x + bounds.width), clamp(current.y, bounds.y, bounds.y + bounds.height));
+        ctx.lineTo(clamp(next.x, bounds.x, bounds.x + bounds.width), clamp(next.y, bounds.y, bounds.y + bounds.height));
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      const lastPoint = plotPoints[plotPoints.length - 1];
+      ctx.fillStyle = zoneColor(lastPoint.mgdl);
+      ctx.beginPath();
+      ctx.arc(lastPoint.x, lastPoint.y, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.82)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      const timeLabels = [
+        { x: bounds.x, text: "0 min", align: "start" },
+        { x: bounds.x + bounds.width / 2, text: `${Math.round(timeRange / 120) * 2} min`, align: "center" },
+        { x: bounds.x + bounds.width, text: `${Math.round(timeRange / 60)} min`, align: "end" },
+      ];
+      applyTextStyle(ctx, "700 24px Rajdhani, sans-serif", "rgba(235, 245, 255, 0.88)");
+      timeLabels.forEach((entry) => {
+        const textWidth = ctx.measureText(entry.text).width;
+        let drawX = entry.x;
+        if (entry.align === "center") drawX -= textWidth / 2;
+        if (entry.align === "end") drawX -= textWidth;
+        ctx.fillText(entry.text, drawX, bounds.y + bounds.height + 36);
+      });
+    }
+
+    function drawAltitudeProfile(ctx, theme, bounds) {
+      const points = (storyData.altitude_profile_points || [])
+        .filter((point) => Array.isArray(point) && point.length >= 2)
+        .map((point) => ({ km: Number(point[0]), alt: Number(point[1]) }))
+        .filter((point) => Number.isFinite(point.km) && Number.isFinite(point.alt))
+        .sort((a, b) => a.km - b.km);
+
+      if (points.length < 2) {
+        roundedRect(ctx, bounds.x - 24, bounds.y - 48, bounds.width + 48, bounds.height + 96, 34);
+        ctx.fillStyle = "rgba(10, 20, 36, 0.46)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.08)";
+        ctx.lineWidth = 1.3;
+        ctx.stroke();
+        applyTextStyle(ctx, "700 26px Orbitron, sans-serif", "rgba(255,255,255,0.82)", "center");
+        ctx.fillText("PROFIL INDISPONIBLE", bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+        ctx.textAlign = "start";
+        return;
+      }
+
+      roundedRect(ctx, bounds.x - 24, bounds.y - 48, bounds.width + 48, bounds.height + 120, 34);
+      ctx.fillStyle = "rgba(10, 20, 36, 0.52)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.08)";
+      ctx.lineWidth = 1.3;
+      ctx.stroke();
+
+      applyTextStyle(ctx, "700 22px Orbitron, sans-serif", theme.accent);
+      ctx.fillText("PROFIL ELEVATION", bounds.x, bounds.y - 14);
+
+      const minKm = points[0].km;
+      const maxKm = points[points.length - 1].km;
+      const minAlt = Math.min.apply(null, points.map((point) => point.alt));
+      const maxAlt = Math.max.apply(null, points.map((point) => point.alt));
+      const kmRange = Math.max(0.1, maxKm - minKm);
+      const altPadding = Math.max(20, (maxAlt - minAlt) * 0.12);
+      const lowAlt = minAlt - altPadding;
+      const highAlt = maxAlt + altPadding;
+      const altRange = Math.max(40, highAlt - lowAlt);
+      const mapX = (km) => bounds.x + ((km - minKm) / kmRange) * bounds.width;
+      const mapY = (alt) => bounds.y + bounds.height - ((alt - lowAlt) / altRange) * bounds.height;
+
+      const tickValues = [Math.round(lowAlt), Math.round((lowAlt + highAlt) / 2), Math.round(highAlt)];
+      tickValues.forEach((tick) => {
+        const y = mapY(tick);
+        ctx.strokeStyle = "rgba(255,255,255,0.14)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(bounds.x - 10, y);
+        ctx.lineTo(bounds.x + bounds.width, y);
+        ctx.stroke();
+        applyTextStyle(ctx, "700 22px Rajdhani, sans-serif", "rgba(235, 245, 255, 0.84)");
+        ctx.fillText(`${Math.round(tick)}m`, bounds.x - 62, y + 5);
+      });
+
+      ctx.strokeStyle = "rgba(255,255,255,0.3)";
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      ctx.moveTo(bounds.x, bounds.y);
+      ctx.lineTo(bounds.x, bounds.y + bounds.height);
+      ctx.lineTo(bounds.x + bounds.width, bounds.y + bounds.height);
+      ctx.stroke();
+
+      ctx.save();
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+      ctx.beginPath();
+      ctx.moveTo(bounds.x, bounds.y + bounds.height);
+      points.forEach((point) => {
+        ctx.lineTo(mapX(point.km), mapY(point.alt));
+      });
+      ctx.lineTo(bounds.x + bounds.width, bounds.y + bounds.height);
+      ctx.closePath();
+      ctx.fillStyle = theme.accentSoft;
+      ctx.fill();
+
+      ctx.beginPath();
+      points.forEach((point, index) => {
+        const x = mapX(point.km);
+        const y = mapY(point.alt);
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 4;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.stroke();
+      ctx.restore();
+
+      const kmLabels = [
+        { x: bounds.x, text: `${Math.round(minKm)} km`, align: "start" },
+        { x: bounds.x + bounds.width / 2, text: `${((minKm + maxKm) / 2).toFixed(1)} km`, align: "center" },
+        { x: bounds.x + bounds.width, text: `${maxKm.toFixed(1)} km`, align: "end" },
+      ];
+      applyTextStyle(ctx, "700 22px Rajdhani, sans-serif", "rgba(235, 245, 255, 0.86)");
+      kmLabels.forEach((entry) => {
+        const width = ctx.measureText(entry.text).width;
+        let drawX = entry.x;
+        if (entry.align === "center") drawX -= width / 2;
+        if (entry.align === "end") drawX -= width;
+        ctx.fillText(entry.text, drawX, bounds.y + bounds.height + 34);
+      });
+    }
+
+    function drawFooter(ctx) {
+      applyTextStyle(ctx, "italic 700 40px Rajdhani, sans-serif", "rgba(224, 236, 252, 0.84)", "center");
+      ctx.fillText("by @dt1_runner", size.width / 2, 1766);
+      applyTextStyle(ctx, "700 26px Orbitron, sans-serif", "rgba(255,255,255,0.94)", "center");
+      ctx.fillText("STRAVA x GLUCOSE", size.width / 2, 1816);
+      ctx.textAlign = "start";
+    }
+
+    function drawPerformanceVariant(ctx, theme) {
+      drawBackground(ctx, theme, "performance");
+      drawHeader(ctx, theme);
+      const metrics = performanceMetricKeys().map(resolveMetric);
+      drawMetricGrid(ctx, metrics.slice(0, 6), theme, { x: 72, y: 288, width: 936, columns: 2, cardHeight: 104, gap: 18 });
+      if (metrics[6]) {
+        drawMetricCard(ctx, 72, 654, 936, 112, metrics[6], theme, true);
+      }
+      drawChart(ctx, theme, { x: 136, y: 892, width: 808, height: 420 });
+      drawFooter(ctx);
+    }
+
+    function drawGlucoseVariant(ctx, theme) {
+      drawBackground(ctx, theme, "glucose");
+      drawHeader(ctx, theme);
+
+      const tirMetric = resolveMetric("tir");
+      roundedRect(ctx, 72, 286, 936, 204, 36);
+      ctx.fillStyle = "rgba(10, 20, 36, 0.54)";
+      ctx.fill();
+      ctx.strokeStyle = theme.accentSoft;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      applyTextStyle(ctx, "700 26px Orbitron, sans-serif", theme.accent);
+      ctx.fillText("TIME IN RANGE", 104, 338);
+      applyTextStyle(ctx, "700 132px Rajdhani, sans-serif", "#ffffff");
+      ctx.fillText(tirMetric.value, 104, 460);
+
+      const metrics = glucoseMetricKeys().map(resolveMetric);
+      drawMetricGrid(ctx, metrics, theme, { x: 72, y: 534, width: 936, columns: 2, cardHeight: 112, gap: 18 });
+      drawFooter(ctx);
+    }
+
+    function drawSportVariant(ctx, theme) {
+      drawBackground(ctx, theme, "sport");
+      drawHeader(ctx, theme);
+
+      const sportMetrics = sportMetricKeys().map(resolveMetric);
+      const heroMetric = sportMetrics[0];
+      const secondaryMetric = sportMetrics[1];
+      drawMetricCard(ctx, 72, 294, 456, 170, heroMetric, theme, true);
+      drawMetricCard(ctx, 552, 294, 456, 170, secondaryMetric, theme, true);
+
+      roundedRect(ctx, 72, 496, 936, 306, 32);
+      ctx.fillStyle = "rgba(10, 20, 36, 0.56)";
+      ctx.fill();
+      ctx.strokeStyle = theme.accentSoft;
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+
+      applyTextStyle(ctx, "700 24px Orbitron, sans-serif", theme.accent);
+      ctx.fillText("SEANCE", 104, 548);
+      const upperMetrics = sportMetrics.slice(2, 4);
+      upperMetrics.forEach((metric, index) => {
+        applyTextStyle(ctx, "700 20px Orbitron, sans-serif", "rgba(224, 236, 252, 0.72)");
+        ctx.fillText(metric.label, 104 + index * 356, 608);
+        applyTextStyle(ctx, "700 60px Rajdhani, sans-serif", "#ffffff");
+        ctx.fillText(metric.value, 104 + index * 356, 676);
+      });
+
+      applyTextStyle(ctx, "700 24px Orbitron, sans-serif", theme.accent2);
+      ctx.fillText("GLYCEMIE", 104, 738);
+      sportMetrics.slice(4).forEach((metric, index) => {
+        const x = 104 + (index % 2) * 356;
+        const y = 798 + Math.floor(index / 2) * 118;
+        applyTextStyle(ctx, "700 20px Orbitron, sans-serif", "rgba(224, 236, 252, 0.72)");
+        ctx.fillText(metric.label, x, y);
+        applyTextStyle(ctx, "700 54px Rajdhani, sans-serif", "#ffffff");
+        ctx.fillText(metric.value, x, y + 64);
+      });
+
+      drawFooter(ctx);
+    }
+
+    function drawRouteVariant(ctx, theme) {
+      drawBackground(ctx, theme, "route");
+      drawHeader(ctx, theme);
+
+      const topMetrics = [
+        resolveMetric("effort"),
+        resolveMetric("distance"),
+        resolveMetric("duration"),
+      ];
+      if (metricValue(storyData.dplus_label) !== "–") {
+        topMetrics.push(resolveMetric("dplus"));
+      }
+
+      drawMetricGrid(ctx, topMetrics, theme, {
+        x: 72,
+        y: 286,
+        width: 936,
+        columns: topMetrics.length >= 4 ? 2 : topMetrics.length,
+        cardHeight: 104,
+        gap: 18,
+      });
+
+      const route = Array.isArray(storyData.route_points) ? storyData.route_points : [];
+      const points = route.filter((point) => Array.isArray(point) && point.length >= 2).map((point) => ({
+        lat: Number(point[0]),
+        lon: Number(point[1]),
+      })).filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lon));
+
+      if (points.length < 2) {
+        applyTextStyle(ctx, "700 34px Orbitron, sans-serif", "rgba(255,255,255,0.86)", "center");
+        ctx.fillText("TRACE INDISPONIBLE", size.width / 2, size.height / 2);
+        ctx.textAlign = "start";
+        return;
+      }
+
+      const lats = points.map((point) => point.lat);
+      const lons = points.map((point) => point.lon);
+      const minLat = Math.min.apply(null, lats);
+      const maxLat = Math.max.apply(null, lats);
+      const minLon = Math.min.apply(null, lons);
+      const maxLon = Math.max.apply(null, lons);
+      const latRange = Math.max(0.000001, maxLat - minLat);
+      const lonRange = Math.max(0.000001, maxLon - minLon);
+      const routeBox = {
+        x: 96,
+        y: 610,
+        width: 888,
+        height: 720,
+      };
+      roundedRect(ctx, routeBox.x - 28, routeBox.y - 28, routeBox.width + 56, routeBox.height + 56, 34);
+      ctx.fillStyle = "rgba(10, 20, 36, 0.34)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.10)";
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      const padding = 42;
+      const availableWidth = routeBox.width - padding * 2;
+      const availableHeight = routeBox.height - padding * 2;
+      const scale = Math.min(availableWidth / lonRange, availableHeight / latRange);
+      const drawnWidth = lonRange * scale;
+      const drawnHeight = latRange * scale;
+      const offsetX = routeBox.x + (routeBox.width - drawnWidth) / 2;
+      const offsetY = routeBox.y + (routeBox.height - drawnHeight) / 2;
+
+      applyTextStyle(ctx, "700 22px Orbitron, sans-serif", "rgba(255,255,255,0.82)");
+      ctx.fillText("PARCOURS", routeBox.x, routeBox.y - 42);
+
+      ctx.save();
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = "rgba(255,255,255,0.96)";
+      ctx.lineWidth = 12;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      points.forEach((point, index) => {
+        const x = offsetX + (point.lon - minLon) * scale;
+        const y = routeBox.y + routeBox.height - ((point.lat - minLat) * scale + (routeBox.y + routeBox.height - (offsetY + drawnHeight)));
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      ctx.restore();
+
+      const bottomMetrics = [
+        resolveMetric("tir"),
+        resolveMetric("min"),
+        resolveMetric("max"),
+      ];
+      drawMetricGrid(ctx, bottomMetrics, theme, {
+        x: 72,
+        y: 1410,
+        width: 936,
+        columns: 3,
+        cardHeight: 114,
+        gap: 18,
+      });
+
+      drawFooter(ctx);
+    }
+
+    function drawProfileVariant(ctx, theme) {
+      drawBackground(ctx, theme, "profile");
+      drawHeader(ctx, theme);
+
+      const topMetrics = hasMountainRunProfile()
+        ? [resolveMetric("dplus"), { label: "VAM 5 MIN", value: metricValue(storyData.vam_5m_label) }, resolveMetric("duration")]
+        : [resolveMetric("effort"), resolveMetric("distance"), resolveMetric("duration")];
+
+      drawMetricGrid(ctx, topMetrics, theme, {
+        x: 72,
+        y: 286,
+        width: 936,
+        columns: 3,
+        cardHeight: 104,
+        gap: 18,
+      });
+
+      drawAltitudeProfile(ctx, theme, { x: 136, y: 500, width: 808, height: 420 });
+
+      const bottomMetrics = hasMountainRunProfile()
+        ? [resolveMetric("tir"), resolveMetric("min"), resolveMetric("max"), resolveMetric("glyAvg")]
+        : [resolveMetric("tir"), resolveMetric("glyAvg"), resolveMetric("fcAvg"), resolveMetric("min")];
+
+      drawMetricGrid(ctx, bottomMetrics, theme, {
+        x: 72,
+        y: 1048,
+        width: 936,
+        columns: 2,
+        cardHeight: 110,
+        gap: 18,
+      });
+
+      drawFooter(ctx);
+    }
+
+    async function renderVariant(canvas, variantKey) {
+      if (document.fonts && document.fonts.ready) {
+        await document.fonts.ready;
+      }
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas 2D indisponible");
+      canvas.width = size.width;
+      canvas.height = size.height;
+      ctx.clearRect(0, 0, size.width, size.height);
+
+      const theme = getTheme();
+      if (variantKey === "performance") drawPerformanceVariant(ctx, theme);
+      else if (variantKey === "glucose") drawGlucoseVariant(ctx, theme);
+      else if (variantKey === "sport") drawSportVariant(ctx, theme);
+      else if (variantKey === "route") drawRouteVariant(ctx, theme);
+      else if (variantKey === "profile") drawProfileVariant(ctx, theme);
+    }
+
+    async function renderAll() {
+      const canvases = Array.from(document.querySelectorAll("[data-canvas-key]"));
+      for (const canvas of canvases) {
+        await renderVariant(canvas, canvas.getAttribute("data-canvas-key"));
+      }
+      themeLabel.textContent = getTheme().label;
+    }
+
+    async function canvasToBlob(canvas) {
+      if (typeof canvas.toBlob !== "function") {
+        const response = await fetch(canvas.toDataURL("image/png"));
+        return await response.blob();
+      }
+      return await new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error("Impossible de generer le PNG"));
+        }, "image/png");
+      });
+    }
+
+    async function downloadVariant(variantKey) {
+      const canvas = document.querySelector(`[data-canvas-key="${variantKey}"]`);
+      if (!canvas) return;
+      const blob = await canvasToBlob(canvas);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${slugify(storyData.activity_name)}-${variantKey}-${currentThemeKey}.png`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function initThemeButtons() {
+      document.querySelectorAll("[data-theme-key]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          currentThemeKey = button.getAttribute("data-theme-key") || "cyan";
+          document.querySelectorAll("[data-theme-key]").forEach((entry) => {
+            entry.classList.toggle("is-active", entry === button);
+          });
+          await renderAll();
+        });
+      });
+    }
+
+    function initDownloadButtons() {
+      document.querySelectorAll("[data-download-key]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const variantKey = button.getAttribute("data-download-key");
+          const originalLabel = button.textContent;
+          button.disabled = true;
+          button.textContent = "Generation...";
+          try {
+            await downloadVariant(variantKey);
+          } catch (error) {
+            console.error(error);
+            window.alert("Impossible de generer le PNG.");
+          } finally {
+            button.disabled = false;
+            button.textContent = originalLabel;
+          }
+        });
+      });
+    }
+
+    async function init() {
+      initThemeButtons();
+      initDownloadButtons();
+      await renderAll();
+    }
+
+    init().catch((error) => {
+      console.error(error);
+      window.alert("Impossible d'afficher les propositions de partage.");
+    });
+  })();
+</script>
+{% endblock %}

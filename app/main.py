@@ -387,6 +387,137 @@ def _format_pace(pace_seconds: float | None) -> str | None:
     return f"{minutes}:{seconds:02d} /km"
 
 
+def _format_story_duration_short(sec: float | None) -> str:
+    if sec is None or sec <= 0:
+        return "–"
+    s = int(round(sec))
+    h = s // 3600
+    m = (s % 3600) // 60
+    if h > 0:
+        return f"{h}h{m:02d}"
+    if m > 0:
+        return f"{m} min"
+    return f"{s}s"
+
+
+def _format_story_distance_short(meters: float | None) -> str:
+    if meters is None or meters <= 0:
+        return "–"
+    km = float(meters) / 1000.0
+    return f"{km:.2f}".rstrip("0").rstrip(".") + " km"
+
+
+def _format_story_pace_short(meters: float | None, seconds: float | None) -> str:
+    if meters is None or seconds is None or meters <= 0 or seconds <= 0:
+        return "–"
+    sec_per_km = float(seconds) / (float(meters) / 1000.0)
+    mins = int(sec_per_km // 60)
+    secs = int(round(sec_per_km % 60))
+    if secs == 60:
+        mins += 1
+        secs = 0
+    return f"{mins}:{secs:02d}/km"
+
+
+def _format_story_speed_short(meters: float | None, seconds: float | None) -> str:
+    if meters is None or seconds is None or meters <= 0 or seconds <= 0:
+        return "–"
+    kmh = (float(meters) / float(seconds)) * 3.6
+    return f"{kmh:.1f} km/h"
+
+
+def _build_story_export_data(
+    activity: Activity,
+    glucose_chart_points: list[dict],
+    *,
+    route_points: list[list[float]] | None = None,
+    altitude_profile_points: list[list[float]] | None = None,
+) -> dict | None:
+    if len(glucose_chart_points) < 2:
+        return None
+
+    sport_norm = (activity.sport or activity.activity_type or "").lower()
+    effort_metric_label = None
+    effort_metric_value = None
+    sport_profile = "other"
+
+    if sport_norm == "run":
+        effort_metric_label = "ALLURE"
+        effort_metric_value = _format_story_pace_short(activity.distance, activity.elapsed_time)
+        sport_profile = "run"
+    elif sport_norm == "ride":
+        effort_metric_label = "VITESSE"
+        effort_metric_value = _format_story_speed_short(activity.distance, activity.elapsed_time)
+        sport_profile = "ride"
+    elif sport_norm in {"workout", "crossfit", "weighttraining", "weight_training", "weights", "gym"}:
+        effort_metric_label = "FC MOY"
+        effort_metric_value = (
+            f"{round(float(activity.average_heartrate))} bpm"
+            if activity.average_heartrate is not None
+            else "–"
+        )
+        sport_profile = "gym"
+    elif sport_norm in {"trailrun", "hike", "walk"}:
+        effort_metric_label = "RYTHME"
+        effort_metric_value = _format_story_pace_short(activity.distance, activity.elapsed_time)
+        sport_profile = "run"
+
+    return {
+        "activity_id": activity.id,
+        "activity_name": activity.name or "Activite",
+        "activity_date": _safe_dt(activity.start_date).strftime("%d/%m/%Y") if _safe_dt(activity.start_date) else None,
+        "sport_label": activity.sport or activity.activity_type or "Activite",
+        "sport_profile": sport_profile,
+        "distance_km": float(activity.distance or 0.0) / 1000.0 if activity.distance else None,
+        "duration_sec": float(activity.elapsed_time or 0.0) if activity.elapsed_time else None,
+        "dplus_m": float(activity.total_elevation_gain or 0.0) if activity.total_elevation_gain is not None else None,
+        "distance_label": _format_story_distance_short(activity.distance),
+        "duration_label": _format_story_duration_short(activity.elapsed_time),
+        "dplus_label": (
+            f"{round(float(activity.total_elevation_gain))} m"
+            if activity.total_elevation_gain is not None
+            else "–"
+        ),
+        "vam_5m_label": (
+            f"{round(float(activity.max_vam_5m))} m/h"
+            if activity.max_vam_5m is not None
+            else "–"
+        ),
+        "effort_metric_label": effort_metric_label,
+        "effort_metric_value": effort_metric_value,
+        "tir_label": (
+            f"{round(float(activity.time_in_range_percent))}%"
+            if activity.time_in_range_percent is not None
+            else "–"
+        ),
+        "gly_avg_label": (
+            f"{round(float(activity.avg_glucose))} mg/dL"
+            if activity.avg_glucose is not None
+            else "–"
+        ),
+        "fc_avg_label": (
+            f"{round(float(activity.average_heartrate))} bpm"
+            if activity.average_heartrate is not None
+            else "–"
+        ),
+        "hypo_label": str(int(activity.hypo_count or 0)),
+        "hyper_label": str(int(activity.hyper_count or 0)),
+        "min_label": (
+            f"{round(float(activity.min_glucose))} mg/dL"
+            if activity.min_glucose is not None
+            else "–"
+        ),
+        "max_label": (
+            f"{round(float(activity.max_glucose))} mg/dL"
+            if activity.max_glucose is not None
+            else "–"
+        ),
+        "glucose_points": glucose_chart_points,
+        "route_points": route_points or [],
+        "altitude_profile_points": altitude_profile_points or [],
+    }
+
+
 def _align_stream_pairs(time_stream, value_stream):
     pairs = []
     n = min(len(time_stream or []), len(value_stream or []))
@@ -6143,40 +6274,7 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
         gly_avg = round(activity.avg_glucose) if activity.avg_glucose else None
 
         if has_glucose and len(glucose_chart_points) > 1:
-            effort_metric_label = None
-            effort_metric_value = None
-            if sport_norm == "run":
-                effort_metric_label = "ALLURE"
-                effort_metric_value = format_pace_short(activity.distance, activity.elapsed_time)
-            elif sport_norm == "ride":
-                effort_metric_label = "VITESSE"
-                effort_metric_value = format_speed_short(activity.distance, activity.elapsed_time)
-
-            story_export_data = {
-                "activity_id": activity.id,
-                "activity_name": activity.name or "Activite",
-                "activity_date": _safe_dt(activity.start_date).strftime("%d/%m/%Y") if _safe_dt(activity.start_date) else None,
-                "distance_label": format_distance_short(activity.distance),
-                "duration_label": format_duration_short(activity.elapsed_time),
-                "effort_metric_label": effort_metric_label,
-                "effort_metric_value": effort_metric_value,
-                "tir_label": (
-                    f"{round(float(activity.time_in_range_percent))}%"
-                    if activity.time_in_range_percent is not None
-                    else "–"
-                ),
-                "min_label": (
-                    f"{round(float(activity.min_glucose))} mg/dL"
-                    if activity.min_glucose is not None
-                    else "–"
-                ),
-                "max_label": (
-                    f"{round(float(activity.max_glucose))} mg/dL"
-                    if activity.max_glucose is not None
-                    else "–"
-                ),
-                "glucose_points": glucose_chart_points,
-            }
+            story_export_data = _build_story_export_data(activity, glucose_chart_points)
 
         # --- 4) GPS simplified ---
         gps = []
@@ -7000,6 +7098,89 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
 
         }
     )
+
+
+@app.get("/ui/user/{user_id}/activity/{activity_id}/share", response_class=HTMLResponse)
+async def ui_user_activity_share(user_id: int, activity_id: int, request: Request):
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).get(user_id)
+        if not user:
+            return HTMLResponse("Utilisateur introuvable", status_code=404)
+
+        _maybe_refresh_glucose_for_page_view(db, user, page_name="activity_share")
+
+        activity = (
+            db.query(Activity)
+            .filter(Activity.id == activity_id, Activity.user_id == user_id)
+            .first()
+        )
+        if not activity:
+            return HTMLResponse("Activité introuvable", status_code=404)
+
+        points = (
+            db.query(ActivityStreamPoint)
+            .filter(ActivityStreamPoint.activity_id == activity.id)
+            .order_by(ActivityStreamPoint.idx.asc())
+            .all()
+        )
+
+        start_dt = _safe_dt(activity.start_date)
+        glucose_chart_points = []
+        route_points = []
+        altitude_profile_points = []
+        for point in points:
+            if point.glucose_mgdl is None or point.elapsed_time is None:
+                pass
+            else:
+                ts_iso = None
+                if start_dt is not None:
+                    ts_iso = (start_dt + dt.timedelta(seconds=float(point.elapsed_time))).isoformat()
+                glucose_chart_points.append({
+                    "elapsed_sec": float(point.elapsed_time),
+                    "ts": ts_iso,
+                    "mgdl": float(point.glucose_mgdl),
+                })
+            if point.lat is not None and point.lon is not None:
+                route_points.append([float(point.lat), float(point.lon)])
+            if point.distance is not None and point.altitude is not None:
+                altitude_profile_points.append([
+                    float(point.distance) / 1000.0,
+                    float(point.altitude),
+                ])
+
+        if len(route_points) > 500:
+            route_points = route_points[:: max(1, len(route_points) // 500)]
+        if len(altitude_profile_points) > 500:
+            altitude_profile_points = altitude_profile_points[:: max(1, len(altitude_profile_points) // 500)]
+
+        story_export_data = _build_story_export_data(
+            activity,
+            glucose_chart_points,
+            route_points=route_points,
+            altitude_profile_points=altitude_profile_points,
+        )
+        if not story_export_data:
+            return HTMLResponse(
+                "Pas assez de données glycémie pour proposer un partage.",
+                status_code=404,
+            )
+
+        return templates.TemplateResponse(
+            "activity_share.html",
+            {
+                "request": request,
+                "user": user,
+                "activity": activity,
+                "story_export_data": story_export_data,
+            },
+        )
+    finally:
+        db.close()
 
 
 

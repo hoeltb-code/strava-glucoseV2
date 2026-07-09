@@ -33,6 +33,19 @@ class CareLinkNeedsReauthError(CareLinkError):
     pass
 
 
+CARELINK_SETUP_REQUIRED_MESSAGE = (
+    "Nous n'avons pas encore pu finaliser la connexion à votre compte CareLink. "
+    "Vérifiez vos informations puis réessayez. Selon votre configuration Medtronic, "
+    "cette connexion peut ne pas être disponible pour le moment."
+)
+CARELINK_SESSION_REFRESH_MESSAGE = (
+    "La connexion CareLink doit être renouvelée pour continuer la synchronisation."
+)
+CARELINK_SESSION_INVALID_MESSAGE = (
+    "La connexion CareLink n'est plus valide. Merci de reconnecter votre compte."
+)
+
+
 def _safe_json_loads(raw: str | None) -> dict[str, Any]:
     if not raw:
         return {}
@@ -123,9 +136,7 @@ def _parse_token_payload(cred) -> dict[str, Any]:
     }
     missing = [key for key, value in payload.items() if not value]
     if missing:
-        raise CareLinkNeedsReauthError(
-            "Connexion CareLink incomplète. Un bootstrap CareLink Connect interactif est requis."
-        )
+        raise CareLinkNeedsReauthError(CARELINK_SETUP_REQUIRED_MESSAGE)
     return payload
 
 
@@ -141,7 +152,7 @@ def _refresh_tokens(cred) -> None:
     headers = {"mag-identifier": token_data["mag_identifier"]}
     resp = requests.post(config["token_url"], headers=headers, data=data, timeout=20)
     if resp.status_code != 200:
-        raise CareLinkNeedsReauthError("Impossible de rafraîchir les tokens CareLink.")
+        raise CareLinkNeedsReauthError(CARELINK_SESSION_REFRESH_MESSAGE)
     refreshed = resp.json()
     cred.access_token = encrypt_secret(refreshed.get("access_token"))
     cred.refresh_token = encrypt_secret(refreshed.get("refresh_token"))
@@ -166,7 +177,7 @@ def _load_user_profile(config: dict[str, Any], token_data: dict[str, Any]) -> di
         headers=_auth_headers(token_data),
     )
     if status in CARELINK_AUTH_ERROR_CODES or not data:
-        raise CareLinkNeedsReauthError("Session CareLink expirée ou invalide.")
+        raise CareLinkNeedsReauthError(CARELINK_SESSION_INVALID_MESSAGE)
     return data
 
 
@@ -179,7 +190,7 @@ def _resolve_patient_id(config: dict[str, Any], token_data: dict[str, Any], role
         headers=_auth_headers(token_data),
     )
     if status in CARELINK_AUTH_ERROR_CODES:
-        raise CareLinkNeedsReauthError("Session CareLink expirée ou invalide.")
+        raise CareLinkNeedsReauthError(CARELINK_SESSION_INVALID_MESSAGE)
     if isinstance(data, list) and data:
         first = data[0]
         return first.get("username") or first.get("patientId")
@@ -202,7 +213,7 @@ def _fetch_recent_payload(config: dict[str, Any], token_data: dict[str, Any], us
         data=json.dumps(body),
     )
     if status in CARELINK_AUTH_ERROR_CODES:
-        raise CareLinkNeedsReauthError("Session CareLink expirée ou invalide.")
+        raise CareLinkNeedsReauthError(CARELINK_SESSION_INVALID_MESSAGE)
     return data
 
 
@@ -364,9 +375,7 @@ def fetch_glucose(
     config = _load_config(cred.region, token_data["access_token"])
 
     if refresh_if_needed and cred.token_expires_at and cred.token_expires_at <= dt.datetime.utcnow():
-        raise CareLinkNeedsReauthError(
-            "La session CareLink doit être réauthentifiée via CareLink Connect."
-        )
+        raise CareLinkNeedsReauthError(CARELINK_SESSION_REFRESH_MESSAGE)
 
     user_profile = _load_user_profile(config, token_data)
     patient_id = cred.patient_id or _resolve_patient_id(config, token_data, user_profile.get("role", ""))

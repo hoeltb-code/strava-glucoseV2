@@ -94,7 +94,7 @@ import re
 from urllib.parse import quote_plus, urlencode, urlsplit
 from bisect import bisect_left
 from sqlalchemy import desc, func, and_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -162,7 +162,14 @@ from .dexcom_client import (
     test_dexcom_credentials,
 )
 from app.providers.medtronic_carelink import test_connection as test_carelink_connection
-from app.providers.registry import fetch_legacy_glucose_points, get_user_provider_preference
+from app.providers.registry import (
+    get_active_glucose_source,
+    get_glucose_data_for_user,
+    get_glucose_source_label,
+    set_active_glucose_source,
+    test_provider_connection,
+)
+from app.providers.nightscout import normalize_base_url
 from app.database import SessionLocal, init_db, get_db
 from app.models import (
     StravaToken,
@@ -173,6 +180,7 @@ from app.models import (
     GlucosePoint,
     DexcomToken,
     CareLinkCredential,
+    NightscoutCredential,
     UserSettings,
     ActivityVamPeak,
     ActivityZoneSlopeAgg
@@ -1341,7 +1349,6 @@ def _guard_admin(request: Request):
         return RedirectResponse(url=f"/ui/user/{session_user_id}", status_code=302)
     return None
 
-
 def _normalize_connection_filter(value: str | None) -> str:
     value = (value or "all").strip().lower()
     if value in {"connected", "disconnected"}:
@@ -1384,7 +1391,17 @@ def _collect_admin_user_rows(
     dexcom_filter: str = "all",
     carelink_filter: str = "all",
 ) -> list[dict]:
-    users = db.query(User).order_by(User.id.asc()).all()
+    users = (
+        db.query(User)
+        .options(
+            selectinload(User.strava_tokens),
+            selectinload(User.libre_credentials),
+            selectinload(User.dexcom_tokens),
+            selectinload(User.carelink_credentials),
+        )
+        .order_by(User.id.asc())
+        .all()
+    )
     rows: list[dict] = []
     for u in users:
         carelink = u.carelink_credentials
@@ -1530,34 +1547,30 @@ def _storage_source_from_provider(source_label: str | None) -> str:
         return "dexcom"
     if source_label == "medtronic_carelink":
         return "medtronic_carelink"
+    if source_label == "nightscout":
+        return "nightscout"
     return "archive_libre"
 
 
-def _other_connected_glucose_providers(user: User, selected_provider: str) -> list[str]:
-    connected: list[str] = []
-    if user.libre_credentials and selected_provider != "abbott":
-        connected.append("LibreLinkUp")
-    if has_dexcom_share_credentials(user.dexcom_tokens) and selected_provider != "dexcom":
-        connected.append("Dexcom Share")
-    if user.carelink_credentials and user.carelink_credentials.username and selected_provider != "medtronic_carelink":
-        connected.append("Medtronic CareLink")
-    return connected
+def _provider_anchor(provider: str) -> str:
+    return {
+        "abbott": "libre",
+        "dexcom": "dexcom",
+        "medtronic_carelink": "carelink",
+        "nightscout": "nightscout",
+    }.get(provider, "profile")
 
 
-def _single_provider_conflict_redirect(user_id: int, anchor: str, selected_provider: str, connected: list[str]):
-    labels = {
-        "abbott": "LibreLinkUp",
-        "dexcom": "Dexcom Share",
-        "medtronic_carelink": "Medtronic CareLink",
-    }
-    provider_label = labels.get(selected_provider, "ce capteur")
-    msg = quote_plus(
-        f"Un seul capteur peut être connecté à la fois. Déconnecte d'abord {' / '.join(connected)} avant d'activer {provider_label}."
-    )
-    return RedirectResponse(
-        url=f"/ui/user/{user_id}/profile?{anchor}_status=warn&{anchor}_msg={msg}#{anchor}",
-        status_code=303,
-    )
+def _provider_is_configured(user: User, provider: str) -> bool:
+    if provider == "abbott":
+        return user.libre_credentials is not None
+    if provider == "dexcom":
+        return has_dexcom_share_credentials(user.dexcom_tokens)
+    if provider == "medtronic_carelink":
+        return bool(user.carelink_credentials and user.carelink_credentials.username)
+    if provider == "nightscout":
+        return bool(user.nightscout_credentials and user.nightscout_credentials.base_url)
+    return False
 
 
 def _compute_next_retention_job_run(now_local: dt.datetime | None = None) -> dt.datetime:
@@ -1642,7 +1655,7 @@ def get_cgm_graph_for_user(
     user = db.query(User).get(user_id)
     if not user:
         return [], None
-    points, source_label, _meta = fetch_legacy_glucose_points(
+    points, source_label, _meta = get_glucose_data_for_user(
         db,
         user,
         start,
@@ -2950,9 +2963,6 @@ def ui_set_libre_credentials(
             .filter(LibreCredentials.user_id == user_id)
             .first()
         )
-        other_connected = _other_connected_glucose_providers(user, "abbott")
-        if other_connected and existing_cred is None:
-            return _single_provider_conflict_redirect(user_id, "libre", "abbott", other_connected)
 
         client_version = (
             existing_cred.client_version if existing_cred and existing_cred.client_version
@@ -2991,9 +3001,8 @@ def ui_set_libre_credentials(
                     client_version=client_version,
                 )
                 db.add(cred)
-            if user.glucose_provider is None:
-                user.glucose_provider = "abbott"
-                user.cgm_source = "libre"
+            if get_active_glucose_source(user) is None:
+                set_active_glucose_source(user, "abbott")
             if test_status == "error":
                 clear_libre_disabled_state(user_id)
             db.commit()
@@ -3024,6 +3033,31 @@ def ui_set_libre_credentials(
     return RedirectResponse(
         url=f"/ui/user/{user_id}/profile{params}#libre",
         status_code=302,
+    )
+
+
+@app.post("/ui/user/{user_id}/libre/test")
+def ui_test_libre_credentials(request: Request, user_id: int):
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).get(user_id)
+        if not user:
+            msg = quote_plus("Utilisateur introuvable.")
+            return RedirectResponse(
+                url=f"/ui/user/{user_id}/profile?libre_status=error&libre_msg={msg}#libre",
+                status_code=303,
+            )
+        result = test_provider_connection(user, "abbott")
+    finally:
+        db.close()
+
+    return RedirectResponse(
+        url=f"/ui/user/{user_id}/profile?libre_status={result.status}&libre_msg={quote_plus(result.message)}#libre",
+        status_code=303,
     )
 
 
@@ -3087,19 +3121,20 @@ def ui_home(request: Request):
             "next_url": _build_url_with_query(request, user_page=user_page + 1) if user_has_next else None,
         }
 
-        total_activity_count = db.query(Activity.id).count()
         activity_offset = (activity_page - 1) * activity_page_size
         recent_activities_rows = (
             db.query(Activity, User)
             .join(User, Activity.user_id == User.id)
             .order_by(Activity.start_date.desc())
             .offset(activity_offset)
-            .limit(activity_page_size)
+            .limit(activity_page_size + 1)
             .all()
         )
 
+        visible_recent_activities = recent_activities_rows[:activity_page_size]
+
         recent_activities = []
-        for act, owner in recent_activities_rows:
+        for act, owner in visible_recent_activities:
             recent_activities.append({
                 "id": act.id,
                 "user_id": owner.id,
@@ -3114,13 +3149,16 @@ def ui_home(request: Request):
             })
 
         activity_has_prev = activity_page > 1
-        activity_has_next = activity_offset + activity_page_size < total_activity_count
+        activity_has_next = len(recent_activities_rows) > activity_page_size
+        visible_activity_total = (
+            activity_offset + len(visible_recent_activities) + (1 if activity_has_next else 0)
+        )
         activity_pagination = {
             "page": activity_page,
             "page_size": activity_page_size,
-            "total": total_activity_count,
-            "start_index": activity_offset + 1 if total_activity_count else 0,
-            "end_index": min(activity_offset + activity_page_size, total_activity_count),
+            "total": visible_activity_total if recent_activities else 0,
+            "start_index": activity_offset + 1 if recent_activities else 0,
+            "end_index": activity_offset + len(visible_recent_activities),
             "has_prev": activity_has_prev,
             "has_next": activity_has_next,
             "prev_url": _build_url_with_query(request, activity_page=activity_page - 1) if activity_has_prev else None,
@@ -4097,6 +4135,8 @@ def ui_user_profile(user_id: int, request: Request):
         has_dexcom = dexcom_record is not None
         carelink_record = user.carelink_credentials
         has_carelink = bool(carelink_record and carelink_record.username)
+        nightscout_record = user.nightscout_credentials
+        has_nightscout = bool(nightscout_record and nightscout_record.base_url)
 
         libre_email = user.libre_credentials.email if user.libre_credentials else ""
         libre_region = user.libre_credentials.region if user.libre_credentials else ""
@@ -4104,12 +4144,19 @@ def ui_user_profile(user_id: int, request: Request):
         dexcom_region = dexcom_record.share_region if dexcom_record else settings.DEXCOM_SHARE_REGION_DEFAULT
         carelink_username = carelink_record.username if carelink_record else ""
         carelink_region = carelink_record.region if carelink_record else "EU"
+        nightscout_url = nightscout_record.base_url if nightscout_record else ""
+        nightscout_token_configured = bool(nightscout_record and nightscout_record.read_token_encrypted)
         carelink_status = request.query_params.get("carelink_status") or (carelink_record.status if carelink_record else None)
         carelink_status_message = request.query_params.get("carelink_msg") or (carelink_record.error_message if carelink_record else None)
         carelink_last_sync_at = carelink_record.last_sync_at if carelink_record else None
+        nightscout_status = request.query_params.get("nightscout_status")
+        nightscout_status_message = request.query_params.get("nightscout_msg") or (
+            nightscout_record.last_error_message if nightscout_record and not request.query_params.get("nightscout_status") else None
+        )
 
         strava_athlete_id = user.strava_tokens[0].athlete_id if user.strava_tokens else None
-        glucose_provider = user.glucose_provider or get_user_provider_preference(user) or ""
+        glucose_provider = get_active_glucose_source(user) or ""
+        glucose_source_active_label = get_glucose_source_label(glucose_provider)
 
         # ✅ EAGER: lire les préférences et créer un bool simple
         user_settings = db.query(UserSettings).filter(UserSettings.user_id == user_id).one_or_none()
@@ -4140,6 +4187,7 @@ def ui_user_profile(user_id: int, request: Request):
             "has_libre": has_libre,
             "has_dexcom": has_dexcom,
             "has_carelink": has_carelink,
+            "has_nightscout": has_nightscout,
             "libre_email": libre_email,
             "libre_region": libre_region,
             "dexcom_username": dexcom_username,
@@ -4147,8 +4195,11 @@ def ui_user_profile(user_id: int, request: Request):
             "carelink_username": carelink_username,
             "carelink_region": carelink_region,
             "carelink_last_sync_at": carelink_last_sync_at,
+            "nightscout_url": nightscout_url,
+            "nightscout_token_configured": nightscout_token_configured,
             "strava_athlete_id": strava_athlete_id,
             "glucose_provider": glucose_provider,
+            "glucose_source_active_label": glucose_source_active_label,
             "auto_block_enabled": auto_block_enabled,
             "libre_status": libre_status,
             "libre_status_message": libre_status_message,
@@ -4156,6 +4207,8 @@ def ui_user_profile(user_id: int, request: Request):
             "dexcom_status_message": dexcom_status_message,
             "carelink_status": carelink_status,
             "carelink_status_message": carelink_status_message,
+            "nightscout_status": nightscout_status,
+            "nightscout_status_message": nightscout_status_message,
         }
         return templates.TemplateResponse("user_profile.html", ctx)
 
@@ -4176,7 +4229,7 @@ def ui_user_profile_update(
     height_cm: str = Form(""),       # pareil en float
     weight_kg: str = Form(""),
     is_pro: bool = Form(False),      # checkbox pro
-    glucose_provider: str = Form(""),      # "", "abbott", "dexcom", "medtronic_carelink"
+    glucose_provider: str = Form(""),      # rétro-compat UI historique
     profile_image: UploadFile | None = File(None),  # 👈 fichier uploadé
 
     desc_enable_auto_block: bool = Form(True),
@@ -4256,12 +4309,8 @@ def ui_user_profile_update(
 
         # -------- Source CGM --------
         provider_val = (glucose_provider or "").strip().lower()
-        if provider_val in ("abbott", "dexcom", "medtronic_carelink"):
-            user.glucose_provider = provider_val
-            user.cgm_source = "libre" if provider_val == "abbott" else provider_val
-        else:
-            user.glucose_provider = None
-            user.cgm_source = None
+        if provider_val in ("abbott", "dexcom", "medtronic_carelink", "nightscout"):
+            set_active_glucose_source(user, provider_val)
 
         # -------- Upload avatar --------
         if profile_image and profile_image.filename:
@@ -4407,7 +4456,10 @@ def ui_runner_profile(
     carelink_connected = (
         db.query(CareLinkCredential.id).filter(CareLinkCredential.user_id == user_id).first() is not None
     )
-    show_glucose_tabs = libre_connected or dexcom_connected or carelink_connected
+    nightscout_connected = (
+        db.query(NightscoutCredential.id).filter(NightscoutCredential.user_id == user_id).first() is not None
+    )
+    show_glucose_tabs = libre_connected or dexcom_connected or carelink_connected or nightscout_connected
 
     glucose_zone_summary = []
     glucose_chart_24h = []
@@ -4992,6 +5044,7 @@ def _delete_user_account_data(db: Session, user: User) -> None:
     db.query(LibreCredentials).filter(LibreCredentials.user_id == user.id).delete()
     db.query(DexcomToken).filter(DexcomToken.user_id == user.id).delete()
     db.query(CareLinkCredential).filter(CareLinkCredential.user_id == user.id).delete()
+    db.query(NightscoutCredential).filter(NightscoutCredential.user_id == user.id).delete()
     db.query(GlucosePoint).filter(GlucosePoint.user_id == user.id).delete()
     db.query(UserSettings).filter(UserSettings.user_id == user.id).delete()
     db.query(models.UserVamPR).filter(models.UserVamPR.user_id == user.id).delete()
@@ -5393,7 +5446,10 @@ def ui_user_dashboard(user_id: int, request: Request):
         carelink_connected = (
             db.query(CareLinkCredential.id).filter(CareLinkCredential.user_id == user_id).first() is not None
         )
-        show_daily_glucose = libre_connected or dexcom_connected or carelink_connected
+        nightscout_connected = (
+            db.query(NightscoutCredential.id).filter(NightscoutCredential.user_id == user_id).first() is not None
+        )
+        show_daily_glucose = libre_connected or dexcom_connected or carelink_connected or nightscout_connected
 
         # ---------------------------
         # 📈 Glycémie du jour + plages de sport
@@ -7302,10 +7358,6 @@ def ui_dexcom_credentials_save(
             .order_by(DexcomToken.id.desc())
             .all()
         )
-        other_connected = _other_connected_glucose_providers(user, "dexcom")
-        if other_connected and not _get_dexcom_share_record(existing_records):
-            return _single_provider_conflict_redirect(user_id, "dexcom", "dexcom", other_connected)
-
         status, msg = test_dexcom_credentials(
             username=username,
             password=password,
@@ -7335,15 +7387,39 @@ def ui_dexcom_credentials_save(
         token.access_token = token.access_token or ""
         token.refresh_token = token.refresh_token or ""
         token.expires_at = token.expires_at or 0
-        if user.glucose_provider is None:
-            user.glucose_provider = "dexcom"
-            user.cgm_source = "dexcom"
+        if get_active_glucose_source(user) is None:
+            set_active_glucose_source(user, "dexcom")
         db.commit()
     finally:
         db.close()
 
     return RedirectResponse(
         url=f"/ui/user/{user_id}/profile?dexcom_status={status}&dexcom_msg={quote_plus(msg)}#dexcom",
+        status_code=303,
+    )
+
+
+@app.post("/ui/user/{user_id}/dexcom/test")
+def ui_dexcom_test_connection(request: Request, user_id: int):
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).get(user_id)
+        if not user:
+            msg = quote_plus("Utilisateur introuvable.")
+            return RedirectResponse(
+                url=f"/ui/user/{user_id}/profile?dexcom_status=error&dexcom_msg={msg}#dexcom",
+                status_code=303,
+            )
+        result = test_provider_connection(user, "dexcom")
+    finally:
+        db.close()
+
+    return RedirectResponse(
+        url=f"/ui/user/{user_id}/profile?dexcom_status={result.status}&dexcom_msg={quote_plus(result.message)}#dexcom",
         status_code=303,
     )
 
@@ -7387,16 +7463,6 @@ def ui_carelink_credentials_save(
                 status_code=404,
             )
 
-        if user.carelink_credentials is None:
-            other_connected = _other_connected_glucose_providers(user, "medtronic_carelink")
-            if other_connected:
-                return _single_provider_conflict_redirect(
-                    user_id,
-                    "carelink",
-                    "medtronic_carelink",
-                    other_connected,
-                )
-
         cred = user.carelink_credentials or CareLinkCredential(
             user_id=user_id,
             username=username,
@@ -7414,9 +7480,8 @@ def ui_carelink_credentials_save(
                 "Cette intégration est expérimentale et dépend de CareLink Connect. "
                 "Elle peut nécessiter une nouvelle authentification si Medtronic modifie son système."
             )
-        if user.glucose_provider is None:
-            user.glucose_provider = "medtronic_carelink"
-            user.cgm_source = "medtronic_carelink"
+        if get_active_glucose_source(user) is None:
+            set_active_glucose_source(user, "medtronic_carelink")
         db.commit()
 
         result = test_carelink_connection(user)
@@ -7471,6 +7536,146 @@ def ui_carelink_test_connection(request: Request, user_id: int):
     )
 
 
+@app.post("/ui/user/{user_id}/nightscout/credentials")
+def ui_nightscout_credentials_save(
+    request: Request,
+    user_id: int,
+    url: str = Form(""),
+    read_token: str = Form(""),
+):
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+
+    try:
+        normalized_url = normalize_base_url(url)
+    except Exception as exc:  # noqa: BLE001
+        msg = quote_plus(str(exc))
+        return RedirectResponse(
+            url=f"/ui/user/{user_id}/profile?nightscout_status=error&nightscout_msg={msg}#nightscout",
+            status_code=303,
+        )
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).get(user_id)
+        if not user:
+            return templates.TemplateResponse(
+                "error.html",
+                {
+                    "request": request,
+                    "title": "Utilisateur introuvable",
+                    "message": f"Aucun utilisateur avec id={user_id}",
+                    "back_url": "/ui/login",
+                },
+                status_code=404,
+            )
+
+        cred = user.nightscout_credentials or NightscoutCredential(user_id=user_id, base_url=normalized_url)
+        if cred.id is None:
+            db.add(cred)
+
+        cred.base_url = normalized_url
+        if (read_token or "").strip():
+            cred.read_token_encrypted = encrypt_secret(read_token.strip())
+        cred.last_error_message = None
+
+        if get_active_glucose_source(user) is None:
+            set_active_glucose_source(user, "nightscout")
+
+        db.commit()
+    finally:
+        db.close()
+
+    msg = quote_plus("Configuration Nightscout enregistrée.")
+    return RedirectResponse(
+        url=f"/ui/user/{user_id}/profile?nightscout_status=ok&nightscout_msg={msg}#nightscout",
+        status_code=303,
+    )
+
+
+@app.post("/ui/user/{user_id}/nightscout/test")
+def ui_nightscout_test_connection(request: Request, user_id: int):
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).get(user_id)
+        if not user:
+            msg = quote_plus("Utilisateur introuvable.")
+            return RedirectResponse(
+                url=f"/ui/user/{user_id}/profile?nightscout_status=error&nightscout_msg={msg}#nightscout",
+                status_code=303,
+            )
+
+        result = test_provider_connection(user, "nightscout")
+        if user.nightscout_credentials:
+            user.nightscout_credentials.last_error_message = None if result.ok else result.message
+            if result.last_sync_at:
+                user.nightscout_credentials.last_success_at = result.last_sync_at
+            db.commit()
+    finally:
+        db.close()
+
+    return RedirectResponse(
+        url=(
+            f"/ui/user/{user_id}/profile?nightscout_status={result.status}"
+            f"&nightscout_msg={quote_plus(result.message)}#nightscout"
+        ),
+        status_code=303,
+    )
+
+
+@app.post("/ui/user/{user_id}/glucose-source")
+def ui_set_glucose_source(
+    request: Request,
+    user_id: int,
+    provider: str = Form(""),
+):
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+
+    provider = (provider or "").strip().lower()
+    anchor = _provider_anchor(provider)
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).get(user_id)
+        if not user:
+            msg = quote_plus("Utilisateur introuvable.")
+            return RedirectResponse(
+                url=f"/ui/user/{user_id}/profile?{anchor}_status=error&{anchor}_msg={msg}",
+                status_code=303,
+            )
+        if provider not in {"abbott", "dexcom", "medtronic_carelink", "nightscout"}:
+            msg = quote_plus("Source glycémique invalide.")
+            return RedirectResponse(
+                url=f"/ui/user/{user_id}/profile?{anchor}_status=error&{anchor}_msg={msg}#{anchor}",
+                status_code=303,
+            )
+        if not _provider_is_configured(user, provider):
+            label = get_glucose_source_label(provider)
+            msg = quote_plus(f"Configure d'abord {label} avant de l'activer.")
+            return RedirectResponse(
+                url=f"/ui/user/{user_id}/profile?{anchor}_status=warn&{anchor}_msg={msg}#{anchor}",
+                status_code=303,
+            )
+
+        set_active_glucose_source(user, provider)
+        db.commit()
+    finally:
+        db.close()
+
+    label = quote_plus(f"{get_glucose_source_label(provider)} est maintenant la source active.")
+    return RedirectResponse(
+        url=f"/ui/user/{user_id}/profile?{anchor}_status=ok&{anchor}_msg={label}#{anchor}",
+        status_code=303,
+    )
+
+
 @app.post("/ui/user/{user_id}/libre/disconnect")
 def ui_libre_disconnect(request: Request, user_id: int):
     """
@@ -7485,9 +7690,8 @@ def ui_libre_disconnect(request: Request, user_id: int):
     try:
         db.query(LibreCredentials).filter(LibreCredentials.user_id == user_id).delete()
         user = db.query(User).get(user_id)
-        if user and user.glucose_provider == "abbott":
-            user.glucose_provider = None
-            user.cgm_source = None
+        if user and get_active_glucose_source(user) == "abbott":
+            set_active_glucose_source(user, None)
         db.commit()
     finally:
         db.close()
@@ -7508,14 +7712,32 @@ def ui_carelink_disconnect(request: Request, user_id: int):
     try:
         db.query(CareLinkCredential).filter(CareLinkCredential.user_id == user_id).delete()
         user = db.query(User).get(user_id)
-        if user and user.glucose_provider == "medtronic_carelink":
-            user.glucose_provider = None
-            user.cgm_source = None
+        if user and get_active_glucose_source(user) == "medtronic_carelink":
+            set_active_glucose_source(user, None)
         db.commit()
     finally:
         db.close()
 
     return RedirectResponse(url=f"/ui/user/{user_id}/profile#carelink", status_code=303)
+
+
+@app.post("/ui/user/{user_id}/nightscout/disconnect")
+def ui_nightscout_disconnect(request: Request, user_id: int):
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+
+    db = SessionLocal()
+    try:
+        db.query(NightscoutCredential).filter(NightscoutCredential.user_id == user_id).delete()
+        user = db.query(User).get(user_id)
+        if user and get_active_glucose_source(user) == "nightscout":
+            set_active_glucose_source(user, None)
+        db.commit()
+    finally:
+        db.close()
+
+    return RedirectResponse(url=f"/ui/user/{user_id}/profile#nightscout", status_code=303)
 
 
 @app.post("/ui/user/{user_id}/dexcom/disconnect")
@@ -7533,9 +7755,8 @@ def ui_dexcom_disconnect(request: Request, user_id: int):
     try:
         db.query(DexcomToken).filter(DexcomToken.user_id == user_id).delete()
         user = db.query(User).get(user_id)
-        if user and (user.cgm_source == "dexcom" or user.glucose_provider == "dexcom"):
-            user.glucose_provider = None
-            user.cgm_source = None
+        if user and get_active_glucose_source(user) == "dexcom":
+            set_active_glucose_source(user, None)
         db.commit()
     finally:
         db.close()

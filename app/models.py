@@ -51,7 +51,10 @@ class User(Base):
     weight_kg = Column(Float, nullable=True)
     is_pro = Column(Boolean, nullable=False, default=False)
 
-    # Source CGM préférée : None / "libre" / "dexcom"
+    # Source CGM active canonique : abbott / dexcom / medtronic_carelink / nightscout / none
+    glucose_source_active = Column(String(32), nullable=True, default=None)
+
+    # Compat historique : préférence/provider legacy
     cgm_source = Column(String(20), nullable=True, default=None)
     glucose_provider = Column(String(32), nullable=True, default=None)
 
@@ -60,6 +63,7 @@ class User(Base):
     libre_credentials = relationship("LibreCredentials", back_populates="user", uselist=False)
     dexcom_tokens = relationship("DexcomToken", back_populates="user")
     carelink_credentials = relationship("CareLinkCredential", back_populates="user", uselist=False)
+    nightscout_credentials = relationship("NightscoutCredential", back_populates="user", uselist=False)
     activities = relationship("Activity", back_populates="user")
 
     # NEW
@@ -161,6 +165,23 @@ class CareLinkCredential(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = relationship("User", back_populates="carelink_credentials")
+
+
+class NightscoutCredential(Base):
+    __tablename__ = "nightscout_credentials"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+
+    base_url = Column(Text, nullable=False)
+    read_token_encrypted = Column(Text, nullable=True)
+    last_success_at = Column(DateTime, nullable=True)
+    last_error_message = Column(String(255), nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", back_populates="nightscout_credentials")
 
 
 class Activity(Base):

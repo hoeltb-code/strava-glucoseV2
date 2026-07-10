@@ -29,6 +29,7 @@ def _run_local_schema_fixes():
     carelink_datetime_type = "DATETIME" if is_sqlite else "TIMESTAMP"
 
     _ensure_column("users", "glucose_provider", "glucose_provider VARCHAR(32)")
+    _ensure_column("users", "glucose_source_active", "glucose_source_active VARCHAR(32)")
     _ensure_column("dexcom_tokens", "share_username", "share_username TEXT")
     _ensure_column("dexcom_tokens", "share_password", "share_password TEXT")
     _ensure_column("dexcom_tokens", "share_region", "share_region VARCHAR(16)")
@@ -107,6 +108,17 @@ def _run_local_schema_fixes():
                 "WHEN cgm_source = 'medtronic_carelink' THEN 'medtronic_carelink' "
                 "ELSE glucose_provider END "
                 "WHERE glucose_provider IS NULL"
+            )
+        )
+        conn.execute(
+            text(
+                "UPDATE users "
+                "SET glucose_source_active = CASE "
+                "WHEN glucose_provider IN ('abbott', 'dexcom', 'medtronic_carelink', 'nightscout') THEN glucose_provider "
+                "WHEN cgm_source = 'libre' THEN 'abbott' "
+                "WHEN cgm_source IN ('dexcom', 'medtronic_carelink', 'nightscout') THEN cgm_source "
+                "ELSE glucose_source_active END "
+                "WHERE glucose_source_active IS NULL"
             )
         )
 

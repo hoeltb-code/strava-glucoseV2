@@ -1390,6 +1390,7 @@ def _collect_admin_user_rows(
     libre_filter: str = "all",
     dexcom_filter: str = "all",
     carelink_filter: str = "all",
+    nightscout_filter: str = "all",
 ) -> list[dict]:
     users = (
         db.query(User)
@@ -1412,6 +1413,8 @@ def _collect_admin_user_rows(
             "libre_email": u.libre_credentials.email if u.libre_credentials else None,
             "has_dexcom": has_dexcom_share_credentials(u.dexcom_tokens),
             "has_carelink": bool(carelink and carelink.username),
+            "has_nightscout": bool(u.nightscout_credentials and u.nightscout_credentials.base_url),
+            "nightscout_url": u.nightscout_credentials.base_url if u.nightscout_credentials else None,
             "carelink_region": carelink.region if carelink else None,
             "carelink_status": carelink.status if carelink else None,
             "carelink_last_sync_at": carelink.last_sync_at if carelink else None,
@@ -1427,6 +1430,8 @@ def _collect_admin_user_rows(
         if not _matches_connection_filter(row["has_dexcom"], dexcom_filter):
             continue
         if not _matches_connection_filter(row["has_carelink"], carelink_filter):
+            continue
+        if not _matches_connection_filter(row["has_nightscout"], nightscout_filter):
             continue
         rows.append(row)
     return rows
@@ -3083,6 +3088,7 @@ def ui_home(request: Request):
     libre_filter = _normalize_connection_filter(request.query_params.get("libre_filter"))
     dexcom_filter = _normalize_connection_filter(request.query_params.get("dexcom_filter"))
     carelink_filter = _normalize_connection_filter(request.query_params.get("carelink_filter"))
+    nightscout_filter = _normalize_connection_filter(request.query_params.get("nightscout_filter"))
     activity_page = _safe_positive_int(request.query_params.get("activity_page"), 1)
     activity_page_size = 5
 
@@ -3102,6 +3108,7 @@ def ui_home(request: Request):
             libre_filter=libre_filter,
             dexcom_filter=dexcom_filter,
             carelink_filter=carelink_filter,
+            nightscout_filter=nightscout_filter,
         )
 
         total_filtered_users = len(filtered_users)
@@ -3181,6 +3188,7 @@ def ui_home(request: Request):
                 "libre": libre_filter,
                 "dexcom": dexcom_filter,
                 "carelink": carelink_filter,
+                "nightscout": nightscout_filter,
             },
             "total_filtered_users": total_filtered_users,
             "admin_status": admin_status,

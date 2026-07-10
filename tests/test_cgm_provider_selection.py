@@ -8,7 +8,7 @@ from unittest.mock import patch
 import tests.test_env  # noqa: F401
 
 from app.cgm_service import fetch_realtime_points_for_user
-from app.providers.registry import resolve_provider_order
+from app.providers.registry import get_active_glucose_source, resolve_provider_order
 
 
 class DummyDb:
@@ -94,6 +94,19 @@ class ProviderSelectionTests(unittest.TestCase):
         self.assertEqual(points, [])
         self.assertIsNone(source_label)
         self.assertEqual(meta["attempted_sources"], [])
+
+    def test_single_configured_provider_is_used_when_no_active_source_saved(self):
+        user = SimpleNamespace(
+            glucose_source_active=None,
+            glucose_provider=None,
+            cgm_source=None,
+            libre_credentials=SimpleNamespace(email="libre@example.com"),
+            dexcom_tokens=[],
+            carelink_credentials=None,
+            nightscout_credentials=None,
+        )
+
+        self.assertEqual(get_active_glucose_source(user), "abbott")
 
 
 if __name__ == "__main__":

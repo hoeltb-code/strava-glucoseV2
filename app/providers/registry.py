@@ -31,6 +31,19 @@ _LEGACY_CGM_MAP = {
 }
 
 
+def get_configured_glucose_sources(user) -> list[str]:
+    configured: list[str] = []
+    if librelinkup.is_configured(user):
+        configured.append("abbott")
+    if dexcom_share.is_configured(user):
+        configured.append("dexcom")
+    if medtronic_carelink.is_configured(user):
+        configured.append("medtronic_carelink")
+    if nightscout.is_configured(user):
+        configured.append("nightscout")
+    return configured
+
+
 def normalize_provider_name(provider: Optional[str]) -> Optional[str]:
     value = (provider or "").strip().lower()
     if not value:
@@ -50,6 +63,10 @@ def get_active_glucose_source(user) -> Optional[str]:
     legacy = normalize_provider_name(getattr(user, "cgm_source", None))
     if legacy in KNOWN_PROVIDERS:
         return legacy
+
+    configured = get_configured_glucose_sources(user)
+    if len(configured) == 1:
+        return configured[0]
     return None
 
 

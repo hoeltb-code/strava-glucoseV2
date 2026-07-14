@@ -370,7 +370,7 @@ from app.cgm_service import (
     run_polling_loop,
     fetch_realtime_points_for_user,
     record_glucose_page_view,
-    should_attempt_libre_page_refresh,
+    should_attempt_page_refresh,
     test_libre_credentials_guarded,
 )
 from app.indicators.slope_cadence import build_slope_cadence_data
@@ -1676,7 +1676,7 @@ def _run_page_view_glucose_refresh(user_id: int, page_name: str) -> None:
         if not user:
             return
 
-        should_refresh, reason = should_attempt_libre_page_refresh(user)
+        should_refresh, reason = should_attempt_page_refresh(db, user)
         if not should_refresh:
             if reason:
                 print(f"[CGM] user={user.id} -> refresh {page_name} ignoré ({reason}).")

@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import tests.test_env  # noqa: F401
 
-from app.cgm_service import fetch_realtime_points_for_user
+from app.cgm_service import fetch_realtime_points_for_user, should_attempt_page_refresh
 from app.providers.registry import get_active_glucose_source, resolve_provider_order
 
 
@@ -107,6 +107,46 @@ class ProviderSelectionTests(unittest.TestCase):
         )
 
         self.assertEqual(get_active_glucose_source(user), "abbott")
+
+    def test_page_refresh_allows_dexcom_without_libre_account(self):
+        user = SimpleNamespace(
+            id=77,
+            glucose_source_active="dexcom",
+            glucose_provider="dexcom",
+            cgm_source="dexcom",
+            libre_credentials=None,
+            dexcom_tokens=[
+                SimpleNamespace(
+                    share_username="dex@example.com",
+                    share_password="encrypted",
+                )
+            ],
+            carelink_credentials=None,
+            nightscout_credentials=None,
+        )
+
+        with patch("app.cgm_service._get_latest_realtime_glucose_ts", return_value=None):
+            should_refresh, reason = should_attempt_page_refresh(DummyDb(), user)
+
+        self.assertTrue(should_refresh)
+        self.assertIsNone(reason)
+
+    def test_page_refresh_rejects_dexcom_when_credentials_missing(self):
+        user = SimpleNamespace(
+            id=78,
+            glucose_source_active="dexcom",
+            glucose_provider="dexcom",
+            cgm_source="dexcom",
+            libre_credentials=None,
+            dexcom_tokens=[],
+            carelink_credentials=None,
+            nightscout_credentials=None,
+        )
+
+        should_refresh, reason = should_attempt_page_refresh(DummyDb(), user)
+
+        self.assertFalse(should_refresh)
+        self.assertEqual(reason, "aucun compte Dexcom Share")
 
 
 if __name__ == "__main__":

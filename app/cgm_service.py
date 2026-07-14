@@ -505,6 +505,63 @@ def should_attempt_libre_page_refresh(user: User) -> tuple[bool, str | None]:
     )
 
 
+def _get_latest_realtime_glucose_ts(db, user_id: int) -> dt.datetime | None:
+    latest_ts = (
+        db.query(GlucosePoint.ts)
+        .filter(GlucosePoint.user_id == user_id)
+        .order_by(GlucosePoint.ts.desc())
+        .limit(1)
+        .scalar()
+    )
+    return _normalize_utc_naive(latest_ts)
+
+
+def _should_attempt_non_libre_page_refresh(db, user_id: int) -> tuple[bool, str | None]:
+    if LIBRE_PAGE_REFRESH_MINUTES <= 0:
+        return True, None
+
+    latest_ts = _get_latest_realtime_glucose_ts(db, user_id)
+    if latest_ts is None:
+        return True, None
+
+    now = dt.datetime.utcnow()
+    age_seconds = max(int((now - latest_ts).total_seconds()), 0)
+    min_interval_seconds = LIBRE_PAGE_REFRESH_MINUTES * 60
+    if age_seconds >= min_interval_seconds:
+        return True, None
+
+    remaining = min_interval_seconds - age_seconds
+    return False, (
+        "refresh page récent "
+        f"(reste {_format_remaining_delay(remaining)})"
+    )
+
+
+def should_attempt_page_refresh(db, user: User) -> tuple[bool, str | None]:
+    active_source = get_active_glucose_source(user)
+
+    if active_source == "abbott":
+        return should_attempt_libre_page_refresh(user)
+
+    if active_source == "dexcom":
+        if not has_dexcom_share_credentials(user.dexcom_tokens):
+            return False, "aucun compte Dexcom Share"
+        return _should_attempt_non_libre_page_refresh(db, user.id)
+
+    if active_source == "medtronic_carelink":
+        if not has_carelink_credentials(user):
+            return False, "aucun compte CareLink"
+        return _should_attempt_non_libre_page_refresh(db, user.id)
+
+    if active_source == "nightscout":
+        cred = getattr(user, "nightscout_credentials", None)
+        if cred is None or not cred.base_url:
+            return False, "aucun compte Nightscout"
+        return _should_attempt_non_libre_page_refresh(db, user.id)
+
+    return False, "aucune source glycémique active"
+
+
 def _should_skip_user_poll(db, user_id: int):
     """Retourne (True, raison) si l'utilisateur a été interrogé trop récemment."""
     if MIN_SECONDS_BETWEEN_POLLS_PER_USER <= 0:
@@ -765,6 +822,7 @@ def poll_glucose_once():
             .outerjoin(LibreCredentials, LibreCredentials.user_id == User.id)
             .outerjoin(DexcomToken, DexcomToken.user_id == User.id)
             .outerjoin(CareLinkCredential, CareLinkCredential.user_id == User.id)
+            .outerjoin(NightscoutCredential, NightscoutCredential.user_id == User.id)
             .filter(
                 (LibreCredentials.user_id != None)
                 | (DexcomToken.user_id != None)

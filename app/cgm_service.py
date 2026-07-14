@@ -384,6 +384,74 @@ def _get_effective_last_libre_success(cred: LibreCredentials | None) -> dt.datet
     return _normalize_utc_naive(getattr(cred, "last_fetch_at", None))
 
 
+def fetch_libre_points_guarded(
+    *,
+    user_id: int,
+    context: str,
+) -> tuple[list[dict], str | None]:
+    """
+    Point d'entrée unique pour LibreLinkUp.
+
+    Retourne (points, reason) avec `reason` dans:
+    - libre_cooldown
+    - libre_rate_limited
+    - libre_credentials_disabled
+    - libre_error
+    - None
+    """
+    now_utc = dt.datetime.utcnow()
+    if LIBRE_RATE_LIMIT_UNTIL and now_utc < LIBRE_RATE_LIMIT_UNTIL:
+        set_libre_status_flag(
+            user_id,
+            "warn",
+            _current_libre_cooldown_message(LIBRE_RATE_LIMIT_UNTIL),
+        )
+        print(
+            f"[CGM] user={user_id} -> LibreLinkUp est en cooldown jusqu'à "
+            f"{_format_local_datetime(LIBRE_RATE_LIMIT_UNTIL)}, on saute l'appel."
+        )
+        return [], "libre_cooldown"
+
+    print(f"[CGM] user={user_id} -> tentative LibreLinkUp (context={context}).")
+    _reserve_global_call_slot("LibreLinkUp", user_id, context)
+
+    # Revalidation après l'attente: un autre thread a pu déclencher le cooldown
+    # pendant que celui-ci attendait son créneau.
+    now_utc = dt.datetime.utcnow()
+    if LIBRE_RATE_LIMIT_UNTIL and now_utc < LIBRE_RATE_LIMIT_UNTIL:
+        set_libre_status_flag(
+            user_id,
+            "warn",
+            _current_libre_cooldown_message(LIBRE_RATE_LIMIT_UNTIL),
+        )
+        print(
+            f"[CGM] user={user_id} -> LibreLinkUp est passé en cooldown pendant l'attente, "
+            "on saute l'appel."
+        )
+        return [], "libre_cooldown"
+
+    try:
+        pts = read_graph(user_id=user_id) or []
+        libre_status = get_last_libre_status(user_id)
+        if is_libre_status_rate_limited(libre_status):
+            _mark_libre_rate_limited(dt.datetime.utcnow())
+            return [], "libre_rate_limited"
+        if is_libre_status_credentials_error(libre_status):
+            return [], "libre_credentials_disabled"
+        if libre_status and libre_status[0] == "ok":
+            _record_libre_fetch_success(user_id, context)
+        if pts:
+            print(f"[CGM] user={user_id} -> {len(pts)} points LibreLinkUp ({context})")
+        return pts, None
+    except Exception as e:
+        msg = str(e)
+        print(f"[CGM] user={user_id} -> erreur LibreLinkUp ({context}) : {msg}")
+        if "429" in msg or "Error 1015" in msg or "rate limited" in msg.lower():
+            _mark_libre_rate_limited(dt.datetime.utcnow())
+            return [], "libre_rate_limited"
+        return [], "libre_error"
+
+
 def _libre_is_disabled(cred: LibreCredentials | None) -> bool:
     return bool(cred and getattr(cred, "disabled_at", None) is not None)
 
@@ -612,8 +680,6 @@ def fetch_realtime_points_for_user(
     Récupère les points temps réel pour la source glycémique active uniquement.
     Si aucune source n'est active, retourne une liste vide sans fallback implicite.
     """
-    global LIBRE_RATE_LIMIT_UNTIL
-
     user_id = user.id
     meta = {
         "attempted_sources": [],
@@ -630,57 +696,13 @@ def fetch_realtime_points_for_user(
             meta["skipped_sources"].append("libre")
             meta["reason"] = "libre_deferred"
             return []
-
-        now_utc = dt.datetime.utcnow()
-
-        # Si on est encore dans la période de rate-limit, on n'appelle même pas l'API
-        if LIBRE_RATE_LIMIT_UNTIL and now_utc < LIBRE_RATE_LIMIT_UNTIL:
+        meta["attempted_sources"].append("libre")
+        pts, reason = fetch_libre_points_guarded(user_id=user_id, context=context)
+        if reason == "libre_cooldown":
             meta["skipped_sources"].append("libre")
-            meta["reason"] = "libre_cooldown"
-            set_libre_status_flag(
-                user_id,
-                "warn",
-                _current_libre_cooldown_message(LIBRE_RATE_LIMIT_UNTIL),
-            )
-            print(
-                f"[CGM] user={user_id} -> LibreLinkUp est en cooldown jusqu'à "
-                f"{_format_local_datetime(LIBRE_RATE_LIMIT_UNTIL)}, on saute l'appel."
-            )
-            return []
-
-        try:
-            meta["attempted_sources"].append("libre")
-            print(
-                f"[CGM] user={user_id} -> tentative LibreLinkUp "
-                f"(context={context}, allow_libre_fetch={allow_libre_fetch})."
-            )
-            _reserve_global_call_slot("LibreLinkUp", user_id, context)
-            pts = read_graph(user_id=user_id) or []
-            libre_status = get_last_libre_status(user_id)
-            if is_libre_status_rate_limited(libre_status):
-                _mark_libre_rate_limited(now_utc)
-                meta["reason"] = "libre_rate_limited"
-                return []
-            if is_libre_status_credentials_error(libre_status):
-                meta["reason"] = "libre_credentials_disabled"
-                return []
-            if libre_status and libre_status[0] == "ok":
-                _record_libre_fetch_success(user_id, context)
-            if pts:
-                print(f"[CGM] user={user_id} -> {len(pts)} points LibreLinkUp ({context})")
-            return pts
-        except Exception as e:
-            now_utc = dt.datetime.utcnow()
-            msg = str(e)
-            print(f"[CGM] user={user_id} -> erreur LibreLinkUp ({context}) : {msg}")
-
-            # Si on détecte un rate limit (429 / Error 1015), on enclenche le cooldown global
-            if "429" in msg or "Error 1015" in msg or "rate limited" in msg.lower():
-                _mark_libre_rate_limited(now_utc)
-                meta["reason"] = "libre_rate_limited"
-
-            # On retourne [] pour permettre le fallback Dexcom éventuel
-            return []
+        if reason is not None:
+            meta["reason"] = reason
+        return pts
 
     def try_dexcom():
         # Si l'utilisateur n'a pas d'identifiants Dexcom Share, on skip

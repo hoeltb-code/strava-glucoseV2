@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from app.libre_client import read_graph, test_libre_credentials
+from app.libre_client import test_libre_credentials
 from app.providers.base import ProviderConnectionResult, ensure_utc, legacy_to_common_points
 from app.secrets import decrypt_secret
 
@@ -37,7 +37,17 @@ def test_connection(user) -> ProviderConnectionResult:
 
 
 def fetch_glucose(user, start: dt.datetime, end: dt.datetime) -> list[dict]:
-    points = read_graph(user_id=user.id) or []
+    cred = getattr(user, "libre_credentials", None)
+    if cred is None:
+        return []
+
+    # Import local pour éviter une dépendance circulaire à l'import du module.
+    from app.cgm_service import fetch_libre_points_guarded
+
+    points, _reason = fetch_libre_points_guarded(
+        user_id=user.id,
+        context="activity_import",
+    )
     common = legacy_to_common_points(points, source="abbott")
     start_utc = ensure_utc(start)
     end_utc = ensure_utc(end)

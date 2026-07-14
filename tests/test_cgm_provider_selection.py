@@ -7,7 +7,9 @@ from unittest.mock import patch
 
 import tests.test_env  # noqa: F401
 
-from app.cgm_service import fetch_realtime_points_for_user, should_attempt_page_refresh
+from app import cgm_service
+from app.cgm_service import fetch_libre_points_guarded, fetch_realtime_points_for_user, should_attempt_page_refresh
+from app.providers.librelinkup import fetch_glucose as fetch_libre_glucose
 from app.providers.registry import get_active_glucose_source, resolve_provider_order
 
 
@@ -147,6 +149,48 @@ class ProviderSelectionTests(unittest.TestCase):
 
         self.assertFalse(should_refresh)
         self.assertEqual(reason, "aucun compte Dexcom Share")
+
+    def test_fetch_libre_points_rechecks_cooldown_after_wait(self):
+        previous_until = cgm_service.LIBRE_RATE_LIMIT_UNTIL
+        try:
+            with patch("app.cgm_service._reserve_global_call_slot") as reserve_slot, patch(
+                "app.cgm_service.read_graph"
+            ) as read_graph_mock:
+                def mark_cooldown(_source_label, _user_id, _context):
+                    cgm_service.LIBRE_RATE_LIMIT_UNTIL = dt.datetime.utcnow() + dt.timedelta(minutes=5)
+
+                reserve_slot.side_effect = mark_cooldown
+                cgm_service.LIBRE_RATE_LIMIT_UNTIL = None
+
+                points, reason = fetch_libre_points_guarded(user_id=91, context="test")
+
+            self.assertEqual(points, [])
+            self.assertEqual(reason, "libre_cooldown")
+            read_graph_mock.assert_not_called()
+        finally:
+            cgm_service.LIBRE_RATE_LIMIT_UNTIL = previous_until
+
+    def test_libre_activity_import_uses_guarded_fetch(self):
+        user = SimpleNamespace(
+            id=55,
+            libre_credentials=SimpleNamespace(email="libre@example.com"),
+        )
+        start = dt.datetime(2026, 7, 9, 8, 0, tzinfo=dt.timezone.utc)
+        end = dt.datetime(2026, 7, 9, 8, 10, tzinfo=dt.timezone.utc)
+        guarded_points = [
+            {
+                "ts": dt.datetime(2026, 7, 9, 8, 5, tzinfo=dt.timezone.utc),
+                "mgdl": 123.0,
+                "trend": "Flat",
+            }
+        ]
+
+        with patch("app.cgm_service.fetch_libre_points_guarded", return_value=(guarded_points, None)) as guarded:
+            points = fetch_libre_glucose(user, start, end)
+
+        guarded.assert_called_once_with(user_id=55, context="activity_import")
+        self.assertEqual(len(points), 1)
+        self.assertEqual(points[0]["glucose"], 123.0)
 
 
 if __name__ == "__main__":

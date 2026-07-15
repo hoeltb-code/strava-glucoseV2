@@ -207,7 +207,15 @@ def _disable_libre_for_user(user_id: Optional[int], reason: str) -> None:
         db.close()
 
 
-def _run_libre_helper(email: str, password: str, region: str, client_version: str):
+def _run_libre_helper(
+    email: str,
+    password: str,
+    region: str,
+    client_version: str,
+    *,
+    user_id: Optional[int] = None,
+    context: str = "unknown",
+):
     """Appelle le helper Node et retourne (success, stdout, error_message)."""
     script = pathlib.Path(__file__).resolve().parents[1] / "libre_node" / "reader.mjs"
     if not script.exists():
@@ -223,6 +231,20 @@ def _run_libre_helper(email: str, password: str, region: str, client_version: st
             "LIBRE_REGION": region,
             "LIBRE_CLIENT_VERSION": client_version or "4.16.0",
         }
+    )
+
+    masked_email = (email or "").strip()
+    if "@" in masked_email:
+        local, domain = masked_email.split("@", 1)
+        masked_email = f"{local[:2]}***@{domain}"
+    elif masked_email:
+        masked_email = f"{masked_email[:2]}***"
+    else:
+        masked_email = "n/a"
+    print(
+        f"[CGM][Libre][real_call] user={user_id if user_id is not None else 'n/a'} "
+        f"context={context} region={region or 'n/a'} "
+        f"client_version={client_version or 'n/a'} account={masked_email}"
     )
 
     try:
@@ -322,7 +344,14 @@ def test_libre_credentials(
     """
 
     client_version = client_version or os.getenv("LIBRE_CLIENT_VERSION", "4.16.0")
-    ok, stdout, err = _run_libre_helper(email, password, region, client_version)
+    ok, stdout, err = _run_libre_helper(
+        email,
+        password,
+        region,
+        client_version,
+        user_id=user_id,
+        context="credentials_test",
+    )
     if not ok:
         status, msg, error_code = _classify_libre_error_detail(stdout, err)
         set_libre_status_flag(user_id, status, msg)
@@ -349,7 +378,7 @@ def test_libre_credentials(
     return "ok", msg
 
 
-def read_graph(user_id: Optional[int] = None) -> List[Dict[str, Any]]:
+def read_graph(user_id: Optional[int] = None, *, context: str = "read_graph") -> List[Dict[str, Any]]:
     """
     Appelle le helper Node et retourne une liste de points :
     [
@@ -399,7 +428,14 @@ def read_graph(user_id: Optional[int] = None) -> List[Dict[str, Any]]:
         region = settings.LIBRE_REGION or "fr"
         client_version = os.getenv("LIBRE_CLIENT_VERSION", "4.16.0")
 
-    ok, stdout, err = _run_libre_helper(email, password, region, client_version)
+    ok, stdout, err = _run_libre_helper(
+        email,
+        password,
+        region,
+        client_version,
+        user_id=user_id,
+        context=context,
+    )
     if not ok:
         status, msg, error_code = _classify_libre_error_detail(stdout, err)
         set_libre_status_flag(user_id, status, msg)

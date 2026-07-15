@@ -431,7 +431,7 @@ def fetch_libre_points_guarded(
         return [], "libre_cooldown"
 
     try:
-        pts = read_graph(user_id=user_id) or []
+        pts = read_graph(user_id=user_id, context=context) or []
         libre_status = get_last_libre_status(user_id)
         if is_libre_status_rate_limited(libre_status):
             _mark_libre_rate_limited(dt.datetime.utcnow())

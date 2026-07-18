@@ -61,7 +61,25 @@ async def webhook_event(body: dict = Body(...)):
             trigger_source="webhook",
             immediate=True,
         )
-        print(f"✅ Activité {activity_id} traitée pour user_id={user_id} (status={result.get('status')}).")
+        run_status = result.get("status")
+        job_status = result.get("job_status")
+        reason = result.get("reason") or result.get("job_last_reason")
+        retry_at = result.get("job_next_retry_at") or result.get("retry_at")
+        if job_status == "retry":
+            print(
+                f"⏳ Activité {activity_id} en reprise programmée pour user_id={user_id} "
+                f"(run_status={run_status}, reason={reason}, retry_at={retry_at})."
+            )
+        elif job_status == "failed":
+            print(
+                f"⚠️ Activité {activity_id} échouée pour user_id={user_id} "
+                f"(run_status={run_status}, reason={reason})."
+            )
+        else:
+            print(
+                f"✅ Activité {activity_id} traitée pour user_id={user_id} "
+                f"(run_status={run_status}, job_status={job_status})."
+            )
     except Exception as e:
         print(f"⚠️ Erreur traitement activité {activity_id} pour user_id={user_id} :", e)
 

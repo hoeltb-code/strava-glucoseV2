@@ -358,6 +358,18 @@ def _mark_enrichment_job_failed(
         job.trigger_source = trigger_source[:32]
 
 
+def _attach_enrichment_job_snapshot(result: dict, job: ActivityEnrichmentJob | None) -> dict:
+    payload = dict(result or {})
+    if job is None:
+        return payload
+    payload["job_id"] = int(job.id)
+    payload["job_status"] = job.status
+    payload["job_attempts"] = int(job.attempts or 0)
+    payload["job_last_reason"] = job.last_reason
+    payload["job_next_retry_at"] = job.next_retry_at
+    return payload
+
+
 def _build_pace_lookup_from_profile(profile_data: dict | None, hr_zone_names: list[str] | None) -> dict:
     """
     Construit un lookup slope→zone→allure (s/km) et comble les trous en appliquant
@@ -2784,7 +2796,7 @@ async def _perform_strava_activity_enrichment(
         streams = await cli.get_streams(activity_id)
     except Exception as exc:
         return {
-            "status": "error",
+            "status": "deferred",
             "activity_id": activity_id,
             "user_id": user_id,
             "reason": "strava_fetch_error",
@@ -2805,7 +2817,7 @@ async def _perform_strava_activity_enrichment(
         )
     except Exception as exc:
         return {
-            "status": "error",
+            "status": "deferred",
             "activity_id": activity_id,
             "user_id": user_id,
             "reason": "strava_update_error",
@@ -2856,13 +2868,14 @@ async def _process_enrichment_job(job_id: int, *, trigger_source: str | None = N
     now = dt.datetime.utcnow()
     if job.next_retry_at and job.next_retry_at > now and job.status in {"pending", "retry"}:
         retry_at = job.next_retry_at
-        db.close()
-        return {
+        result = _attach_enrichment_job_snapshot({
             "status": "deferred",
             "reason": "retry_not_due",
             "retryable": True,
             "retry_at": retry_at,
-        }
+        }, job)
+        db.close()
+        return result
 
     if not _acquire_activity_enrichment_lock(user_id, activity_id):
         _schedule_enrichment_retry(
@@ -2873,13 +2886,14 @@ async def _process_enrichment_job(job_id: int, *, trigger_source: str | None = N
         )
         db.commit()
         retry_at = job.next_retry_at
-        db.close()
-        return {
+        result = _attach_enrichment_job_snapshot({
             "status": "deferred",
             "reason": "activity_busy",
             "retryable": True,
             "retry_at": retry_at,
-        }
+        }, job)
+        db.close()
+        return result
 
     try:
         job.status = "processing"
@@ -2921,7 +2935,8 @@ async def _process_enrichment_job(job_id: int, *, trigger_source: str | None = N
                 trigger_source=effective_trigger,
             )
         db.commit()
-        return result
+        db.refresh(job)
+        return _attach_enrichment_job_snapshot(result, job)
     finally:
         _release_activity_enrichment_lock(user_id, activity_id)
         try:

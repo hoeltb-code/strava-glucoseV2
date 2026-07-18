@@ -67,12 +67,12 @@ def _run_local_schema_fixes():
     _ensure_column(
         "user_settings",
         "desc_enable_auto_block",
-        "desc_enable_auto_block BOOLEAN DEFAULT 1",
+        "desc_enable_auto_block BOOLEAN DEFAULT TRUE",
     )
     _ensure_column(
         "user_settings",
         "share_show_club_logo",
-        "share_show_club_logo BOOLEAN DEFAULT 0",
+        "share_show_club_logo BOOLEAN DEFAULT FALSE",
     )
     _ensure_column("carelink_credentials", "password_encrypted", "password_encrypted TEXT")
     _ensure_column("carelink_credentials", "region", "region VARCHAR(8) DEFAULT 'EU'")

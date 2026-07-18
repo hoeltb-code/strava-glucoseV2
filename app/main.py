@@ -75,6 +75,7 @@
 # -----------------------------------------------------------------------------
 
 import os
+import asyncio
 import datetime as dt
 import subprocess
 import secrets
@@ -165,7 +166,6 @@ from .dexcom_client import (
 from app.providers.medtronic_carelink import test_connection as test_carelink_connection
 from app.providers.registry import (
     get_active_glucose_source,
-    get_glucose_data_for_user,
     get_glucose_source_label,
     set_active_glucose_source,
     test_provider_connection,
@@ -183,6 +183,7 @@ from app.models import (
     CareLinkCredential,
     NightscoutCredential,
     UserSettings,
+    ActivityEnrichmentJob,
     ActivityVamPeak,
     ActivityZoneSlopeAgg
 )
@@ -232,6 +233,129 @@ def _get_dexcom_share_record(tokens: list[DexcomToken] | None) -> Optional[Dexco
         if has_dexcom_share_credentials(token):
             return token
     return None
+
+
+def _activity_enrichment_key(user_id: int, activity_id: int) -> tuple[int, int]:
+    return int(user_id), int(activity_id)
+
+
+def _acquire_activity_enrichment_lock(user_id: int, activity_id: int) -> bool:
+    key = _activity_enrichment_key(user_id, activity_id)
+    with ENRICHMENT_ACTIVITY_LOCK:
+        if key in ENRICHMENT_ACTIVE_KEYS:
+            return False
+        ENRICHMENT_ACTIVE_KEYS.add(key)
+        return True
+
+
+def _release_activity_enrichment_lock(user_id: int, activity_id: int) -> None:
+    key = _activity_enrichment_key(user_id, activity_id)
+    with ENRICHMENT_ACTIVITY_LOCK:
+        ENRICHMENT_ACTIVE_KEYS.discard(key)
+
+
+def _is_retryable_enrichment_reason(reason: str | None) -> bool:
+    return bool(reason and reason in ENRICHMENT_RETRYABLE_REASONS)
+
+
+def _compute_enrichment_retry_delay_seconds(attempts: int) -> int:
+    if attempts <= 1:
+        return ENRICHMENT_RETRY_BASE_SECONDS
+    delay = ENRICHMENT_RETRY_BASE_SECONDS * (2 ** (attempts - 1))
+    return min(delay, ENRICHMENT_RETRY_MAX_SECONDS)
+
+
+def _get_or_create_enrichment_job(db: Session, user_id: int, activity_id: int) -> ActivityEnrichmentJob:
+    job = (
+        db.query(ActivityEnrichmentJob)
+        .filter(
+            ActivityEnrichmentJob.user_id == int(user_id),
+            ActivityEnrichmentJob.strava_activity_id == int(activity_id),
+        )
+        .one_or_none()
+    )
+    if job is None:
+        job = ActivityEnrichmentJob(
+            user_id=int(user_id),
+            strava_activity_id=int(activity_id),
+            status="pending",
+        )
+        db.add(job)
+        db.flush()
+    return job
+
+
+def _schedule_enrichment_retry(
+    db: Session,
+    *,
+    job: ActivityEnrichmentJob,
+    reason: str,
+    last_error: str | None = None,
+    trigger_source: str | None = None,
+) -> None:
+    attempts = max(int(job.attempts or 0), 1)
+    if attempts >= ENRICHMENT_MAX_ATTEMPTS:
+        job.status = "failed"
+        job.last_reason = reason
+        job.last_error = (last_error or reason or "")[:1000] or None
+        job.next_retry_at = None
+        job.completed_at = dt.datetime.utcnow()
+        if trigger_source:
+            job.trigger_source = trigger_source[:32]
+        return
+
+    delay_seconds = _compute_enrichment_retry_delay_seconds(attempts)
+    retry_at = dt.datetime.utcnow() + dt.timedelta(seconds=delay_seconds)
+    job.status = "retry"
+    job.last_reason = reason
+    job.last_error = (last_error or reason or "")[:1000] or None
+    job.next_retry_at = retry_at
+    job.locked_at = None
+    job.completed_at = None
+    if trigger_source:
+        job.trigger_source = trigger_source[:32]
+    logger.info(
+        "[ENRICHMENT] user_id=%s activity_id=%s retry scheduled in %ss (reason=%s attempts=%s/%s)",
+        job.user_id,
+        job.strava_activity_id,
+        delay_seconds,
+        reason,
+        attempts,
+        ENRICHMENT_MAX_ATTEMPTS,
+    )
+
+
+def _mark_enrichment_job_success(
+    job: ActivityEnrichmentJob,
+    *,
+    reason: str | None = None,
+    trigger_source: str | None = None,
+) -> None:
+    job.status = "succeeded"
+    job.last_reason = reason
+    job.last_error = None
+    job.next_retry_at = None
+    job.locked_at = None
+    job.completed_at = dt.datetime.utcnow()
+    if trigger_source:
+        job.trigger_source = trigger_source[:32]
+
+
+def _mark_enrichment_job_failed(
+    job: ActivityEnrichmentJob,
+    *,
+    reason: str,
+    last_error: str | None = None,
+    trigger_source: str | None = None,
+) -> None:
+    job.status = "failed"
+    job.last_reason = reason
+    job.last_error = (last_error or reason or "")[:1000] or None
+    job.next_retry_at = None
+    job.locked_at = None
+    job.completed_at = dt.datetime.utcnow()
+    if trigger_source:
+        job.trigger_source = trigger_source[:32]
 
 
 def _build_pace_lookup_from_profile(profile_data: dict | None, hr_zone_names: list[str] | None) -> dict:
@@ -1458,6 +1582,33 @@ RETENTION_JOB_MINUTE_LOCAL = min(59, max(0, int(os.getenv("ACTIVITY_RETENTION_JO
 RETENTION_JOB_ANCHOR_DATE = dt.date(2026, 1, 1)
 PAGE_VIEW_REFRESH_LOCK = threading.Lock()
 PAGE_VIEW_REFRESH_USERS: set[int] = set()
+ENRICHMENT_ACTIVITY_LOCK = threading.Lock()
+ENRICHMENT_ACTIVE_KEYS: set[tuple[int, int]] = set()
+ENRICHMENT_WORKER_POLL_SECONDS = max(
+    15, int(os.getenv("ACTIVITY_ENRICHMENT_WORKER_POLL_SECONDS", "60") or "60")
+)
+ENRICHMENT_RETRY_BASE_SECONDS = max(
+    30, int(os.getenv("ACTIVITY_ENRICHMENT_RETRY_BASE_SECONDS", "180") or "180")
+)
+ENRICHMENT_RETRY_MAX_SECONDS = max(
+    ENRICHMENT_RETRY_BASE_SECONDS,
+    int(os.getenv("ACTIVITY_ENRICHMENT_RETRY_MAX_SECONDS", "1800") or "1800"),
+)
+ENRICHMENT_MAX_ATTEMPTS = max(
+    1, int(os.getenv("ACTIVITY_ENRICHMENT_MAX_ATTEMPTS", "6") or "6")
+)
+ENRICHMENT_RETRYABLE_REASONS = {
+    "libre_cooldown",
+    "libre_rate_limited",
+    "libre_error",
+    "dexcom_error",
+    "carelink_error",
+    "nightscout_error",
+    "provider_error",
+    "strava_fetch_error",
+    "strava_update_error",
+    "activity_busy",
+}
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -1669,14 +1820,13 @@ def get_cgm_graph_for_user(
 
     user = db.query(User).get(user_id)
     if not user:
-        return [], None
-    points, source_label, _meta = get_glucose_data_for_user(
+        return [], None, {"reason": "user_not_found", "attempted_sources": [], "skipped_sources": []}
+    points, source_label, meta = fetch_realtime_points_for_user(
         db,
         user,
-        start,
-        end,
+        context="activity_import",
     )
-    return points, source_label
+    return points, source_label, meta
 
 
 def _run_page_view_glucose_refresh(user_id: int, page_name: str) -> None:
@@ -1759,6 +1909,13 @@ def startup_event():
         f"[RETENTION] Thread de purge planifiée lancé "
         f"(tous les {RETENTION_JOB_INTERVAL_DAYS} jours à "
         f"{RETENTION_JOB_HOUR_LOCAL:02d}:{RETENTION_JOB_MINUTE_LOCAL:02d})."
+    )
+
+    enrichment_thread = threading.Thread(target=run_enrichment_retry_loop, daemon=True)
+    enrichment_thread.start()
+    print(
+        f"[ENRICHMENT] Thread de reprise lancé "
+        f"(scan toutes les {ENRICHMENT_WORKER_POLL_SECONDS}s)."
     )
 
 
@@ -1990,6 +2147,7 @@ async def process_activity_core(
     activity_id: int | None = None,
     cli: StravaClient | None = None,
     update_strava_description: bool = False,
+    trigger_source: str = "activity_import",
 ):
     def to_utc_aware(d: dt.datetime | None) -> dt.datetime | None:
         if d is None:
@@ -2002,6 +2160,11 @@ async def process_activity_core(
 
     db = SessionLocal()
     try:
+        live_fetch_reason = None
+        live_fetch_source = None
+        live_fetch_points_count = 0
+        strava_description_updated = False
+
         # 1) Activité -> bornes temps (aware UTC)
         start_raw = dt.datetime.fromisoformat(act["start_date"].replace("Z", "+00:00"))
         elapsed = act.get("elapsed_time") or act.get("moving_time") or 0
@@ -2030,10 +2193,13 @@ async def process_activity_core(
         if needs_live_fetch:
             try:
                 # Les clients externes préfèrent souvent des datetimes aware
-                graph_live, source_label = get_cgm_graph_for_user(
+                graph_live, source_label, fetch_meta = get_cgm_graph_for_user(
                     db=db, user_id=user_id, start=start_aw, end=end_aw
                 )
+                live_fetch_source = source_label
+                live_fetch_reason = fetch_meta.get("reason") if fetch_meta else None
                 if graph_live:
+                    live_fetch_points_count = len(graph_live)
                     logger.info(
                         "[CGM] activity_import user=%s provider=%s start=%s end=%s points=%s",
                         user_id,
@@ -2052,7 +2218,15 @@ async def process_activity_core(
                         end=end_aw,
                         margin_min=CGM_MATCH_MARGIN_MIN,
                     )
+                else:
+                    logger.info(
+                        "[CGM] activity_import user=%s provider=%s no_live_points reason=%s",
+                        user_id,
+                        source_label,
+                        live_fetch_reason,
+                    )
             except Exception as e:
+                live_fetch_reason = "provider_error"
                 logger.exception(
                     "[CGM] activity_import user=%s provider=%s error=%s",
                     user_id,
@@ -2493,6 +2667,7 @@ async def process_activity_core(
         if auto_block_enabled and full_block and update_strava_description and cli is not None and activity_id is not None:
             new_desc = merge_desc(act.get("description") or "", full_block)
             await cli.update_activity_description(activity_id, new_desc)
+            strava_description_updated = True
         elif update_strava_description and activity_id is not None:
             print(
                 f"[STRAVA] activity_id={activity_id} user_id={user_id} -> aucun export description "
@@ -2507,8 +2682,262 @@ async def process_activity_core(
         if purged_count:
             logger.info("[RETENTION] %s activités live purgées pour user_id=%s", purged_count, user_id)
 
+        final_glucose_coverage = glucose_graph_has_activity_coverage(
+            graph_db,
+            start_aw,
+            end_aw,
+            max_delta_sec=CGM_MATCH_MAX_DELTA_SEC,
+        )
+
+        return {
+            "status": "ok",
+            "activity_id": activity_id,
+            "user_id": user_id,
+            "needs_live_fetch": needs_live_fetch,
+            "live_fetch_reason": live_fetch_reason,
+            "live_fetch_source": live_fetch_source,
+            "live_fetch_points_count": live_fetch_points_count,
+            "has_glucose_coverage": final_glucose_coverage,
+            "strava_description_updated": strava_description_updated,
+            "full_block_built": bool(full_block),
+            "trigger_source": trigger_source,
+        }
+
     finally:
         db.close()
+
+
+async def _perform_strava_activity_enrichment(
+    activity_id: int,
+    *,
+    user_id: int,
+    trigger_source: str,
+) -> dict:
+    cli = StravaClient(user_id=user_id)
+
+    try:
+        act = await cli.get_activity(activity_id)
+        streams = await cli.get_streams(activity_id)
+    except Exception as exc:
+        return {
+            "status": "error",
+            "activity_id": activity_id,
+            "user_id": user_id,
+            "reason": "strava_fetch_error",
+            "error": str(exc),
+            "retryable": True,
+            "trigger_source": trigger_source,
+        }
+
+    try:
+        result = await process_activity_core(
+            act=act,
+            streams=streams,
+            user_id=user_id,
+            activity_id=activity_id,
+            cli=cli,
+            update_strava_description=True,
+            trigger_source=trigger_source,
+        )
+    except Exception as exc:
+        return {
+            "status": "error",
+            "activity_id": activity_id,
+            "user_id": user_id,
+            "reason": "strava_update_error",
+            "error": str(exc),
+            "retryable": True,
+            "trigger_source": trigger_source,
+        }
+
+    live_fetch_reason = result.get("live_fetch_reason")
+    full_block_built = bool(result.get("full_block_built"))
+    retryable = _is_retryable_enrichment_reason(live_fetch_reason)
+
+    if full_block_built and result.get("strava_description_updated"):
+        result["status"] = "succeeded"
+        result["retryable"] = False
+        result["reason"] = None
+        return result
+
+    if full_block_built:
+        result["status"] = "completed_without_update"
+        result["retryable"] = False
+        result["reason"] = "strava_update_skipped"
+        return result
+
+    if retryable:
+        result["status"] = "deferred"
+        result["retryable"] = True
+        result["reason"] = live_fetch_reason
+        return result
+
+    result["status"] = "completed_without_update"
+    result["retryable"] = False
+    result["reason"] = live_fetch_reason or "no_glucose_coverage"
+    return result
+
+
+async def _process_enrichment_job(job_id: int, *, trigger_source: str | None = None) -> dict:
+    db = SessionLocal()
+    job = db.query(ActivityEnrichmentJob).get(job_id)
+    if job is None:
+        db.close()
+        return {"status": "missing", "reason": "job_not_found", "retryable": False}
+
+    user_id = int(job.user_id)
+    activity_id = int(job.strava_activity_id)
+    effective_trigger = (trigger_source or job.trigger_source or "job")[:32]
+
+    now = dt.datetime.utcnow()
+    if job.next_retry_at and job.next_retry_at > now and job.status in {"pending", "retry"}:
+        retry_at = job.next_retry_at
+        db.close()
+        return {
+            "status": "deferred",
+            "reason": "retry_not_due",
+            "retryable": True,
+            "retry_at": retry_at,
+        }
+
+    if not _acquire_activity_enrichment_lock(user_id, activity_id):
+        _schedule_enrichment_retry(
+            db,
+            job=job,
+            reason="activity_busy",
+            trigger_source=effective_trigger,
+        )
+        db.commit()
+        retry_at = job.next_retry_at
+        db.close()
+        return {
+            "status": "deferred",
+            "reason": "activity_busy",
+            "retryable": True,
+            "retry_at": retry_at,
+        }
+
+    try:
+        job.status = "processing"
+        job.trigger_source = effective_trigger
+        job.attempts = int(job.attempts or 0) + 1
+        job.locked_at = now
+        job.started_at = now
+        job.completed_at = None
+        job.next_retry_at = None
+        db.commit()
+        db.close()
+
+        result = await _perform_strava_activity_enrichment(
+            activity_id,
+            user_id=user_id,
+            trigger_source=effective_trigger,
+        )
+
+        db = SessionLocal()
+        job = db.query(ActivityEnrichmentJob).get(job_id)
+        if job is None:
+            return result
+
+        if result.get("status") == "succeeded":
+            _mark_enrichment_job_success(job, trigger_source=effective_trigger)
+        elif result.get("retryable"):
+            _schedule_enrichment_retry(
+                db,
+                job=job,
+                reason=result.get("reason") or "unknown_retryable_error",
+                last_error=result.get("error"),
+                trigger_source=effective_trigger,
+            )
+        else:
+            _mark_enrichment_job_failed(
+                job,
+                reason=result.get("reason") or "enrichment_failed",
+                last_error=result.get("error"),
+                trigger_source=effective_trigger,
+            )
+        db.commit()
+        return result
+    finally:
+        _release_activity_enrichment_lock(user_id, activity_id)
+        try:
+            db.close()
+        except Exception:
+            pass
+
+
+async def request_activity_enrichment(
+    activity_id: int,
+    *,
+    user_id: int,
+    trigger_source: str,
+    immediate: bool = True,
+) -> dict:
+    db = SessionLocal()
+    try:
+        job = _get_or_create_enrichment_job(db, user_id, activity_id)
+        job.status = "pending"
+        job.trigger_source = (trigger_source or "manual")[:32]
+        job.next_retry_at = dt.datetime.utcnow()
+        job.last_reason = None
+        job.last_error = None
+        job.completed_at = None
+        db.commit()
+        job_id = int(job.id)
+    finally:
+        db.close()
+
+    if not immediate:
+        return {"status": "queued", "job_id": job_id}
+
+    return await _process_enrichment_job(job_id, trigger_source=trigger_source)
+
+
+async def process_pending_enrichment_jobs_once(limit: int = 10) -> int:
+    db = SessionLocal()
+    try:
+        now = dt.datetime.utcnow()
+        jobs = (
+            db.query(ActivityEnrichmentJob)
+            .filter(
+                ActivityEnrichmentJob.status.in_(("pending", "retry")),
+                (
+                    (ActivityEnrichmentJob.next_retry_at == None)
+                    | (ActivityEnrichmentJob.next_retry_at <= now)
+                ),
+            )
+            .order_by(
+                ActivityEnrichmentJob.next_retry_at.is_(None).desc(),
+                ActivityEnrichmentJob.next_retry_at.asc(),
+                ActivityEnrichmentJob.updated_at.asc(),
+            )
+            .limit(limit)
+            .all()
+        )
+        job_ids = [int(job.id) for job in jobs]
+    finally:
+        db.close()
+
+    processed = 0
+    for job_id in job_ids:
+        await _process_enrichment_job(job_id, trigger_source="retry_worker")
+        processed += 1
+    return processed
+
+
+def run_enrichment_retry_loop():
+    logger.info(
+        "[ENRICHMENT] Thread de reprise lancé (scan toutes les %ss).",
+        ENRICHMENT_WORKER_POLL_SECONDS,
+    )
+    while True:
+        try:
+            processed = asyncio.run(process_pending_enrichment_jobs_once())
+            if processed:
+                logger.info("[ENRICHMENT] %s job(s) d'enrichissement traité(s) par le worker.", processed)
+        except Exception:
+            logger.exception("Erreur dans la boucle de reprise des enrichissements.")
+        time.sleep(ENRICHMENT_WORKER_POLL_SECONDS)
 
 
 
@@ -2516,20 +2945,10 @@ async def process_activity_core(
 # Orchestrateur : enrichir une activité Strava (wrapper autour du core)
 # -----------------------------------------------------------------------------
 async def enrich_activity(activity_id: int, user_id: int = 1):
-    cli = StravaClient(user_id=user_id)
-
-    # 1) On récupère act + streams depuis Strava
-    act = await cli.get_activity(activity_id)
-    streams = await cli.get_streams(activity_id)
-
-    # 2) On délègue tout le boulot à la fonction générique
-    await process_activity_core(
-        act=act,
-        streams=streams,
+    return await _perform_strava_activity_enrichment(
+        activity_id,
         user_id=user_id,
-        activity_id=activity_id,
-        cli=cli,
-        update_strava_description=True,  # ici on veut MAJ la description Strava
+        trigger_source="direct",
     )
 
 # -----------------------------------------------------------------------------
@@ -3991,8 +4410,18 @@ async def ui_enrich_last(request: Request, user_id: int = Form(...)):
     start_date = activity.get("start_date", "")
 
     try:
-        await enrich_activity(int(activity_id), user_id=user_id)
-        msg = "Activité enrichie avec succès 🎉"
+        result = await request_activity_enrichment(
+            int(activity_id),
+            user_id=user_id,
+            trigger_source="manual_ui",
+            immediate=True,
+        )
+        if result.get("status") == "succeeded":
+            msg = "Activité enrichie avec succès 🎉"
+        elif result.get("status") == "deferred":
+            msg = "Enrichissement différé : une reprise automatique est programmée."
+        else:
+            msg = "Activité traitée, mais aucun enrichissement Strava n'a été publié."
     except Exception as e:
         msg = f"Erreur lors de l'enrichissement : {e}"
 

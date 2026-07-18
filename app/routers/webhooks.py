@@ -54,9 +54,14 @@ async def webhook_event(body: dict = Body(...)):
 
     # ✅ import local pour éviter l'import circulaire
     try:
-        from app.main import enrich_activity
-        await enrich_activity(int(activity_id), user_id=user_id)
-        print(f"✅ Activité {activity_id} traitée pour user_id={user_id}.")
+        from app.main import request_activity_enrichment
+        result = await request_activity_enrichment(
+            int(activity_id),
+            user_id=user_id,
+            trigger_source="webhook",
+            immediate=True,
+        )
+        print(f"✅ Activité {activity_id} traitée pour user_id={user_id} (status={result.get('status')}).")
     except Exception as e:
         print(f"⚠️ Erreur traitement activité {activity_id} pour user_id={user_id} :", e)
 

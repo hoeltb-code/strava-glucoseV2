@@ -522,6 +522,32 @@ class GlucosePoint(Base):
         UniqueConstraint("user_id", "ts", name="uq_glucose_user_ts"),
     )
 
+
+class ActivityEnrichmentJob(Base):
+    __tablename__ = "activity_enrichment_jobs"
+    __table_args__ = (
+        UniqueConstraint("user_id", "strava_activity_id", name="uq_enrichment_job_user_activity"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    strava_activity_id = Column(BigInteger, nullable=False, index=True)
+
+    status = Column(String(32), nullable=False, default="pending")
+    trigger_source = Column(String(32), nullable=True)
+    attempts = Column(Integer, nullable=False, default=0)
+    next_retry_at = Column(DateTime, nullable=True)
+    last_reason = Column(String(64), nullable=True)
+    last_error = Column(Text, nullable=True)
+    locked_at = Column(DateTime, nullable=True)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User")
+
     user = relationship("User", backref="glucose_points")
 
 

@@ -213,6 +213,32 @@ class ProviderSelectionTests(unittest.TestCase):
         self.assertEqual(meta["attempted_sources"], ["dexcom"])
         self.assertEqual(meta["reason"], "dexcom_no_points")
 
+    def test_fetch_realtime_points_skips_disabled_libre_before_waiting(self):
+        user = SimpleNamespace(
+            id=283,
+            glucose_source_active="abbott",
+            glucose_provider="abbott",
+            cgm_source="libre",
+            libre_credentials=SimpleNamespace(
+                email="libre@example.com",
+                disabled_at=dt.datetime(2026, 7, 18, 9, 0),
+            ),
+            dexcom_tokens=[],
+            carelink_credentials=None,
+            nightscout_credentials=None,
+        )
+        db = DummyDb()
+
+        with patch("app.cgm_service.fetch_libre_points_guarded") as guarded:
+            points, source_label, meta = fetch_realtime_points_for_user(db, user, context="activity_import")
+
+        self.assertEqual(points, [])
+        self.assertIsNone(source_label)
+        self.assertEqual(meta["attempted_sources"], [])
+        self.assertEqual(meta["skipped_sources"], ["libre"])
+        self.assertEqual(meta["reason"], "libre_credentials_disabled")
+        guarded.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

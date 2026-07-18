@@ -59,13 +59,19 @@ async def webhook_event(body: dict = Body(...)):
             int(activity_id),
             user_id=user_id,
             trigger_source="webhook",
-            immediate=True,
+            immediate=False,
         )
         run_status = result.get("status")
         job_status = result.get("job_status")
         reason = result.get("reason") or result.get("job_last_reason")
         retry_at = result.get("job_next_retry_at") or result.get("retry_at")
-        if job_status == "retry":
+        job_id = result.get("job_id")
+        if run_status == "queued":
+            print(
+                f"🧵 Activité {activity_id} mise en file pour user_id={user_id} "
+                f"(job_id={job_id}, trigger=webhook)."
+            )
+        elif job_status == "retry":
             print(
                 f"⏳ Activité {activity_id} en reprise programmée pour user_id={user_id} "
                 f"(run_status={run_status}, reason={reason}, retry_at={retry_at})."

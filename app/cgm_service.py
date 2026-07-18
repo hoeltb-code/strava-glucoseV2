@@ -913,6 +913,10 @@ def fetch_realtime_points_for_user(
             meta["skipped_sources"].append("libre")
             meta["reason"] = "libre_missing_credentials"
             return []
+        if _libre_is_disabled(user.libre_credentials):
+            meta["skipped_sources"].append("libre")
+            meta["reason"] = "libre_credentials_disabled"
+            return []
 
         if not allow_libre_fetch:
             meta["skipped_sources"].append("libre")

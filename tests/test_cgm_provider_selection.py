@@ -151,25 +151,16 @@ class ProviderSelectionTests(unittest.TestCase):
         self.assertFalse(should_refresh)
         self.assertEqual(reason, "aucun compte Dexcom Share")
 
-    def test_fetch_libre_points_rechecks_cooldown_after_wait(self):
-        previous_until = cgm_service.LIBRE_RATE_LIMIT_UNTIL
-        try:
-            with patch("app.cgm_service._reserve_global_call_slot") as reserve_slot, patch(
-                "app.cgm_service.read_graph"
-            ) as read_graph_mock:
-                def mark_cooldown(_source_label, _user_id, _context):
-                    cgm_service.LIBRE_RATE_LIMIT_UNTIL = dt.datetime.utcnow() + dt.timedelta(minutes=5)
+    def test_fetch_libre_points_stops_when_shared_cooldown_is_active(self):
+        with patch(
+            "app.cgm_service._reserve_shared_libre_call_slot",
+            return_value=(None, "libre_cooldown"),
+        ), patch("app.cgm_service.read_graph") as read_graph_mock:
+            points, reason = fetch_libre_points_guarded(user_id=91, context="test")
 
-                reserve_slot.side_effect = mark_cooldown
-                cgm_service.LIBRE_RATE_LIMIT_UNTIL = None
-
-                points, reason = fetch_libre_points_guarded(user_id=91, context="test")
-
-            self.assertEqual(points, [])
-            self.assertEqual(reason, "libre_cooldown")
-            read_graph_mock.assert_not_called()
-        finally:
-            cgm_service.LIBRE_RATE_LIMIT_UNTIL = previous_until
+        self.assertEqual(points, [])
+        self.assertEqual(reason, "libre_cooldown")
+        read_graph_mock.assert_not_called()
 
     def test_libre_activity_import_uses_guarded_fetch(self):
         user = SimpleNamespace(

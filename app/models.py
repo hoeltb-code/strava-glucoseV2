@@ -551,6 +551,20 @@ class ActivityEnrichmentJob(Base):
     user = relationship("User")
 
 
+class SharedThrottleState(Base):
+    __tablename__ = "shared_throttle_states"
+
+    key = Column(String(64), primary_key=True)
+    last_call_at = Column(DateTime, nullable=True)
+    cooldown_until = Column(DateTime, nullable=True)
+    rate_limit_streak = Column(Integer, nullable=False, default=0)
+    lease_until = Column(DateTime, nullable=True)
+    lease_owner = Column(String(128), nullable=True)
+    lease_context = Column(String(64), nullable=True)
+    lease_user_id = Column(Integer, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class PasswordResetToken(Base):
     __tablename__ = "password_reset_tokens"
 

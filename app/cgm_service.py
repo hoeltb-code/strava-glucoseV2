@@ -29,6 +29,9 @@ import datetime as dt
 import threading
 from zoneinfo import ZoneInfo
 
+from sqlalchemy import update, or_
+from sqlalchemy.exc import IntegrityError
+
 from app.database import SessionLocal
 from app.models import (
     User,
@@ -38,6 +41,7 @@ from app.models import (
     Activity,
     CareLinkCredential,
     NightscoutCredential,
+    SharedThrottleState,
 )
 from app.settings import settings
 from app.libre_client import (
@@ -128,6 +132,11 @@ LIBRE_RATE_LIMIT_BACKOFF_FACTOR = max(
     int(os.getenv("LIBRE_RATE_LIMIT_BACKOFF_FACTOR", "2") or "2"),
 )
 LIBRE_RATE_LIMIT_STREAK = 0
+LIBRE_SHARED_STATE_KEY = "librelinkup_global"
+LIBRE_SHARED_LOCK_LEASE_SECONDS = max(
+    30,
+    int(os.getenv("LIBRE_SHARED_LOCK_LEASE_SECONDS", "120") or "120"),
+)
 
 # Pointeur sur le prochain utilisateur à traiter quand on limite la taille des lots
 USER_POLL_CURSOR = 0
@@ -197,6 +206,183 @@ def _mark_source_call(source_label: str) -> None:
     LAST_SOURCE_CGM_CALLS[source_label] = dt.datetime.utcnow()
 
 
+def _sync_local_libre_rate_limit_cache(
+    cooldown_until: dt.datetime | None,
+    streak: int | None = None,
+) -> None:
+    global LIBRE_RATE_LIMIT_UNTIL, LIBRE_RATE_LIMIT_STREAK
+    LIBRE_RATE_LIMIT_UNTIL = _normalize_utc_naive(cooldown_until)
+    if streak is not None:
+        LIBRE_RATE_LIMIT_STREAK = max(int(streak or 0), 0)
+
+
+def _ensure_shared_throttle_state(db, key: str) -> SharedThrottleState:
+    state = db.query(SharedThrottleState).filter(SharedThrottleState.key == key).one_or_none()
+    if state is not None:
+        return state
+
+    try:
+        state = SharedThrottleState(key=key, rate_limit_streak=0)
+        db.add(state)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+    return db.query(SharedThrottleState).filter(SharedThrottleState.key == key).one()
+
+
+def _get_libre_shared_state_snapshot() -> dict:
+    db = SessionLocal()
+    try:
+        state = _ensure_shared_throttle_state(db, LIBRE_SHARED_STATE_KEY)
+        cooldown_until = _normalize_utc_naive(getattr(state, "cooldown_until", None))
+        last_call_at = _normalize_utc_naive(getattr(state, "last_call_at", None))
+        lease_until = _normalize_utc_naive(getattr(state, "lease_until", None))
+        streak = max(int(getattr(state, "rate_limit_streak", 0) or 0), 0)
+        _sync_local_libre_rate_limit_cache(cooldown_until, streak)
+        return {
+            "cooldown_until": cooldown_until,
+            "last_call_at": last_call_at,
+            "lease_until": lease_until,
+            "lease_owner": getattr(state, "lease_owner", None),
+            "rate_limit_streak": streak,
+        }
+    finally:
+        db.close()
+
+
+def _compute_libre_shared_wait_seconds(snapshot: dict, now_utc: dt.datetime) -> float:
+    wait_seconds = 0.0
+
+    cooldown_until = snapshot.get("cooldown_until")
+    if cooldown_until and cooldown_until > now_utc:
+        wait_seconds = max(wait_seconds, (cooldown_until - now_utc).total_seconds())
+
+    lease_until = snapshot.get("lease_until")
+    if lease_until and lease_until > now_utc:
+        wait_seconds = max(wait_seconds, (lease_until - now_utc).total_seconds())
+
+    last_call_at = snapshot.get("last_call_at")
+    if last_call_at and MIN_SECONDS_BETWEEN_LIBRE_CALLS > 0:
+        next_allowed = last_call_at + dt.timedelta(seconds=MIN_SECONDS_BETWEEN_LIBRE_CALLS)
+        if next_allowed > now_utc:
+            wait_seconds = max(wait_seconds, (next_allowed - now_utc).total_seconds())
+
+    return max(wait_seconds, 0.0)
+
+
+def _try_acquire_shared_libre_call_slot(user_id: int, context: str) -> dict:
+    owner_token = (
+        f"pid={os.getpid()}|tid={threading.get_ident()}|user={user_id}|"
+        f"ts={int(time.time() * 1000)}"
+    )[:128]
+    now_utc = dt.datetime.utcnow()
+    min_interval_cutoff = now_utc - dt.timedelta(seconds=max(MIN_SECONDS_BETWEEN_LIBRE_CALLS, 0))
+    lease_until = now_utc + dt.timedelta(seconds=LIBRE_SHARED_LOCK_LEASE_SECONDS)
+
+    db = SessionLocal()
+    try:
+        _ensure_shared_throttle_state(db, LIBRE_SHARED_STATE_KEY)
+        updated = db.execute(
+            update(SharedThrottleState)
+            .where(
+                SharedThrottleState.key == LIBRE_SHARED_STATE_KEY,
+                or_(SharedThrottleState.cooldown_until.is_(None), SharedThrottleState.cooldown_until <= now_utc),
+                or_(SharedThrottleState.lease_until.is_(None), SharedThrottleState.lease_until <= now_utc),
+                or_(SharedThrottleState.last_call_at.is_(None), SharedThrottleState.last_call_at <= min_interval_cutoff),
+            )
+            .values(
+                last_call_at=now_utc,
+                lease_until=lease_until,
+                lease_owner=owner_token,
+                lease_context=(context or "")[:64] or None,
+                lease_user_id=int(user_id),
+                updated_at=now_utc,
+            )
+        )
+        db.commit()
+        if updated.rowcount == 1:
+            return {
+                "acquired": True,
+                "owner_token": owner_token,
+                "wait_seconds": 0.0,
+                "cooldown_until": None,
+            }
+    finally:
+        db.close()
+
+    snapshot = _get_libre_shared_state_snapshot()
+    now_utc = dt.datetime.utcnow()
+    cooldown_until = snapshot.get("cooldown_until")
+    return {
+        "acquired": False,
+        "owner_token": None,
+        "wait_seconds": _compute_libre_shared_wait_seconds(snapshot, now_utc),
+        "cooldown_until": cooldown_until,
+    }
+
+
+def _reserve_shared_libre_call_slot(user_id: int, context: str) -> tuple[str | None, str | None]:
+    waited_seconds = 0.0
+
+    while True:
+        acquisition = _try_acquire_shared_libre_call_slot(user_id, context)
+        if acquisition["acquired"]:
+            if waited_seconds > 0:
+                print(
+                    f"[CGM] user={user_id} -> créneau LibreLinkUp libéré après "
+                    f"{waited_seconds:.1f}s d'attente ({context})."
+                )
+            return acquisition["owner_token"], None
+
+        cooldown_until = acquisition.get("cooldown_until")
+        now_utc = dt.datetime.utcnow()
+        if cooldown_until and cooldown_until > now_utc:
+            set_libre_status_flag(
+                user_id,
+                "warn",
+                _current_libre_cooldown_message(cooldown_until),
+            )
+            print(
+                f"[CGM] user={user_id} -> LibreLinkUp est en cooldown jusqu'à "
+                f"{_format_local_datetime(cooldown_until)}, on saute l'appel."
+            )
+            return None, "libre_cooldown"
+
+        sleep_for = max(float(acquisition.get("wait_seconds") or 0.0), 0.0)
+        if sleep_for <= 0:
+            sleep_for = 0.5
+        print(f"[CGM] user={user_id} -> attente {sleep_for:.1f}s avant appel LibreLinkUp ({context}).")
+        time.sleep(sleep_for)
+        waited_seconds += sleep_for
+
+
+def _release_shared_libre_call_slot(owner_token: str | None) -> None:
+    if not owner_token:
+        return
+
+    now_utc = dt.datetime.utcnow()
+    db = SessionLocal()
+    try:
+        _ensure_shared_throttle_state(db, LIBRE_SHARED_STATE_KEY)
+        db.execute(
+            update(SharedThrottleState)
+            .where(
+                SharedThrottleState.key == LIBRE_SHARED_STATE_KEY,
+                SharedThrottleState.lease_owner == owner_token,
+            )
+            .values(
+                lease_until=None,
+                lease_owner=None,
+                lease_context=None,
+                lease_user_id=None,
+                updated_at=now_utc,
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+
 def _reserve_global_call_slot(source_label: str, user_id: int, context: str) -> None:
     """
     Réserve le prochain créneau API disponible.
@@ -233,13 +419,31 @@ def _reserve_global_call_slot(source_label: str, user_id: int, context: str) -> 
 
 
 def _mark_libre_rate_limited(now_utc: dt.datetime):
-    global LIBRE_RATE_LIMIT_UNTIL, LIBRE_RATE_LIMIT_STREAK
-    LIBRE_RATE_LIMIT_STREAK += 1
+    db = SessionLocal()
+    try:
+        state = _ensure_shared_throttle_state(db, LIBRE_SHARED_STATE_KEY)
+        current_streak = max(int(getattr(state, "rate_limit_streak", 0) or 0), 0) + 1
+        cooldown_minutes = LIBRE_RATE_LIMIT_COOLDOWN_MINUTES * (
+            LIBRE_RATE_LIMIT_BACKOFF_FACTOR ** max(current_streak - 1, 0)
+        )
+        cooldown_minutes = min(cooldown_minutes, LIBRE_RATE_LIMIT_MAX_COOLDOWN_MINUTES)
+        cooldown_until = now_utc + dt.timedelta(minutes=cooldown_minutes)
+        state.cooldown_until = cooldown_until
+        state.rate_limit_streak = current_streak
+        state.lease_until = None
+        state.lease_owner = None
+        state.lease_context = None
+        state.lease_user_id = None
+        state.updated_at = now_utc
+        db.commit()
+        _sync_local_libre_rate_limit_cache(cooldown_until, current_streak)
+    finally:
+        db.close()
+
     cooldown_minutes = LIBRE_RATE_LIMIT_COOLDOWN_MINUTES * (
         LIBRE_RATE_LIMIT_BACKOFF_FACTOR ** max(LIBRE_RATE_LIMIT_STREAK - 1, 0)
     )
     cooldown_minutes = min(cooldown_minutes, LIBRE_RATE_LIMIT_MAX_COOLDOWN_MINUTES)
-    LIBRE_RATE_LIMIT_UNTIL = now_utc + dt.timedelta(minutes=cooldown_minutes)
     print(
         f"[CGM] LibreLinkUp rate-limité. "
         f"On désactive les appels Libre jusqu'à {_format_local_datetime(LIBRE_RATE_LIMIT_UNTIL)} "
@@ -357,45 +561,55 @@ def test_libre_credentials_guarded(
     client_version: str | None = None,
     context: str = "credentials_test",
 ) -> tuple[str, str]:
+    snapshot = _get_libre_shared_state_snapshot()
     now_utc = dt.datetime.utcnow()
-    if LIBRE_RATE_LIMIT_UNTIL and now_utc < LIBRE_RATE_LIMIT_UNTIL:
-        msg = _current_libre_cooldown_message(LIBRE_RATE_LIMIT_UNTIL)
+    cooldown_until = snapshot.get("cooldown_until")
+    if cooldown_until and now_utc < cooldown_until:
+        msg = _current_libre_cooldown_message(cooldown_until)
         set_libre_status_flag(user_id, "warn", msg)
         return "warn", msg
 
-    can_call_now, global_remaining = _global_throttle_allows_call()
-    can_call_source, source_remaining = _source_throttle_allows_call("LibreLinkUp")
-    if not can_call_now or not can_call_source:
-        wait_seconds = max(int(global_remaining or 0), int(source_remaining or 0), 1)
+    wait_seconds = max(int(_compute_libre_shared_wait_seconds(snapshot, now_utc)), 0)
+    if wait_seconds > 0:
         msg = _current_libre_slot_wait_message(wait_seconds)
         set_libre_status_flag(user_id, "warn", msg)
         return "warn", msg
 
-    _reserve_global_call_slot("LibreLinkUp", user_id or 0, context)
-    status, msg = test_libre_credentials(
-        email=email,
-        password=password,
-        region=region,
-        client_version=client_version,
-        user_id=user_id,
-    )
-    if is_libre_status_rate_limited((status, msg)):
-        _mark_libre_rate_limited(dt.datetime.utcnow())
-    return status, msg
+    owner_token, reserve_reason = _reserve_shared_libre_call_slot(user_id or 0, context)
+    if reserve_reason == "libre_cooldown":
+        msg = _current_libre_cooldown_message(_get_libre_shared_state_snapshot().get("cooldown_until"))
+        set_libre_status_flag(user_id, "warn", msg)
+        return "warn", msg
+
+    try:
+        status, msg = test_libre_credentials(
+            email=email,
+            password=password,
+            region=region,
+            client_version=client_version,
+            user_id=user_id,
+        )
+        if is_libre_status_rate_limited((status, msg)):
+            _mark_libre_rate_limited(dt.datetime.utcnow())
+        return status, msg
+    finally:
+        _release_shared_libre_call_slot(owner_token)
 
 
 def _record_libre_fetch_success(user_id: int, context: str) -> None:
-    global LIBRE_RATE_LIMIT_STREAK
     db = SessionLocal()
     try:
+        state = _ensure_shared_throttle_state(db, LIBRE_SHARED_STATE_KEY)
         cred = db.query(LibreCredentials).filter(LibreCredentials.user_id == user_id).first()
-        if not cred:
-            return
         now = dt.datetime.utcnow()
-        cred.last_fetch_at = now
-        cred.last_success_at = now
-        cred.last_fetch_context = (context or "")[:32] or None
-        LIBRE_RATE_LIMIT_STREAK = 0
+        if cred:
+            cred.last_fetch_at = now
+            cred.last_success_at = now
+            cred.last_fetch_context = (context or "")[:32] or None
+        state.cooldown_until = None
+        state.rate_limit_streak = 0
+        state.updated_at = now
+        _sync_local_libre_rate_limit_cache(None, 0)
         db.commit()
     except Exception as exc:
         db.rollback()
@@ -429,35 +643,9 @@ def fetch_libre_points_guarded(
     - libre_error
     - None
     """
-    now_utc = dt.datetime.utcnow()
-    if LIBRE_RATE_LIMIT_UNTIL and now_utc < LIBRE_RATE_LIMIT_UNTIL:
-        set_libre_status_flag(
-            user_id,
-            "warn",
-            _current_libre_cooldown_message(LIBRE_RATE_LIMIT_UNTIL),
-        )
-        print(
-            f"[CGM] user={user_id} -> LibreLinkUp est en cooldown jusqu'à "
-            f"{_format_local_datetime(LIBRE_RATE_LIMIT_UNTIL)}, on saute l'appel."
-        )
-        return [], "libre_cooldown"
-
     print(f"[CGM] user={user_id} -> tentative LibreLinkUp (context={context}).")
-    _reserve_global_call_slot("LibreLinkUp", user_id, context)
-
-    # Revalidation après l'attente: un autre thread a pu déclencher le cooldown
-    # pendant que celui-ci attendait son créneau.
-    now_utc = dt.datetime.utcnow()
-    if LIBRE_RATE_LIMIT_UNTIL and now_utc < LIBRE_RATE_LIMIT_UNTIL:
-        set_libre_status_flag(
-            user_id,
-            "warn",
-            _current_libre_cooldown_message(LIBRE_RATE_LIMIT_UNTIL),
-        )
-        print(
-            f"[CGM] user={user_id} -> LibreLinkUp est passé en cooldown pendant l'attente, "
-            "on saute l'appel."
-        )
+    owner_token, reserve_reason = _reserve_shared_libre_call_slot(user_id, context)
+    if reserve_reason == "libre_cooldown":
         return [], "libre_cooldown"
 
     try:
@@ -480,6 +668,8 @@ def fetch_libre_points_guarded(
             _mark_libre_rate_limited(dt.datetime.utcnow())
             return [], "libre_rate_limited"
         return [], "libre_error"
+    finally:
+        _release_shared_libre_call_slot(owner_token)
 
 
 def _libre_is_disabled(cred: LibreCredentials | None) -> bool:

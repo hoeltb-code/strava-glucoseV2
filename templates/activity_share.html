@@ -1057,12 +1057,12 @@
 
       funMetrics.forEach((metric, index) => {
         const y = quoteBlock.y + index * quoteBlock.rowHeight;
-        applyTextStyle(ctx, "700 24px Orbitron, sans-serif", theme.accent, "center");
+        applyTextStyle(ctx, "700 27px Orbitron, sans-serif", "#ffffff", "center");
         ctx.fillText(metric.label, quoteBlock.x, y);
         applyTextStyle(ctx, "700 72px Rajdhani, sans-serif", "#ffffff", "center");
         ctx.fillText(metric.value, quoteBlock.x, y + 76);
         if (metric.note) {
-          applyTextStyle(ctx, "italic 700 30px Rajdhani, sans-serif", "rgba(224, 236, 252, 0.76)", "center");
+          applyTextStyle(ctx, "italic 700 28px Rajdhani, sans-serif", "#ffffff", "center");
           ctx.fillText(metric.note, quoteBlock.x, y + 124);
         }
       });

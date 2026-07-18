@@ -39,6 +39,7 @@ class User(Base):
     last_name = Column(String, nullable=True)
     location = Column(String, nullable=True)
     profile_image_url = Column(String, nullable=True)
+    club_slug = Column(String(128), nullable=True)
 
     send_to_strava = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -475,6 +476,7 @@ class UserSettings(Base):
     desc_include_pace = Column(Boolean, default=False)
     desc_include_cadence = Column(Boolean, default=False)
     desc_enable_auto_block = Column(Boolean, default=True)
+    share_show_club_logo = Column(Boolean, default=False)
 
     desc_format = Column(String(32), default="gly_first")
     desc_max_lines = Column(Integer, nullable=True)

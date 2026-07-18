@@ -1,0 +1,14 @@
+[
+  {
+    "slug": "diabete-running-club",
+    "name": "Diabète Running Club",
+    "logo": "DRC.png",
+    "active": true
+  },
+  {
+    "slug": "type-1-running-team",
+    "name": "Type 1 Running Team",
+    "logo": "T1RT.png",
+    "active": true
+  }
+]

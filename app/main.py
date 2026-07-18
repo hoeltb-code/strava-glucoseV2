@@ -150,6 +150,7 @@ from .logic import (
 )
 from .settings import settings
 from .strava_client import StravaClient
+from .clubs import build_club_payload, get_available_clubs, get_club_by_slug
 from .libre_client import (
     get_last_libre_status,
     clear_libre_disabled_state,
@@ -440,6 +441,8 @@ def _build_story_export_data(
     *,
     route_points: list[list[float]] | None = None,
     altitude_profile_points: list[list[float]] | None = None,
+    club_data: dict | None = None,
+    share_show_club_logo: bool = False,
 ) -> dict | None:
     if len(glucose_chart_points) < 2:
         return None
@@ -523,6 +526,13 @@ def _build_story_export_data(
         "glucose_points": glucose_chart_points,
         "route_points": route_points or [],
         "altitude_profile_points": altitude_profile_points or [],
+        "club_name": club_data.get("name") if club_data else None,
+        "club_logo_url": (
+            club_data.get("logo_url")
+            if club_data and share_show_club_logo
+            else None
+        ),
+        "share_show_club_logo": bool(share_show_club_logo and club_data and club_data.get("logo_url")),
     }
 
 
@@ -4172,6 +4182,12 @@ def ui_user_profile(user_id: int, request: Request):
             auto_block_enabled = bool(user_settings.desc_enable_auto_block)
         else:
             auto_block_enabled = True
+        share_show_club_logo = bool(
+            user_settings.share_show_club_logo
+        ) if user_settings and user_settings.share_show_club_logo is not None else False
+
+        club_options = get_available_clubs()
+        selected_club = build_club_payload(user.club_slug)
 
         libre_status = request.query_params.get("libre_status")
         libre_status_message = request.query_params.get("libre_msg")
@@ -4209,6 +4225,9 @@ def ui_user_profile(user_id: int, request: Request):
             "glucose_provider": glucose_provider,
             "glucose_source_active_label": glucose_source_active_label,
             "auto_block_enabled": auto_block_enabled,
+            "club_options": club_options,
+            "selected_club": selected_club,
+            "share_show_club_logo": share_show_club_logo,
             "libre_status": libre_status,
             "libre_status_message": libre_status_message,
             "dexcom_status": dexcom_status,
@@ -4237,10 +4256,12 @@ def ui_user_profile_update(
     height_cm: str = Form(""),       # pareil en float
     weight_kg: str = Form(""),
     is_pro: bool = Form(False),      # checkbox pro
+    club_slug: str = Form(""),
     glucose_provider: str = Form(""),      # rétro-compat UI historique
     profile_image: UploadFile | None = File(None),  # 👈 fichier uploadé
 
-    desc_enable_auto_block: bool = Form(True),
+    desc_enable_auto_block: str | None = Form(None),
+    share_show_club_logo: str | None = Form(None),
 ):
     """
     Traite le formulaire de profil utilisateur :
@@ -4315,6 +4336,10 @@ def ui_user_profile_update(
         # -------- Abonnement pro --------
         user.is_pro = bool(is_pro)
 
+        # -------- Club --------
+        club_slug_value = (club_slug or "").strip().lower()
+        user.club_slug = club_slug_value if get_club_by_slug(club_slug_value, include_inactive=False) else None
+
         # -------- Source CGM --------
         provider_val = (glucose_provider or "").strip().lower()
         if provider_val in ("abbott", "dexcom", "medtronic_carelink", "nightscout"):
@@ -4343,6 +4368,7 @@ def ui_user_profile_update(
             db.add(settings)
 
         settings.desc_enable_auto_block = bool(desc_enable_auto_block)
+        settings.share_show_club_logo = bool(share_show_club_logo)
 
         db.commit()
         db.refresh(user)
@@ -6337,8 +6363,18 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
         fc = round(activity.average_heartrate) if activity.average_heartrate else None
         gly_avg = round(activity.avg_glucose) if activity.avg_glucose else None
 
+        club_data = build_club_payload(user.club_slug)
+        share_show_club_logo = bool(
+            user.settings.share_show_club_logo
+        ) if getattr(user, "settings", None) and user.settings.share_show_club_logo is not None else False
+
         if has_glucose and len(glucose_chart_points) > 1:
-            story_export_data = _build_story_export_data(activity, glucose_chart_points)
+            story_export_data = _build_story_export_data(
+                activity,
+                glucose_chart_points,
+                club_data=club_data,
+                share_show_club_logo=share_show_club_logo,
+            )
 
         # --- 4) GPS simplified ---
         gps = []
@@ -7222,11 +7258,18 @@ async def ui_user_activity_share(user_id: int, activity_id: int, request: Reques
         if len(altitude_profile_points) > 500:
             altitude_profile_points = altitude_profile_points[:: max(1, len(altitude_profile_points) // 500)]
 
+        club_data = build_club_payload(user.club_slug)
+        share_show_club_logo = bool(
+            user.settings.share_show_club_logo
+        ) if getattr(user, "settings", None) and user.settings.share_show_club_logo is not None else False
+
         story_export_data = _build_story_export_data(
             activity,
             glucose_chart_points,
             route_points=route_points,
             altitude_profile_points=altitude_profile_points,
+            club_data=club_data,
+            share_show_club_logo=share_show_club_logo,
         )
         if not story_export_data:
             return HTMLResponse(

@@ -306,6 +306,7 @@
       }
     };
     let currentThemeKey = "cyan";
+    let clubLogoImagePromise = null;
     const FONT_SIZE_BUMP_PX = 9;
     const PANEL_OVERLAY_ALPHA = 0.08;
 
@@ -505,6 +506,46 @@
       return themes[currentThemeKey] || themes.cyan;
     }
 
+    function loadImage(src) {
+      return new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error(`Impossible de charger l'image ${src}`));
+        image.src = src;
+      });
+    }
+
+    async function getClubLogoImage() {
+      if (!storyData.share_show_club_logo || !storyData.club_logo_url) {
+        return null;
+      }
+      if (!clubLogoImagePromise) {
+        clubLogoImagePromise = loadImage(storyData.club_logo_url).catch((error) => {
+          console.error(error);
+          return null;
+        });
+      }
+      return await clubLogoImagePromise;
+    }
+
+    function drawClubBadge(ctx, theme, clubLogoImage) {
+      if (!storyData.share_show_club_logo || !clubLogoImage) {
+        return;
+      }
+      const badgeSize = 164;
+      const x = 88;
+      const y = 46;
+
+      const logoBoxSize = 136;
+      const logoX = x + (badgeSize - logoBoxSize) / 2;
+      const logoY = y + (badgeSize - logoBoxSize) / 2;
+      roundedRect(ctx, logoX, logoY, logoBoxSize, logoBoxSize, 28);
+      ctx.save();
+      ctx.clip();
+      ctx.drawImage(clubLogoImage, logoX, logoY, logoBoxSize, logoBoxSize);
+      ctx.restore();
+    }
+
     function drawBackground(ctx, theme, variantKey) {
       ctx.save();
       ctx.shadowColor = "transparent";
@@ -512,10 +553,12 @@
       ctx.strokeStyle = variantKey === "route" ? "rgba(255,255,255,0.18)" : theme.accent;
       ctx.lineWidth = 4;
       ctx.beginPath();
-      ctx.moveTo(74, 90);
-      ctx.lineTo(188, 90);
-      ctx.moveTo(74, 90);
-      ctx.lineTo(74, 204);
+      if (!storyData.share_show_club_logo) {
+        ctx.moveTo(74, 90);
+        ctx.lineTo(188, 90);
+        ctx.moveTo(74, 90);
+        ctx.lineTo(74, 204);
+      }
       ctx.moveTo(1006, 1830);
       ctx.lineTo(892, 1830);
       ctx.moveTo(1006, 1830);
@@ -560,11 +603,12 @@
     }
 
     function drawHeader(ctx, theme) {
-      applyTextStyle(ctx, "700 70px Rajdhani, sans-serif", "#ffffff");
-      ctx.fillText(storyData.activity_name || "Activite", 88, 122);
+      const headerOffsetX = storyData.share_show_club_logo ? 280 : 88;
+      applyTextStyle(ctx, "700 67px Rajdhani, sans-serif", "#ffffff");
+      ctx.fillText(storyData.activity_name || "Activite", headerOffsetX, 122);
       if (storyData.activity_date) {
         applyTextStyle(ctx, "700 32px Rajdhani, sans-serif", "rgba(224, 236, 252, 0.86)");
-        ctx.fillText(storyData.activity_date, 88, 166);
+        ctx.fillText(storyData.activity_date, headerOffsetX, 166);
       }
     }
 
@@ -1001,6 +1045,7 @@
       if (document.fonts && document.fonts.ready) {
         await document.fonts.ready;
       }
+      const clubLogoImage = await getClubLogoImage();
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("Canvas 2D indisponible");
       canvas.width = size.width;
@@ -1013,6 +1058,7 @@
       else if (variantKey === "sport") drawSportVariant(ctx, theme);
       else if (variantKey === "route") drawRouteVariant(ctx, theme);
       else if (variantKey === "profile") drawProfileVariant(ctx, theme);
+      drawClubBadge(ctx, theme, clubLogoImage);
     }
 
     async function renderAll() {

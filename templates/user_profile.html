@@ -187,6 +187,9 @@
       </div>
       <div style="font-size:0.9rem; color:var(--text-muted); margin-top:2px;">
         Profil utilisateur · id={{ user.id }}
+        {% if selected_club %}
+          · Club : {{ selected_club.name }}
+        {% endif %}
       </div>
     </div>
   </div>
@@ -247,6 +250,49 @@
           <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem; color:#374151;">
             <input type="checkbox" name="is_pro" value="1" {% if user.is_pro %}checked{% endif %}> Abonné à la version Pro
           </label>
+        </div>
+
+        <div class="card" style="margin-top:16px; padding:12px 14px;">
+          <h3 style="font-size:0.95rem; font-weight:600; margin:0 0 6px;">Club</h3>
+          <p class="muted" style="margin:0 0 10px; font-size:0.85rem; color:#6b7280;">
+            Le choix est limité aux clubs présents dans le fichier partagé. Le logo du club peut ensuite être ajouté sur les PNG d’activité.
+          </p>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px;">
+            <div>
+              <label style="display:block; font-size:0.8rem; color:#4b5563; margin-bottom:2px;">Club</label>
+              <select name="club_slug">
+                <option value="">Aucun club</option>
+                {% if selected_club and selected_club.missing %}
+                  <option value="{{ selected_club.slug }}" selected>{{ selected_club.name }} (indisponible)</option>
+                {% endif %}
+                {% for club in club_options %}
+                  <option value="{{ club.slug }}" {% if selected_club and selected_club.slug == club.slug %}selected{% endif %}>
+                    {{ club.name }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div style="display:flex; align-items:flex-end;">
+              <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; color:#374151;">
+                <input type="checkbox" name="share_show_club_logo" value="1" {% if share_show_club_logo %}checked{% endif %}>
+                Afficher le logo du club dans mes partages PNG
+              </label>
+            </div>
+          </div>
+          {% if selected_club and selected_club.missing %}
+            <div style="margin-top:10px; font-size:0.8rem; color:#f59e0b;">
+              Le club actuellement enregistré n’est plus présent dans le fichier `clubs.json`. Enregistre un nouveau choix pour le remplacer.
+            </div>
+          {% elif selected_club %}
+            <div style="margin-top:10px; font-size:0.8rem; color:var(--text-muted);">
+              Club actuel : <strong>{{ selected_club.name }}</strong>
+            </div>
+          {% endif %}
+          <div style="margin-top:12px; display:flex; justify-content:flex-end;">
+            <button type="submit" class="btn-primary">
+              Enregistrer le club
+            </button>
+          </div>
         </div>
 
         <!-- ========================================================= -->

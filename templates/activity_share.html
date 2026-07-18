@@ -267,6 +267,20 @@
       </div>
       <div class="share-caption">Profil d’élévation, VAM max 5 min si disponible, plus données glycémie.</div>
     </article>
+
+    <article class="share-card">
+      <div class="share-card-top">
+        <div>
+          <h3>Fun minimal</h3>
+          <p>Une version simple, drôle et légère, avec les vraies stats mais des sous-titres qui prennent moins la tête.</p>
+        </div>
+        <button type="button" class="share-download-button" data-download-key="fun">Télécharger</button>
+      </div>
+      <div class="share-preview">
+        <canvas class="share-canvas" data-canvas-key="fun" width="1080" height="1920"></canvas>
+      </div>
+      <div class="share-caption">Distance, pace, temps, TIR et la trace blanche sur un layout plus éditorial.</div>
+    </article>
   </div>
 </div>
 
@@ -550,20 +564,6 @@
       ctx.save();
       ctx.shadowColor = "transparent";
       ctx.shadowBlur = 0;
-      ctx.strokeStyle = variantKey === "route" ? "rgba(255,255,255,0.18)" : theme.accent;
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      if (!storyData.share_show_club_logo) {
-        ctx.moveTo(74, 90);
-        ctx.lineTo(188, 90);
-        ctx.moveTo(74, 90);
-        ctx.lineTo(74, 204);
-      }
-      ctx.moveTo(1006, 1830);
-      ctx.lineTo(892, 1830);
-      ctx.moveTo(1006, 1830);
-      ctx.lineTo(1006, 1716);
-      ctx.stroke();
       ctx.restore();
     }
 
@@ -600,6 +600,58 @@
           !!options.large,
         );
       });
+    }
+
+    function getRoutePoints() {
+      const route = Array.isArray(storyData.route_points) ? storyData.route_points : [];
+      return route
+        .filter((point) => Array.isArray(point) && point.length >= 2)
+        .map((point) => ({
+          lat: Number(point[0]),
+          lon: Number(point[1]),
+        }))
+        .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lon));
+    }
+
+    function drawRoutePath(ctx, points, routeBox, options) {
+      if (points.length < 2) {
+        return false;
+      }
+
+      const lats = points.map((point) => point.lat);
+      const lons = points.map((point) => point.lon);
+      const minLat = Math.min.apply(null, lats);
+      const maxLat = Math.max.apply(null, lats);
+      const minLon = Math.min.apply(null, lons);
+      const maxLon = Math.max.apply(null, lons);
+      const latRange = Math.max(0.000001, maxLat - minLat);
+      const lonRange = Math.max(0.000001, maxLon - minLon);
+      const padding = options.padding || 0;
+      const availableWidth = routeBox.width - padding * 2;
+      const availableHeight = routeBox.height - padding * 2;
+      const scale = Math.min(availableWidth / lonRange, availableHeight / latRange);
+      const drawnWidth = lonRange * scale;
+      const drawnHeight = latRange * scale;
+      const offsetX = routeBox.x + (routeBox.width - drawnWidth) / 2;
+      const offsetY = routeBox.y + (routeBox.height - drawnHeight) / 2;
+
+      ctx.save();
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = options.strokeStyle || "rgba(255,255,255,0.96)";
+      ctx.lineWidth = options.lineWidth || 12;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      points.forEach((point, index) => {
+        const x = offsetX + (point.lon - minLon) * scale;
+        const y = routeBox.y + routeBox.height - ((point.lat - minLat) * scale + (routeBox.y + routeBox.height - (offsetY + drawnHeight)));
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      ctx.restore();
+      return true;
     }
 
     function drawHeader(ctx, theme) {
@@ -926,11 +978,7 @@
         gap: 18,
       });
 
-      const route = Array.isArray(storyData.route_points) ? storyData.route_points : [];
-      const points = route.filter((point) => Array.isArray(point) && point.length >= 2).map((point) => ({
-        lat: Number(point[0]),
-        lon: Number(point[1]),
-      })).filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lon));
+      const points = getRoutePoints();
 
       if (points.length < 2) {
         applyTextStyle(ctx, "700 34px Orbitron, sans-serif", "rgba(255,255,255,0.86)", "center");
@@ -939,14 +987,6 @@
         return;
       }
 
-      const lats = points.map((point) => point.lat);
-      const lons = points.map((point) => point.lon);
-      const minLat = Math.min.apply(null, lats);
-      const maxLat = Math.max.apply(null, lats);
-      const minLon = Math.min.apply(null, lons);
-      const maxLon = Math.max.apply(null, lons);
-      const latRange = Math.max(0.000001, maxLat - minLat);
-      const lonRange = Math.max(0.000001, maxLon - minLon);
       const routeBox = {
         x: 96,
         y: 610,
@@ -960,34 +1000,10 @@
       ctx.lineWidth = 1.2;
       ctx.stroke();
 
-      const padding = 42;
-      const availableWidth = routeBox.width - padding * 2;
-      const availableHeight = routeBox.height - padding * 2;
-      const scale = Math.min(availableWidth / lonRange, availableHeight / latRange);
-      const drawnWidth = lonRange * scale;
-      const drawnHeight = latRange * scale;
-      const offsetX = routeBox.x + (routeBox.width - drawnWidth) / 2;
-      const offsetY = routeBox.y + (routeBox.height - drawnHeight) / 2;
-
       applyTextStyle(ctx, "700 22px Orbitron, sans-serif", "rgba(255,255,255,0.82)");
       ctx.fillText("PARCOURS", routeBox.x, routeBox.y - 42);
 
-      ctx.save();
-      ctx.shadowColor = "transparent";
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = "rgba(255,255,255,0.96)";
-      ctx.lineWidth = 12;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.beginPath();
-      points.forEach((point, index) => {
-        const x = offsetX + (point.lon - minLon) * scale;
-        const y = routeBox.y + routeBox.height - ((point.lat - minLat) * scale + (routeBox.y + routeBox.height - (offsetY + drawnHeight)));
-        if (index === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.stroke();
-      ctx.restore();
+      drawRoutePath(ctx, points, routeBox, { padding: 42, strokeStyle: "rgba(255,255,255,0.96)", lineWidth: 12 });
 
       const bottomMetrics = [
         resolveMetric("tir"),
@@ -1002,6 +1018,75 @@
         cardHeight: 114,
         gap: 18,
       });
+
+      drawFooter(ctx);
+    }
+
+    function drawFunVariant(ctx, theme) {
+      drawBackground(ctx, theme, "fun");
+      drawHeader(ctx, theme);
+
+      const quoteBlock = {
+        x: size.width / 2,
+        y: 286,
+        rowHeight: 164,
+      };
+
+      const funMetrics = [
+        {
+          label: "DISTANCE",
+          value: "Doesn't matter",
+          note: null,
+        },
+        {
+          label: "PACE",
+          value: "Who cares",
+          note: null,
+        },
+        {
+          label: "TIME",
+          value: "Well spent",
+          note: null,
+        },
+        {
+          label: "TIR",
+          value: metricValue(storyData.tir_label),
+          note: "Better than if I was on my sofa",
+        },
+      ];
+
+      funMetrics.forEach((metric, index) => {
+        const y = quoteBlock.y + index * quoteBlock.rowHeight;
+        applyTextStyle(ctx, "700 24px Orbitron, sans-serif", theme.accent, "center");
+        ctx.fillText(metric.label, quoteBlock.x, y);
+        applyTextStyle(ctx, "700 72px Rajdhani, sans-serif", "#ffffff", "center");
+        ctx.fillText(metric.value, quoteBlock.x, y + 76);
+        if (metric.note) {
+          applyTextStyle(ctx, "italic 700 30px Rajdhani, sans-serif", "rgba(224, 236, 252, 0.76)", "center");
+          ctx.fillText(metric.note, quoteBlock.x, y + 124);
+        }
+      });
+      ctx.textAlign = "start";
+
+      const points = getRoutePoints();
+      const routeBox = {
+        x: 100,
+        y: 1028,
+        width: 880,
+        height: 590,
+      };
+
+      if (points.length >= 2) {
+        drawRoutePath(ctx, points, routeBox, {
+          padding: 24,
+          strokeStyle: "rgba(255,255,255,0.96)",
+          lineWidth: 14,
+        });
+      } else {
+        applyTextStyle(ctx, "700 32px Orbitron, sans-serif", "rgba(255,255,255,0.74)", "center");
+        ctx.fillText("TRACE INDISPONIBLE", size.width / 2, 1330);
+        ctx.textAlign = "start";
+      }
 
       drawFooter(ctx);
     }
@@ -1058,6 +1143,7 @@
       else if (variantKey === "sport") drawSportVariant(ctx, theme);
       else if (variantKey === "route") drawRouteVariant(ctx, theme);
       else if (variantKey === "profile") drawProfileVariant(ctx, theme);
+      else if (variantKey === "fun") drawFunVariant(ctx, theme);
       drawClubBadge(ctx, theme, clubLogoImage);
     }
 

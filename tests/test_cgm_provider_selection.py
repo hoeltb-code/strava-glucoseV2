@@ -96,6 +96,7 @@ class ProviderSelectionTests(unittest.TestCase):
         self.assertEqual(points, [])
         self.assertIsNone(source_label)
         self.assertEqual(meta["attempted_sources"], [])
+        self.assertEqual(meta["reason"], "nightscout_missing_credentials")
 
     def test_single_configured_provider_is_used_when_no_active_source_saved(self):
         user = SimpleNamespace(
@@ -191,6 +192,35 @@ class ProviderSelectionTests(unittest.TestCase):
         guarded.assert_called_once_with(user_id=55, context="activity_import")
         self.assertEqual(len(points), 1)
         self.assertEqual(points[0]["glucose"], 123.0)
+
+    def test_fetch_realtime_points_marks_dexcom_empty_reason(self):
+        user = SimpleNamespace(
+            id=648,
+            glucose_source_active="dexcom",
+            glucose_provider="dexcom",
+            cgm_source="dexcom",
+            libre_credentials=None,
+            dexcom_tokens=[
+                SimpleNamespace(
+                    share_username="dex@example.com",
+                    share_password="encrypted",
+                )
+            ],
+            carelink_credentials=None,
+            nightscout_credentials=None,
+        )
+        db = DummyDb()
+
+        with patch("app.cgm_service._reserve_global_call_slot", return_value=None), patch(
+            "app.cgm_service.DexcomClient"
+        ) as dexcom_cls:
+            dexcom_cls.return_value.get_graph.return_value = []
+            points, source_label, meta = fetch_realtime_points_for_user(db, user, context="test")
+
+        self.assertEqual(points, [])
+        self.assertIsNone(source_label)
+        self.assertEqual(meta["attempted_sources"], ["dexcom"])
+        self.assertEqual(meta["reason"], "dexcom_no_points")
 
 
 if __name__ == "__main__":

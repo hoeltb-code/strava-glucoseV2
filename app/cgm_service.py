@@ -313,6 +313,36 @@ def _current_libre_slot_wait_message(seconds: int) -> str:
     )
 
 
+def _log_cgm_fetch_result(
+    *,
+    user_id: int,
+    context: str,
+    active_source: str | None,
+    points: list[dict],
+    source_label: str | None,
+    meta: dict,
+) -> None:
+    attempted = ",".join(meta.get("attempted_sources") or []) or "-"
+    skipped = ",".join(meta.get("skipped_sources") or []) or "-"
+    reason = meta.get("reason") or "ok"
+
+    if source_label and points:
+        outcome = "success"
+    elif meta.get("attempted_sources"):
+        outcome = "failed" if meta.get("reason") else "empty"
+    elif meta.get("skipped_sources"):
+        outcome = "skipped"
+    else:
+        outcome = "not_attempted"
+
+    print(
+        f"[CGM][fetch_result] user={user_id} context={context} "
+        f"active_source={active_source or '-'} outcome={outcome} "
+        f"source={source_label or '-'} points={len(points)} "
+        f"attempted={attempted} skipped={skipped} reason={reason}"
+    )
+
+
 def record_glucose_page_view(user_id: int, page_name: str) -> None:
     LAST_GLUCOSE_PAGE_VIEWS[user_id] = dt.datetime.utcnow()
     print(f"[CGM] user={user_id} -> page glucose ouverte ({page_name}), priorite haute active.")
@@ -690,6 +720,8 @@ def fetch_realtime_points_for_user(
     def try_libre():
         # Si l'utilisateur n'a pas d'identifiants Libre, on skip
         if not user.libre_credentials:
+            meta["skipped_sources"].append("libre")
+            meta["reason"] = "libre_missing_credentials"
             return []
 
         if not allow_libre_fetch:
@@ -702,11 +734,15 @@ def fetch_realtime_points_for_user(
             meta["skipped_sources"].append("libre")
         if reason is not None:
             meta["reason"] = reason
+        elif not pts:
+            meta["reason"] = "libre_no_points"
         return pts
 
     def try_dexcom():
         # Si l'utilisateur n'a pas d'identifiants Dexcom Share, on skip
         if not has_dexcom_share_credentials(user.dexcom_tokens):
+            meta["skipped_sources"].append("dexcom")
+            meta["reason"] = "dexcom_missing_credentials"
             return []
         try:
             meta["attempted_sources"].append("dexcom")
@@ -718,13 +754,18 @@ def fetch_realtime_points_for_user(
             pts = cli.get_graph(start=start, end=now) or []
             if pts:
                 print(f"[CGM] user={user_id} -> {len(pts)} points Dexcom ({context})")
+            else:
+                meta["reason"] = "dexcom_no_points"
             return pts
         except Exception as e:
+            meta["reason"] = "dexcom_error"
             print(f"[CGM] user={user_id} -> erreur Dexcom ({context}) : {e}")
             return []
 
     def try_carelink():
         if not has_carelink_credentials(user):
+            meta["skipped_sources"].append("medtronic_carelink")
+            meta["reason"] = "carelink_missing_credentials"
             return []
         try:
             meta["attempted_sources"].append("medtronic_carelink")
@@ -749,6 +790,8 @@ def fetch_realtime_points_for_user(
                 db.commit()
             if pts:
                 print(f"[CGM] user={user_id} -> {len(pts)} points CareLink ({context})")
+            else:
+                meta["reason"] = "carelink_no_points"
             return [
                 {
                     "ts": point["timestamp"],
@@ -760,6 +803,7 @@ def fetch_realtime_points_for_user(
                 for point in pts
             ]
         except Exception as e:
+            meta["reason"] = "carelink_error"
             if user.carelink_credentials:
                 user.carelink_credentials.status = "error"
                 user.carelink_credentials.error_message = str(e)
@@ -770,6 +814,8 @@ def fetch_realtime_points_for_user(
     def try_nightscout():
         cred = getattr(user, "nightscout_credentials", None)
         if cred is None or not cred.base_url:
+            meta["skipped_sources"].append("nightscout")
+            meta["reason"] = "nightscout_missing_credentials"
             return []
         try:
             meta["attempted_sources"].append("nightscout")
@@ -779,6 +825,8 @@ def fetch_realtime_points_for_user(
             pts = fetch_nightscout_glucose(user, start, now) or []
             if pts:
                 print(f"[CGM] user={user_id} -> {len(pts)} points Nightscout ({context})")
+            else:
+                meta["reason"] = "nightscout_no_points"
             return [
                 {
                     "ts": point["timestamp"],
@@ -790,6 +838,7 @@ def fetch_realtime_points_for_user(
                 for point in pts
             ]
         except Exception as e:
+            meta["reason"] = "nightscout_error"
             print(f"[CGM] user={user_id} -> erreur Nightscout ({context}) : {e}")
             return []
 
@@ -816,6 +865,15 @@ def fetch_realtime_points_for_user(
             source_label = "nightscout"
     else:
         meta["reason"] = "no_active_source"
+
+    _log_cgm_fetch_result(
+        user_id=user_id,
+        context=context,
+        active_source=preferred,
+        points=points,
+        source_label=source_label,
+        meta=meta,
+    )
 
     return points, source_label, meta
 

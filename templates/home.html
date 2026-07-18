@@ -45,6 +45,7 @@
   {% set filters = filters|default({'strava': 'all', 'libre': 'all', 'dexcom': 'all', 'carelink': 'all'}) %}
   {% set user_pagination = user_pagination|default({'page': 1, 'page_size': 10, 'total': 0, 'start_index': 0, 'end_index': 0, 'has_prev': False, 'has_next': False, 'prev_url': None, 'next_url': None}) %}
   {% set activity_pagination = activity_pagination|default({'page': 1, 'page_size': 5, 'total': 0, 'start_index': 0, 'end_index': 0, 'has_prev': False, 'has_next': False, 'prev_url': None, 'next_url': None}) %}
+  {% set enrichment_dashboard = enrichment_dashboard|default({'status_counts': {'pending': 0, 'processing': 0, 'retry': 0, 'succeeded': 0, 'failed': 0}, 'total_jobs': 0, 'recent_jobs': [], 'worker_poll_seconds': 0, 'retry_base_seconds': 0, 'retry_max_seconds': 0, 'max_attempts': 0}) %}
   {% set admin_status = admin_status|default(None) %}
   {% set admin_message = admin_message|default(None) %}
   <div class="card">
@@ -301,6 +302,121 @@
     {% else %}
       <p style="margin-top: 12px; color: var(--text-muted);">
         Aucun utilisateur ne correspond aux filtres actuels.
+      </p>
+    {% endif %}
+  </div>
+
+  <div class="card" style="margin-top:20px;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+      <div>
+        <h3 style="margin-bottom:4px;">🧠 File d’enrichissement Strava</h3>
+        <p style="color:var(--text-muted); margin-top:0;">
+          Suivi des enrichissements CGM différés, retries et échecs.
+        </p>
+      </div>
+      <form method="post" action="/admin/enrichment-jobs/run">
+        <button type="submit">Traiter la file maintenant</button>
+      </form>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-top:12px;">
+      <div class="card admin-subcard" style="padding:12px;">
+        <div style="font-size:0.8rem; color:var(--text-muted);">Pending</div>
+        <div style="font-size:1.4rem; font-weight:700;">{{ enrichment_dashboard.status_counts.pending }}</div>
+      </div>
+      <div class="card admin-subcard" style="padding:12px;">
+        <div style="font-size:0.8rem; color:var(--text-muted);">Processing</div>
+        <div style="font-size:1.4rem; font-weight:700;">{{ enrichment_dashboard.status_counts.processing }}</div>
+      </div>
+      <div class="card admin-subcard" style="padding:12px;">
+        <div style="font-size:0.8rem; color:var(--text-muted);">Retry</div>
+        <div style="font-size:1.4rem; font-weight:700;">{{ enrichment_dashboard.status_counts.retry }}</div>
+      </div>
+      <div class="card admin-subcard" style="padding:12px;">
+        <div style="font-size:0.8rem; color:var(--text-muted);">Succeeded</div>
+        <div style="font-size:1.4rem; font-weight:700;">{{ enrichment_dashboard.status_counts.succeeded }}</div>
+      </div>
+      <div class="card admin-subcard" style="padding:12px;">
+        <div style="font-size:0.8rem; color:var(--text-muted);">Failed</div>
+        <div style="font-size:1.4rem; font-weight:700;">{{ enrichment_dashboard.status_counts.failed }}</div>
+      </div>
+      <div class="card admin-subcard" style="padding:12px;">
+        <div style="font-size:0.8rem; color:var(--text-muted);">Total</div>
+        <div style="font-size:1.4rem; font-weight:700;">{{ enrichment_dashboard.total_jobs }}</div>
+      </div>
+    </div>
+
+    <p style="color:var(--text-muted); font-size:0.88rem; margin-top:12px;">
+      Worker: toutes les {{ enrichment_dashboard.worker_poll_seconds }}s · retry initial: {{ enrichment_dashboard.retry_base_seconds }}s · retry max: {{ enrichment_dashboard.retry_max_seconds }}s · tentatives max: {{ enrichment_dashboard.max_attempts }}
+    </p>
+
+    {% if enrichment_dashboard.recent_jobs %}
+      <div class="admin-table-wrap" style="margin-top:12px;">
+        <table style="width:100%; border-collapse:collapse; font-size:0.88rem;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border); color:var(--text-muted);">
+              <th style="text-align:left; padding:6px;">Job</th>
+              <th style="text-align:left; padding:6px;">Utilisateur</th>
+              <th style="text-align:left; padding:6px;">Activité Strava</th>
+              <th style="text-align:left; padding:6px;">Statut</th>
+              <th style="text-align:left; padding:6px;">Déclencheur</th>
+              <th style="text-align:right; padding:6px;">Attempts</th>
+              <th style="text-align:left; padding:6px;">Raison</th>
+              <th style="text-align:left; padding:6px;">Next retry</th>
+              <th style="text-align:left; padding:6px;">Updated</th>
+              <th style="text-align:right; padding:6px;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for job in enrichment_dashboard.recent_jobs %}
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.08);">
+                <td style="padding:6px; white-space:nowrap;">#{{ job.id }}</td>
+                <td style="padding:6px; white-space:nowrap;">#{{ job.user_id }}<br>{{ job.user_email }}</td>
+                <td style="padding:6px; white-space:nowrap;">{{ job.activity_id }}</td>
+                <td style="padding:6px;">
+                  {% if job.status == 'succeeded' %}
+                    <span style="color:#4ade80; font-weight:600;">{{ job.status }}</span>
+                  {% elif job.status == 'failed' %}
+                    <span style="color:#f87171; font-weight:600;">{{ job.status }}</span>
+                  {% elif job.status == 'retry' %}
+                    <span style="color:#facc15; font-weight:600;">{{ job.status }}</span>
+                  {% elif job.status == 'processing' %}
+                    <span style="color:#67e8f9; font-weight:600;">{{ job.status }}</span>
+                  {% else %}
+                    <span style="color:var(--text-main); font-weight:600;">{{ job.status }}</span>
+                  {% endif %}
+                </td>
+                <td style="padding:6px;">{{ job.trigger_source }}</td>
+                <td style="padding:6px; text-align:right;">{{ job.attempts }}</td>
+                <td style="padding:6px;">{{ job.last_reason }}</td>
+                <td style="padding:6px; white-space:nowrap;">{{ job.next_retry_at }}</td>
+                <td style="padding:6px; white-space:nowrap;">{{ job.updated_at }}</td>
+                <td style="padding:6px; text-align:right;">
+                  {% if job.can_retry %}
+                    <form method="post" action="/admin/enrichment-jobs/{{ job.id }}/retry" style="display:inline;">
+                      <button type="submit">Relancer</button>
+                    </form>
+                  {% else %}
+                    <span style="color:var(--text-muted);">En cours</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% if job.last_error %}
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.08); background:#ffffff;">
+                  <td colspan="10" style="padding:8px 6px;">
+                    <div style="font-size:0.8rem; color:#991b1b; white-space:pre-line; max-height:120px; overflow:auto;">
+                      {{ job.last_error }}
+                    </div>
+                  </td>
+                </tr>
+              {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p style="margin-top:12px; color:var(--text-muted);">
+        Aucun job d’enrichissement enregistré pour le moment.
       </p>
     {% endif %}
   </div>

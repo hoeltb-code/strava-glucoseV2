@@ -1571,6 +1571,70 @@ def _collect_admin_user_rows(
     return rows
 
 
+def _collect_enrichment_admin_rows(
+    db: Session,
+    *,
+    limit: int = 25,
+) -> dict:
+    status_counts = {
+        "pending": 0,
+        "processing": 0,
+        "retry": 0,
+        "succeeded": 0,
+        "failed": 0,
+    }
+    for status, count in (
+        db.query(ActivityEnrichmentJob.status, func.count(ActivityEnrichmentJob.id))
+        .group_by(ActivityEnrichmentJob.status)
+        .all()
+    ):
+        if status:
+            status_counts[str(status)] = int(count or 0)
+
+    recent_jobs_query = (
+        db.query(ActivityEnrichmentJob, User)
+        .join(User, ActivityEnrichmentJob.user_id == User.id)
+        .order_by(
+            ActivityEnrichmentJob.updated_at.desc(),
+            ActivityEnrichmentJob.created_at.desc(),
+            ActivityEnrichmentJob.id.desc(),
+        )
+        .limit(max(1, limit))
+    )
+
+    recent_jobs = []
+    for job, user in recent_jobs_query.all():
+        recent_jobs.append(
+            {
+                "id": job.id,
+                "user_id": job.user_id,
+                "user_email": user.email,
+                "activity_id": job.strava_activity_id,
+                "status": job.status or "unknown",
+                "trigger_source": job.trigger_source or "—",
+                "attempts": int(job.attempts or 0),
+                "last_reason": job.last_reason or "—",
+                "last_error": (job.last_error or "").strip() or None,
+                "next_retry_at": job.next_retry_at.strftime("%Y-%m-%d %H:%M:%S") if job.next_retry_at else "—",
+                "locked_at": job.locked_at.strftime("%Y-%m-%d %H:%M:%S") if job.locked_at else "—",
+                "started_at": job.started_at.strftime("%Y-%m-%d %H:%M:%S") if job.started_at else "—",
+                "completed_at": job.completed_at.strftime("%Y-%m-%d %H:%M:%S") if job.completed_at else "—",
+                "updated_at": job.updated_at.strftime("%Y-%m-%d %H:%M:%S") if job.updated_at else "—",
+                "can_retry": (job.status or "") != "processing",
+            }
+        )
+
+    return {
+        "status_counts": status_counts,
+        "total_jobs": sum(status_counts.values()),
+        "recent_jobs": recent_jobs,
+        "worker_poll_seconds": ENRICHMENT_WORKER_POLL_SECONDS,
+        "retry_base_seconds": ENRICHMENT_RETRY_BASE_SECONDS,
+        "retry_max_seconds": ENRICHMENT_RETRY_MAX_SECONDS,
+        "max_attempts": ENRICHMENT_MAX_ATTEMPTS,
+    }
+
+
 # -----------------------------------------------------------------------------
 # Instance FastAPI + static + templates
 # -----------------------------------------------------------------------------
@@ -3522,6 +3586,7 @@ def ui_home(request: Request):
     activity_page_size = 5
 
     recent_activities = []
+    enrichment_dashboard = {}
     total_filtered_users = 0
     total_activity_count = 0
     user_pagination = {}
@@ -3539,6 +3604,7 @@ def ui_home(request: Request):
             carelink_filter=carelink_filter,
             nightscout_filter=nightscout_filter,
         )
+        enrichment_dashboard = _collect_enrichment_admin_rows(db)
 
         total_filtered_users = len(filtered_users)
         user_offset = (user_page - 1) * user_page_size
@@ -3620,9 +3686,78 @@ def ui_home(request: Request):
                 "nightscout": nightscout_filter,
             },
             "total_filtered_users": total_filtered_users,
+            "enrichment_dashboard": enrichment_dashboard,
             "admin_status": admin_status,
             "admin_message": admin_message,
         },
+    )
+
+
+@app.post("/admin/enrichment-jobs/run")
+def admin_run_enrichment_jobs(request: Request):
+    guard = _guard_admin(request)
+    if guard:
+        return guard
+
+    try:
+        processed = asyncio.run(process_pending_enrichment_jobs_once())
+    except Exception as exc:
+        return RedirectResponse(
+            url="/ui?admin_status=error&admin_msg="
+            + quote_plus(f"Erreur lors de l'exécution de la file: {exc}"),
+            status_code=303,
+        )
+
+    return RedirectResponse(
+        url="/ui?admin_status=ok&admin_msg="
+        + quote_plus(f"{processed} job(s) d'enrichissement traité(s)."),
+        status_code=303,
+    )
+
+
+@app.post("/admin/enrichment-jobs/{job_id}/retry")
+def admin_retry_enrichment_job(request: Request, job_id: int):
+    guard = _guard_admin(request)
+    if guard:
+        return guard
+
+    db = SessionLocal()
+    try:
+        job = db.query(ActivityEnrichmentJob).filter(ActivityEnrichmentJob.id == int(job_id)).one_or_none()
+        if job is None:
+            return RedirectResponse(
+                url="/ui?admin_status=error&admin_msg="
+                + quote_plus(f"Job #{job_id} introuvable."),
+                status_code=303,
+            )
+        job.status = "pending"
+        job.attempts = 0
+        job.trigger_source = "admin_retry"
+        job.next_retry_at = dt.datetime.utcnow()
+        job.last_reason = "manual_admin_retry"
+        job.last_error = None
+        job.locked_at = None
+        job.started_at = None
+        job.completed_at = None
+        db.commit()
+    finally:
+        db.close()
+
+    try:
+        result = asyncio.run(_process_enrichment_job(int(job_id), trigger_source="admin_retry"))
+    except Exception as exc:
+        return RedirectResponse(
+            url="/ui?admin_status=error&admin_msg="
+            + quote_plus(f"Retry du job #{job_id} échoué: {exc}"),
+            status_code=303,
+        )
+
+    status = result.get("status") or "unknown"
+    reason = result.get("reason") or "ok"
+    return RedirectResponse(
+        url="/ui?admin_status=ok&admin_msg="
+        + quote_plus(f"Job #{job_id} relancé ({status}, reason={reason})."),
+        status_code=303,
     )
 
 

@@ -522,6 +522,8 @@ class GlucosePoint(Base):
         UniqueConstraint("user_id", "ts", name="uq_glucose_user_ts"),
     )
 
+    user = relationship("User", backref="glucose_points")
+
 
 class ActivityEnrichmentJob(Base):
     __tablename__ = "activity_enrichment_jobs"
@@ -547,8 +549,6 @@ class ActivityEnrichmentJob(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = relationship("User")
-
-    user = relationship("User", backref="glucose_points")
 
 
 class PasswordResetToken(Base):

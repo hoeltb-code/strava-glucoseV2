@@ -602,6 +602,50 @@
       });
     }
 
+    function drawWrappedText(ctx, text, x, y, options) {
+      const rawText = String(text || "").trim() || "Activite";
+      const maxWidth = options.maxWidth;
+      const lineHeight = options.lineHeight || 48;
+      const maxLines = options.maxLines || 2;
+      const words = rawText.split(/\s+/).filter(Boolean);
+      const lines = [];
+      let currentLine = "";
+
+      words.forEach((word) => {
+        const candidate = currentLine ? `${currentLine} ${word}` : word;
+        if (!currentLine || ctx.measureText(candidate).width <= maxWidth) {
+          currentLine = candidate;
+          return;
+        }
+        lines.push(currentLine);
+        currentLine = word;
+      });
+
+      if (currentLine) {
+        lines.push(currentLine);
+      }
+
+      const visibleLines = lines.slice(0, maxLines);
+      if (lines.length > maxLines && visibleLines.length) {
+        let lastLine = visibleLines[visibleLines.length - 1];
+        while (lastLine && ctx.measureText(`${lastLine}…`).width > maxWidth) {
+          const parts = lastLine.split(" ");
+          if (parts.length <= 1) {
+            lastLine = lastLine.slice(0, -1);
+          } else {
+            parts.pop();
+            lastLine = parts.join(" ");
+          }
+        }
+        visibleLines[visibleLines.length - 1] = `${lastLine}…`;
+      }
+
+      visibleLines.forEach((line, index) => {
+        ctx.fillText(line, x, y + index * lineHeight);
+      });
+      return visibleLines.length;
+    }
+
     function getRoutePoints() {
       const route = Array.isArray(storyData.route_points) ? storyData.route_points : [];
       return route
@@ -656,11 +700,17 @@
 
     function drawHeader(ctx, theme) {
       const headerOffsetX = storyData.share_show_club_logo ? 280 : 88;
-      applyTextStyle(ctx, "700 67px Rajdhani, sans-serif", "#ffffff");
-      ctx.fillText(storyData.activity_name || "Activite", headerOffsetX, 122);
+      const titleMaxWidth = storyData.share_show_club_logo ? 712 : 904;
+      applyTextStyle(ctx, "700 56px Rajdhani, sans-serif", "#ffffff");
+      const titleLineCount = drawWrappedText(ctx, storyData.activity_name || "Activite", headerOffsetX, 110, {
+        maxWidth: titleMaxWidth,
+        lineHeight: 52,
+        maxLines: 2,
+      });
       if (storyData.activity_date) {
         applyTextStyle(ctx, "700 32px Rajdhani, sans-serif", "rgba(224, 236, 252, 0.86)");
-        ctx.fillText(storyData.activity_date, headerOffsetX, 166);
+        const dateY = 110 + titleLineCount * 52 + 12;
+        ctx.fillText(storyData.activity_date, headerOffsetX, dateY);
       }
     }
 

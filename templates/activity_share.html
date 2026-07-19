@@ -628,7 +628,7 @@
       const visibleLines = lines.slice(0, maxLines);
       if (lines.length > maxLines && visibleLines.length) {
         let lastLine = visibleLines[visibleLines.length - 1];
-        while (lastLine && ctx.measureText(`${lastLine}…`).width > maxWidth) {
+        while (lastLine && ctx.measureText(`${lastLine}...`).width > maxWidth) {
           const parts = lastLine.split(" ");
           if (parts.length <= 1) {
             lastLine = lastLine.slice(0, -1);
@@ -637,7 +637,7 @@
             lastLine = parts.join(" ");
           }
         }
-        visibleLines[visibleLines.length - 1] = `${lastLine}…`;
+        visibleLines[visibleLines.length - 1] = `${lastLine}...`;
       }
 
       visibleLines.forEach((line, index) => {
@@ -705,7 +705,7 @@
       const titleLineCount = drawWrappedText(ctx, storyData.activity_name || "Activite", headerOffsetX, 110, {
         maxWidth: titleMaxWidth,
         lineHeight: 52,
-        maxLines: 2,
+        maxLines: 2
       });
       if (storyData.activity_date) {
         applyTextStyle(ctx, "700 32px Rajdhani, sans-serif", "rgba(224, 236, 252, 0.86)");

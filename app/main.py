@@ -506,6 +506,7 @@ from app.auth import pwd_context
 from app.cgm_service import (
     run_polling_loop,
     fetch_realtime_points_for_user,
+    fetch_libre_points_guarded,
     record_glucose_page_view,
     should_attempt_page_refresh,
     test_libre_credentials_guarded,
@@ -3242,23 +3243,29 @@ async def debug_enrich(activity_id: int):
     elapsed_sec = act.get("elapsed_time", 0)
     end_time = start_time + timedelta(seconds=elapsed_sec)
 
-    # 2️⃣ Lecture des données LibreLinkUp (via ton script Node.js)
+    # 2️⃣ Lecture LibreLinkUp via le point d'entrée protégé : pas d'appel
+    # simultané ni de contournement du cooldown Cloudflare.
     try:
-        result = subprocess.run(
-            ["node", "libre_node/reader.mjs"],
-            capture_output=True,
-            text=True,
-            timeout=20
+        glucose_data, libre_reason = fetch_libre_points_guarded(
+            user_id=1,
+            context="debug_enrich",
         )
-        result.check_returncode()
-        glucose_data = json.loads(result.stdout)
     except Exception as e:
         return {"error": f"Erreur lecture LibreLinkUp : {e}"}
+
+    if libre_reason:
+        return {
+            "status": "libre_unavailable",
+            "reason": libre_reason,
+            "activity_id": activity_id,
+        }
 
     # 3️⃣ Filtrage des points pendant la durée de l’activité (+/- 5 min)
     points = []
     for p in glucose_data:
-        ts = datetime.fromisoformat(p["ts"].replace("Z", "+00:00"))
+        ts = p["ts"]
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=dt.timezone.utc)
         if start_time - timedelta(minutes=5) <= ts <= end_time + timedelta(minutes=5):
             points.append(p)
 

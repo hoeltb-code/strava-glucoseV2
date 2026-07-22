@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import datetime as dt
 
-from app.libre_client import test_libre_credentials
 from app.providers.base import ProviderConnectionResult, ensure_utc, legacy_to_common_points
 from app.secrets import decrypt_secret
 
@@ -21,12 +20,18 @@ def test_connection(user) -> ProviderConnectionResult:
             provider="abbott",
         )
 
-    status, message = test_libre_credentials(
+    # Import local : cgm_service charge le registre des providers au démarrage.
+    # Cette passerelle garantit que le test manuel utilise le même verrou
+    # partagé, délai minimal et cooldown Cloudflare que les lectures normales.
+    from app.cgm_service import test_libre_credentials_guarded
+
+    status, message = test_libre_credentials_guarded(
         email=cred.email,
         password=decrypt_secret(cred.password_encrypted) or "",
         region=cred.region or "fr",
         client_version=cred.client_version or "4.16.0",
         user_id=getattr(user, "id", None),
+        context="provider_connection_test",
     )
     return ProviderConnectionResult(
         ok=status == "ok",

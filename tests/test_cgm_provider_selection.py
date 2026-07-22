@@ -9,7 +9,10 @@ import tests.test_env  # noqa: F401
 
 from app import cgm_service
 from app.cgm_service import fetch_libre_points_guarded, fetch_realtime_points_for_user, should_attempt_page_refresh
-from app.providers.librelinkup import fetch_glucose as fetch_libre_glucose
+from app.providers.librelinkup import (
+    fetch_glucose as fetch_libre_glucose,
+    test_connection as test_libre_connection,
+)
 from app.providers.registry import get_active_glucose_source, resolve_provider_order
 
 
@@ -183,6 +186,33 @@ class ProviderSelectionTests(unittest.TestCase):
         guarded.assert_called_once_with(user_id=55, context="activity_import")
         self.assertEqual(len(points), 1)
         self.assertEqual(points[0]["glucose"], 123.0)
+
+    def test_libre_connection_test_uses_guarded_call(self):
+        user = SimpleNamespace(
+            id=56,
+            libre_credentials=SimpleNamespace(
+                email="libre@example.com",
+                password_encrypted="encrypted",
+                region="fr",
+                client_version="4.16.0",
+            ),
+        )
+
+        with patch("app.providers.librelinkup.decrypt_secret", return_value="password"), patch(
+            "app.cgm_service.test_libre_credentials_guarded",
+            return_value=("ok", "Connexion LibreLinkUp vérifiée."),
+        ) as guarded:
+            result = test_libre_connection(user)
+
+        self.assertTrue(result.ok)
+        guarded.assert_called_once_with(
+            email="libre@example.com",
+            password="password",
+            region="fr",
+            client_version="4.16.0",
+            user_id=56,
+            context="provider_connection_test",
+        )
 
     def test_fetch_realtime_points_marks_dexcom_empty_reason(self):
         user = SimpleNamespace(

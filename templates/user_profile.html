@@ -592,7 +592,7 @@
               Nightscout permet de connecter une grande variété de capteurs et systèmes compatibles. Renseigne l’URL de ton instance Nightscout, ainsi que le token de lecture si ton instance est protégée.
             </p>
             <p style="margin:8px 0 0; font-size:0.8rem; color:#ef4444; font-weight:600;">
-              Cette intégration est en cours de développement et de test. Utilise un token Nightscout en lecture seule et vérifie le résultat de la connexion avant de l’utiliser pour tes analyses.
+              Utilise un token Nightscout en lecture seule pour protéger tes données. Teste la connexion après l’enregistrement.
             </p>
             {% if nightscout_status %}
               <div class="status-box {% if nightscout_status == 'ok' %}ok{% elif nightscout_status == 'warn' %}warn{% else %}error{% endif %}">

@@ -532,7 +532,7 @@
               Intégration bêta CareLink. Selon le compte Medtronic et l’appareil, une reconnexion peut être nécessaire.
             </p>
             <p style="margin:8px 0 0; font-size:0.8rem; color:#ef4444; font-weight:600;">
-              Cette intégration est en cours de développement.
+              Cette intégration est en cours de développement et de test : elle peut demander une reconnexion ou cesser de fonctionner si Medtronic modifie son système.
             </p>
             {% if carelink_status %}
               <div class="status-box {% if carelink_status in ['connected', 'ok'] %}ok{% elif carelink_status in ['warn', 'needs_reauth'] %}warn{% else %}error{% endif %}">
@@ -590,6 +590,9 @@
           <div class="provider-body">
             <p style="margin:12px 0 0; font-size:0.82rem; color:var(--text-muted); line-height:1.55;">
               Nightscout permet de connecter une grande variété de capteurs et systèmes compatibles. Renseigne l’URL de ton instance Nightscout, ainsi que le token de lecture si ton instance est protégée.
+            </p>
+            <p style="margin:8px 0 0; font-size:0.8rem; color:#ef4444; font-weight:600;">
+              Cette intégration est en cours de développement et de test. Utilise un token Nightscout en lecture seule et vérifie le résultat de la connexion avant de l’utiliser pour tes analyses.
             </p>
             {% if nightscout_status %}
               <div class="status-box {% if nightscout_status == 'ok' %}ok{% elif nightscout_status == 'warn' %}warn{% else %}error{% endif %}">

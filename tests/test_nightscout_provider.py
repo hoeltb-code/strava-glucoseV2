@@ -9,6 +9,7 @@ import tests.test_env  # noqa: F401
 
 from app.providers.nightscout import (
     NightscoutError,
+    NightscoutNoRecentDataError,
     fetch_nightscout_glucose,
     normalize_base_url,
     normalize_entries,
@@ -52,8 +53,26 @@ class NightscoutProviderTests(unittest.TestCase):
         end = dt.datetime(2026, 7, 9, 8, 10, tzinfo=dt.timezone.utc)
 
         with patch("app.providers.nightscout._request_entries", return_value=[]):
-            with self.assertRaises(NightscoutError):
+            with self.assertRaises(NightscoutNoRecentDataError):
                 fetch_nightscout_glucose(user, start, end)
+
+    def test_connection_warns_when_nightscout_has_no_recent_data(self):
+        user = SimpleNamespace(
+            nightscout_credentials=SimpleNamespace(
+                base_url="https://demo.example.com",
+                read_token_encrypted=None,
+            )
+        )
+
+        with patch(
+            "app.providers.nightscout.fetch_nightscout_glucose",
+            side_effect=NightscoutNoRecentDataError("Connexion établie, aucune donnée récente."),
+        ):
+            result = test_connection(user)
+
+        self.assertTrue(result.ok)
+        self.assertEqual(result.status, "warn")
+        self.assertIn("aucune donnée récente", result.message)
 
     def test_test_connection_formats_latest_value(self):
         user = SimpleNamespace(

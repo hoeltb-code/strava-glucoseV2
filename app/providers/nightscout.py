@@ -18,6 +18,10 @@ class NightscoutError(RuntimeError):
     pass
 
 
+class NightscoutNoRecentDataError(NightscoutError):
+    """L'API répond, mais ne contient pas de glycémie exploitable sur la période."""
+
+
 def is_configured(user) -> bool:
     cred = getattr(user, "nightscout_credentials", None)
     return bool(cred and getattr(cred, "base_url", None))
@@ -151,7 +155,10 @@ def fetch_nightscout_glucose(user, start: dt.datetime, end: dt.datetime) -> list
     entries = _request_entries(base_url, token, params)
     points = normalize_entries(entries, start=start_utc, end=end_utc)
     if not points:
-        raise NightscoutError("Aucune donnée glycémique exploitable trouvée sur cette période.")
+        raise NightscoutNoRecentDataError(
+            "Connexion Nightscout établie, mais aucune donnée glycémique exploitable "
+            "n'a été trouvée sur les dernières 24 heures."
+        )
     return points
 
 
@@ -174,6 +181,13 @@ def test_connection(user) -> ProviderConnectionResult:
             user,
             dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=24),
             dt.datetime.now(dt.timezone.utc),
+        )
+    except NightscoutNoRecentDataError as exc:
+        return ProviderConnectionResult(
+            ok=True,
+            status="warn",
+            message=str(exc),
+            provider="nightscout",
         )
     except NightscoutError as exc:
         return ProviderConnectionResult(

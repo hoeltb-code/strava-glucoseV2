@@ -211,6 +211,64 @@ SLOPE_LABELS = {band_id: label for _min, _max, band_id, label in SLOPE_BANDS_DEF
 SLOPE_ORDER = [(band_id, label) for _min, _max, band_id, label in SLOPE_BANDS_DEF]
 SLOPE_ORDER_INDEX = {band_id: index for index, (band_id, _label) in enumerate(SLOPE_ORDER)}
 
+OFFICIAL_COURSES_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "data", "official_courses")
+)
+
+
+def _load_official_course_catalog() -> list[dict]:
+    """Lit les fiches de courses locales sans exposer les chemins de fichiers."""
+    if not os.path.isdir(OFFICIAL_COURSES_DIR):
+        return []
+
+    courses: list[dict] = []
+    for filename in sorted(os.listdir(OFFICIAL_COURSES_DIR)):
+        if not filename.endswith(".json"):
+            continue
+        json_path = os.path.join(OFFICIAL_COURSES_DIR, filename)
+        try:
+            with open(json_path, "r", encoding="utf-8") as handle:
+                course = json.load(handle)
+            course_id = str(course.get("id") or "").strip()
+            route_file = os.path.basename(str(course.get("route_file") or ""))
+            if not course_id or not route_file.lower().endswith(".gpx"):
+                continue
+            courses.append(
+                {
+                    "id": course_id,
+                    "name": course.get("name") or course_id,
+                    "distance_km": course.get("distance_km"),
+                    "route_available": os.path.isfile(os.path.join(OFFICIAL_COURSES_DIR, route_file)),
+                    "points": course.get("points") or [],
+                }
+            )
+        except (OSError, ValueError, TypeError):
+            logger.warning("[COURSES] Fiche officielle ignorée: %s", filename)
+    return courses
+
+
+def _load_official_course(course_id: str) -> dict | None:
+    normalized_id = (course_id or "").strip()
+    if not normalized_id or os.path.basename(normalized_id) != normalized_id:
+        return None
+    json_path = os.path.join(OFFICIAL_COURSES_DIR, f"{normalized_id}.json")
+    if not os.path.isfile(json_path):
+        return None
+    try:
+        with open(json_path, "r", encoding="utf-8") as handle:
+            course = json.load(handle)
+    except (OSError, ValueError, TypeError):
+        return None
+    if course.get("id") != normalized_id:
+        return None
+    route_file = os.path.basename(str(course.get("route_file") or ""))
+    if not route_file.lower().endswith(".gpx"):
+        return None
+    route_path = os.path.join(OFFICIAL_COURSES_DIR, route_file)
+    if not os.path.isfile(route_path):
+        return None
+    return {"course": course, "route_path": route_path}
+
 
 def _slope_band_center(min_v: float, max_v: float) -> float:
     if max_v > 500:   # bornes ouvertes sur +inf
@@ -1330,7 +1388,7 @@ def _slope_band_from_grade(grade_percent: float | None) -> str | None:
     return None
 
 
-def _compute_slope_distribution_from_gpx(content: bytes) -> tuple[dict[str, float], float, list[dict]]:
+def _compute_slope_distribution_from_gpx(content: bytes) -> tuple[dict[str, float], float, list[dict], list[dict]]:
     try:
         root = ET.fromstring(content)
     except ET.ParseError as exc:
@@ -1363,6 +1421,9 @@ def _compute_slope_distribution_from_gpx(content: bytes) -> tuple[dict[str, floa
     dist_by_band: dict[str, float] = {}
     total_distance = 0.0
     prev = points[0]
+    elevation_profile = []
+    if prev[2] is not None:
+        elevation_profile.append({"distance_km": 0.0, "elevation_m": prev[2], "grade_percent": 0.0})
 
     km_segments: list[dict] = []
 
@@ -1398,6 +1459,14 @@ def _compute_slope_distribution_from_gpx(content: bytes) -> tuple[dict[str, floa
         grade = None
         if ele1 is not None and ele2 is not None:
             grade = ((ele2 - ele1) / d) * 100.0
+        if ele2 is not None:
+            elevation_profile.append(
+                {
+                    "distance_km": total_distance / 1000.0,
+                    "elevation_m": ele2,
+                    "grade_percent": grade if grade is not None else 0.0,
+                }
+            )
 
         delta_ele = 0.0
         if ele1 is not None and ele2 is not None:
@@ -1433,7 +1502,20 @@ def _compute_slope_distribution_from_gpx(content: bytes) -> tuple[dict[str, floa
     if not dist_by_band:
         raise ValueError("Impossible de déterminer les pentes (altitudes manquantes ?).")
 
-    return dist_by_band, total_distance, km_segments
+    # Limite la charge du navigateur tout en gardant le relief lisible.
+    if len(elevation_profile) > 800:
+        step = max(1, len(elevation_profile) // 800)
+        elevation_profile = elevation_profile[::step]
+        if elevation_profile[-1]["distance_km"] != total_distance / 1000.0 and points[-1][2] is not None:
+            elevation_profile.append(
+                {
+                    "distance_km": total_distance / 1000.0,
+                    "elevation_m": points[-1][2],
+                    "grade_percent": elevation_profile[-1].get("grade_percent", 0.0),
+                }
+            )
+
+    return dist_by_band, total_distance, km_segments, elevation_profile
 def _get_session_user_id(request: Request) -> int | None:
     if not hasattr(request, "session"):
         return None
@@ -5505,19 +5587,34 @@ async def ui_runner_profile_pace_projection(
     user_id: int,
     sport: str = Form("run"),
     period: str = Form("all"),
-    gpx_file: UploadFile = File(...),
+    course_id: str = Form(""),
+    gpx_file: UploadFile | None = File(None),
     db: Session = Depends(get_db),
 ):
     guard = _guard_user_route(request, user_id)
     if guard:
         return guard
 
-    file_bytes = await gpx_file.read()
-    if not file_bytes:
-        raise HTTPException(status_code=400, detail="Merci de fournir un fichier GPX.")
+    official_course = None
+    if (course_id or "").strip():
+        loaded = _load_official_course(course_id)
+        if not loaded:
+            raise HTTPException(status_code=404, detail="Course officielle introuvable ou GPX non disponible.")
+        official_course = loaded["course"]
+        try:
+            with open(loaded["route_path"], "rb") as handle:
+                file_bytes = handle.read()
+        except OSError:
+            raise HTTPException(status_code=500, detail="Impossible de lire le GPX de cette course officielle.")
+    else:
+        if gpx_file is None:
+            raise HTTPException(status_code=400, detail="Merci de fournir un fichier GPX ou de choisir une course officielle.")
+        file_bytes = await gpx_file.read()
+        if not file_bytes:
+            raise HTTPException(status_code=400, detail="Merci de fournir un fichier GPX.")
 
     try:
-        dist_by_band, total_distance, km_segments = _compute_slope_distribution_from_gpx(file_bytes)
+        dist_by_band, total_distance, km_segments, elevation_profile = _compute_slope_distribution_from_gpx(file_bytes)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
@@ -5558,6 +5655,8 @@ async def ui_runner_profile_pace_projection(
             )
         ],
         "km_splits": km_rows,
+        "elevation_profile": elevation_profile,
+        "official_course": official_course,
     }
 
 
@@ -5904,6 +6003,10 @@ def ui_user_dashboard(user_id: int, request: Request):
     sport_distribution = []
     vam_highlights = []
     dash_distance_projections = []
+    runner_profile_overview = {"zones": {}}
+    dashboard_pace_lookup = {}
+    dashboard_hr_zones = [name for (name, _, _) in HR_ZONES]
+    official_courses = _load_official_course_catalog()
     daily_glucose_chart = []
     daily_activity_windows = []
     daily_glucose_window_label = None
@@ -6226,6 +6329,37 @@ def ui_user_dashboard(user_id: int, request: Request):
             sport="run",
         )
 
+        # Le dashboard est désormais le point d'entrée de la projection :
+        # on réutilise le profil archive (et le même fallback que la page
+        # Profil coureur) pour calculer une simulation GPX directement ici.
+        runner_profile_overview = get_cached_runner_profile(
+            db,
+            user_id=user_id,
+            sport="run",
+        )
+        if not runner_profile_overview or not runner_profile_overview.get("zones"):
+            rebuilt_months = rebuild_runner_profile_range_from_contributions(
+                db,
+                user_id=user_id,
+                sport="run",
+            )
+            if rebuilt_months:
+                runner_profile_overview = get_cached_runner_profile(
+                    db,
+                    user_id=user_id,
+                    sport="run",
+                )
+        if not runner_profile_overview or not runner_profile_overview.get("zones"):
+            runner_profile_overview = build_runner_profile(
+                db,
+                user_id=user_id,
+                sport="run",
+            )
+        dashboard_pace_lookup = _build_pace_lookup_from_profile(
+            runner_profile_overview,
+            dashboard_hr_zones,
+        )
+
         # ---------------------------
         # 🧗‍♂️ Meilleurs D+ / VAM et projections chrono
         # ---------------------------
@@ -6465,6 +6599,10 @@ def ui_user_dashboard(user_id: int, request: Request):
             "volume_summary": volume_summary,
             "vam_highlights": vam_highlights,
             "dash_distance_projections": dash_distance_projections,
+            "runner_profile_overview": runner_profile_overview,
+            "dashboard_pace_lookup": dashboard_pace_lookup,
+            "dashboard_hr_zones": dashboard_hr_zones,
+            "official_courses": official_courses,
             "sport_distribution": sport_distribution,
             "daily_glucose_chart": daily_glucose_chart,
             "daily_activity_windows": daily_activity_windows,
@@ -7342,15 +7480,117 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
                     dplus_by_segment.append(None)
                     dminus_by_segment.append(None)
 
-        # --- 11) Profil altitude complet pour l'affichage (km, altitude) ---
-        alt_profile = []
+        # --- 11) Profil altitude enrichi : pente, allure, VAM, FC et glycémie ---
+        # La pente est lissée sur quelques points pour éviter que le bruit GPS ne
+        # transforme le profil en succession de couleurs illisibles.
+        raw_profile_points = []
+        previous_profile_point = None
         for p in points:
-            if p.distance is not None and p.altitude is not None:
-                alt_profile.append([
-                    float(p.distance) / 1000.0,
-                    float(p.altitude),
-                ])
+            if p.distance is None or p.altitude is None:
+                continue
+            distance_m = float(p.distance)
+            altitude_m = float(p.altitude)
+            grade = float(p.slope_percent) if p.slope_percent is not None else None
+            if grade is None and previous_profile_point is not None:
+                distance_delta = distance_m - previous_profile_point["distance_m"]
+                if distance_delta > 2:
+                    grade = (altitude_m - previous_profile_point["altitude_m"]) / distance_delta * 100.0
+            raw_profile_points.append({
+                "distance_m": distance_m,
+                "altitude_m": altitude_m,
+                "elapsed_sec": float(p.elapsed_time) if p.elapsed_time is not None else None,
+                "grade": grade,
+                "heartrate": float(p.heartrate) if p.heartrate is not None else None,
+                "glucose": float(p.glucose_mgdl) if p.glucose_mgdl is not None else None,
+                "velocity": float(p.velocity) if p.velocity is not None else None,
+                "vam": float(p.vertical_speed_m_per_h) if p.vertical_speed_m_per_h is not None else None,
+            })
+            previous_profile_point = raw_profile_points[-1]
+
+        terrain_accumulators = {
+            "descent": {"distance_m": 0.0, "seconds": 0.0, "vertical_m": 0.0, "hr": [], "glucose": []},
+            "flat": {"distance_m": 0.0, "seconds": 0.0, "vertical_m": 0.0, "hr": [], "glucose": []},
+            "climb": {"distance_m": 0.0, "seconds": 0.0, "vertical_m": 0.0, "hr": [], "glucose": []},
+        }
+        profile_chart_points = []
+        smoothed_grades = []
+        for index, point in enumerate(raw_profile_points):
+            nearby_grades = [
+                candidate["grade"]
+                for candidate in raw_profile_points[max(0, index - 3): min(len(raw_profile_points), index + 4)]
+                if candidate["grade"] is not None
+            ]
+            smooth_grade = sum(nearby_grades) / len(nearby_grades) if nearby_grades else 0.0
+            smooth_grade = max(-50.0, min(50.0, smooth_grade))
+            smoothed_grades.append(smooth_grade)
+
+        for index, point in enumerate(raw_profile_points):
+            pace_sec_per_km = None
+            if point["velocity"] and point["velocity"] > 0:
+                pace_sec_per_km = 1000.0 / point["velocity"]
+            profile_chart_points.append({
+                "x": round(point["distance_m"] / 1000.0, 3),
+                "y": round(point["altitude_m"], 1),
+                "grade": round(smoothed_grades[index], 1),
+                "pace": round(pace_sec_per_km, 1) if pace_sec_per_km else None,
+                "vam": round(point["vam"]) if point["vam"] is not None else None,
+                "hr": round(point["heartrate"]) if point["heartrate"] is not None else None,
+                "glucose": round(point["glucose"]) if point["glucose"] is not None else None,
+            })
+            if index == 0:
+                continue
+            previous = raw_profile_points[index - 1]
+            distance_delta = point["distance_m"] - previous["distance_m"]
+            time_delta = (point["elapsed_sec"] - previous["elapsed_sec"]) if point["elapsed_sec"] is not None and previous["elapsed_sec"] is not None else None
+            if distance_delta <= 0 or time_delta is None or time_delta <= 0:
+                continue
+            grade = (smoothed_grades[index] + smoothed_grades[index - 1]) / 2.0
+            terrain_key = "climb" if grade >= 5 else "descent" if grade <= -5 else "flat"
+            accumulator = terrain_accumulators[terrain_key]
+            accumulator["distance_m"] += distance_delta
+            accumulator["seconds"] += time_delta
+            accumulator["vertical_m"] += point["altitude_m"] - previous["altitude_m"]
+            if point["heartrate"] is not None:
+                accumulator["hr"].append(point["heartrate"])
+            if point["glucose"] is not None:
+                accumulator["glucose"].append(point["glucose"])
+
+        terrain_summary = []
+        terrain_labels = {"descent": "Descente", "flat": "Plat & faux-plat", "climb": "Montée"}
+        for terrain_key in ("descent", "flat", "climb"):
+            accumulator = terrain_accumulators[terrain_key]
+            seconds = accumulator["seconds"]
+            distance_m = accumulator["distance_m"]
+            vertical_m = accumulator["vertical_m"]
+            pace = seconds / (distance_m / 1000.0) if seconds > 0 and distance_m > 0 else None
+            vertical_rate = vertical_m / seconds * 3600.0 if seconds > 0 else None
+            terrain_summary.append({
+                "key": terrain_key,
+                "label": terrain_labels[terrain_key],
+                "distance_km": round(distance_m / 1000.0, 1) if distance_m else None,
+                "pace": format_pace_short(distance_m, seconds) if seconds > 0 and distance_m > 0 else "–",
+                "vam": round(vertical_rate) if vertical_rate is not None else None,
+                "hr": round(sum(accumulator["hr"]) / len(accumulator["hr"])) if accumulator["hr"] else None,
+                "glucose": round(sum(accumulator["glucose"]) / len(accumulator["glucose"])) if accumulator["glucose"] else None,
+            })
+
+        # Garde un volume raisonnable pour le navigateur tout en préservant le profil.
+        if len(profile_chart_points) > 900:
+            stride = max(1, len(profile_chart_points) // 900)
+            profile_chart_points = profile_chart_points[::stride]
+            if raw_profile_points:
+                profile_chart_points[-1] = {
+                    "x": round(raw_profile_points[-1]["distance_m"] / 1000.0, 3),
+                    "y": round(raw_profile_points[-1]["altitude_m"], 1),
+                    "grade": round(smoothed_grades[-1], 1),
+                    "pace": None,
+                    "vam": round(raw_profile_points[-1]["vam"]) if raw_profile_points[-1]["vam"] is not None else None,
+                    "hr": round(raw_profile_points[-1]["heartrate"]) if raw_profile_points[-1]["heartrate"] is not None else None,
+                    "glucose": round(raw_profile_points[-1]["glucose"]) if raw_profile_points[-1]["glucose"] is not None else None,
+                }
+        alt_profile = [[point["x"], point["y"]] for point in profile_chart_points]
         alt_profile_js = json.dumps(alt_profile)
+        profile_chart_points_js = json.dumps(profile_chart_points)
 
         # --- 12) Détection des montées remarquables de la sortie ---
         MIN_VAM_START = 400.0
@@ -7764,6 +8004,8 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
             "climbs": climbs,
             "selected_climb": selected_climb,
             "alt_profile_js": alt_profile_js,
+            "profile_chart_points_js": profile_chart_points_js,
+            "terrain_summary": terrain_summary,
             "tab": tab,
             "has_glucose": has_glucose,
             "glucose_zone_rows": glucose_zone_rows,

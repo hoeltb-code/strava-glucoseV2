@@ -23,6 +23,184 @@
     flex-direction:column;
     gap:16px;
   }
+  .dashboard-hero {
+    display:grid;
+    grid-template-columns:minmax(0, 1fr) auto;
+    gap:20px;
+    align-items:center;
+    padding:24px;
+    border-radius:22px;
+    background:linear-gradient(135deg, rgba(31, 78, 112, .92), rgba(13, 30, 53, .98));
+    border:1px solid rgba(77, 226, 255, .28);
+    box-shadow:0 18px 48px rgba(0,0,0,.24);
+    margin-bottom:16px;
+  }
+  .dashboard-eyebrow {
+    margin:0 0 6px;
+    color:var(--accent-2);
+    text-transform:uppercase;
+    letter-spacing:.1em;
+    font-size:.74rem;
+    font-weight:700;
+  }
+  .dashboard-hero h1 { margin:0; font-size:clamp(1.55rem, 3vw, 2.25rem); line-height:1.05; }
+  .dashboard-hero p { margin:10px 0 0; color:var(--text-muted); max-width:650px; line-height:1.45; }
+  .profile-orb {
+    width:72px;
+    height:72px;
+    display:grid;
+    place-items:center;
+    border-radius:50%;
+    background:var(--grad-accent);
+    color:#08111f;
+    font-family:"Orbitron", sans-serif;
+    font-size:1.45rem;
+    font-weight:700;
+    box-shadow:0 0 0 6px rgba(77, 226, 255, .11);
+  }
+  .quick-actions {
+    display:grid;
+    grid-template-columns:repeat(4, minmax(0, 1fr));
+    gap:12px;
+    margin:0 0 20px;
+  }
+  .quick-action {
+    display:flex;
+    flex-direction:column;
+    gap:7px;
+    min-height:132px;
+    padding:17px;
+    border-radius:16px;
+    background:rgba(8, 17, 31, .52);
+    border:1px solid rgba(148, 174, 214, .28);
+    color:var(--text-main) !important;
+    transition:transform .15s ease, border-color .15s ease, background .15s ease;
+  }
+  .quick-action:hover { transform:translateY(-2px); border-color:var(--accent); background:rgba(77,226,255,.1); }
+  .quick-action.is-primary { background:linear-gradient(135deg, rgba(77,226,255,.22), rgba(28,140,255,.18)); border-color:rgba(77,226,255,.5); }
+  .quick-action-icon { font-size:1.45rem; }
+  .quick-action-title { font-size:1rem; font-weight:700; }
+  .quick-action-copy { font-size:.8rem; color:var(--text-muted); line-height:1.3; }
+  .home-summary {
+    display:grid;
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+    gap:12px;
+    margin:0 0 20px;
+  }
+  .home-summary-item { padding:14px 16px; border:1px solid rgba(148,174,214,.22); border-radius:14px; background:rgba(8,17,31,.42); }
+  .home-summary-label { color:var(--text-muted); font-size:.78rem; }
+  .home-summary-value { margin-top:3px; font-size:1.12rem; font-weight:700; }
+  .home-section-heading { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin:4px 0 10px; }
+  .home-section-heading h2 { margin:0; font-size:1.1rem; }
+  .projection-workbench {
+    display:grid;
+    grid-template-columns:minmax(0, 1.35fr) minmax(250px, .65fr);
+    gap:16px;
+    margin-bottom:20px;
+  }
+  .projection-panel { padding:22px; margin:0; }
+  .projection-panel h2 { margin:0 0 6px; font-size:1.2rem; }
+  .projection-panel p { color:var(--text-muted); margin:0 0 18px; line-height:1.45; }
+  .projection-form { display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:12px; align-items:end; }
+  .projection-form > div:nth-child(1), .projection-form #home-gpx-source { grid-column:span 3; min-width:0; }
+  .projection-form > div:nth-child(3), .projection-form > button { grid-column:span 3; }
+  .projection-form select { min-width:0; }
+  .gpx-source-fields { display:grid; grid-template-columns:minmax(160px, .7fr) minmax(0, 1.3fr); gap:10px; }
+  .projection-form input[type="file"] { width:100%; min-height:44px; padding:8px; border:1px dashed var(--border); border-radius:12px; color:var(--text-muted); background:rgba(8,17,31,.68); }
+  .manual-profile { margin-top:14px; padding:13px; border-radius:14px; background:rgba(8,17,31,.45); border:1px solid rgba(148,174,214,.2); }
+  .manual-profile-toggle { display:flex; align-items:center; gap:8px; margin:0; color:var(--text-main); font-size:.9rem; text-transform:none; letter-spacing:0; cursor:pointer; }
+  .manual-controls { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px; margin-top:14px; }
+  .manual-controls[hidden] { display:none; }
+  .manual-control label { display:flex; justify-content:space-between; gap:8px; text-transform:none; letter-spacing:0; font-size:.8rem; }
+  .manual-control output { color:var(--accent-2); font-weight:700; }
+  .manual-control input[type="range"] { width:100%; accent-color:var(--accent); }
+  .profile-pacing-preview { margin-top:14px; padding:13px; border:1px solid rgba(77,226,255,.24); border-radius:14px; background:rgba(8,17,31,.36); }
+  .profile-pacing-heading { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:8px; }
+  .profile-pacing-heading strong { font-size:.9rem; }
+  .profile-pacing-note { color:var(--text-muted); font-size:.76rem; }
+  .profile-live-total { display:grid; gap:2px; margin-left:auto; color:var(--accent-2); font-family:"Orbitron", sans-serif; font-size:.84rem; text-align:right; white-space:nowrap; }
+  .profile-live-total small { color:var(--text-muted); font-family:inherit; font-size:.6rem; }
+  .profile-pacing-table { width:100%; margin-top:10px; border-collapse:collapse; font-size:.77rem; }
+  .profile-pacing-table th, .profile-pacing-table td { padding:5px 4px; border-bottom:1px solid rgba(148,174,214,.14); text-align:left; color:var(--text-main); white-space:nowrap; }
+  .profile-pacing-table th { color:#fff; font-size:.66rem; letter-spacing:.05em; text-transform:uppercase; }
+  .profile-pacing-table th small { font-size:.58rem; letter-spacing:0; text-transform:none; }
+  .profile-pacing-table td:first-child { color:#fff; font-weight:700; }
+  .profile-pacing-table td:last-child { color:var(--accent-2); font-weight:700; }
+  .profile-pacing-table th:nth-child(2), .profile-pacing-table td:nth-child(2) { width:72px; }
+  .profile-pace-override { box-sizing:border-box; width:48px; min-height:24px; padding:1px 2px; font-size:.72rem; }
+  .profile-calculate { width:100%; margin-top:14px; }
+  .projection-status { min-height:20px; margin:12px 0 0; color:var(--text-muted); font-size:.88rem; }
+  .projection-result { display:none; margin-top:14px; padding:15px; border-radius:14px; background:rgba(77,226,255,.08); border:1px solid rgba(77,226,255,.25); }
+  .projection-result.is-visible { display:block; }
+  .projection-time { margin:4px 0 3px; font-family:"Orbitron", sans-serif; font-size:1.7rem; color:var(--accent-2); }
+  .projection-detail { color:var(--text-muted); font-size:.85rem; }
+  .projection-profile { margin-top:16px; }
+  .projection-profile svg { display:block; width:100%; height:170px; overflow:visible; border-radius:12px; background:rgba(8,17,31,.38); }
+  .slope-legend { display:flex; flex-wrap:wrap; gap:10px; margin:8px 0 0; color:var(--text-muted); font-size:.72rem; }
+  .slope-legend span { display:inline-flex; align-items:center; gap:4px; }
+  .slope-legend i { width:9px; height:9px; border-radius:50%; display:inline-block; }
+  .projection-splits { width:100%; min-width:0; margin-top:16px; font-size:.84rem; }
+  .projection-splits th, .projection-splits td { padding:8px 6px; }
+  .projection-timeline { display:grid; gap:9px; margin-top:16px; }
+  .timeline-row { display:grid; grid-template-columns:92px minmax(0, 1fr) auto; gap:12px; align-items:center; padding:13px 14px; border-radius:14px; border:1px solid rgba(148,174,214,.2); background:rgba(8,17,31,.36); }
+  .timeline-km { color:var(--accent); font-family:"Orbitron", sans-serif; font-size:.76rem; font-weight:700; }
+  .timeline-race-time { margin-bottom:5px; color:var(--accent-2); font-family:"Orbitron", sans-serif; font-size:.8rem; font-weight:700; line-height:1.2; }
+  .timeline-race-time small { display:block; color:var(--text-muted); font-family:inherit; font-size:.6rem; letter-spacing:.04em; }
+  .timeline-title { font-size:.94rem; font-weight:700; }
+  .timeline-meta { margin-top:3px; color:var(--text-muted); font-size:.78rem; }
+  .timeline-time { color:var(--accent-2); font-family:"Orbitron", sans-serif; font-size:.9rem; white-space:nowrap; }
+  .timeline-time small { display:block; margin-bottom:2px; color:var(--text-muted); font-family:inherit; font-size:.56rem; letter-spacing:.05em; }
+  .timeline-aid { grid-template-columns:92px minmax(0, 1fr) auto; border-color:rgba(251,146,60,.65); background:linear-gradient(90deg, rgba(251,146,60,.22), rgba(127,29,29,.2)); }
+  .timeline-aid .timeline-km { color:#fed7aa; }
+  .timeline-aid .timeline-time { color:#fff7ed; }
+  .timeline-aid-assistance { border-color:rgba(250,204,21,.72); background:linear-gradient(90deg, rgba(161,98,7,.25), rgba(69,39,0,.26)); }
+  .timeline-aid-assistance .timeline-km, .timeline-aid-assistance .timeline-time { color:#fef08a; }
+  .timeline-control { border-color:rgba(167,139,250,.65); background:linear-gradient(90deg, rgba(109,40,217,.22), rgba(30,41,59,.3)); }
+  .timeline-control .timeline-km { color:#ddd6fe; }
+  .timeline-control .timeline-time { color:#ede9fe; }
+  .timeline-start { border-color:rgba(77,226,255,.72); background:linear-gradient(90deg, rgba(14,116,144,.28), rgba(8,47,73,.3)); }
+  .timeline-start .timeline-km, .timeline-start .timeline-time { color:#a5f3fc; }
+  .timeline-finish { border:2px solid rgba(184,255,69,.8); background:linear-gradient(90deg, rgba(101,163,13,.28), rgba(8,47,73,.35)); box-shadow:0 0 0 1px rgba(184,255,69,.12); }
+  .timeline-finish .timeline-km, .timeline-finish .timeline-time { color:#d9ff9a; }
+  .timeline-finish .timeline-title { font-family:"Orbitron", sans-serif; letter-spacing:.06em; text-transform:uppercase; }
+  .timeline-filter { display:flex; flex-wrap:wrap; gap:8px; margin:15px 0 0; }
+  .timeline-filter button { padding:8px 11px; font-size:.75rem; background:rgba(77,226,255,.08); color:var(--text-main); border-color:rgba(77,226,255,.28); }
+  .timeline-filter button.is-active { background:rgba(77,226,255,.25); border-color:var(--accent); }
+  .projection-timeline.show-points-only .timeline-segment { display:none; }
+  .timeline-toolbar { display:flex; flex-wrap:wrap; align-items:end; gap:12px; margin:15px 0 0; }
+  .timeline-toolbar > div { min-width:190px; }
+  .nutrition-chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
+  .nutrition-chip { padding:3px 7px; border-radius:999px; background:rgba(255,255,255,.1); color:#fff7ed; font-size:.72rem; font-weight:700; }
+  .timeline-stop-control { display:inline-flex; align-items:center; gap:6px; margin-top:8px; padding:5px 7px; border:1px solid rgba(255,255,255,.24); border-radius:9px; background:rgba(0,0,0,.14); color:var(--text-muted); font-size:.72rem; font-weight:700; }
+  .timeline-stop-control input { width:58px; min-height:30px; margin:0; padding:3px 5px; text-align:center; font-weight:800; }
+  .timeline-start-control { display:inline-flex; align-items:center; gap:7px; margin-top:8px; color:#cffafe; font-size:.74rem; font-weight:700; }
+  .timeline-start-control input { width:48px; min-height:32px; margin:0; padding:4px 3px; text-align:center; }
+  .aid-stations { margin-top:14px; padding:13px; border-radius:14px; background:rgba(8,17,31,.45); border:1px solid rgba(148,174,214,.2); }
+  .aid-stations-header { display:flex; align-items:end; gap:10px; }
+  .aid-stations-header > div { max-width:180px; }
+  .aid-station-list { display:grid; gap:8px; margin-top:10px; }
+  .official-point-settings { color:var(--accent-2); font-size:.8rem; margin:8px 0 0; }
+  .aid-station-row { display:grid; grid-template-columns:1fr 130px 100px 105px auto; gap:8px; align-items:end; }
+  .aid-station-row label { margin:0; font-size:.72rem; }
+  .aid-station-row button { padding:9px 11px; background:rgba(255,122,89,.12); color:#ffd3c8; border-color:rgba(255,122,89,.35); }
+  .weight-note { margin:9px 0 0; font-size:.76rem; color:var(--text-muted); }
+  .course-selection-note { margin:10px 0 0; color:var(--accent-2); font-size:.8rem; }
+  .profile-summary-list { display:grid; gap:10px; margin-top:14px; }
+  .profile-summary-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding-bottom:10px; border-bottom:1px solid rgba(148,174,214,.16); }
+  .profile-summary-row:last-child { border-bottom:0; padding-bottom:0; }
+  .profile-summary-row span { color:var(--text-muted); font-size:.86rem; }
+  .profile-summary-row strong { font-size:.94rem; }
+  .runner-history { margin-top:16px; }
+  .runner-history h3 { margin:0 0 8px; color:#fff; font-size:.9rem; }
+  .runner-history-note { margin:0 0 8px; color:var(--text-muted); font-size:.75rem; }
+  .runner-history-table { font-size:.72rem; }
+  .runner-history-table th, .runner-history-table td { padding:5px 3px; }
+  .runner-history-table th:first-child, .runner-history-table td:first-child { width:56px; }
+  .runner-history-empty { color:var(--text-muted); font-size:.78rem; }
+  .hr-zones-list { display:grid; gap:5px; }
+  .hr-zone-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 7px; border-radius:8px; background:rgba(255,255,255,.05); font-size:.76rem; }
+  .hr-zone-row strong { color:#fff; }
+  .hr-zone-row span { color:var(--accent-2); }
   .insight-list {
     list-style:none;
     padding-left:0;
@@ -129,6 +307,21 @@
     border:1px solid rgba(255,255,255,0.18);
   }
   @media (max-width: 640px) {
+    .dashboard-hero { grid-template-columns:1fr auto; padding:19px; gap:14px; }
+    .profile-orb { width:52px; height:52px; font-size:1.05rem; }
+    .quick-actions { grid-template-columns:repeat(2, minmax(0, 1fr)); gap:9px; }
+    .quick-action { min-height:120px; padding:14px; }
+    .home-summary { grid-template-columns:1fr; gap:8px; }
+    .projection-workbench { grid-template-columns:1fr; }
+    .projection-form { grid-template-columns:1fr; }
+    .projection-form > div:nth-child(1), .projection-form #home-gpx-source, .projection-form > div:nth-child(3), .projection-form > button { grid-column:auto; }
+    .gpx-source-fields { grid-template-columns:1fr; }
+    .manual-controls { grid-template-columns:1fr; }
+    .aid-stations-header { align-items:stretch; flex-direction:column; }
+    .aid-station-row { grid-template-columns:1fr 1fr; }
+    .aid-station-row button { grid-column:span 2; }
+    .timeline-row, .timeline-aid { grid-template-columns:70px minmax(0, 1fr); gap:8px; }
+    .timeline-time { grid-column:2; }
     .mini-table {
       font-size:0.74rem;
       min-width:360px;
@@ -145,44 +338,842 @@
 {% block content %}
 <div class="dashboard-page">
 
-<!-- ========================================================= -->
-<!-- 🧍 En-tête utilisateur (avatar ovale doré style vieux tableau) -->
-<!-- ========================================================= -->
-<div style="
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:16px 0 12px;
-  border-bottom:1px solid var(--border-soft);
-  margin-bottom:16px;
-">
-  <div style="display:flex; align-items:center; gap:14px;">
-    <div>
-      <div style="font-size:1.1rem; font-weight:600; color:var(--text-main);">
-        {% if user.first_name or user.last_name %}
-          {{ user.first_name or "" }} {{ user.last_name or "" }}
-        {% else %}
-          {{ user.email }}
-        {% endif %}
+{% set runner_name = user.first_name or user.email.split('@')[0] %}
+<section class="dashboard-hero" aria-labelledby="home-title">
+  <div>
+    <p class="dashboard-eyebrow">Ton cockpit de course</p>
+    <h1 id="home-title">Bonjour {{ runner_name }} 👋</h1>
+    <p>
+      Prépare un chrono sur ton prochain parcours, consulte ton profil coureur et garde un œil sur tes dernières sorties.
+      {% if user.location %}{{ user.location }} · {% endif %}tout ce dont tu as besoin est ici.
+    </p>
+  </div>
+  <div class="profile-orb" aria-label="{{ runner_name }}">{{ runner_name[0]|upper }}</div>
+</section>
+
+{% set profile_zone = runner_profile_overview.zones.get('Zone 2', {}) if runner_profile_overview and runner_profile_overview.zones else {} %}
+{% set flat_profile = profile_zone.get('S0_5') %}
+{% set climb_profile = profile_zone.get('S10_15') or profile_zone.get('S15_20') %}
+{% set descent_profile = profile_zone.get('Sneg10_15') or profile_zone.get('Sneg5_10') %}
+<section class="projection-workbench" aria-label="Simulation de course">
+  <div class="card projection-panel" id="simulation">
+    <h2>Simuler une course</h2>
+    <p>Choisis une course enregistrée, règle l’intensité visée et obtiens un temps de course fondé sur ton profil pente × cardio. Plus l’outil dispose de sorties enregistrées, à différentes intensités et sur différents profils de pente, plus la simulation sera précise ; sinon, ajuste le profil manuellement.</p>
+    <form class="projection-form" id="home-projection-form">
+      <div>
+        <label for="home-official-course">Parcours</label>
+        <select id="home-official-course">
+          <option value="">Choisir une course enregistrée</option>
+          {% for course in official_courses %}
+          <option value="{{ course.id }}" {% if not course.route_available %}disabled{% endif %}>{{ course.name }}{% if course.distance_km %} · {{ course.distance_km }} km{% endif %}{% if not course.route_available %} · GPX manquant{% endif %}</option>
+          {% endfor %}
+        </select>
       </div>
-      <!-- div style="font-size:0.9rem; color:var(--text-muted); margin-top:2px;">Dashboard · id={{ user.id }}</div> -->
-      <div style="font-size:0.8rem; color:#9ca3af; margin-top:2px;">
-        {% if user.location %}{{ user.location }}{% else %}Localisation non renseignée{% endif %}
+      <div id="home-gpx-source" hidden aria-hidden="true">
+        <div class="gpx-source-fields">
+          <div>
+            <label for="home-manual-course-name">Nom de ma course</label>
+            <input id="home-manual-course-name" type="text" placeholder="ex. Trail des Aiguilles">
+          </div>
+          <div>
+            <label for="home-projection-gpx">Trace GPX</label>
+            <input id="home-projection-gpx" type="file" accept=".gpx,application/gpx+xml" disabled>
+          </div>
+        </div>
+      </div>
+      <div>
+        <label for="home-projection-zone">Intensité</label>
+        <select id="home-projection-zone">
+          {% for zone in dashboard_hr_zones %}
+          <option value="{{ zone }}" {% if zone == 'Zone 2' %}selected{% endif %}>{{ zone }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </form>
+    <div class="manual-profile">
+      <label class="manual-profile-toggle" for="home-manual-mode">
+        <input id="home-manual-mode" type="checkbox" {% if not runner_profile_overview or not runner_profile_overview.zones %}checked{% endif %}>
+        Ajuster manuellement mon profil pour cette simulation
+      </label>
+      <div class="manual-controls" id="home-manual-controls" {% if runner_profile_overview and runner_profile_overview.zones %}hidden{% endif %}>
+        <div class="manual-control">
+          <label for="home-flat-speed">Vitesse sur plat <output id="home-flat-speed-output">8.5 km/h</output></label>
+          <input id="home-flat-speed" type="range" min="5" max="16" step="0.1" value="8.5">
+        </div>
+        <div class="manual-control">
+          <label for="home-climb-vam">Vitesse ascensionnelle <output id="home-climb-vam-output">700 m/h</output></label>
+          <input id="home-climb-vam" type="range" min="300" max="1800" step="25" value="700">
+        </div>
+        <div class="manual-control">
+          <label for="home-descent-speed">Vitesse en descente <output id="home-descent-speed-output">11.0 km/h</output></label>
+          <input id="home-descent-speed" type="range" min="5" max="20" step="0.1" value="11">
+        </div>
+      </div>
+      <div class="profile-pacing-preview" aria-live="polite">
+        <div class="profile-pacing-heading">
+          <strong id="home-profile-table-title">Profil utilisé par pente</strong>
+          <span class="profile-pacing-note" id="home-profile-table-note"></span>
+          <span class="profile-live-total"><strong id="home-profile-live-total">Sélectionne un parcours</strong><small id="home-profile-live-stop-detail">Arrêts ravito · 0 min</small></span>
+        </div>
+        <table class="profile-pacing-table">
+          <thead><tr><th>Pente</th><th>Allure <small>min/km</small></th><th>VAM ±</th><th>Source</th></tr></thead>
+          <tbody id="home-profile-table-body"></tbody>
+        </table>
       </div>
     </div>
+    <button type="button" class="profile-calculate" id="home-projection-submit">Recalculer après mes ajustements</button>
+    <div class="aid-stations" id="home-course-points">
+      <div style="font-weight:700; margin-bottom:8px;" id="home-point-settings-title">Points de ma trace</div>
+      <div class="aid-stations-header">
+        <div>
+          <label for="home-runner-weight">Poids pour la nutrition</label>
+          <input id="home-runner-weight" type="number" min="35" max="150" step="0.5" value="{{ user.weight_kg or '' }}" placeholder="kg">
+        </div>
+        <div id="home-aid-count-control">
+          <label for="home-aid-count">Nombre de points de course</label>
+          <input id="home-aid-count" type="number" min="0" max="15" step="1" value="0">
+        </div>
+      </div>
+      <div class="aid-station-list" id="home-aid-station-list"></div>
+      <div class="official-point-settings" id="home-official-point-settings" hidden>Renseigne ci-dessous le temps d’arrêt prévu à chaque ravito et ravito avec assistance.</div>
+      <p class="weight-note">Les quantités alimentaires sont des repères de planification à tester à l’entraînement et à adapter avec un professionnel de santé si nécessaire.</p>
+    </div>
+    <p class="course-selection-note" id="home-course-selection-note" hidden>Les ravitos, assistances, contrôles et barrières de la course officielle seront appliqués automatiquement.</p>
+    <div class="projection-status" id="home-projection-status" aria-live="polite"></div>
+    <div class="projection-result" id="home-projection-result" aria-live="polite"></div>
   </div>
 
-  <div style="display:flex; gap:8px;"><!-- header actions removed, now in global nav --></div>
-</div>
+  <aside class="card projection-panel" aria-labelledby="profile-summary-title">
+    <h2 id="profile-summary-title">Ton profil coureur</h2>
+    {% if runner_profile_overview and runner_profile_overview.zones %}
+    <p>Valeurs archivées issues de tes activités. Le tableau suit la zone d’intensité choisie pour la simulation.</p>
+    <section class="runner-history" aria-labelledby="archived-profile-title">
+      <h3 id="archived-profile-title">Allure & VAM par pente</h3>
+      <p class="runner-history-note" id="home-archived-profile-note"></p>
+      <table class="profile-pacing-table runner-history-table">
+        <thead><tr><th>Pente %</th><th>Allure</th><th>VAM ±</th></tr></thead>
+        <tbody id="home-archived-profile-body"></tbody>
+      </table>
+    </section>
+    {% else %}
+    <p>Ton profil sera créé après quelques activités GPS contenant altitude et fréquence cardiaque.</p>
+    {% endif %}
+    {% if fc_info and fc_info.zones %}
+    <section class="runner-history" aria-labelledby="hr-zones-title">
+      <h3 id="hr-zones-title">Zones cardiaques · FC max {{ fc_info.fc_max }} bpm</h3>
+      <div class="hr-zones-list">
+        {% for zone in fc_info.zones %}
+        <div class="hr-zone-row"><strong>{{ zone.label }}</strong><span>{{ zone.bpm_min }}–{{ zone.bpm_max }} bpm · {{ zone.percent_label }}</span></div>
+        {% endfor %}
+      </div>
+      <p class="runner-history-note" style="margin-top:9px;">Tu peux modifier ta FC max dans ton profil pour recalculer ces zones.</p>
+    </section>
+    {% endif %}
+    <a class="button button-secondary" style="margin-top:18px; width:100%;" href="/ui/user/{{ user.id }}/runner-profile">Voir le profil complet</a>
+  </aside>
+</section>
 
-<div class="card" style="padding:12px 16px; margin-bottom:14px;">
-  <p style="margin:0; font-size:0.9rem; color:#0f172a;">
-    Strava x D+ est le cockpit des amoureux de D+ : VAM, projections de course, analyse fine de tes traces
-    GPX et stats poussées pour comprendre et progresser. Tu peux aussi y ajouter le suivi glycémie avec ton
-    capteur CGM.
-  </p>
-</div>
+<script>
+  (function() {
+    const form = document.getElementById('home-projection-form');
+    const fileInput = document.getElementById('home-projection-gpx');
+    const manualCourseNameInput = document.getElementById('home-manual-course-name');
+    const officialCourseInput = document.getElementById('home-official-course');
+    const gpxSource = document.getElementById('home-gpx-source');
+    const customCoursePoints = document.getElementById('home-course-points');
+    const courseSelectionNote = document.getElementById('home-course-selection-note');
+    const aidCountControl = document.getElementById('home-aid-count-control');
+    const officialPointSettings = document.getElementById('home-official-point-settings');
+    const pointSettingsTitle = document.getElementById('home-point-settings-title');
+    const zoneInput = document.getElementById('home-projection-zone');
+    const weightInput = document.getElementById('home-runner-weight');
+    const aidCountInput = document.getElementById('home-aid-count');
+    const aidStationList = document.getElementById('home-aid-station-list');
+    const status = document.getElementById('home-projection-status');
+    const result = document.getElementById('home-projection-result');
+    const runnerProfileData = {{ runner_profile_overview | default({}) | tojson | safe }};
+    const officialCourses = {{ official_courses | default([]) | tojson | safe }};
+    const manualMode = document.getElementById('home-manual-mode');
+    const manualControls = document.getElementById('home-manual-controls');
+    const flatSpeed = document.getElementById('home-flat-speed');
+    const climbVam = document.getElementById('home-climb-vam');
+    const descentSpeed = document.getElementById('home-descent-speed');
+    const projectionSubmit = document.getElementById('home-projection-submit');
+    const profileTableTitle = document.getElementById('home-profile-table-title');
+    const profileTableNote = document.getElementById('home-profile-table-note');
+    const profileTableBody = document.getElementById('home-profile-table-body');
+    const profileLiveTotal = document.getElementById('home-profile-live-total');
+    const profileLiveStopDetail = document.getElementById('home-profile-live-stop-detail');
+    const archivedProfileBody = document.getElementById('home-archived-profile-body');
+    const archivedProfileNote = document.getElementById('home-archived-profile-note');
+    const slopeCenters = {
+      Sneg40p: -45, Sneg30_40: -35, Sneg25_30: -27.5, Sneg20_25: -22.5,
+      Sneg15_20: -17.5, Sneg10_15: -12.5, Sneg5_10: -7.5, Sneg0_5: -2.5,
+      S0_5: 2.5, S5_10: 7.5, S10_15: 12.5, S15_20: 17.5,
+      S20_25: 22.5, S25_30: 27.5, S30_40: 35, S40p: 45,
+    };
+    const slopeLabels = {
+      Sneg40p: '< −40 %', Sneg30_40: '−30 à −40 %', Sneg25_30: '−25 à −30 %', Sneg20_25: '−20 à −25 %',
+      Sneg15_20: '−15 à −20 %', Sneg10_15: '−10 à −15 %', Sneg5_10: '−5 à −10 %', Sneg0_5: '−0 à −5 %',
+      S0_5: '0 à 5 %', S5_10: '5 à 10 %', S10_15: '10 à 15 %', S15_20: '15 à 20 %',
+      S20_25: '20 à 25 %', S25_30: '25 à 30 %', S30_40: '30 à 40 %', S40p: '> 40 %',
+    };
+    const slopeIds = Object.keys(slopeLabels);
+    const compactSlopeLabels = {
+      Sneg40p: '<−40', Sneg30_40: '−30/−40', Sneg25_30: '−25/−30', Sneg20_25: '−20/−25',
+      Sneg15_20: '−15/−20', Sneg10_15: '−10/−15', Sneg5_10: '−5/−10', Sneg0_5: '0/−5',
+      S0_5: '0/5', S5_10: '5/10', S10_15: '10/15', S15_20: '15/20',
+      S20_25: '20/25', S25_30: '25/30', S30_40: '30/40', S40p: '>40',
+    };
+    const manualPaceOverrides = {};
+    let refreshLiveProjection = null;
 
+    function refreshManualLabels() {
+      document.getElementById('home-flat-speed-output').textContent = `${Number(flatSpeed.value).toFixed(1)} km/h`;
+      document.getElementById('home-climb-vam-output').textContent = `${Math.round(Number(climbVam.value))} m/h`;
+      document.getElementById('home-descent-speed-output').textContent = `${Number(descentSpeed.value).toFixed(1)} km/h`;
+      renderProfilePacingTable();
+      if (refreshLiveProjection) refreshLiveProjection();
+    }
+
+    function manualPaceForSlope(slopeId) {
+      if (manualPaceOverrides[slopeId] > 0) return manualPaceOverrides[slopeId];
+      const flatPace = 3600 / Number(flatSpeed.value);
+      const descentPace = 3600 / Number(descentSpeed.value);
+      const climbPace = (36000 * 12.5) / Number(climbVam.value);
+      const coefficients = quadraticThroughPoints([
+        [-7.5, descentPace],
+        [2.5, flatPace],
+        [12.5, climbPace],
+      ]);
+      const predicted = coefficients ? evaluateQuadratic(coefficients, slopeCenters[slopeId] || 0) : flatPace;
+      return Math.max(120, Math.min(7200, predicted));
+    }
+
+    function quadraticThroughPoints(points) {
+      if (points.length !== 3) return null;
+      const [[x1, y1], [x2, y2], [x3, y3]] = points;
+      const denominator = (x1 - x2) * (x1 - x3) * (x2 - x3);
+      if (Math.abs(denominator) < 0.00001) return null;
+      const a = (x3 * (y2 - y1) + x2 * (y1 - y3) + x1 * (y3 - y2)) / denominator;
+      const b = (x3 * x3 * (y1 - y2) + x2 * x2 * (y3 - y1) + x1 * x1 * (y2 - y3)) / denominator;
+      const c = (x2 * x3 * (x2 - x3) * y1 + x3 * x1 * (x3 - x1) * y2 + x1 * x2 * (x1 - x2) * y3) / denominator;
+      return Number.isFinite(a) && Number.isFinite(b) && Number.isFinite(c) ? { a, b, c } : null;
+    }
+
+    function evaluateQuadratic(coefficients, x) {
+      return coefficients.a * x * x + coefficients.b * x + coefficients.c;
+    }
+
+    function fitHistoricalCurve(zone) {
+      const historicalZone = (runnerProfileData.zones || {})[zone] || {};
+      const points = slopeIds.map((slopeId) => [slopeCenters[slopeId], Number((historicalZone[slopeId] || {}).avg_pace_s_per_km)])
+        .filter(([, pace]) => pace > 0 && Number.isFinite(pace));
+      if (points.length < 5) return null;
+      const sums = points.reduce((result, [x, y]) => ({
+        n: result.n + 1, x: result.x + x, x2: result.x2 + x * x, x3: result.x3 + x * x * x,
+        x4: result.x4 + x * x * x * x, y: result.y + y, xy: result.xy + x * y, x2y: result.x2y + x * x * y,
+      }), { n: 0, x: 0, x2: 0, x3: 0, x4: 0, y: 0, xy: 0, x2y: 0 });
+      const matrix = [[sums.x4, sums.x3, sums.x2, sums.x2y], [sums.x3, sums.x2, sums.x, sums.xy], [sums.x2, sums.x, sums.n, sums.y]];
+      for (let pivot = 0; pivot < 3; pivot += 1) {
+        let maxRow = pivot;
+        for (let row = pivot + 1; row < 3; row += 1) if (Math.abs(matrix[row][pivot]) > Math.abs(matrix[maxRow][pivot])) maxRow = row;
+        [matrix[pivot], matrix[maxRow]] = [matrix[maxRow], matrix[pivot]];
+        if (Math.abs(matrix[pivot][pivot]) < 0.00001) return null;
+        const divisor = matrix[pivot][pivot];
+        for (let column = pivot; column < 4; column += 1) matrix[pivot][column] /= divisor;
+        for (let row = 0; row < 3; row += 1) {
+          if (row === pivot) continue;
+          const factor = matrix[row][pivot];
+          for (let column = pivot; column < 4; column += 1) matrix[row][column] -= factor * matrix[pivot][column];
+        }
+      }
+      const coefficients = { a: matrix[0][3], b: matrix[1][3], c: matrix[2][3] };
+      return coefficients.a > 0 && Object.values(coefficients).every(Number.isFinite) ? coefficients : null;
+    }
+
+    function projectedPaceForSlope(slopeId, zone) {
+      const historicalZone = (runnerProfileData.zones || {})[zone] || {};
+      const historicalPace = Number((historicalZone[slopeId] || {}).avg_pace_s_per_km);
+      const curve = fitHistoricalCurve(zone);
+      if (curve) {
+        const smoothed = evaluateQuadratic(curve, slopeCenters[slopeId] || 0);
+        if (smoothed >= 120 && smoothed <= 7200) return { pace: smoothed, source: 'Lissé' };
+      }
+      if (historicalPace > 0) return { pace: historicalPace, source: 'Historique' };
+      return { pace: manualPaceForSlope(slopeId), source: 'Courbe de départ' };
+    }
+
+    function formatPace(seconds) {
+      if (!(seconds > 0)) return '—';
+      const rounded = Math.round(seconds);
+      return `${Math.floor(rounded / 60)}:${String(rounded % 60).padStart(2, '0')} /km`;
+    }
+
+    function renderArchivedProfileTable() {
+      if (!archivedProfileBody || !archivedProfileNote) return;
+      const zone = zoneInput.value;
+      const historicalZone = (runnerProfileData.zones || {})[zone] || {};
+      const rows = slopeIds.map((slopeId) => {
+        const cell = historicalZone[slopeId] || {};
+        const pace = Number(cell.avg_pace_s_per_km);
+        const storedVam = Number(cell.avg_vam_m_per_h);
+        if (!(pace > 0) && !Number.isFinite(storedVam)) return null;
+        const grade = slopeCenters[slopeId] || 0;
+        const speedKmh = pace > 0 ? 3600 / pace : 0;
+        const vam = Number.isFinite(storedVam) && storedVam !== 0
+          ? Math.sign(grade || storedVam) * Math.abs(Math.round(storedVam))
+          : grade !== 0 && speedKmh > 0 ? Math.round(speedKmh * 10 * grade) : null;
+        return `<tr><td>${compactSlopeLabels[slopeId]}</td><td>${cell.pace_str ? `${cell.pace_str} /km` : formatPace(pace)}</td><td>${vam ? `${vam > 0 ? '+' : '−'}${Math.abs(vam)} m/h` : '—'}</td></tr>`;
+      }).filter(Boolean);
+      archivedProfileNote.textContent = `Historique archivé · ${zone}`;
+      archivedProfileBody.innerHTML = rows.length
+        ? rows.join('')
+        : '<tr><td class="runner-history-empty" colspan="3">Pas encore assez de données pour cette zone.</td></tr>';
+    }
+
+    function renderProfilePacingTable() {
+      const zone = zoneInput.value;
+      const historicalZone = (runnerProfileData.zones || {})[zone] || {};
+      const manual = manualMode.checked;
+      const hasHistoricalData = Object.values(historicalZone).some((cell) => Number(cell?.avg_pace_s_per_km) > 0);
+      profileTableTitle.textContent = `Profil utilisé · ${zone}`;
+      profileTableNote.textContent = manual
+        ? 'Réglages manuels : ajuste les curseurs pour visualiser ton profil.'
+        : hasHistoricalData
+          ? 'Historique personnel par pente ; les trous sont complétés pour la simulation.'
+          : 'Historique insuffisant : active les réglages manuels pour créer un profil de départ.';
+      profileTableBody.innerHTML = slopeIds.map((slopeId) => {
+        const historyCell = historicalZone[slopeId] || {};
+        const historicalPace = Number(historyCell.avg_pace_s_per_km);
+        const projected = projectedPaceForSlope(slopeId, zone);
+        const pace = manual ? manualPaceForSlope(slopeId) : projected.pace;
+        const grade = slopeCenters[slopeId] || 0;
+        const speedKmh = pace > 0 ? 3600 / pace : 0;
+        const historicalVam = Number(historyCell.avg_vam_m_per_h);
+        const calculatedVam = speedKmh > 0 && grade !== 0 ? Math.round(speedKmh * 10 * grade) : null;
+        const vam = !manual && historicalPace > 0 && Number.isFinite(historicalVam) && historicalVam !== 0 && grade !== 0
+          ? Math.sign(grade) * Math.abs(Math.round(historicalVam))
+          : calculatedVam;
+        const source = manual ? 'Manuel' : projected.source;
+        const paceDisplay = manual
+          ? `<input class="profile-pace-override" data-slope-id="${slopeId}" type="number" min="2" max="120" step="0.1" value="${(pace / 60).toFixed(1)}" aria-label="Allure manuelle pour ${slopeLabels[slopeId]}, en minutes par kilomètre">`
+          : formatPace(pace);
+        const vamDisplay = vam ? `${vam > 0 ? '+' : '−'}${Math.abs(vam)} m/h` : '—';
+        return `<tr><td>${slopeLabels[slopeId]}</td><td>${paceDisplay}</td><td>${vamDisplay}</td><td>${source}</td></tr>`;
+      }).join('');
+    }
+
+    function renderAidStations() {
+      const count = Math.max(0, Math.min(15, Number(aidCountInput.value) || 0));
+      aidStationList.innerHTML = Array.from({ length: count }, (_, index) => `
+        <div class="aid-station-row">
+          <div><label for="aid-name-${index}">Nom du point</label><input id="aid-name-${index}" class="aid-name" type="text" placeholder="ex. Col de la Forclaz"></div>
+          <div><label for="aid-type-${index}">Type</label><select id="aid-type-${index}" class="aid-type"><option value="aid">Ravito autonome</option><option value="aid_assistance">Ravito avec assistance</option><option value="control">Contrôle</option></select></div>
+          <div><label for="aid-km-${index}">Kilomètre</label><input id="aid-km-${index}" class="aid-km" type="number" min="0" step="0.1" placeholder="24.5"></div>
+          <div><label for="aid-stop-${index}">Arrêt prévu · min</label><input id="aid-stop-${index}" class="aid-stop" type="number" min="0" max="90" step="1" value="5"></div>
+          <button type="button" class="aid-remove" aria-label="Supprimer le point ${index + 1}">Supprimer</button>
+        </div>`).join('');
+      aidStationList.querySelectorAll('.aid-remove').forEach((button) => button.addEventListener('click', () => {
+        aidCountInput.value = Math.max(0, Number(aidCountInput.value || 0) - 1);
+        renderAidStations();
+      }));
+    }
+
+    function getAidStations() {
+      return Array.from(aidStationList.querySelectorAll('.aid-station-row')).map((row, index) => ({
+        label: row.querySelector('.aid-name').value.trim() || `Point ${index + 1}`,
+        type: row.querySelector('.aid-type').value,
+        km: Number(row.querySelector('.aid-km').value),
+        stopSeconds: Number(row.querySelector('.aid-stop').value || 0) * 60,
+      })).filter((aid) => Number.isFinite(aid.km) && aid.km > 0).sort((a, b) => a.km - b.km);
+    }
+
+    function selectedOfficialCourse() {
+      return officialCourses.find((course) => course.id === officialCourseInput.value) || null;
+    }
+
+    function renderOfficialPointSettings(course) {
+      const relevantPoints = (course?.points || []).filter((point) => ['aid_station', 'aid_station_assistance'].includes(point.type));
+      aidStationList.innerHTML = relevantPoints.map((point) => `
+        <div class="aid-station-row">
+          <div><label>Nom</label><input type="text" value="${point.name}" disabled></div>
+          <div><label>Type</label><input type="text" value="${point.type === 'aid_station_assistance' ? 'Avec assistance' : 'Ravito'}" disabled></div>
+          <div><label>Kilomètre</label><input type="text" value="${Number(point.km).toFixed(1)}" disabled></div>
+          <div><label for="official-stop-${point.order}">Arrêt prévu · min</label><input id="official-stop-${point.order}" class="aid-stop" data-course-km="${point.km}" type="number" min="0" max="120" step="1" value="0"></div>
+        </div>`).join('');
+    }
+
+    function updateCourseSource() {
+      const official = Boolean(officialCourseInput.value);
+      gpxSource.hidden = true;
+      fileInput.required = false;
+      fileInput.disabled = true;
+      customCoursePoints.hidden = !official;
+      aidCountControl.hidden = official;
+      officialPointSettings.hidden = !official;
+      courseSelectionNote.hidden = !official;
+      if (official) {
+        const course = selectedOfficialCourse();
+        pointSettingsTitle.textContent = `Ravitos officiels · ${course?.name || 'course sélectionnée'}`;
+        renderOfficialPointSettings(course);
+      } else {
+        pointSettingsTitle.textContent = 'Points de ma trace';
+        renderAidStations();
+      }
+    }
+
+    function officialCoursePoints(course) {
+      const typeMap = {
+        aid_station: 'aid',
+        aid_station_assistance: 'aid_assistance',
+        checkpoint: 'control',
+      };
+      const stopOverrides = new Map(Array.from(aidStationList.querySelectorAll('[data-course-km]')).map((input) => [input.dataset.courseKm, Number(input.value || 0) * 60]));
+      return (course?.points || []).map((point) => ({
+        label: point.name || 'Point de course',
+        type: typeMap[point.type],
+        km: Number(point.km),
+        stopSeconds: stopOverrides.get(String(point.km)) || 0,
+        cutoffLabel: point.cutoff_label || '',
+      })).filter((point) => point.type && Number.isFinite(point.km) && point.km > 0).sort((a, b) => a.km - b.km);
+    }
+
+    manualMode.addEventListener('change', () => {
+      manualControls.hidden = !manualMode.checked;
+      renderProfilePacingTable();
+      if (refreshLiveProjection) refreshLiveProjection();
+    });
+    [flatSpeed, climbVam, descentSpeed].forEach((input) => input.addEventListener('input', refreshManualLabels));
+    zoneInput.addEventListener('change', () => {
+      renderProfilePacingTable();
+      renderArchivedProfileTable();
+      if (refreshLiveProjection) refreshLiveProjection();
+    });
+    projectionSubmit.addEventListener('click', () => form.requestSubmit());
+    profileTableBody.addEventListener('input', (event) => {
+      const input = event.target.closest('.profile-pace-override');
+      if (!input) return;
+      const paceMinutes = Math.max(2, Math.min(120, Number(input.value) || 2));
+      manualPaceOverrides[input.dataset.slopeId] = paceMinutes * 60;
+      renderProfilePacingTable();
+      if (refreshLiveProjection) refreshLiveProjection();
+      const refreshedInput = profileTableBody.querySelector(`.profile-pace-override[data-slope-id="${input.dataset.slopeId}"]`);
+      if (refreshedInput) refreshedInput.focus();
+    });
+    aidCountInput.addEventListener('input', renderAidStations);
+    officialCourseInput.addEventListener('change', () => {
+      updateCourseSource();
+      if (officialCourseInput.value) form.requestSubmit();
+    });
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (file && !manualCourseNameInput.value.trim()) {
+        manualCourseNameInput.value = file.name.replace(/\.gpx$/i, '').replace(/[-_]+/g, ' ');
+      }
+      if (file) form.requestSubmit();
+    });
+    renderAidStations();
+    updateCourseSource();
+    refreshManualLabels();
+    renderArchivedProfileTable();
+
+    function formatDuration(seconds) {
+      if (!Number.isFinite(seconds) || seconds <= 0) return '–';
+      const total = Math.round(seconds);
+      const hours = Math.floor(total / 3600);
+      const minutes = Math.floor((total % 3600) / 60);
+      const remaining = total % 60;
+      return hours ? `${hours} h ${String(minutes).padStart(2, '0')} min` : `${minutes} min ${String(remaining).padStart(2, '0')} s`;
+    }
+
+    function elevationProfileSvg(rawPoints) {
+      const points = (rawPoints || []).filter((point) => Number.isFinite(Number(point.distance_km)) && Number.isFinite(Number(point.elevation_m)));
+      if (points.length < 2) return '';
+      const width = 680;
+      const height = 170;
+      const padding = 12;
+      const distances = points.map((point) => Number(point.distance_km));
+      const elevations = points.map((point) => Number(point.elevation_m));
+      const minElevation = Math.min(...elevations);
+      const maxElevation = Math.max(...elevations);
+      const elevationRange = Math.max(1, maxElevation - minElevation);
+      const maxDistance = Math.max(0.1, Math.max(...distances));
+      const coordinates = points.map((point) => {
+        const x = padding + (Number(point.distance_km) / maxDistance) * (width - padding * 2);
+        const y = height - padding - ((Number(point.elevation_m) - minElevation) / elevationRange) * (height - padding * 2);
+        return { x, y, grade: Number(point.grade_percent || 0) };
+      });
+      const colorForGrade = (grade) => {
+        if (grade <= -8) return '#38bdf8';
+        if (grade < -2) return '#60a5fa';
+        if (grade < 5) return '#b8ff45';
+        if (grade < 12) return '#facc15';
+        if (grade < 20) return '#fb923c';
+        return '#f87171';
+      };
+      const segments = coordinates.slice(1).map((point, index) => {
+        const previous = coordinates[index];
+        return `<line x1="${previous.x.toFixed(1)}" y1="${previous.y.toFixed(1)}" x2="${point.x.toFixed(1)}" y2="${point.y.toFixed(1)}" stroke="${colorForGrade(point.grade)}" stroke-width="3" stroke-linecap="round"/>`;
+      }).join('');
+      return `<div class="projection-profile"><div class="home-summary-label">Profil du parcours · ${Math.round(minElevation)}–${Math.round(maxElevation)} m</div><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Profil d'altitude du parcours, coloré selon la pente">${segments}<line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" stroke="rgba(200,215,239,.45)"/><text x="${padding}" y="${height - 1}" fill="#c8d7ef" font-size="11">0 km</text><text x="${width - padding - 45}" y="${height - 1}" fill="#c8d7ef" font-size="11">${maxDistance.toFixed(1)} km</text></svg><div class="slope-legend"><span><i style="background:#38bdf8"></i>descente &lt; −8 %</span><span><i style="background:#b8ff45"></i>plat −2 à 5 %</span><span><i style="background:#facc15"></i>montée 5–12 %</span><span><i style="background:#f87171"></i>montée &gt; 20 %</span></div></div>`;
+    }
+
+    function nutritionPlan(totalMovingSeconds, weightKg) {
+      const hours = totalMovingSeconds / 3600;
+      const weight = Number.isFinite(weightKg) && weightKg >= 35 ? weightKg : 70;
+      const carbRate = Math.max(30, Math.min(90, weight * (hours > 4 ? 0.75 : hours > 2 ? 0.65 : 0.55)));
+      const proteinRate = hours >= 4 ? Math.min(8, weight * 0.04) : 0;
+      const fatRate = hours >= 6 ? Math.min(7, weight * 0.03) : 0;
+      return { carbRate, proteinRate, fatRate, weightIsEstimated: !(Number.isFinite(weightKg) && weightKg >= 35) };
+    }
+
+    function buildProjectionTimeline(rows, splitSize, aidStations, nutrition, departureTime) {
+      const finishKm = rows.length ? rows[rows.length - 1].cumulativeKm : 0;
+      const departureMatch = /^(\d{2}):(\d{2})$/.exec(departureTime || '');
+      const departureMinutes = departureMatch ? Number(departureMatch[1]) * 60 + Number(departureMatch[2]) : null;
+      const departureHour = departureMatch ? Number(departureMatch[1]) : 7;
+      const departureMinute = departureMatch ? Number(departureMatch[2]) : 0;
+      const formatPassageTime = (elapsedSeconds) => {
+        if (departureMinutes === null) return '—';
+        const absoluteMinutes = departureMinutes + Math.round(elapsedSeconds / 60);
+        const dayOffset = Math.floor(absoluteMinutes / 1440);
+        const minuteOfDay = ((absoluteMinutes % 1440) + 1440) % 1440;
+        return `${dayOffset ? `J+${dayOffset} ` : ''}${String(Math.floor(minuteOfDay / 60)).padStart(2, '0')}:${String(minuteOfDay % 60).padStart(2, '0')}`;
+      };
+      const timelineTime = (elapsedSeconds, segmentSeconds = null) => `<small>PASSAGE</small>${formatPassageTime(elapsedSeconds)}${segmentSeconds === null ? '' : `<small>TRONÇON</small>${formatDuration(segmentSeconds)}`}`;
+      const timeAtKm = (targetKm) => {
+        let previousKm = 0;
+        let previousSeconds = 0;
+        for (const row of rows) {
+          if (targetKm <= row.cumulativeKm) {
+            const covered = Math.max(0.001, row.cumulativeKm - previousKm);
+            const ratio = Math.max(0, Math.min(1, (targetKm - previousKm) / covered));
+            return previousSeconds + row.seconds * ratio;
+          }
+          previousKm = row.cumulativeKm;
+          previousSeconds += row.seconds;
+        }
+        return previousSeconds;
+      };
+      const metricsBetween = (fromKm, toKm) => {
+        let previousKm = 0;
+        const metrics = { distance: 0, seconds: 0, gain: 0, loss: 0 };
+        rows.forEach((row) => {
+          const rowStart = previousKm;
+          const rowEnd = row.cumulativeKm;
+          previousKm = rowEnd;
+          const overlap = Math.max(0, Math.min(toKm, rowEnd) - Math.max(fromKm, rowStart));
+          const rowDistance = Math.max(0.001, rowEnd - rowStart);
+          if (overlap <= 0) return;
+          const ratio = overlap / rowDistance;
+          metrics.distance += overlap;
+          metrics.seconds += row.seconds * ratio;
+          metrics.gain += row.gain * ratio;
+          metrics.loss += row.loss * ratio;
+        });
+        return metrics;
+      };
+      const splitSegments = [];
+      if (splitSize > 0 && finishKm > 0) {
+        const courseBoundaries = [0, ...aidStations.map((point) => point.km), finishKm]
+          .filter((km, index, values) => km >= 0 && km <= finishKm && values.indexOf(km) === index)
+          .sort((a, b) => a - b);
+        for (let index = 0; index < courseBoundaries.length - 1; index += 1) {
+          let fromKm = courseBoundaries[index];
+          const nextPointKm = courseBoundaries[index + 1];
+          let boundaryKm = Math.ceil((fromKm + 0.0001) / splitSize) * splitSize;
+          while (boundaryKm < nextPointKm - 0.0001) {
+            const metrics = metricsBetween(fromKm, boundaryKm);
+            if (metrics.distance > 0) splitSegments.push({ fromKm, toKm: boundaryKm, ...metrics });
+            fromKm = boundaryKm;
+            boundaryKm += splitSize;
+          }
+        }
+      }
+      const elapsedAtPoint = (targetKm) => (
+        timeAtKm(targetKm) + aidStations
+          .filter((point) => point.km < targetKm)
+          .reduce((sum, point) => sum + point.stopSeconds, 0)
+      );
+      const previousTimelineBoundary = (targetKm) => {
+        const previousSplitKm = splitSegments
+          .filter((segment) => segment.toKm <= targetKm + 0.0001)
+          .map((segment) => segment.toKm);
+        const previousPointKm = aidStations
+          .filter((point) => point.km < targetKm - 0.0001)
+          .map((point) => point.km);
+        return Math.max(0, ...previousSplitKm, ...previousPointKm);
+      };
+      const segmentTimeAtPoint = (targetKm) => {
+        const fromKm = previousTimelineBoundary(targetKm);
+        return {
+          fromKm,
+          seconds: Math.max(0, timeAtKm(targetKm) - timeAtKm(fromKm)),
+        };
+      };
+
+      const events = splitSegments.map((segment) => {
+        const nutritionHours = segment.seconds / 3600;
+        const carbs = Math.round(nutrition.carbRate * nutritionHours);
+        const proteins = Math.round(nutrition.proteinRate * nutritionHours);
+        const fats = Math.round(nutrition.fatRate * nutritionHours);
+        const calories = Math.round(carbs * 4 + proteins * 4 + fats * 9);
+        return {
+          type: 'segment',
+          position: segment.toKm,
+          html: `<article class="timeline-row timeline-segment"><div class="timeline-km">KM ${segment.fromKm.toFixed(1)}–${segment.toKm.toFixed(1)}</div><div><div class="timeline-title">Tronçon de course</div><div class="timeline-meta">D+ ${Math.round(segment.gain)} m · D− ${Math.round(segment.loss)} m · ${formatDuration(segment.seconds)} en mouvement</div><div class="nutrition-chips"><span class="nutrition-chip">${carbs} g glucides</span><span class="nutrition-chip">${calories} kcal</span>${proteins ? `<span class="nutrition-chip">${proteins} g protéines</span>` : ''}${fats ? `<span class="nutrition-chip">${fats} g lipides</span>` : ''}</div></div><div class="timeline-time">${timelineTime(elapsedAtPoint(segment.toKm), segment.seconds)}</div></article>`,
+        };
+      });
+      const firstAid = aidStations.find((point) => point.type === 'aid' || point.type === 'aid_assistance');
+      const firstDestinationKm = firstAid ? firstAid.km : finishKm;
+      const firstLegSeconds = timeAtKm(firstDestinationKm);
+      const firstLegHours = firstLegSeconds / 3600;
+      const firstLegCarbs = Math.round(nutrition.carbRate * firstLegHours);
+      const firstLegProteins = Math.round(nutrition.proteinRate * firstLegHours);
+      const firstLegFats = Math.round(nutrition.fatRate * firstLegHours);
+      const firstLegCalories = Math.round(firstLegCarbs * 4 + firstLegProteins * 4 + firstLegFats * 9);
+      const firstDestination = firstAid
+        ? `jusqu’au ravito ${firstAid.label} · km ${firstDestinationKm.toFixed(1)}`
+        : `jusqu’à l’arrivée · km ${finishKm.toFixed(1)}`;
+      events.push({
+        type: 'start',
+        position: 0,
+        html: `<article class="timeline-row timeline-start"><div><div class="timeline-race-time"><small>TEMPS DE COURSE</small>0 min</div><div class="timeline-km">DÉPART<br>KM 0</div></div><div><div class="timeline-title">Départ</div><div class="timeline-meta">À prévoir ${firstDestination} · ${formatDuration(firstLegSeconds)} de course prévue</div><label class="timeline-start-control">Heure de départ <input class="timeline-departure-input" data-departure-part="hour" type="number" min="0" max="23" step="1" value="${departureHour}" aria-label="Heure de départ"><span>:</span><input class="timeline-departure-input" data-departure-part="minute" type="number" min="0" max="59" step="1" value="${departureMinute}" aria-label="Minutes de départ"></label><div class="nutrition-chips"><span class="nutrition-chip">${firstLegCarbs} g glucides</span><span class="nutrition-chip">${firstLegCalories} kcal</span>${firstLegProteins ? `<span class="nutrition-chip">${firstLegProteins} g protéines</span>` : ''}${firstLegFats ? `<span class="nutrition-chip">${firstLegFats} g lipides</span>` : ''}</div></div><div class="timeline-time">${timelineTime(0)}</div></article>`,
+      });
+      aidStations.forEach((point, index) => {
+        const incomingSegment = segmentTimeAtPoint(point.km);
+        const incomingTimeLabel = timelineTime(elapsedAtPoint(point.km), incomingSegment.seconds);
+        if (point.type === 'control') {
+          events.push({
+            type: 'control',
+            position: point.km,
+            html: `<article class="timeline-row timeline-control"><div><div class="timeline-race-time"><small>TEMPS DE COURSE</small>${formatDuration(elapsedAtPoint(point.km))}</div><div class="timeline-km">CONTRÔLE<br>KM ${point.km.toFixed(1)}</div></div><div><div class="timeline-title">${point.label}</div><div class="timeline-meta">Point de passage chronométré${point.cutoffLabel ? ` · barrière ${point.cutoffLabel}` : ''}${point.stopSeconds ? ` · arrêt prévu ${Math.round(point.stopSeconds / 60)} min` : ''}</div></div><div class="timeline-time">${incomingTimeLabel}</div></article>`,
+          });
+          return;
+        }
+        const nextAid = aidStations.slice(index + 1).find((candidate) => candidate.type === 'aid' || candidate.type === 'aid_assistance');
+        const nextKm = nextAid ? nextAid.km : finishKm;
+        const untilNextSeconds = Math.max(0, timeAtKm(nextKm) - timeAtKm(point.km));
+        const hours = untilNextSeconds / 3600;
+        const carbs = Math.round(nutrition.carbRate * hours);
+        const proteins = Math.round(nutrition.proteinRate * hours);
+        const fats = Math.round(nutrition.fatRate * hours);
+        const calories = Math.round(carbs * 4 + proteins * 4 + fats * 9);
+        const destination = nextAid ? `jusqu’au ravito ${nextAid.label} · km ${nextKm.toFixed(1)}` : `jusqu’à l’arrivée km ${finishKm.toFixed(1)}`;
+        const isAssistance = point.type === 'aid_assistance';
+        const stopMinutes = Math.round(point.stopSeconds / 60);
+        events.push({
+          type: isAssistance ? 'aid_assistance' : 'aid',
+          position: point.km,
+          html: `<article class="timeline-row timeline-aid ${isAssistance ? 'timeline-aid-assistance' : ''}"><div><div class="timeline-race-time"><small>TEMPS DE COURSE</small>${formatDuration(elapsedAtPoint(point.km))}</div><div class="timeline-km">${isAssistance ? 'ASSISTANCE' : 'RAVITO'}<br>KM ${point.km.toFixed(1)}</div></div><div><div class="timeline-title">${point.label}</div><div class="timeline-meta">À prendre ${destination} · ${formatDuration(untilNextSeconds)} de course prévue${point.cutoffLabel ? ` · barrière ${point.cutoffLabel}` : ''}</div><label class="timeline-stop-control">Arrêt prévu <input class="timeline-stop-input" data-stop-km="${point.km}" type="number" min="0" max="120" step="1" value="${stopMinutes}" aria-label="Temps d’arrêt prévu à ${point.label}, en minutes"><span>min</span></label><div class="nutrition-chips"><span class="nutrition-chip">${carbs} g glucides</span><span class="nutrition-chip">${calories} kcal</span>${proteins ? `<span class="nutrition-chip">${proteins} g protéines</span>` : ''}${fats ? `<span class="nutrition-chip">${fats} g lipides</span>` : ''}</div></div><div class="timeline-time">${incomingTimeLabel}</div></article>`,
+        });
+      });
+      const totalStopSeconds = aidStations.reduce((sum, point) => sum + point.stopSeconds, 0);
+      events.push({
+        type: 'finish',
+        position: finishKm,
+        html: `<article class="timeline-row timeline-finish"><div><div class="timeline-race-time"><small>TEMPS DE COURSE</small>${formatDuration(timeAtKm(finishKm) + totalStopSeconds)}</div><div class="timeline-km">ARRIVÉE<br>KM ${finishKm.toFixed(1)}</div></div><div><div class="timeline-title">Arrivée</div><div class="timeline-meta">Fin de course · ${formatDuration(timeAtKm(finishKm))} en mouvement${totalStopSeconds ? ` · ${formatDuration(totalStopSeconds)} d’arrêts inclus dans le total` : ''}</div></div><div class="timeline-time">${timelineTime(timeAtKm(finishKm) + totalStopSeconds)}</div></article>`,
+      });
+      const eventRank = { start: -1, segment: 0, control: 1, aid: 2, aid_assistance: 2, finish: 3 };
+      return `<div class="projection-timeline">${events.sort((a, b) => a.position - b.position || eventRank[a.type] - eventRank[b.type]).map((event) => event.html).join('')}</div>`;
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      result.classList.remove('is-visible');
+      result.innerHTML = '';
+      const file = fileInput.files && fileInput.files[0];
+      const courseId = officialCourseInput.value;
+      if (!courseId && !file) {
+        status.textContent = 'Choisis une course enregistrée pour lancer la simulation.';
+        return;
+      }
+
+      const zone = zoneInput.value;
+      status.textContent = 'Analyse du parcours en cours…';
+      const payload = new FormData();
+      if (courseId) payload.append('course_id', courseId);
+      else payload.append('gpx_file', file);
+      payload.append('sport', 'run');
+
+      try {
+        const response = await fetch('/ui/user/{{ user.id }}/runner-profile/pace-projection', {
+          method: 'POST',
+          body: payload,
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || 'Impossible de lire ce GPX.');
+
+        let movingSeconds = 0;
+        let gain = 0;
+        let loss = 0;
+        let manualFallback = false;
+        const projectedRows = [];
+        (data.km_splits || []).forEach((segment) => {
+          gain += Number(segment.elevation_gain_m || 0);
+          loss += Number(segment.elevation_loss_m || 0);
+          let segmentSeconds = 0;
+          (segment.slope_distribution || []).forEach((part) => {
+            const projectedPace = projectedPaceForSlope(part.slope_id, zone);
+            let pace = manualMode.checked ? manualPaceForSlope(part.slope_id) : projectedPace.pace;
+            if (!manualMode.checked && projectedPace.source === 'Courbe de départ') manualFallback = true;
+            const distance = Number(part.distance_km || 0);
+            if (!(pace > 0) && distance > 0) {
+              pace = manualPaceForSlope(part.slope_id);
+              manualFallback = true;
+            }
+            if (pace > 0 && distance > 0) {
+              const partSeconds = pace * distance;
+              movingSeconds += partSeconds;
+              segmentSeconds += partSeconds;
+            }
+          });
+          projectedRows.push({
+            cumulativeKm: Number(segment.cumulative_km || 0),
+            distance: Number(segment.distance_km || 0),
+            seconds: segmentSeconds,
+            gain: Number(segment.elevation_gain_m || 0),
+            loss: Number(segment.elevation_loss_m || 0),
+          });
+        });
+
+        if (!movingSeconds) {
+          throw new Error('Impossible de calculer cette trace GPX. Vérifie qu’elle contient au moins deux points GPS et des altitudes.');
+        }
+
+        status.textContent = '';
+        const aidStations = (data.official_course ? officialCoursePoints(data.official_course) : getAidStations()).filter((aid) => aid.km <= Number(data.total_distance_km || 0));
+        const stopSeconds = aidStations.reduce((sum, aid) => sum + aid.stopSeconds, 0);
+        let nutrition = nutritionPlan(movingSeconds, Number(weightInput.value));
+        const totalSeconds = movingSeconds + stopSeconds;
+        const stopDetail = stopSeconds ? ` · ${formatDuration(stopSeconds)} de ravito` : '';
+        const manualCourseName = manualCourseNameInput.value.trim() || 'Ma trace GPX';
+        const courseDetail = data.official_course ? ` · ${data.official_course.name}` : ` · ${manualCourseName}`;
+        result.innerHTML = `
+          <div class="home-summary-label">Temps total estimé · ${manualMode.checked ? 'réglages manuels' : zone}${courseDetail}</div>
+          <div class="projection-time" id="home-projection-total">${formatDuration(totalSeconds)}</div>
+          <div class="projection-detail" id="home-projection-distance-detail">${Number(data.total_distance_km || 0).toFixed(1)} km · D+ ${Math.round(gain)} m · D− ${Math.round(loss)} m · ${formatDuration(movingSeconds)} en mouvement${stopDetail}</div>
+          ${manualMode.checked ? '<div class="projection-detail" style="margin-top:8px;">Projection calculée avec tes réglages manuels. Ils ne sont pas encore sauvegardés.</div>' : ''}
+          ${manualFallback ? '<div class="projection-detail" style="margin-top:8px;">Les pentes sans historique suffisant utilisent une courbe parabolique de départ, ajustable dans le tableau de profil.</div>' : ''}
+          <div class="projection-detail" style="margin-top:8px;">Cible nutrition : ~${Math.round(nutrition.carbRate)} g de glucides/h${nutrition.proteinRate ? ` · ${nutrition.proteinRate.toFixed(0)} g de protéines/h` : ''}${nutrition.fatRate ? ` · ${nutrition.fatRate.toFixed(0)} g de lipides/h` : ''}${nutrition.weightIsEstimated ? ' · poids non renseigné : estimation basée sur 70 kg' : ''}.</div>
+          ${elevationProfileSvg(data.elevation_profile)}
+          <div class="timeline-toolbar"><div><label for="home-result-split">Découpage des tronçons</label><select id="home-result-split"><option value="0">Sans tronçons</option><option value="1">Tous les 1 km</option><option value="5">Tous les 5 km</option><option value="10">Tous les 10 km</option><option value="25">Tous les 25 km</option></select></div><div class="timeline-filter" role="group" aria-label="Affichage de la feuille de route"><button type="button" class="is-active" data-timeline-mode="all">Tous les tronçons</button><button type="button" data-timeline-mode="points">Ravitos & contrôles uniquement</button></div></div>
+          <div id="home-projection-timeline"></div>
+        `;
+        result.classList.add('is-visible');
+        const timelineHost = result.querySelector('#home-projection-timeline');
+        const resultSplitInput = result.querySelector('#home-result-split');
+        const totalProjectionOutput = result.querySelector('#home-projection-total');
+        const distanceDetailOutput = result.querySelector('#home-projection-distance-detail');
+        let pointsOnly = false;
+        let departureTime = '07:00';
+        const refreshProjectionSummary = () => {
+          const currentStopSeconds = aidStations.reduce((sum, point) => sum + point.stopSeconds, 0);
+          const currentStopDetail = currentStopSeconds ? ` · ${formatDuration(currentStopSeconds)} de ravito` : '';
+          totalProjectionOutput.textContent = formatDuration(movingSeconds + currentStopSeconds);
+          distanceDetailOutput.textContent = `${Number(data.total_distance_km || 0).toFixed(1)} km · D+ ${Math.round(gain)} m · D− ${Math.round(loss)} m · ${formatDuration(movingSeconds)} en mouvement${currentStopDetail}`;
+          profileLiveTotal.textContent = `Temps estimé · ${formatDuration(movingSeconds + currentStopSeconds)}`;
+          profileLiveStopDetail.textContent = `Arrêts ravito · ${currentStopSeconds ? formatDuration(currentStopSeconds) : '0 min'}`;
+        };
+        const syncStopToCourseSettings = (km, minutes) => {
+          Array.from(aidStationList.querySelectorAll('[data-course-km]')).forEach((input) => {
+            if (Math.abs(Number(input.dataset.courseKm) - km) < 0.0001) input.value = minutes;
+          });
+          Array.from(aidStationList.querySelectorAll('.aid-station-row')).forEach((row) => {
+            const kmInput = row.querySelector('.aid-km');
+            const stopInput = row.querySelector('.aid-stop');
+            if (kmInput && stopInput && Math.abs(Number(kmInput.value) - km) < 0.0001) stopInput.value = minutes;
+          });
+        };
+        const renderTimeline = () => {
+          timelineHost.innerHTML = buildProjectionTimeline(projectedRows, Number(resultSplitInput.value || 0), aidStations, nutrition, departureTime);
+          const timeline = timelineHost.querySelector('.projection-timeline');
+          if (timeline) timeline.classList.toggle('show-points-only', pointsOnly);
+        };
+        renderTimeline();
+        refreshProjectionSummary();
+        refreshLiveProjection = () => {
+          let nextMovingSeconds = 0;
+          let nextManualFallback = false;
+          const nextRows = [];
+          const activeZone = zoneInput.value;
+          (data.km_splits || []).forEach((segment) => {
+            let segmentSeconds = 0;
+            (segment.slope_distribution || []).forEach((part) => {
+              const projectedPace = projectedPaceForSlope(part.slope_id, activeZone);
+              let pace = manualMode.checked ? manualPaceForSlope(part.slope_id) : projectedPace.pace;
+              if (!manualMode.checked && projectedPace.source === 'Courbe de départ') nextManualFallback = true;
+              const distance = Number(part.distance_km || 0);
+              if (!(pace > 0) && distance > 0) {
+                pace = manualPaceForSlope(part.slope_id);
+                nextManualFallback = true;
+              }
+              if (pace > 0 && distance > 0) {
+                const partSeconds = pace * distance;
+                nextMovingSeconds += partSeconds;
+                segmentSeconds += partSeconds;
+              }
+            });
+            nextRows.push({
+              cumulativeKm: Number(segment.cumulative_km || 0),
+              distance: Number(segment.distance_km || 0),
+              seconds: segmentSeconds,
+              gain: Number(segment.elevation_gain_m || 0),
+              loss: Number(segment.elevation_loss_m || 0),
+            });
+          });
+          if (!nextMovingSeconds) return;
+          movingSeconds = nextMovingSeconds;
+          manualFallback = nextManualFallback;
+          projectedRows.splice(0, projectedRows.length, ...nextRows);
+          nutrition = nutritionPlan(movingSeconds, Number(weightInput.value));
+          refreshProjectionSummary();
+          renderTimeline();
+        };
+        resultSplitInput.addEventListener('change', renderTimeline);
+        timelineHost.addEventListener('input', (event) => {
+          const input = event.target.closest('.timeline-stop-input');
+          if (!input) return;
+          const km = Number(input.dataset.stopKm);
+          const minutes = Math.max(0, Math.min(120, Number(input.value) || 0));
+          const point = aidStations.find((item) => Math.abs(item.km - km) < 0.0001);
+          if (!point) return;
+          point.stopSeconds = minutes * 60;
+          syncStopToCourseSettings(km, minutes);
+          refreshProjectionSummary();
+          renderTimeline();
+          const refreshedInput = timelineHost.querySelector(`.timeline-stop-input[data-stop-km="${km}"]`);
+          if (refreshedInput) refreshedInput.focus();
+        });
+        const updateDeparturePassages = (event) => {
+          const input = event.target.closest('.timeline-departure-input');
+          if (!input) return;
+          const hourInput = timelineHost.querySelector('[data-departure-part="hour"]');
+          const minuteInput = timelineHost.querySelector('[data-departure-part="minute"]');
+          const hours = Math.max(0, Math.min(23, Number(hourInput?.value) || 0));
+          const minutes = Math.max(0, Math.min(59, Number(minuteInput?.value) || 0));
+          departureTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+          renderTimeline();
+          const refreshedInput = timelineHost.querySelector(`.timeline-departure-input[data-departure-part="${input.dataset.departurePart}"]`);
+          if (refreshedInput) refreshedInput.focus();
+        };
+        timelineHost.addEventListener('input', updateDeparturePassages);
+        timelineHost.addEventListener('change', updateDeparturePassages);
+        result.querySelectorAll('[data-timeline-mode]').forEach((button) => button.addEventListener('click', () => {
+          pointsOnly = button.dataset.timelineMode === 'points';
+          const timeline = timelineHost.querySelector('.projection-timeline');
+          if (timeline) timeline.classList.toggle('show-points-only', pointsOnly);
+          result.querySelectorAll('[data-timeline-mode]').forEach((item) => item.classList.toggle('is-active', item === button));
+        }));
+      } catch (error) {
+        status.textContent = error.message || 'La simulation n’a pas pu être calculée.';
+      }
+    });
+  })();
+</script>
+
+{% if false %}
 {% if dashboard_warning %}
 <div class="card" style="padding:12px 16px; margin-bottom:14px; border-color:rgba(245, 158, 11, 0.45); background:rgba(120, 53, 15, 0.16);">
   <p style="margin:0; font-size:0.88rem; color:#fde68a;">
@@ -193,9 +1184,10 @@
 
 {% if show_daily_glucose %}
 <div class="card daily-glucose-card" style="padding:16px;">
-  <h2 style="font-size:1rem; font-weight:600; margin:0 0 6px 0;">
-    Glycémie du jour{% if daily_glucose_window_label %} · {{ daily_glucose_window_label }}{% endif %}
-  </h2>
+  <div class="home-section-heading">
+    <h2>Glycémie du jour{% if daily_glucose_window_label %} · {{ daily_glucose_window_label }}{% endif %}</h2>
+    <a href="/ui/user/{{ user.id }}/runner-profile?tab=glucose">Voir les tendances →</a>
+  </div>
   <p style="margin:0; font-size:0.85rem; color:#6b7280;">
     La courbe affiche les points CGM de la journée. Les zones colorées indiquent les créneaux où une activité sportive est enregistrée.
   </p>
@@ -395,6 +1387,10 @@
 {% endif %}
 
 <!-- ================== DERNIÈRES ACTIVITÉS (split map | VAM) ================== -->
+<div class="home-section-heading" style="margin-top:24px;">
+  <h2>Dernières activités</h2>
+  <a href="/ui/user/{{ user.id }}/activities">Voir tout →</a>
+</div>
 <div class="dashboard-activities-grid">
 {% for a in last_activities %}
   <div class="card" style="border:1px solid #e5e7eb; border-radius:6px; padding:12px;">
@@ -580,5 +1576,6 @@
 </script>
 {% endif %}
 
+{% endif %}
 </div>
 {% endblock %}

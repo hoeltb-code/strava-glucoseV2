@@ -108,7 +108,7 @@
     .brand-text { font-family: "Orbitron", sans-serif; font-weight: 600; }
     .brand-home { display:none; font-size:1.3rem; }
 
-    nav { display: flex; align-items: center; gap: 18px; font-size: .95rem; }
+    nav { display: flex; align-items: center; gap: 6px; font-size: .95rem; }
     nav a {
       color: var(--text-muted);
       padding: 8px;
@@ -132,7 +132,8 @@
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      font-size: 1rem;
+      font-size: .88rem;
+      font-weight: 700;
     }
     .header-actions {
       display: flex;
@@ -142,8 +143,8 @@
 
     .nav-label { display: inline; }
     .icon-img {
-      width: 45px;
-      height: 45px;
+      width: 21px;
+      height: 21px;
       display: block;
       object-fit: contain;
       filter: invert(1) brightness(1.2);
@@ -202,10 +203,11 @@
         line-height: 1;
       }
       .header-actions .icon-img {
-        width: 36px;
-        height: 36px;
+        width: 23px;
+        height: 23px;
       }
       .nav-link.home-link { display:none; }
+      .header-actions .nav-label { display:none; }
       nav { display: none; }
     }
   
@@ -470,8 +472,8 @@
 
       .mobile-bottom-nav a:hover { color: var(--text-main); background: rgba(77, 226, 255, 0.05); }
 
-      .mobile-bottom-nav .icon-img { width: 45px; height: 45px; }
-      .mobile-bottom-nav .label { display: none; }
+      .mobile-bottom-nav .icon-img { width: 21px; height: 21px; }
+      .mobile-bottom-nav .label { display: block; font-size: .66rem; font-weight: 700; }
     }
   
     .leaflet-control-container,
@@ -503,19 +505,24 @@
       <nav>
         <a class="nav-link home-link" href="/ui/user/{{ session_user_id }}">
           <img class="icon-img" src="{{ url_for('static', path='icons/home.svg') }}" alt="Home">
+          <span class="nav-label">Accueil</span>
         </a>
         <a class="nav-link" href="/ui/user/{{ session_user_id }}/activities">
           <img class="icon-img" src="{{ url_for('static', path='icons/activities.svg') }}" alt="Activités">
+          <span class="nav-label">Activités</span>
         </a>
         <a class="nav-link" href="/ui/user/{{ session_user_id }}/profile">
           <img class="icon-img" src="{{ url_for('static', path='icons/profile.svg') }}" alt="Profil">
+          <span class="nav-label">Réglages</span>
         </a>
         <a class="nav-link" href="/ui/user/{{ session_user_id }}/runner-profile">
           <img class="icon-img" src="{{ url_for('static', path='icons/stat.svg') }}" alt="Profil coureur">
+          <span class="nav-label">Profil coureur</span>
         </a>
         {% if session_user_id == 1 %}
         <a class="nav-link" href="/ui">
           <img class="icon-img" src="{{ url_for('static', path='icons/admin.svg') }}" alt="Admin">
+          <span class="nav-label">Admin</span>
         </a>
         <a class="nav-link" href="/docs" target="_blank">
           <img class="icon-img" src="{{ url_for('static', path='icons/api.svg') }}" alt="API Docs">

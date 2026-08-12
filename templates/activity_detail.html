@@ -77,6 +77,19 @@
   .overview-vam {
     border-top:1px solid var(--activity-border);
   }
+  .terrain-summary-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; margin:16px 0; }
+  .terrain-summary-card { padding:12px; border:1px solid var(--activity-border); border-radius:12px; background:var(--activity-surface); }
+  .terrain-summary-card[data-terrain="descent"] { border-color:rgba(96,165,250,.52); }
+  .terrain-summary-card[data-terrain="flat"] { border-color:rgba(77,226,255,.5); }
+  .terrain-summary-card[data-terrain="climb"] { border-color:rgba(251,146,60,.58); }
+  .terrain-summary-card h4 { margin:0; font-size:.86rem; }
+  .terrain-summary-card p { margin:6px 0 0; color:var(--activity-text-muted); font-size:.74rem; line-height:1.45; }
+  .activity-slope-profile-card { position:relative; overflow:hidden; border-color:rgba(77,226,255,.34) !important; background:linear-gradient(145deg, rgba(16,33,58,.92), rgba(8,17,31,.78)) !important; }
+  .activity-slope-profile-card::before { content:""; position:absolute; inset:0 0 auto; height:4px; background:linear-gradient(90deg, #2563eb, #60a5fa 22%, #4de2ff 42%, #fbbf24 58%, #f97316 78%, #ef4444); }
+  .activity-slope-profile-card h3 { padding-top:5px; }
+  .slope-profile-legend { display:flex; flex-wrap:wrap; gap:9px; margin:0 0 10px; color:var(--activity-text-muted); font-size:.72rem; }
+  .slope-profile-legend span { display:inline-flex; align-items:center; gap:4px; }
+  .slope-profile-legend i { width:9px; height:9px; border-radius:50%; display:inline-block; }
   .activity-delete-button {
     display:inline-flex;
     align-items:center;
@@ -260,6 +273,7 @@
     .overview-map {
       height:220px;
     }
+    .terrain-summary-grid { grid-template-columns:1fr; }
   }
   @media (max-width: 720px) {
     .activity-header {
@@ -563,11 +577,27 @@
       </div>
 
       {% if alt_profile_js and alt_profile_js != '[]' %}
-      <div class="card" style="margin-top:16px; padding:16px;">
-        <h3 style="margin:0 0 10px 0; font-size:0.95rem;">Profil de dénivelé</h3>
+      <div class="terrain-summary-grid" aria-label="Lecture de l'effort par terrain">
+        {% for terrain in terrain_summary %}
+        <article class="terrain-summary-card" data-terrain="{{ terrain.key }}">
+          <h4>{{ terrain.label }}</h4>
+          <p>
+            {{ terrain.distance_km if terrain.distance_km is not none else '–' }} km · allure {{ terrain.pace }}<br>
+            VAM {% if terrain.vam is not none %}{% if terrain.vam > 0 %}+{% endif %}{{ terrain.vam }} m/h{% else %}–{% endif %}
+            {% if terrain.hr is not none %} · {{ terrain.hr }} bpm{% endif %}
+            {% if terrain.glucose is not none %} · {{ terrain.glucose }} mg/dL{% endif %}
+          </p>
+        </article>
+        {% endfor %}
+      </div>
+      <div class="card activity-slope-profile-card" style="margin-top:16px; padding:16px;">
+        <h3 style="margin:0 0 6px 0; font-size:0.95rem;">Profil de dénivelé & pente</h3>
         <p class="muted" style="margin:0 0 12px 0; font-size:0.8rem;">
-          Axe horizontal : distance en km. Axe vertical : altitude en mètres.
+          La couleur du tracé reflète la pente lissée. Survole le profil pour lire l’effort et les données physiologiques au même endroit.
         </p>
+        <div class="slope-profile-legend" aria-label="Légende des pentes">
+          <span><i style="background:#2563eb"></i>&lt; −15 %</span><span><i style="background:#60a5fa"></i>−15 à −5 %</span><span><i style="background:#4de2ff"></i>−5 à 5 %</span><span><i style="background:#fbbf24"></i>5 à 15 %</span><span><i style="background:#f97316"></i>15 à 30 %</span><span><i style="background:#ef4444"></i>&gt; 30 %</span>
+        </div>
         <div style="height:260px;">
           <canvas id="overviewAltitudeChart" height="240"></canvas>
         </div>
@@ -576,25 +606,58 @@
       <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
       <script>
         (function() {
-          const rawAltData = {{ alt_profile_js | safe }};
+          const rawAltData = {{ profile_chart_points_js | safe }};
           const canvas = document.getElementById('overviewAltitudeChart');
           if (!canvas || !rawAltData || rawAltData.length === 0 || typeof Chart === 'undefined') return;
 
           const ctx = canvas.getContext('2d');
-          const series = rawAltData.map(pt => ({ x: pt[0], y: pt[1] }));
+          const slopeColor = (grade) => {
+            if (grade <= -15) return '#2563eb';
+            if (grade <= -5) return '#60a5fa';
+            if (grade < 5) return '#4de2ff';
+            if (grade < 15) return '#fbbf24';
+            if (grade < 30) return '#f97316';
+            return '#ef4444';
+          };
+          const slopeFillColor = (grade) => {
+            if (grade <= -15) return 'rgba(37, 99, 235, .33)';
+            if (grade <= -5) return 'rgba(96, 165, 250, .30)';
+            if (grade < 5) return 'rgba(77, 226, 255, .24)';
+            if (grade < 15) return 'rgba(251, 191, 36, .30)';
+            if (grade < 30) return 'rgba(249, 115, 22, .32)';
+            return 'rgba(239, 68, 68, .34)';
+          };
+          const slopeTerrainPlugin = {
+            id: 'slopeTerrain',
+            beforeDatasetDraw(chart) {
+              const { ctx, chartArea } = chart;
+              const points = chart.getDatasetMeta(0).data;
+              if (!points || points.length < 2) return;
+              ctx.save();
+              for (let index = 0; index < points.length - 1; index += 1) {
+                const raw = rawAltData[index];
+                const next = points[index + 1];
+                const width = Math.max(1, next.x - points[index].x + 1);
+                ctx.fillStyle = slopeFillColor(raw.grade || 0);
+                ctx.fillRect(points[index].x, chartArea.top, width, chartArea.bottom - chartArea.top);
+              }
+              ctx.restore();
+            }
+          };
 
           new Chart(ctx, {
             type: 'line',
             data: {
               datasets: [{
                 label: 'Altitude',
-                data: series,
+                data: rawAltData,
                 borderColor: '#4de2ff',
-                backgroundColor: 'rgba(77, 226, 255, 0.14)',
+                backgroundColor: 'rgba(77, 226, 255, 0.08)',
                 borderWidth: 2,
                 pointRadius: 0,
                 fill: true,
                 tension: 0.2,
+                segment: { borderColor: context => slopeColor(context.p0.raw.grade) },
               }]
             },
             options: {
@@ -606,12 +669,20 @@
                 legend: { display: false },
                 tooltip: {
                   callbacks: {
-                    label: function(context) {
-                      const x = context.parsed.x;
-                      const y = context.parsed.y;
-                      if (x == null || y == null) return '';
-                      return `${x.toFixed(1)} km · ${Math.round(y)} m`;
-                    }
+                    title: items => `${items[0].raw.x.toFixed(2)} km · ${Math.round(items[0].raw.y)} m`,
+                    label: item => `Pente ${item.raw.grade >= 0 ? '+' : ''}${item.raw.grade.toFixed(1)} %`,
+                    afterLabel: item => {
+                      const raw = item.raw;
+                      const details = [];
+                      if (raw.pace) {
+                        const seconds = Math.round(raw.pace);
+                        details.push(`Allure ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}/km`);
+                      }
+                      if (raw.vam !== null) details.push(`VAM ${raw.vam >= 0 ? '+' : ''}${raw.vam} m/h`);
+                      if (raw.hr !== null) details.push(`FC ${raw.hr} bpm`);
+                      if (raw.glucose !== null) details.push(`Glycémie ${raw.glucose} mg/dL`);
+                      return details;
+                    },
                   }
                 }
               },
@@ -626,7 +697,8 @@
                   grid: { color: 'rgba(148, 163, 184, 0.2)' }
                 }
               }
-            }
+            },
+            plugins: [slopeTerrainPlugin]
           });
         })();
       </script>

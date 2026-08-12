@@ -5776,6 +5776,7 @@ def _delete_user_account_data(db: Session, user: User) -> None:
 
 def _render_login_page(request: Request):
     login_next = _sanitize_next_path(request.query_params.get("next"))
+    official_courses = _load_official_course_catalog()
     hero_points = [
         {
             "title": "Projection chrono & VAM",
@@ -5801,6 +5802,7 @@ def _render_login_page(request: Request):
             "request": request,
             "hero_points": hero_points,
             "onboarding_steps": onboarding_steps,
+            "official_courses": official_courses,
             "login_next": login_next or "",
         },
     )

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Strava Glucose · Connexion{% endblock %}
+{% block title %}D+ × Strava × Glucose · Connexion{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -112,6 +112,23 @@
     gap: 12px;
     margin-top: 24px;
   }
+
+  .login-visuals { display:grid; grid-template-columns:1.25fr .75fr; gap:12px; margin-top:20px; }
+  .login-visual-card { padding:12px; border:1px solid rgba(77,226,255,.2); border-radius:16px; background:rgba(5,14,27,.48); }
+  .login-visual-card h3 { margin:0 0 7px; color:#fff; font-size:.78rem; font-family:"Orbitron",sans-serif; letter-spacing:.06em; text-transform:uppercase; }
+  .login-visual-card p { margin:0; color:var(--text-muted); font-size:.76rem; }
+  .login-mini-profile { display:block; width:100%; height:78px; margin:8px 0 4px; }
+  .login-mini-metrics { display:grid; gap:7px; margin-top:10px; }
+  .login-mini-metrics span { display:flex; justify-content:space-between; gap:8px; color:var(--text-muted); font-size:.76rem; }
+  .login-mini-metrics strong { color:var(--accent-2); font-family:"Orbitron",sans-serif; font-size:.74rem; }
+  .login-courses { padding:20px 22px; border-radius:20px; background:rgba(9,20,37,.82); border:1px solid rgba(77,226,255,.2); }
+  .login-courses h3 { margin:0; font-family:"Orbitron",sans-serif; font-size:1rem; letter-spacing:.08em; text-transform:uppercase; }
+  .login-courses > p { margin:7px 0 14px; color:var(--text-muted); }
+  .login-course-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:10px; }
+  .login-course-card { padding:13px; border:1px solid rgba(148,174,214,.24); border-radius:14px; background:rgba(7,16,30,.45); }
+  .login-course-card strong { color:#fff; display:block; font-size:.95rem; }
+  .login-course-card span { display:block; margin-top:5px; color:var(--text-muted); font-size:.8rem; }
+  .login-course-card em { display:inline-block; margin-top:9px; color:var(--accent-2); font-size:.73rem; font-style:normal; font-weight:700; }
 
   .login-point {
     padding: 14px 16px;
@@ -241,6 +258,8 @@
       grid-template-columns: 1fr;
     }
 
+    .login-visuals { grid-template-columns:1fr; }
+
     .login-title {
       max-width: none;
       font-size: 1.85rem;
@@ -258,14 +277,13 @@
   <div class="login-grid">
     <section class="login-hero">
       <div>
-        <p class="login-kicker">Strava Glucose // Tactical HUD</p>
+        <p class="login-kicker">D+ × Strava × Glucose</p>
         <h1 class="login-title">
-          Le cockpit trail
+          Prépare. Analyse. Régule.
         </h1>
         <p class="login-copy">
-          Anticipe tes chronos en fonction des pentes, compare tes VAM, allures et cadences, et si tu
-          utilises un capteur CGM, visualise aussi l’impact glycémique de chaque sortie pour faire
-          progresser toute la communauté sur la gestion énergétique en montagne.
+          Un cockpit de trail pour comprendre ton effort sur chaque pente, construire ton profil coureur,
+          projeter un chrono et, si tu le souhaites, relier l’intensité de course à ta glycémie.
         </p>
 
         <div class="login-meta">
@@ -281,6 +299,21 @@
             <span class="login-meta-value">CGM</span>
             <span class="login-meta-label">Énergie en temps réel</span>
           </div>
+        </div>
+
+        <div class="login-visuals" aria-label="Exemples d'analyses disponibles">
+          <article class="login-visual-card">
+            <h3>Profil de course coloré par pente</h3>
+            <svg class="login-mini-profile" viewBox="0 0 310 78" role="img" aria-label="Exemple de profil de dénivelé coloré par pente">
+              <path d="M0 67 L28 60 L56 45 L84 12 L112 38 L140 55 L170 44 L202 20 L236 33 L270 58 L310 49 L310 78 L0 78 Z" fill="rgba(77,226,255,.10)"/>
+              <path d="M0 67 L28 60" stroke="#4de2ff" stroke-width="5" fill="none"/><path d="M28 60 L56 45" stroke="#fbbf24" stroke-width="5" fill="none"/><path d="M56 45 L84 12" stroke="#ef4444" stroke-width="5" fill="none"/><path d="M84 12 L112 38" stroke="#2563eb" stroke-width="5" fill="none"/><path d="M112 38 L140 55" stroke="#60a5fa" stroke-width="5" fill="none"/><path d="M140 55 L170 44" stroke="#4de2ff" stroke-width="5" fill="none"/><path d="M170 44 L202 20" stroke="#f97316" stroke-width="5" fill="none"/><path d="M202 20 L236 33" stroke="#fbbf24" stroke-width="5" fill="none"/><path d="M236 33 L270 58" stroke="#2563eb" stroke-width="5" fill="none"/><path d="M270 58 L310 49" stroke="#fbbf24" stroke-width="5" fill="none"/>
+            </svg>
+            <p>Allure, VAM ±, FC et glycémie lisibles au même kilomètre.</p>
+          </article>
+          <article class="login-visual-card">
+            <h3>Projection chrono</h3>
+            <div class="login-mini-metrics"><span>Temps estimé <strong>22h 48</strong></span><span>Montées <strong>+730 m/h</strong></span><span>Ravitos <strong>+34 min</strong></span><span>Nutrition <strong>61 g/h</strong></span></div>
+          </article>
         </div>
       </div>
 
@@ -347,6 +380,22 @@
       {% endfor %}
     </ol>
   </div>
+
+  <section class="login-courses" aria-labelledby="login-courses-title">
+    <h3 id="login-courses-title">Courses simulables actuellement</h3>
+    <p>Ces parcours sont préparés et disposent de leurs points de contrôle, ravitaillements et données de course.</p>
+    <div class="login-course-grid">
+      {% for course in official_courses or [] %}
+      <article class="login-course-card">
+        <strong>{{ course.name }}</strong>
+        <span>{% if course.distance_km %}{{ course.distance_km }} km{% else %}Distance à préciser{% endif %} · {{ course.points|length }} points de course</span>
+        <em>{% if course.route_available %}Disponible à la simulation{% else %}Trace GPX à compléter{% endif %}</em>
+      </article>
+      {% else %}
+      <article class="login-course-card"><strong>Aucune course publiée</strong><span>Les prochains parcours préparés apparaîtront ici.</span></article>
+      {% endfor %}
+    </div>
+  </section>
 </div>
 {% endblock %}
 

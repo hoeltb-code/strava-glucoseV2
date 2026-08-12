@@ -23,6 +23,14 @@
     grid-template-columns:repeat(6,1fr);
     gap:12px;
   }
+  .activity-stats-grid > div { padding:11px; border-radius:12px; border:1px solid rgba(77,226,255,.18); background:rgba(8,17,31,.32); position:relative; overflow:hidden; }
+  .activity-stats-grid > div::after { content:""; position:absolute; left:0; right:0; bottom:0; height:3px; background:#4de2ff; }
+  .activity-stats-grid > div:nth-child(2)::after { background:#f97316; }
+  .activity-stats-grid > div:nth-child(3)::after { background:#b8ff45; }
+  .activity-stats-grid > div:nth-child(4)::after { background:#a78bfa; }
+  .activity-stats-grid > div:nth-child(5)::after { background:#ef4444; }
+  .tile-k { color:#d7e8ff; font-size:.7rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+  .tile-v { margin-top:3px; color:#fff; font-family:"Orbitron",sans-serif; font-size:1.05rem; font-weight:700; text-shadow:0 0 14px rgba(77,226,255,.18); }
   .activity-layout {
     display:grid;
     grid-template-columns:210px minmax(0,1fr);

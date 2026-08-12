@@ -44,15 +44,21 @@
     margin-bottom:16px;
     border-radius:22px;
     background:
-      radial-gradient(circle at top right, rgba(184, 255, 69, 0.14), transparent 20%),
-      linear-gradient(160deg, rgba(15, 29, 49, 0.96) 0%, rgba(8, 17, 31, 0.98) 72%);
-    border:1px solid rgba(77, 226, 255, 0.18);
+      radial-gradient(circle at top right, rgba(184, 255, 69, 0.20), transparent 28%),
+      radial-gradient(circle at bottom left, rgba(77, 226, 255, 0.18), transparent 38%),
+      linear-gradient(135deg, rgba(36, 91, 132, 0.96) 0%, rgba(22, 57, 91, 0.98) 54%, rgba(17, 42, 72, 0.98) 100%);
+    border:1px solid rgba(77, 226, 255, 0.42);
     box-shadow:0 18px 42px rgba(0, 0, 0, 0.28);
+    position:relative;
+    overflow:hidden;
   }
+  .runner-intro::after { content:""; position:absolute; left:0; right:0; bottom:0; height:5px; background:linear-gradient(90deg,#2563eb 0 16%,#60a5fa 16% 30%,#4de2ff 30% 48%,#fbbf24 48% 65%,#f97316 65% 82%,#ef4444 82%); }
+  .runner-eyebrow { margin:0 0 6px; color:var(--accent-2); font-size:.74rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
+  .runner-profile-orb { width:72px; height:72px; flex:0 0 auto; display:grid; place-items:center; border-radius:50%; background:var(--grad-accent); color:#08111f; font-family:"Orbitron",sans-serif; font-size:1.45rem; font-weight:700; box-shadow:0 0 0 6px rgba(77,226,255,.11), 0 12px 24px rgba(0,0,0,.24); }
   .runner-intro h2 {
     margin:0 0 8px 0;
     font-family:"Orbitron", sans-serif;
-    font-size:1.18rem;
+    font-size:clamp(1.45rem, 3vw, 2.15rem);
     letter-spacing:0.05em;
     text-transform:uppercase;
     color:var(--text-main);
@@ -84,7 +90,7 @@
   .runner-sidebar {
     position:sticky;
     top:88px;
-    background:linear-gradient(180deg, rgba(12, 23, 42, 0.98), rgba(8, 17, 31, 0.98));
+    background:linear-gradient(180deg, rgba(28, 56, 91, 0.92), rgba(13, 30, 53, 0.92));
     border:1px solid var(--runner-panel-border);
     box-shadow:0 16px 36px rgba(0,0,0,0.24);
   }
@@ -117,11 +123,20 @@
   }
   .runner-section {
     display:none;
-    background:linear-gradient(180deg, rgba(13, 24, 41, 0.98), rgba(8, 17, 31, 0.98));
+    background:linear-gradient(145deg, rgba(29, 59, 96, 0.88), rgba(14, 31, 54, 0.9));
     border:1px solid var(--runner-panel-border);
     border-radius:20px;
     box-shadow:0 18px 42px rgba(0, 0, 0, 0.24);
+    position:relative;
+    overflow:hidden;
   }
+  .runner-section::before { content:""; position:absolute; inset:0 0 auto; height:4px; background:var(--section-accent, var(--accent)); opacity:.95; }
+  .runner-section[data-section="ascent"] { --section-accent:#f97316; border-color:rgba(249,115,22,.45); background:linear-gradient(145deg,rgba(140,65,29,.58),rgba(27,45,63,.92) 52%); }
+  .runner-section[data-section="vam"] { --section-accent:#4de2ff; border-color:rgba(77,226,255,.45); background:linear-gradient(145deg,rgba(19,100,132,.56),rgba(20,48,74,.92) 52%); }
+  .runner-section[data-section="pace"] { --section-accent:#b8ff45; border-color:rgba(184,255,69,.43); background:linear-gradient(145deg,rgba(78,119,30,.48),rgba(30,54,49,.92) 52%); }
+  .runner-section[data-section="cadence"] { --section-accent:#a78bfa; border-color:rgba(167,139,250,.46); background:linear-gradient(145deg,rgba(84,57,141,.52),rgba(37,42,76,.92) 52%); }
+  .runner-section[data-section="series"] { --section-accent:#f472b6; border-color:rgba(244,114,182,.44); background:linear-gradient(145deg,rgba(132,53,93,.52),rgba(62,37,67,.92) 52%); }
+  .runner-section[data-section="glucose"], .runner-section[data-section="glucose-activities"] { --section-accent:#ef4444; border-color:rgba(239,68,68,.44); background:linear-gradient(145deg,rgba(126,45,54,.52),rgba(62,35,49,.92) 52%); }
   .runner-section.is-active {
     display:block;
   }
@@ -133,6 +148,7 @@
     letter-spacing:0.05em;
     text-transform:uppercase;
   }
+  .runner-section h3 { color:var(--section-accent, var(--accent)) !important; padding-top:4px; text-shadow:0 0 18px color-mix(in srgb, var(--section-accent, var(--accent)) 28%, transparent); }
 
   .runner-section table {
     width:100%;
@@ -160,15 +176,18 @@
   }
   .runner-page .card .card,
   .runner-page .projection-card {
-    background:rgba(8, 17, 31, 0.76) !important;
+    background:rgba(23, 46, 76, 0.72) !important;
     border-color:var(--runner-panel-border) !important;
     box-shadow:none;
   }
+  .runner-page .projection-card { border-left:4px solid var(--accent); background:linear-gradient(135deg,rgba(77,226,255,.24),rgba(23,46,76,.8)) !important; }
+  .runner-page .projection-card:nth-child(2n) { border-left-color:var(--accent-2); background:linear-gradient(135deg,rgba(184,255,69,.19),rgba(33,57,66,.8)) !important; }
+  .runner-page .projection-card:nth-child(3n) { border-left-color:#fb923c; background:linear-gradient(135deg,rgba(249,115,22,.2),rgba(65,46,53,.8)) !important; }
   .runner-page [style*="background:#fff"],
   .runner-page [style*="background:#fefefe"],
   .runner-page [style*="background:#fdfdfd"],
   .runner-page [style*="background:#fcfcfc"] {
-    background:rgba(8, 17, 31, 0.76) !important;
+    background:rgba(23, 46, 76, 0.72) !important;
   }
   .runner-page [style*="color:#0f172a"],
   .runner-page [style*="color:#111827"],
@@ -362,19 +381,15 @@
 <!--      🎯 En-tête profil coureur -->
 <!-- ╚══════════════════════════════╝ -->
 <div class="runner-intro">
+  {% set runner_name = user.first_name or user.email.split('@')[0] %}
   <div style="flex:1;">
     <div>
+      <p class="runner-eyebrow">Ton cockpit de course</p>
       <h2>
-        {% if sport|lower == 'run' %}
-          Voici ton profil (running & trail)
-        {% else %}
-          Profil coureur – {{ sport }}
-        {% endif %}
+        Bonjour {{ runner_name }} 👋
       </h2>
       <p>
-        Ce profil agrège toutes tes sorties pour estimer VAM, rythmes selon la pente et zones cardio,
-        projeter tes chronos à partir d’un GPX, et, si tu portes un CGM, afficher les analyses glycémie.
-        Pense à renseigner ta FC max dans ton profil pour des zones cardio plus précises.
+        Voici ton profil {% if sport|lower == 'run' %}running & trail{% else %}{{ sport }}{% endif %}. Il agrège tes sorties pour estimer VAM, allures selon la pente et zones cardio, puis affiner tes projections. Si tu utilises un CGM, il ajoute aussi les analyses glycémie. Pense à renseigner ta FC max dans ton profil pour des zones plus précises.
       </p>
     </div>
 
@@ -407,6 +422,7 @@
       </select>
     </form>
   </div>
+  <div class="runner-profile-orb" aria-label="{{ runner_name }}">{{ runner_name[0]|upper }}</div>
 </div>
 
 <!-- ╔══════════════════════════════╗ -->

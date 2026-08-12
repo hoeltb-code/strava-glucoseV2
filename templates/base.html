@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <title>{% block title %}Strava x Glucose{% endblock %}</title>
+  <title>{% block title %}D+ × Strava × Glucose{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <!-- 🗺️ Leaflet (cartes OpenStreetMap) -->
@@ -26,16 +26,16 @@
       --accent-2: #b8ff45;
       --accent-danger: #ff7a59;
 
-      --text-main: #f3f8ff;
-      --text-muted: #c8d7ef;
-      --text-dim: #9eb3d3;
+      --text-main: #ffffff;
+      --text-muted: #d6e4f8;
+      --text-dim: #abc0df;
       --border: rgba(77, 226, 255, 0.24);
       --border-soft: rgba(148, 174, 214, 0.28);
       --shadow-soft: 0 18px 48px rgba(0, 0, 0, 0.34);
       --ring: 0 0 0 3px rgba(77, 226, 255, 0.22);
 
       --grad-accent: linear-gradient(135deg, #4de2ff 0%, #1c8cff 55%, #9d7bff 100%);
-      --grad-panel: linear-gradient(180deg, rgba(26, 47, 78, 0.96) 0%, rgba(17, 34, 58, 0.98) 100%);
+      --grad-panel: linear-gradient(145deg, rgba(31, 62, 101, 0.96) 0%, rgba(17, 34, 58, 0.98) 58%, rgba(29, 43, 78, 0.98) 100%);
       --link: #7cecff;
       --link-hover: #b8ff45;
     }
@@ -47,13 +47,23 @@
     font-family: "Rajdhani", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
     background:
       radial-gradient(circle at top left, rgba(77, 226, 255, 0.16), transparent 28%),
-      radial-gradient(circle at top right, rgba(184, 255, 69, 0.10), transparent 22%),
+      radial-gradient(circle at top right, rgba(184, 255, 69, 0.12), transparent 22%),
+      radial-gradient(circle at 80% 72%, rgba(249, 115, 22, 0.09), transparent 25%),
       linear-gradient(180deg, #173154 0%, #142949 42%, #10213a 100%);
     background-color: var(--bg-page);
     color: var(--text-main);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     }
+
+    h1, h2, h3, h4 {
+      color:var(--text-main);
+      font-weight:700;
+      letter-spacing:.01em;
+      text-shadow:0 2px 16px rgba(0,0,0,.28);
+    }
+    h1, h2 { font-family:"Orbitron", "Rajdhani", sans-serif; letter-spacing:.035em; }
+    strong { color:#fff; font-weight:700; }
 
     body::before {
       content: "";
@@ -228,6 +238,8 @@
       box-shadow: var(--shadow-soft);
       position: relative;
       overflow: hidden;
+      isolation: isolate;
+      transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
     }
     .card::before {
       content: "";
@@ -236,6 +248,22 @@
       pointer-events: none;
       background: linear-gradient(135deg, rgba(77, 226, 255, 0.06), transparent 28%, transparent 72%, rgba(184, 255, 69, 0.04));
       opacity: 0.55;
+    }
+    .card::after {
+      content:"";
+      position:absolute;
+      left:18px;
+      right:18px;
+      top:0;
+      height:2px;
+      border-radius:0 0 999px 999px;
+      background:linear-gradient(90deg, transparent, rgba(77,226,255,.75), rgba(184,255,69,.62), transparent);
+      opacity:.75;
+      pointer-events:none;
+    }
+    .card > * { position:relative; z-index:1; }
+    @media (hover:hover) {
+      .card:hover { transform:translateY(-2px); border-color:rgba(77,226,255,.38); box-shadow:0 24px 54px rgba(0,0,0,.36), 0 0 24px rgba(77,226,255,.07); }
     }
     .card h1, .card h2, .card h3, .card h4 { margin-top: 0; color: var(--text-main); }
     .section-title {
@@ -252,7 +280,7 @@
     }
     .section-subtitle {
       margin: 0 0 14px;
-      color: var(--text-main);
+      color: var(--text-muted);
       font-size: 0.9rem;
       line-height: 1.5;
     }
@@ -305,13 +333,20 @@
       padding: 16px;
       background: linear-gradient(180deg, rgba(77, 226, 255, .1), rgba(11, 24, 47, .95));
       border: 1px solid rgba(77, 226, 255, .16);
+      position:relative;
+      overflow:hidden;
     }
+    .stat-card::after { content:""; position:absolute; inset:auto 0 0; height:4px; background:linear-gradient(90deg, var(--accent), transparent); }
+    .stat-card:nth-child(2n) { background:linear-gradient(180deg, rgba(184,255,69,.12), rgba(11,24,47,.95)); border-color:rgba(184,255,69,.2); }
+    .stat-card:nth-child(2n)::after { background:linear-gradient(90deg, var(--accent-2), transparent); }
+    .stat-card:nth-child(3n) { background:linear-gradient(180deg, rgba(249,115,22,.14), rgba(11,24,47,.95)); border-color:rgba(249,115,22,.2); }
+    .stat-card:nth-child(3n)::after { background:linear-gradient(90deg, #fb923c, transparent); }
     .stat-card h3 {
       margin: 0 0 6px;
       font-size: 0.75rem;
       font-weight: 700;
       letter-spacing: .04em;
-      color: var(--text-muted);
+      color: #dcecff;
       text-transform: uppercase;
       opacity: .95;
     }
@@ -345,7 +380,10 @@
       letter-spacing: .08em;
       font-size: 0.78rem;
       font-family: "Orbitron", sans-serif;
+      background:rgba(77,226,255,.055);
     }
+    table tbody tr { transition:background-color .14s ease; }
+    table tbody tr:hover { background:rgba(77,226,255,.055); }
     .compact-table tbody tr:last-child td { border-bottom: none; }
     .muted { color: var(--text-muted); }
 
@@ -377,7 +415,7 @@
 
     /* ===== Form ===== */
     label {
-      display:block; font-size:.82rem; color:var(--text-main); margin-bottom:4px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;
+      display:block; font-size:.82rem; color:#eaf5ff; margin-bottom:4px; font-weight:700; letter-spacing:0.055em; text-transform:uppercase;
     }
 
     input[type="text"], input[type="email"], input[type="password"],
@@ -496,8 +534,8 @@
     <div class="brand">
       <a href="{{ home_href }}">
         <span class="brand-home">🏠</span>
-        <span class="brand-mark">SxD</span>
-        <span class="brand-text">Strava x D+</span>
+        <span class="brand-mark">D+</span>
+        <span class="brand-text">D+ × Strava × Glucose</span>
       </a>
     </div>
     <div class="header-actions">

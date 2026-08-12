@@ -134,6 +134,7 @@
   .profile-pacing-table td:last-child { color:var(--accent-2); font-weight:700; }
   .profile-pacing-table th:nth-child(2), .profile-pacing-table td:nth-child(2) { width:72px; }
   .profile-pace-override { box-sizing:border-box; width:48px; min-height:24px; padding:1px 2px; font-size:.72rem; }
+  .profile-nutrition-control { margin-top:12px; max-width:260px; }
   .profile-calculate { width:100%; margin-top:14px; }
   .projection-status { min-height:20px; margin:12px 0 0; color:var(--text-muted); font-size:.88rem; }
   .projection-result { display:none; margin-top:14px; padding:15px; border-radius:14px; background:rgba(77,226,255,.08); border:1px solid rgba(77,226,255,.25); }
@@ -425,15 +426,15 @@
           <tbody id="home-profile-table-body"></tbody>
         </table>
       </div>
+      <div class="profile-nutrition-control">
+        <label for="home-runner-weight">Poids pour les recommandations nutritionnelles</label>
+        <input id="home-runner-weight" type="number" min="35" max="150" step="0.5" value="{{ user.weight_kg or '' }}" placeholder="kg">
+      </div>
     </div>
     <button type="button" class="profile-calculate" id="home-projection-submit">Recalculer après mes ajustements</button>
     <div class="aid-stations" id="home-course-points">
       <div style="font-weight:700; margin-bottom:8px;" id="home-point-settings-title">Points de ma trace</div>
       <div class="aid-stations-header">
-        <div>
-          <label for="home-runner-weight">Poids pour la nutrition</label>
-          <input id="home-runner-weight" type="number" min="35" max="150" step="0.5" value="{{ user.weight_kg or '' }}" placeholder="kg">
-        </div>
         <div id="home-aid-count-control">
           <label for="home-aid-count">Nombre de points de course</label>
           <input id="home-aid-count" type="number" min="0" max="15" step="1" value="0">
@@ -443,7 +444,7 @@
       <div class="official-point-settings" id="home-official-point-settings" hidden>Renseigne ci-dessous le temps d’arrêt prévu à chaque ravito et ravito avec assistance.</div>
       <p class="weight-note">Les quantités alimentaires sont des repères de planification à tester à l’entraînement et à adapter avec un professionnel de santé si nécessaire.</p>
     </div>
-    <p class="course-selection-note" id="home-course-selection-note" hidden>Les ravitos, assistances, contrôles et barrières de la course officielle seront appliqués automatiquement.</p>
+    <p class="course-selection-note" id="home-course-selection-note" hidden>Les ravitos, assistances, contrôles et barrières sont appliqués automatiquement. Les temps d’arrêt se règlent directement dans le déroulé de course.</p>
     <div class="projection-status" id="home-projection-status" aria-live="polite"></div>
     <div class="projection-result" id="home-projection-result" aria-live="polite"></div>
   </div>
@@ -714,7 +715,7 @@
       gpxSource.hidden = true;
       fileInput.required = false;
       fileInput.disabled = true;
-      customCoursePoints.hidden = !official;
+      customCoursePoints.hidden = true;
       aidCountControl.hidden = official;
       officialPointSettings.hidden = !official;
       courseSelectionNote.hidden = !official;

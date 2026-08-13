@@ -5902,7 +5902,7 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib.units import mm
         from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, KeepTogether
-        from reportlab.graphics.shapes import Drawing, Line, PolyLine, Rect, String
+        from reportlab.graphics.shapes import Drawing, Line, PolyLine, Rect, String, Circle
     except ImportError as exc:
         raise RuntimeError("La génération PDF n'est pas encore installée sur le serveur. Lance `pip install -r requirements.txt` puis redémarre le serveur.") from exc
     buffer = BytesIO()
@@ -5961,7 +5961,7 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
             return colors.HexColor("#f97316")
         return colors.HexColor("#ef4444")
 
-    def elevation_drawing(raw_points, title: str, width: float = 180 * mm, height: float = 54 * mm):
+    def elevation_drawing(raw_points, title: str, width: float = 180 * mm, height: float = 54 * mm, fueling_windows: list[dict] | None = None):
         points = clean_profile(raw_points)
         if len(points) < 2:
             return Paragraph("Profil indisponible pour ce tronçon.", small_style)
@@ -5982,6 +5982,18 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
         for index in range(1, len(coords)):
             previous, current = coords[index - 1], coords[index]
             drawing.add(Line(previous[0], previous[1], current[0], current[1], strokeColor=grade_color(current[2]), strokeWidth=1.4, strokeLineCap=1))
+        for window in fueling_windows or []:
+            if not isinstance(window, dict) or window.get("terrain") == "steady":
+                continue
+            try:
+                marker_km = float(window.get("fromKm"))
+            except (TypeError, ValueError):
+                continue
+            closest = min(points, key=lambda point: abs(float(point["distance_km"]) - marker_km))
+            x = pad_x + ((float(closest["distance_km"]) - min_x) / range_x) * (width - 2 * pad_x)
+            y = pad_y + ((float(closest["elevation_m"]) - min_y) / range_y) * (height - pad_y - 9 * mm)
+            color = colors.HexColor("#facc15") if window.get("terrain") == "climb" else colors.HexColor("#60a5fa")
+            drawing.add(Circle(x, y, 2.3, fillColor=color, strokeColor=colors.white, strokeWidth=.7))
         drawing.add(String(pad_x, 2.5 * mm, f"{min_x:.1f} km", fontName="Helvetica", fontSize=6.5, fillColor=colors.HexColor("#52616b")))
         drawing.add(String(width - pad_x - 23 * mm, 2.5 * mm, f"{max_x:.1f} km", fontName="Helvetica", fontSize=6.5, fillColor=colors.HexColor("#52616b")))
         drawing.add(String(width - 27 * mm, height - 4.5 * mm, f"{min_y:.0f}-{max_y:.0f} m", fontName="Helvetica", fontSize=6.5, fillColor=colors.HexColor("#52616b")))
@@ -6053,8 +6065,8 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
         story.extend([
             Paragraph("Parcours et profil", section_style),
             route_map_drawing(elevation_profile), Spacer(1, 5),
-            elevation_drawing(elevation_profile, "Profil global - couleurs selon la pente"),
-            Paragraph("Bleu : descente - vert : plat - jaune/orange/rouge : montée de plus en plus raide.", small_style),
+            elevation_drawing(elevation_profile, "Profil global - couleurs selon la pente", fueling_windows=plan.get("fueling_windows") or []),
+            Paragraph("Bleu : descente - vert : plat - jaune/orange/rouge : montée de plus en plus raide. Points jaunes/bleus : repères nutrition terrain.", small_style),
         ])
 
     pacing = plan.get("pacing") if isinstance(plan.get("pacing"), list) else []
@@ -6122,7 +6134,7 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
                 nutrition_rows.append([
                     Paragraph(f"{_course_plan_pdf_value(stop.get('point'))}<br/>{_course_plan_pdf_value(stop.get('km'))}", small_style),
                     Paragraph(_course_plan_pdf_value(stop.get("destination")), small_style), Paragraph(_course_plan_pdf_value(stop.get("duration")), small_style),
-                    Paragraph(_course_plan_pdf_value(stop.get("carbs")), small_style), Paragraph(_course_plan_pdf_value(stop.get("proteins")), small_style),
+                    Paragraph(f"{_course_plan_pdf_value(stop.get('carbs'))}<br/><b>Sur place :</b> {_course_plan_pdf_value(stop.get('at_aid'))}<br/><b>Emporter :</b> {_course_plan_pdf_value(stop.get('to_carry'))}", small_style), Paragraph(_course_plan_pdf_value(stop.get("proteins")), small_style),
                     Paragraph(_course_plan_pdf_value(stop.get("fats")), small_style), Paragraph(_course_plan_pdf_value(stop.get("calories")), small_style),
                 ])
         nutrition_table = Table(nutrition_rows, colWidths=[38 * mm, 34 * mm, 21 * mm, 22 * mm, 22 * mm, 20 * mm, 22 * mm], repeatRows=1)
@@ -6132,6 +6144,46 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
             ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
         ]))
         story.append(nutrition_table)
+        terrain_advice = [
+            f"<b>{_course_plan_pdf_value(stop.get('point'))}</b> : {_course_plan_pdf_value(stop.get('advice'))}"
+            for stop in nutrition_stops if isinstance(stop, dict) and stop.get("advice")
+        ]
+        if terrain_advice:
+            story.extend([
+                Spacer(1, 7), Paragraph("Quand s'alimenter selon le terrain", section_style),
+                *[Paragraph(advice, small_style) for advice in terrain_advice],
+            ])
+
+    fueling_schedule = plan.get("fueling_schedule") if isinstance(plan.get("fueling_schedule"), list) else []
+    if fueling_schedule:
+        story.append(PageBreak())
+        story.extend([
+            Paragraph("Plan de prises de glucides toutes les 20 minutes", section_style),
+            Paragraph("Les horaires incluent les arrêts ravito. Cette grille positionne les prises selon le relief à venir ; les quantités de ravito restent la référence à préparer.", body_style),
+            Spacer(1, 6),
+        ])
+        schedule_rows = [[
+            Paragraph("Moment", table_header_style), Paragraph("Position", table_header_style), Paragraph("Relief à venir", table_header_style),
+            Paragraph("Glucides", table_header_style), Paragraph("Conseil", table_header_style),
+        ]]
+        for intake in fueling_schedule[:160]:
+            if not isinstance(intake, dict):
+                continue
+            schedule_rows.append([
+                Paragraph(_course_plan_pdf_value(intake.get("moment")), small_style),
+                Paragraph(_course_plan_pdf_value(intake.get("km")), small_style),
+                Paragraph(f"{_course_plan_pdf_value(intake.get('gain'))}<br/>{_course_plan_pdf_value(intake.get('loss'))}", small_style),
+                Paragraph(_course_plan_pdf_value(intake.get("carbs")), small_style),
+                Paragraph(_course_plan_pdf_value(intake.get("advice")), small_style),
+            ])
+        schedule_table = Table(schedule_rows, colWidths=[26 * mm, 24 * mm, 30 * mm, 22 * mm, 63 * mm], repeatRows=1)
+        schedule_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#102a43")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+            ("GRID", (0, 0), (-1, -1), .25, colors.HexColor("#cbd5e1")), ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        story.append(schedule_table)
 
     roadbook = plan.get("roadbook") if isinstance(plan.get("roadbook"), list) else []
     if roadbook:

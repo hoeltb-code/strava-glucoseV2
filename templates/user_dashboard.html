@@ -209,6 +209,14 @@
   .course-plan-email { display:flex; justify-content:center; margin:18px 0 2px; }
   .course-plan-email button { padding:10px 15px; border-radius:10px; border:1px solid rgba(45,212,191,.55); background:linear-gradient(135deg, #0f766e, #155e75); color:#fff; font-weight:800; box-shadow:0 8px 18px rgba(15,118,110,.2); }
   .course-plan-email button:disabled { cursor:wait; opacity:.68; }
+  .fueling-schedule { margin-top:18px; padding:14px; border:1px solid rgba(250,204,21,.35); border-radius:14px; background:linear-gradient(135deg, rgba(250,204,21,.1), rgba(15,23,42,.25)); }
+  .fueling-schedule h3 { margin:0; color:#fff; font-size:1rem; }
+  .fueling-schedule > p { margin:5px 0 10px; color:#e2e8f0; font-size:.78rem; line-height:1.4; }
+  .fueling-profile { display:block; width:100%; height:155px; border-radius:10px; background:rgba(5,12,24,.35); }
+  .fueling-intakes { display:grid; grid-template-columns:repeat(auto-fill, minmax(145px, 1fr)); gap:7px; margin-top:10px; max-height:330px; overflow:auto; padding-right:3px; }
+  .fueling-intake { padding:7px 8px; border-radius:8px; background:rgba(255,255,255,.07); border-left:3px solid #b8ff45; color:#e8eef8; font-size:.72rem; line-height:1.35; }
+  .fueling-intake.is-climb { border-left-color:#facc15; } .fueling-intake.is-descent { border-left-color:#60a5fa; }
+  .fueling-intake strong { display:block; color:#fff; font-size:.75rem; }
   .timeline-time { color:var(--accent-2); font-family:"Orbitron", sans-serif; font-size:.9rem; white-space:nowrap; }
   .timeline-time small { display:block; margin-bottom:2px; color:var(--text-muted); font-family:inherit; font-size:.56rem; letter-spacing:.05em; }
   .timeline-aid { grid-template-columns:92px minmax(0, 1fr) auto; border-color:rgba(251,146,60,.65); background:linear-gradient(90deg, rgba(251,146,60,.22), rgba(127,29,29,.2)); }
@@ -966,7 +974,7 @@
       return hours ? `${hours} h ${String(minutes).padStart(2, '0')} min` : `${minutes} min ${String(remaining).padStart(2, '0')} s`;
     }
 
-    function elevationProfileSvg(rawPoints) {
+    function elevationProfileSvg(rawPoints, nutritionWindows = []) {
       const points = (rawPoints || []).filter((point) => Number.isFinite(Number(point.distance_km)) && Number.isFinite(Number(point.elevation_m)));
       if (points.length < 2) return '';
       const width = 680;
@@ -995,7 +1003,94 @@
         const previous = coordinates[index];
         return `<line x1="${previous.x.toFixed(1)}" y1="${previous.y.toFixed(1)}" x2="${point.x.toFixed(1)}" y2="${point.y.toFixed(1)}" stroke="${colorForGrade(point.grade)}" stroke-width="3" stroke-linecap="round"/>`;
       }).join('');
-      return `<div class="projection-profile"><div class="home-summary-label">Profil du parcours · ${Math.round(minElevation)}–${Math.round(maxElevation)} m</div><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Profil d'altitude du parcours, coloré selon la pente">${segments}<line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" stroke="rgba(200,215,239,.45)"/><text x="${padding}" y="${height - 1}" fill="#c8d7ef" font-size="11">0 km</text><text x="${width - padding - 45}" y="${height - 1}" fill="#c8d7ef" font-size="11">${maxDistance.toFixed(1)} km</text></svg><div class="slope-legend"><span><i style="background:#38bdf8"></i>descente &lt; −8 %</span><span><i style="background:#b8ff45"></i>plat −2 à 5 %</span><span><i style="background:#facc15"></i>montée 5–12 %</span><span><i style="background:#f87171"></i>montée &gt; 20 %</span></div></div>`;
+      const fuelingMarkers = nutritionWindows.filter((window) => window.terrain !== 'steady').map((window) => {
+        const nearest = points.reduce((best, point) => Math.abs(Number(point.distance_km) - window.fromKm) < Math.abs(Number(best.distance_km) - window.fromKm) ? point : best, points[0]);
+        const x = padding + (Number(nearest.distance_km) / maxDistance) * (width - padding * 2);
+        const y = height - padding - ((Number(nearest.elevation_m) - minElevation) / elevationRange) * (height - padding * 2);
+        const color = window.terrain === 'climb' ? '#facc15' : '#60a5fa';
+        const label = window.terrain === 'climb' ? 'Manger avant montée' : 'Manger/boire en descente';
+        return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" fill="${color}" stroke="#fff" stroke-width="2"><title>${label} · ${window.fromLabel}</title></circle>`;
+      }).join('');
+      const nutritionLegend = nutritionWindows.length ? '<span><i style="background:#facc15"></i>prise à anticiper avant montée</span><span><i style="background:#60a5fa"></i>prise facilitée en descente</span>' : '';
+      return `<div class="projection-profile"><div class="home-summary-label">Profil du parcours · ${Math.round(minElevation)}–${Math.round(maxElevation)} m</div><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Profil d'altitude du parcours, coloré selon la pente">${segments}${fuelingMarkers}<line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" stroke="rgba(200,215,239,.45)"/><text x="${padding}" y="${height - 1}" fill="#c8d7ef" font-size="11">0 km</text><text x="${width - padding - 45}" y="${height - 1}" fill="#c8d7ef" font-size="11">${maxDistance.toFixed(1)} km</text></svg><div class="slope-legend"><span><i style="background:#38bdf8"></i>descente &lt; −8 %</span><span><i style="background:#b8ff45"></i>plat −2 à 5 %</span><span><i style="background:#facc15"></i>montée 5–12 %</span><span><i style="background:#f87171"></i>montée &gt; 20 %</span>${nutritionLegend}</div></div>`;
+    }
+
+    function buildTwentyMinuteFuelingSchedule(rawPoints, rows, nutritionWindows, aidStations = []) {
+      const points = (rawPoints || []).filter((point) => Number.isFinite(Number(point.distance_km)) && Number.isFinite(Number(point.elevation_m)));
+      if (points.length < 2 || !rows.length) return { svg: '', intakes: [] };
+      const totalSeconds = rows.reduce((sum, row) => sum + Number(row.seconds || 0), 0);
+      const width = 680; const height = 155; const padding = 12;
+      const distances = points.map((point) => Number(point.distance_km)); const elevations = points.map((point) => Number(point.elevation_m));
+      const maxDistance = Math.max(.1, ...distances); const minElevation = Math.min(...elevations); const maxElevation = Math.max(...elevations); const elevationRange = Math.max(1, maxElevation - minElevation);
+      const pointAtKm = (km) => points.reduce((best, point) => Math.abs(Number(point.distance_km) - km) < Math.abs(Number(best.distance_km) - km) ? point : best, points[0]);
+      const kmAtTime = (seconds) => {
+        let previousKm = 0; let elapsed = 0;
+        for (const row of rows) {
+          if (seconds <= elapsed + row.seconds) return previousKm + (row.cumulativeKm - previousKm) * ((seconds - elapsed) / Math.max(1, row.seconds));
+          elapsed += row.seconds; previousKm = row.cumulativeKm;
+        }
+        return maxDistance;
+      };
+      const courseSecondsAtMovingSeconds = (seconds) => {
+        const km = kmAtTime(seconds);
+        return seconds + aidStations.filter((point) => point.km < km - .001).reduce((sum, point) => sum + Number(point.stopSeconds || 0), 0);
+      };
+      const profileCoordinates = points.map((point) => ({ x: padding + Number(point.distance_km) / maxDistance * (width - padding * 2), y: height - padding - (Number(point.elevation_m) - minElevation) / elevationRange * (height - padding * 2), grade: Number(point.grade_percent || 0) }));
+      const colorForGrade = (grade) => grade <= -8 ? '#38bdf8' : grade < -2 ? '#60a5fa' : grade < 5 ? '#b8ff45' : grade < 12 ? '#facc15' : grade < 20 ? '#fb923c' : '#f87171';
+      const profileLines = profileCoordinates.slice(1).map((point, index) => `<line x1="${profileCoordinates[index].x.toFixed(1)}" y1="${profileCoordinates[index].y.toFixed(1)}" x2="${point.x.toFixed(1)}" y2="${point.y.toFixed(1)}" stroke="${colorForGrade(point.grade)}" stroke-width="3" stroke-linecap="round"/>`).join('');
+      const metricsBetweenKm = (fromKm, toKm) => {
+        let previousKm = 0;
+        const metrics = { gain: 0, loss: 0 };
+        rows.forEach((row) => {
+          const overlap = Math.max(0, Math.min(toKm, row.cumulativeKm) - Math.max(fromKm, previousKm));
+          const rowDistance = Math.max(.001, row.cumulativeKm - previousKm);
+          if (overlap > 0) { const ratio = overlap / rowDistance; metrics.gain += row.gain * ratio; metrics.loss += row.loss * ratio; }
+          previousKm = row.cumulativeKm;
+        });
+        return metrics;
+      };
+      const intakes = [];
+      for (let seconds = 0; seconds < totalSeconds; seconds += 20 * 60) {
+        const km = kmAtTime(seconds); const nextSeconds = Math.min(totalSeconds, seconds + 20 * 60); const nextKm = kmAtTime(nextSeconds);
+        const profilePoint = pointAtKm(km); const metrics = metricsBetweenKm(km, nextKm);
+        const window = nutritionWindows.find((item) => km >= item.fromKm - .01 && km <= item.toKm + .01) || nutritionWindows[nutritionWindows.length - 1];
+        if (!window) continue;
+        const distance = Math.max(.1, nextKm - km); const gainPerKm = metrics.gain / distance; const lossPerKm = metrics.loss / distance;
+        const terrain = gainPerKm >= 100 ? 'climb' : lossPerKm >= 140 && lossPerKm > gainPerKm * 1.25 ? 'descent' : 'steady';
+        const localFactor = terrain === 'climb' ? Math.min(1.45, 1.12 + gainPerKm / 900) : terrain === 'descent' ? Math.max(.68, .88 - lossPerKm / 1200) : 1;
+        const durationSeconds = nextSeconds - seconds;
+        const rawCarbs = Math.max(1, window.carbRate * (durationSeconds / 3600) * localFactor);
+        const advice = terrain === 'climb'
+          ? 'Montée à venir : anticipe la prise avant de te mettre dans le dur.'
+          : terrain === 'descent'
+            ? 'Descente à venir : petite prise, puis profite d’un passage stable pour boire.'
+            : 'Terrain roulant : garde une prise régulière.';
+        intakes.push({ seconds, courseSeconds: courseSecondsAtMovingSeconds(seconds), km, elevation: Number(profilePoint.elevation_m), terrain, rawCarbs, window, advice, gain: Math.round(metrics.gain), loss: Math.round(metrics.loss) });
+      }
+      const groupedIntakes = new Map();
+      intakes.forEach((intake) => {
+        const key = `${intake.window.fromKm}-${intake.window.toKm}`;
+        groupedIntakes.set(key, [...(groupedIntakes.get(key) || []), intake]);
+      });
+      groupedIntakes.forEach((entries) => {
+        const target = entries[0].window.carryCarbs;
+        if (target <= 0) { entries.forEach((entry) => { entry.carbs = 0; }); return; }
+        const rawTotal = entries.reduce((sum, entry) => sum + entry.rawCarbs, 0) || 1;
+        let allocated = 0;
+        entries.forEach((entry, index) => {
+          entry.carbs = index === entries.length - 1 ? Math.max(1, target - allocated) : Math.max(1, Math.round(target * entry.rawCarbs / rawTotal));
+          allocated += entry.carbs;
+        });
+      });
+      const markers = intakes.map((intake, index) => {
+        const x = padding + intake.km / maxDistance * (width - padding * 2);
+        const y = height - padding - (intake.elevation - minElevation) / elevationRange * (height - padding * 2);
+        const color = intake.terrain === 'climb' ? '#facc15' : intake.terrain === 'descent' ? '#60a5fa' : '#b8ff45';
+        const label = index % 3 === 2 ? `H+${formatDuration(intake.courseSeconds).replace(/ min.*/, ' min')}` : '';
+        return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="${color}" stroke="#fff" stroke-width="1.4"><title>H+${formatDuration(intake.seconds)} · km ${intake.km.toFixed(1)} · ${intake.carbs} g glucides</title></circle>${label ? `<text x="${x.toFixed(1)}" y="${Math.max(10, y - 8).toFixed(1)}" text-anchor="middle" fill="#fff" font-size="9">${label}</text>` : ''}`;
+      }).join('');
+      const svg = `<svg class="fueling-profile" viewBox="0 0 ${width} ${height}" role="img" aria-label="Profil du parcours avec prises de glucides toutes les 20 minutes">${profileLines}${markers}<text x="${padding}" y="${height - 1}" fill="#c8d7ef" font-size="10">0 km</text><text x="${width - padding - 45}" y="${height - 1}" fill="#c8d7ef" font-size="10">${maxDistance.toFixed(1)} km</text></svg>`;
+      return { svg, intakes };
     }
 
     function legElevationProfileSvg(rawPoints, fromKm, toKm, label, metrics) {
@@ -1039,6 +1134,68 @@
         expenditureRate: hours > 0 ? estimatedExpenditureKcal / hours : 0,
         weightIsEstimated: !(Number.isFinite(weightKg) && weightKg >= 35),
       };
+    }
+
+    function buildTerrainNutritionWindows(rows, coursePoints, nutrition) {
+      const finishKm = rows.length ? Number(rows[rows.length - 1].cumulativeKm || 0) : 0;
+      const fuelPoints = [{ km: 0, label: 'Départ', type: 'start' }, ...coursePoints.filter((point) => ['aid', 'aid_assistance'].includes(point.type))]
+        .filter((point, index, points) => index === 0 || point.km > points[index - 1].km + .001);
+      const timeAtKm = (targetKm) => {
+        let previousKm = 0; let previousSeconds = 0;
+        for (const row of rows) {
+          if (targetKm <= row.cumulativeKm) {
+            const distance = Math.max(.001, row.cumulativeKm - previousKm);
+            return previousSeconds + row.seconds * Math.max(0, Math.min(1, (targetKm - previousKm) / distance));
+          }
+          previousKm = row.cumulativeKm; previousSeconds += row.seconds;
+        }
+        return previousSeconds;
+      };
+      const metricsBetween = (fromKm, toKm) => {
+        let previousKm = 0;
+        const result = { distance: 0, seconds: 0, gain: 0, loss: 0 };
+        rows.forEach((row) => {
+          const overlap = Math.max(0, Math.min(toKm, row.cumulativeKm) - Math.max(fromKm, previousKm));
+          const distance = Math.max(.001, row.cumulativeKm - previousKm);
+          if (overlap > 0) {
+            const ratio = overlap / distance;
+            result.distance += overlap; result.seconds += row.seconds * ratio; result.gain += row.gain * ratio; result.loss += row.loss * ratio;
+          }
+          previousKm = row.cumulativeKm;
+        });
+        return result;
+      };
+      const rawWindows = fuelPoints.map((point, index) => {
+        const next = fuelPoints[index + 1];
+        const toKm = next ? next.km : finishKm;
+        const metrics = metricsBetween(point.km, toKm);
+        const gainPerKm = metrics.gain / Math.max(.1, metrics.distance);
+        const lossPerKm = metrics.loss / Math.max(.1, metrics.distance);
+        const terrainFactor = Math.max(.82, Math.min(1.22, 1 + Math.min(.22, gainPerKm / 1200) - Math.min(.12, lossPerKm / 1500)));
+        const terrain = gainPerKm >= 140 ? 'climb' : lossPerKm >= 180 && lossPerKm > gainPerKm * 1.3 ? 'descent' : 'steady';
+        const advice = terrain === 'climb'
+          ? 'Montée marquée : commence à t’alimenter 15–20 min avant, puis prends de petites portions régulières.'
+          : terrain === 'descent'
+            ? 'Descente dominante : profite d’une portion stable et sûre pour boire et manger régulièrement.'
+            : 'Terrain roulant : répartis les prises régulièrement, sans attendre d’avoir faim.';
+        return { fromKm: point.km, toKm, fromLabel: point.label, destination: next ? next.label : 'Arrivée', metrics, terrainFactor, terrain, advice };
+      }).filter((window) => window.metrics.distance > .01);
+      const baseWeightedSeconds = rawWindows.reduce((sum, window) => sum + window.metrics.seconds, 0);
+      const terrainWeightedSeconds = rawWindows.reduce((sum, window) => sum + window.metrics.seconds * window.terrainFactor, 0);
+      const normalization = terrainWeightedSeconds > 0 ? baseWeightedSeconds / terrainWeightedSeconds : 1;
+      return rawWindows.map((window) => {
+        const hours = window.metrics.seconds / 3600;
+        const carbRate = Math.max(30, Math.min(90, nutrition.carbRate * window.terrainFactor * normalization));
+        const carbs = Math.round(carbRate * hours);
+        const proteins = Math.round(nutrition.proteinRate * hours);
+        const fats = Math.round(nutrition.fatRate * hours);
+        const atAidCarbs = window.fromKm > 0 ? Math.min(25, Math.max(10, Math.round(carbs * .2))) : 0;
+        const carryCarbs = Math.max(0, carbs - atAidCarbs);
+        const onSiteAdvice = atAidCarbs
+          ? `Sur place : ~${atAidCarbs} g de glucides faciles (boisson énergétique, gel, compote ou aliment simple), puis emporte le reste.`
+          : 'Au départ : prépare les glucides du premier tronçon dans des portions faciles à prendre.';
+        return { ...window, carbRate, carbs, atAidCarbs, carryCarbs, proteins, fats, calories: Math.round(carbs * 4 + proteins * 4 + fats * 9), onSiteAdvice };
+      });
     }
 
     function buildProjectionTimeline(rows, splitSize, aidStations, nutrition, departureTime, elevationProfile) {
@@ -1087,6 +1244,8 @@
         });
         return metrics;
       };
+      const terrainNutritionWindows = buildTerrainNutritionWindows(rows, aidStations, nutrition);
+      const nutritionWindowAt = (fromKm) => terrainNutritionWindows.find((window) => Math.abs(window.fromKm - fromKm) < .01);
       const kilometerBreakdown = (fromKm, toKm) => {
         if (!(toKm > fromKm + 0.01)) return '';
         const items = [];
@@ -1099,11 +1258,11 @@
         }
         return `<button type="button" class="timeline-km-detail-toggle" aria-expanded="false">Détail par km</button><div class="timeline-km-details">${items.join('')}</div>`;
       };
-      const nutritionForLeg = (seconds, distance, gain) => {
+      const nutritionForLeg = (seconds, distance, gain, window = null) => {
         const hours = seconds / 3600;
-        const carbs = Math.round(nutrition.carbRate * hours);
-        const proteins = Math.round(nutrition.proteinRate * hours);
-        const fats = Math.round(nutrition.fatRate * hours);
+        const carbs = window ? window.carbs : Math.round(nutrition.carbRate * hours);
+        const proteins = window ? window.proteins : Math.round(nutrition.proteinRate * hours);
+        const fats = window ? window.fats : Math.round(nutrition.fatRate * hours);
         const calories = Math.round(carbs * 4 + proteins * 4 + fats * 9);
         const energySpent = Math.round((nutrition.weight * Math.max(0, distance) * nutrition.effortFactor) + (nutrition.weight * Math.max(0, gain) * 0.009));
         return { carbs, proteins, fats, calories, energySpent, deficit: Math.max(0, energySpent - calories) };
@@ -1160,7 +1319,7 @@
       const firstDestinationKm = firstAid ? firstAid.km : finishKm;
       const firstLegSeconds = timeAtKm(firstDestinationKm);
       const firstLegMetrics = metricsBetween(0, firstDestinationKm);
-      const firstLegNutrition = nutritionForLeg(firstLegSeconds, firstLegMetrics.distance, firstLegMetrics.gain);
+      const firstLegNutrition = nutritionForLeg(firstLegSeconds, firstLegMetrics.distance, firstLegMetrics.gain, nutritionWindowAt(0));
       const { carbs: firstLegCarbs, proteins: firstLegProteins, fats: firstLegFats, calories: firstLegCalories, energySpent: firstLegEnergySpent, deficit: firstLegDeficit } = firstLegNutrition;
       const firstDestination = firstAid
         ? `jusqu’au ravito ${firstAid.label} · km ${firstDestinationKm.toFixed(1)}`
@@ -1194,7 +1353,8 @@
         const nextKm = nextAid ? nextAid.km : finishKm;
         const untilNextSeconds = Math.max(0, timeAtKm(nextKm) - timeAtKm(point.km));
         const nextLegMetrics = metricsBetween(point.km, nextKm);
-        const { carbs, proteins, fats, calories, energySpent, deficit } = nutritionForLeg(untilNextSeconds, nextLegMetrics.distance, nextLegMetrics.gain);
+        const terrainWindow = nutritionWindowAt(point.km);
+        const { carbs, proteins, fats, calories, energySpent, deficit } = nutritionForLeg(untilNextSeconds, nextLegMetrics.distance, nextLegMetrics.gain, terrainWindow);
         const destination = nextAid ? `jusqu’au ravito ${nextAid.label} · km ${nextKm.toFixed(1)}` : `jusqu’à l’arrivée km ${finishKm.toFixed(1)}`;
         const isAssistance = point.type === 'aid_assistance';
         const stopMinutes = Math.round(point.stopSeconds / 60);
@@ -1282,6 +1442,7 @@
         const aidStations = (data.official_course ? officialCoursePoints(data.official_course) : getAidStations()).filter((aid) => aid.km <= Number(data.total_distance_km || 0));
         const stopSeconds = aidStations.reduce((sum, aid) => sum + aid.stopSeconds, 0);
         let nutrition = nutritionPlan(movingSeconds, Number(weightInput.value), Number(data.total_distance_km || 0), gain, zone);
+        let terrainNutritionWindows = buildTerrainNutritionWindows(projectedRows, aidStations, nutrition);
         const totalSeconds = movingSeconds + stopSeconds;
         const stopDetail = stopSeconds ? ` · ${formatDuration(stopSeconds)} de ravito` : '';
         const manualCourseName = manualCourseNameInput.value.trim() || 'Ma trace GPX';
@@ -1299,10 +1460,12 @@
           ${elevationProfileSvg(data.elevation_profile)}
           <div class="timeline-toolbar"><div><div class="home-summary-label">Feuille de route · ravitos, assistance et contrôles</div></div><div class="timeline-toolbar-actions"><button type="button" data-timeline-expand="all">Tout déplier</button><button type="button" data-timeline-expand="none">Tout replier</button></div></div>
           <div id="home-projection-timeline"></div>
+          <div id="home-fueling-schedule"></div>
           <div class="course-plan-email"><button type="button" id="home-plan-email-btn">✉ Envoyer ce plan par e-mail (PDF)</button></div>
         `;
         result.classList.add('is-visible');
         const timelineHost = result.querySelector('#home-projection-timeline');
+        const fuelingScheduleHost = result.querySelector('#home-fueling-schedule');
         const totalProjectionOutput = result.querySelector('#home-projection-total');
         const distanceDetailOutput = result.querySelector('#home-projection-distance-detail');
         const nutritionDetailOutput = result.querySelector('#home-projection-nutrition-detail');
@@ -1315,6 +1478,10 @@
           profileLiveTotal.textContent = `Temps estimé · ${formatDuration(movingSeconds + currentStopSeconds)}`;
           profileLiveStopDetail.textContent = `Arrêts ravito · ${currentStopSeconds ? formatDuration(currentStopSeconds) : '0 min'}`;
           const plannedRate = nutrition.carbRate * 4 + nutrition.proteinRate * 4 + nutrition.fatRate * 9;
+          const pdfFuelingSchedule = buildTwentyMinuteFuelingSchedule(data.elevation_profile, projectedRows, terrainNutritionWindows, aidStations).intakes.map((intake) => ({
+            moment: intake.seconds ? `H+${formatDuration(intake.courseSeconds)}` : 'Départ', km: `km ${intake.km.toFixed(1)}`,
+            gain: `D+ ${intake.gain} m`, loss: `D- ${intake.loss} m`, carbs: `${intake.carbs} g`, advice: intake.advice, terrain: intake.terrain,
+          }));
           nutritionDetailOutput.textContent = `Plan nutrition : ~${Math.round(nutrition.carbRate)} g de glucides/h${nutrition.proteinRate ? ` · ${nutrition.proteinRate.toFixed(0)} g de protéines/h` : ''}${nutrition.fatRate ? ` · ${nutrition.fatRate.toFixed(0)} g de lipides/h` : ''} · apports planifiés ~${Math.round(plannedRate)} kcal/h · dépense estimée ~${Math.round(nutrition.expenditureRate)} kcal/h · déficit estimé ~${Math.max(0, Math.round(nutrition.expenditureRate - plannedRate))} kcal/h${nutrition.weightIsEstimated ? ' · poids non renseigné : estimation basée sur 70 kg' : ''}.`;
         };
         const syncStopToCourseSettings = (km, minutes) => {
@@ -1329,14 +1496,34 @@
         };
         const renderTimeline = () => {
           timelineHost.innerHTML = buildProjectionTimeline(projectedRows, 0, aidStations, nutrition, departureTime, data.elevation_profile);
-          timelineHost.querySelectorAll('[data-timeline-panel-content="nutrition"]').forEach((panel) => {
+          timelineHost.querySelectorAll('[data-timeline-panel-content="nutrition"]').forEach((panel, index) => {
+            const terrainAdvice = terrainNutritionWindows[index]?.advice;
+            if (terrainAdvice) {
+              const advice = document.createElement('p');
+              advice.className = 'timeline-nutrition-advice';
+              advice.textContent = terrainAdvice;
+              panel.appendChild(advice);
+            }
+            const refuelWindow = terrainNutritionWindows[index];
+            if (refuelWindow?.atAidCarbs) {
+              const refuel = document.createElement('p');
+              refuel.className = 'timeline-nutrition-intro';
+              refuel.innerHTML = `<strong>Au ravito :</strong> ${refuelWindow.onSiteAdvice} <strong>À emporter :</strong> ~${refuelWindow.carryCarbs} g de glucides pour la suite. Le total du tronçon reste ${refuelWindow.carbs} g.`;
+              panel.appendChild(refuel);
+            }
             const disclaimer = document.createElement('p');
             disclaimer.className = 'timeline-nutrition-disclaimer';
             disclaimer.textContent = 'Ces apports restent génériques. Pour un plan réellement précis, adapté à ta tolérance digestive, ta santé ou ta glycémie, fais-toi accompagner par un professionnel.';
             panel.appendChild(disclaimer);
           });
         };
+        const renderFuelingSchedule = () => {
+          const schedule = buildTwentyMinuteFuelingSchedule(data.elevation_profile, projectedRows, terrainNutritionWindows, aidStations);
+          if (!schedule.intakes.length) { fuelingScheduleHost.innerHTML = ''; return; }
+          fuelingScheduleHost.innerHTML = `<section class="fueling-schedule"><h3>Proposition de timing des glucides · toutes les 20 min</h3><p>Chaque point situe une prise par rapport au relief des 20 minutes à venir : jaune pour anticiper une montée, bleu pour une petite prise en descente, vert sur terrain roulant. Les heures H+ incluent les arrêts ravito ; les quantités à préparer au ravito restent la référence et cette vue aide à choisir le bon moment pour les consommer.</p>${schedule.svg}<div class="fueling-intakes">${schedule.intakes.map((intake) => `<div class="fueling-intake ${intake.terrain === 'climb' ? 'is-climb' : intake.terrain === 'descent' ? 'is-descent' : ''}"><strong>${intake.seconds ? `H+${formatDuration(intake.courseSeconds)}` : 'Départ'} · km ${intake.km.toFixed(1)}</strong>D+ ${intake.gain} m · D− ${intake.loss} m<br><b>${intake.carbs} g glucides</b><br><span>${intake.advice}</span></div>`).join('')}</div></section>`;
+        };
         renderTimeline();
+        renderFuelingSchedule();
         const emailPlanButton = result.querySelector('#home-plan-email-btn');
         const projectedTimeAtKm = (targetKm) => {
           let previousKm = 0;
@@ -1388,15 +1575,17 @@
             const previous = routePoints[Math.max(0, index - 1)];
             const segmentDistance = Math.max(0, point.km - previous.km);
             const segmentSeconds = Math.max(0, projectedTimeAtKm(point.km) - projectedTimeAtKm(previous.km));
-            const nextAid = routePoints.slice(index + 1).find((candidate) => ['aid', 'aid_assistance'].includes(candidate.type));
-            const nextSeconds = nextAid ? Math.max(0, projectedTimeAtKm(nextAid.km) - projectedTimeAtKm(point.km)) : 0;
+            const canPrepareNutrition = ['start', 'aid', 'aid_assistance'].includes(point.type);
+            const nextAid = canPrepareNutrition ? routePoints.slice(index + 1).find((candidate) => ['aid', 'aid_assistance'].includes(candidate.type)) : null;
+            const nextKm = nextAid ? nextAid.km : finishKm;
+            const nextSeconds = canPrepareNutrition ? Math.max(0, projectedTimeAtKm(nextKm) - projectedTimeAtKm(point.km)) : 0;
             const nextHours = nextSeconds / 3600;
             return {
               type: typeLabels[point.type] || 'Point', name: point.label, km: `km ${point.km.toFixed(1)}`,
               passage: projectedPassage(point.km), stop: point.stopSeconds ? `${Math.round(point.stopSeconds / 60)} min` : '-',
               segment: index ? `${segmentDistance.toFixed(1)} km · ${formatDuration(segmentSeconds)}` : '-',
               pace: index && segmentDistance ? formatPace(segmentSeconds / segmentDistance) : '-',
-              nutrition: nextHours ? `${Math.round(nutrition.carbRate * nextHours)} g glucides jusqu'au prochain ravito` : '-',
+              nutrition: canPrepareNutrition && nextHours ? `${Math.round(nutrition.carbRate * nextHours)} g glucides ${nextAid ? "jusqu'au prochain ravito" : "jusqu'à l'arrivée"}` : '-',
             };
           });
           const plannedRate = nutrition.carbRate * 4 + nutrition.proteinRate * 4 + nutrition.fatRate * 9;
@@ -1409,17 +1598,10 @@
               duration: formatDuration(metrics.seconds), pace: metrics.distance ? formatPace(metrics.seconds / metrics.distance) : '-',
             };
           }).filter((leg) => leg.to_km > leg.from_km + .001);
-          const nutritionStops = routePoints.filter((point) => ['start', 'aid', 'aid_assistance'].includes(point.type)).map((point, index, points) => {
-            const nextAid = points.slice(index + 1).find((candidate) => ['aid', 'aid_assistance'].includes(candidate.type));
-            const nextKm = nextAid ? nextAid.km : finishKm;
-            const seconds = Math.max(0, projectedTimeAtKm(nextKm) - projectedTimeAtKm(point.km));
-            const hours = seconds / 3600;
-            return {
-              point: point.label, km: `km ${point.km.toFixed(1)}`, destination: nextAid ? nextAid.label : 'Arrivée', duration: formatDuration(seconds),
-              carbs: `${Math.round(nutrition.carbRate * hours)} g`, proteins: `${Math.round(nutrition.proteinRate * hours)} g`, fats: `${Math.round(nutrition.fatRate * hours)} g`,
-              calories: `${Math.round(plannedRate * hours)} kcal`,
-            };
-          });
+          const nutritionStops = terrainNutritionWindows.map((window) => ({
+            point: window.fromLabel, km: `km ${window.fromKm.toFixed(1)}`, destination: window.destination, duration: formatDuration(window.metrics.seconds),
+            carbs: `${window.carbs} g`, at_aid: window.atAidCarbs ? `${window.atAidCarbs} g sur place` : 'Préparer au départ', to_carry: `${window.carryCarbs} g à emporter`, proteins: `${window.proteins} g`, fats: `${window.fats} g`, calories: `${window.calories} kcal`, advice: `${window.advice} ${window.onSiteAdvice}`,
+          }));
           const pacing = slopeIds.map((slopeId) => {
             const pace = paceWithCourseDifficulty(manualMode.checked ? manualPaceForSlope(slopeId) : projectedPaceForSlope(slopeId, zoneInput.value).pace, simulationCoefficientPercent);
             const grade = slopeCenters[slopeId] || 0;
@@ -1434,7 +1616,7 @@
             zone: manualMode.checked ? 'Réglages manuels' : zoneInput.value,
             departure_time: departureTime,
             nutrition: { carbs_rate: `${Math.round(nutrition.carbRate)} g`, protein_rate: `${Math.round(nutrition.proteinRate)} g`, fat_rate: `${Math.round(nutrition.fatRate)} g`, calories_rate: `${Math.round(plannedRate)} kcal`, expenditure_rate: `~${Math.round(nutrition.expenditureRate)} kcal`, total_carbs: `${Math.round(nutrition.carbRate * movingSeconds / 3600)} g`, total_proteins: `${Math.round(nutrition.proteinRate * movingSeconds / 3600)} g`, total_fats: `${Math.round(nutrition.fatRate * movingSeconds / 3600)} g`, total_calories: `${Math.round(plannedRate * movingSeconds / 3600)} kcal` },
-            roadbook, pacing, nutrition_stops: nutritionStops, legs, elevation_profile: data.elevation_profile || [],
+            roadbook, pacing, nutrition_stops: nutritionStops, fueling_schedule: pdfFuelingSchedule, legs, elevation_profile: data.elevation_profile || [], fueling_windows: terrainNutritionWindows,
           };
           emailPlanButton.disabled = true;
           emailPlanButton.textContent = 'Préparation du PDF…';
@@ -1486,8 +1668,10 @@
           manualFallback = nextManualFallback;
           projectedRows.splice(0, projectedRows.length, ...nextRows);
           nutrition = nutritionPlan(movingSeconds, Number(weightInput.value), Number(data.total_distance_km || 0), gain, activeZone);
+          terrainNutritionWindows = buildTerrainNutritionWindows(projectedRows, aidStations, nutrition);
           refreshProjectionSummary();
           renderTimeline();
+          renderFuelingSchedule();
         };
         timelineHost.addEventListener('input', (event) => {
           const input = event.target.closest('.timeline-stop-input');
@@ -1500,6 +1684,7 @@
           syncStopToCourseSettings(km, minutes);
           refreshProjectionSummary();
           renderTimeline();
+          renderFuelingSchedule();
           const refreshedInput = timelineHost.querySelector(`.timeline-stop-input[data-stop-km="${km}"]`);
           if (refreshedInput) refreshedInput.focus();
         });

@@ -206,6 +206,9 @@
   .timeline-km-row { display:grid; grid-template-columns:minmax(0, 1fr) auto auto; gap:8px; align-items:center; padding:6px 8px; border-radius:7px; background:rgba(255,255,255,.06); color:#dbeafe; font-size:.72rem; }
   .timeline-km-row strong { color:#fff; }
   .timeline-km-row span { white-space:nowrap; }
+  .course-plan-email { display:flex; justify-content:center; margin:18px 0 2px; }
+  .course-plan-email button { padding:10px 15px; border-radius:10px; border:1px solid rgba(45,212,191,.55); background:linear-gradient(135deg, #0f766e, #155e75); color:#fff; font-weight:800; box-shadow:0 8px 18px rgba(15,118,110,.2); }
+  .course-plan-email button:disabled { cursor:wait; opacity:.68; }
   .timeline-time { color:var(--accent-2); font-family:"Orbitron", sans-serif; font-size:.9rem; white-space:nowrap; }
   .timeline-time small { display:block; margin-bottom:2px; color:var(--text-muted); font-family:inherit; font-size:.56rem; letter-spacing:.05em; }
   .timeline-aid { grid-template-columns:92px minmax(0, 1fr) auto; border-color:rgba(251,146,60,.65); background:linear-gradient(90deg, rgba(251,146,60,.22), rgba(127,29,29,.2)); }
@@ -1296,6 +1299,7 @@
           ${elevationProfileSvg(data.elevation_profile)}
           <div class="timeline-toolbar"><div><div class="home-summary-label">Feuille de route · ravitos, assistance et contrôles</div></div><div class="timeline-toolbar-actions"><button type="button" data-timeline-expand="all">Tout déplier</button><button type="button" data-timeline-expand="none">Tout replier</button></div></div>
           <div id="home-projection-timeline"></div>
+          <div class="course-plan-email"><button type="button" id="home-plan-email-btn">✉ Envoyer ce plan par e-mail (PDF)</button></div>
         `;
         result.classList.add('is-visible');
         const timelineHost = result.querySelector('#home-projection-timeline');
@@ -1333,6 +1337,76 @@
           });
         };
         renderTimeline();
+        const emailPlanButton = result.querySelector('#home-plan-email-btn');
+        const projectedTimeAtKm = (targetKm) => {
+          let previousKm = 0;
+          let previousSeconds = 0;
+          for (const row of projectedRows) {
+            if (targetKm <= row.cumulativeKm) {
+              const distance = Math.max(0.001, row.cumulativeKm - previousKm);
+              return previousSeconds + row.seconds * Math.max(0, Math.min(1, (targetKm - previousKm) / distance));
+            }
+            previousKm = row.cumulativeKm;
+            previousSeconds += row.seconds;
+          }
+          return previousSeconds;
+        };
+        const projectedPassage = (targetKm) => {
+          const elapsed = projectedTimeAtKm(targetKm) + aidStations.filter((point) => point.km < targetKm).reduce((sum, point) => sum + point.stopSeconds, 0);
+          const [hours, minutes] = departureTime.split(':').map(Number);
+          const absoluteMinutes = hours * 60 + minutes + Math.round(elapsed / 60);
+          const day = Math.floor(absoluteMinutes / 1440);
+          const minuteOfDay = ((absoluteMinutes % 1440) + 1440) % 1440;
+          return `${day ? `J+${day} ` : ''}${String(Math.floor(minuteOfDay / 60)).padStart(2, '0')}:${String(minuteOfDay % 60).padStart(2, '0')}`;
+        };
+        emailPlanButton.addEventListener('click', async () => {
+          const finishKm = Number(data.total_distance_km || 0);
+          const routePoints = [
+            { label: 'Départ', type: 'start', km: 0, stopSeconds: 0 },
+            ...aidStations,
+            { label: 'Arrivée', type: 'finish', km: finishKm, stopSeconds: 0 },
+          ].filter((point, index, points) => index === 0 || point.km > points[index - 1].km + .001 || point.type === 'finish');
+          const typeLabels = { start: 'Départ', aid: 'Ravito', aid_assistance: 'Assistance', control: 'Contrôle', finish: 'Arrivée' };
+          const roadbook = routePoints.map((point, index) => {
+            const previous = routePoints[Math.max(0, index - 1)];
+            const segmentDistance = Math.max(0, point.km - previous.km);
+            const segmentSeconds = Math.max(0, projectedTimeAtKm(point.km) - projectedTimeAtKm(previous.km));
+            const nextAid = routePoints.slice(index + 1).find((candidate) => ['aid', 'aid_assistance'].includes(candidate.type));
+            const nextSeconds = nextAid ? Math.max(0, projectedTimeAtKm(nextAid.km) - projectedTimeAtKm(point.km)) : 0;
+            const nextHours = nextSeconds / 3600;
+            return {
+              type: typeLabels[point.type] || 'Point', name: point.label, km: `km ${point.km.toFixed(1)}`,
+              passage: projectedPassage(point.km), stop: point.stopSeconds ? `${Math.round(point.stopSeconds / 60)} min` : '-',
+              segment: index ? `${segmentDistance.toFixed(1)} km · ${formatDuration(segmentSeconds)}` : '-',
+              pace: index && segmentDistance ? formatPace(segmentSeconds / segmentDistance) : '-',
+              nutrition: nextHours ? `${Math.round(nutrition.carbRate * nextHours)} g glucides jusqu'au prochain ravito` : '-',
+            };
+          });
+          const plannedRate = nutrition.carbRate * 4 + nutrition.proteinRate * 4 + nutrition.fatRate * 9;
+          const plan = {
+            course_name: data.official_course?.name || manualCourseName,
+            total_time: totalProjectionOutput.textContent,
+            moving_time: formatDuration(movingSeconds),
+            distance: `${finishKm.toFixed(1)} km`, elevation: `D+ ${Math.round(gain)} m · D- ${Math.round(loss)} m`,
+            zone: manualMode.checked ? 'Réglages manuels' : zoneInput.value,
+            departure_time: departureTime,
+            nutrition: { carbs_rate: `${Math.round(nutrition.carbRate)} g`, calories_rate: `${Math.round(plannedRate)} kcal`, expenditure_rate: `~${Math.round(nutrition.expenditureRate)} kcal` },
+            roadbook,
+          };
+          emailPlanButton.disabled = true;
+          emailPlanButton.textContent = 'Préparation du PDF…';
+          try {
+            const response = await fetch('/ui/user/{{ user.id }}/course-plan/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(plan) });
+            const responseData = await response.json();
+            if (!response.ok) throw new Error(responseData.detail || 'Envoi impossible.');
+            emailPlanButton.textContent = '✓ Plan envoyé par e-mail';
+            status.textContent = responseData.message;
+          } catch (error) {
+            emailPlanButton.disabled = false;
+            emailPlanButton.textContent = '✉ Envoyer ce plan par e-mail (PDF)';
+            status.textContent = error.message || 'L’envoi du plan a échoué.';
+          }
+        });
         refreshProjectionSummary();
         refreshLiveProjection = () => {
           let nextMovingSeconds = 0;

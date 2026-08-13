@@ -82,7 +82,9 @@ import secrets
 import hashlib
 import smtplib
 from email.message import EmailMessage
+from io import BytesIO
 import json
+from html import escape
 from typing import Optional
 import statistics
 import threading
@@ -5754,6 +5756,41 @@ async def ui_runner_profile_pace_projection(
     }
 
 
+@app.post("/ui/user/{user_id}/course-plan/email", response_class=JSONResponse)
+async def ui_send_course_plan_email(
+    request: Request,
+    user_id: int,
+    plan: dict = Body(...),
+    db: Session = Depends(get_db),
+):
+    """Email the currently displayed, user-specific race plan as a PDF attachment."""
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or not user.email:
+        raise HTTPException(status_code=404, detail="Adresse e-mail du compte introuvable.")
+    if not isinstance(plan, dict):
+        raise HTTPException(status_code=422, detail="Plan de course invalide.")
+    roadbook = plan.get("roadbook")
+    if not isinstance(roadbook, list) or not roadbook:
+        raise HTTPException(status_code=422, detail="Calcule une projection avant de l'envoyer.")
+    if len(roadbook) > 120:
+        raise HTTPException(status_code=422, detail="Le plan contient trop de points pour être envoyé.")
+
+    course_name = str(plan.get("course_name") or "Course simulée").strip()[:120]
+    try:
+        pdf_data = _build_course_plan_pdf(user=user, plan=plan)
+        _send_course_plan_email(to_email=user.email, course_name=course_name, pdf_data=pdf_data)
+    except RuntimeError as exc:
+        logger.warning("[COURSE PLAN] Envoi PDF indisponible pour user=%s : %s", user_id, exc)
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception:
+        logger.exception("[COURSE PLAN] Impossible d'envoyer le PDF à l'utilisateur %s", user_id)
+        raise HTTPException(status_code=500, detail="Impossible de préparer ou d'envoyer le PDF.")
+    return {"message": f"Le plan PDF a été envoyé à {user.email}."}
+
+
 
 # -----------------------------------------------------------------------------
 # UI : Login
@@ -5846,6 +5883,178 @@ def _send_plain_email(*, recipients: list[str], subject: str, body: str) -> int:
             server.send_message(msg)
             sent_count += 1
     return sent_count
+
+
+def _course_plan_pdf_value(value, fallback: str = "-") -> str:
+    text = str(value or "").strip()
+    return escape(text) if text else fallback
+
+
+def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
+    """Build a compact, printable race-plan report from the current simulation."""
+    try:
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import mm
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    except ImportError as exc:
+        raise RuntimeError("La génération PDF n'est pas encore installée sur le serveur. Lance `pip install -r requirements.txt` puis redémarre le serveur.") from exc
+    buffer = BytesIO()
+    document = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=15 * mm,
+        leftMargin=15 * mm,
+        topMargin=14 * mm,
+        bottomMargin=15 * mm,
+        title="Plan de course",
+        author="D+ x Strava x Glucose",
+    )
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "CoursePlanTitle", parent=styles["Title"], fontName="Helvetica-Bold",
+        fontSize=22, leading=26, textColor=colors.HexColor("#102a43"), spaceAfter=5,
+    )
+    subtitle_style = ParagraphStyle(
+        "CoursePlanSubtitle", parent=styles["Normal"], fontName="Helvetica",
+        fontSize=9, leading=13, textColor=colors.HexColor("#52616b"), spaceAfter=13,
+    )
+    section_style = ParagraphStyle(
+        "CoursePlanSection", parent=styles["Heading2"], fontName="Helvetica-Bold",
+        fontSize=13, leading=16, textColor=colors.HexColor("#0f766e"), spaceBefore=12, spaceAfter=7,
+    )
+    body_style = ParagraphStyle(
+        "CoursePlanBody", parent=styles["BodyText"], fontName="Helvetica",
+        fontSize=8.6, leading=12, textColor=colors.HexColor("#243b53"),
+    )
+    small_style = ParagraphStyle(
+        "CoursePlanSmall", parent=body_style, fontSize=7.2, leading=9.5,
+    )
+
+    first_name = (user.first_name or "").strip()
+    runner_name = first_name or user.email
+    course_name = _course_plan_pdf_value(plan.get("course_name"), "Course simulée")
+    generated_at = dt.datetime.now().strftime("%d/%m/%Y à %H:%M")
+    story = [
+        Paragraph("D+ x Strava x Glucose", subtitle_style),
+        Paragraph(f"Plan de course - {course_name}", title_style),
+        Paragraph(
+            f"Préparé pour <b>{_course_plan_pdf_value(runner_name)}</b> - simulation générée le {generated_at}.",
+            subtitle_style,
+        ),
+    ]
+
+    overview = [
+        ["Temps total estimé", _course_plan_pdf_value(plan.get("total_time"))],
+        ["Temps en mouvement", _course_plan_pdf_value(plan.get("moving_time"))],
+        ["Parcours", _course_plan_pdf_value(plan.get("distance"))],
+        ["Dénivelé", _course_plan_pdf_value(plan.get("elevation"))],
+        ["Intensité visée", _course_plan_pdf_value(plan.get("zone"))],
+        ["Départ", _course_plan_pdf_value(plan.get("departure_time"))],
+    ]
+    overview_table = Table(overview, colWidths=[52 * mm, 113 * mm], hAlign="LEFT")
+    overview_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#e6fffb")),
+        ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#102a43")),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTNAME", (1, 0), (1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("LEADING", (0, 0), (-1, -1), 12),
+        ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#b8e6df")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story.extend([Paragraph("Synthèse de la projection", section_style), overview_table])
+
+    nutrition = plan.get("nutrition") if isinstance(plan.get("nutrition"), dict) else {}
+    story.append(Paragraph("Repères nutritionnels", section_style))
+    nutrition_text = (
+        f"Cible indicative : <b>{_course_plan_pdf_value(nutrition.get('carbs_rate'))} de glucides/h</b>"
+        f" - {_course_plan_pdf_value(nutrition.get('calories_rate'))} d'apports planifiés/h"
+        f" - dépense estimée {_course_plan_pdf_value(nutrition.get('expenditure_rate'))}/h."
+    )
+    story.extend([
+        Paragraph(nutrition_text, body_style),
+        Spacer(1, 4),
+        Paragraph(
+            "Ce plan reste générique : il est fondé sur le poids, le profil du parcours et l'intensité sélectionnée. "
+            "Pour une stratégie précise, adaptée notamment à la tolérance digestive, à la santé ou au suivi glycémique, "
+            "fais personnaliser le plan par un professionnel.",
+            small_style,
+        ),
+    ])
+
+    roadbook = plan.get("roadbook") if isinstance(plan.get("roadbook"), list) else []
+    if roadbook:
+        story.append(Paragraph("Feuille de route", section_style))
+        rows = [[
+            Paragraph("Type", small_style), Paragraph("Point", small_style), Paragraph("Km", small_style),
+            Paragraph("Passage", small_style), Paragraph("Arrêt", small_style), Paragraph("Tronçon", small_style),
+            Paragraph("Allure", small_style), Paragraph("Nutrition", small_style),
+        ]]
+        for point in roadbook[:120]:
+            if not isinstance(point, dict):
+                continue
+            rows.append([
+                Paragraph(_course_plan_pdf_value(point.get("type")), small_style),
+                Paragraph(_course_plan_pdf_value(point.get("name")), small_style),
+                Paragraph(_course_plan_pdf_value(point.get("km")), small_style),
+                Paragraph(_course_plan_pdf_value(point.get("passage")), small_style),
+                Paragraph(_course_plan_pdf_value(point.get("stop")), small_style),
+                Paragraph(_course_plan_pdf_value(point.get("segment")), small_style),
+                Paragraph(_course_plan_pdf_value(point.get("pace")), small_style),
+                Paragraph(_course_plan_pdf_value(point.get("nutrition")), small_style),
+            ])
+        roadbook_table = Table(rows, colWidths=[16 * mm, 31 * mm, 12 * mm, 18 * mm, 13 * mm, 22 * mm, 18 * mm, 35 * mm], repeatRows=1)
+        roadbook_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#102a43")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#f8fafc")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.HexColor("#f8fafc"), colors.HexColor("#eefbf8")]),
+            ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#cbd5e1")),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        story.append(roadbook_table)
+
+    def add_footer(canvas, _doc):
+        canvas.saveState()
+        canvas.setStrokeColor(colors.HexColor("#b8e6df"))
+        canvas.line(15 * mm, 10 * mm, 195 * mm, 10 * mm)
+        canvas.setFont("Helvetica", 7)
+        canvas.setFillColor(colors.HexColor("#52616b"))
+        canvas.drawString(15 * mm, 6 * mm, "D+ x Strava x Glucose - plan de course indicatif")
+        canvas.drawRightString(195 * mm, 6 * mm, f"Page {canvas.getPageNumber()}")
+        canvas.restoreState()
+
+    document.build(story, onFirstPage=add_footer, onLaterPages=add_footer)
+    return buffer.getvalue()
+
+
+def _send_course_plan_email(*, to_email: str, course_name: str, pdf_data: bytes) -> None:
+    if not settings.SMTP_HOST or not settings.SMTP_PORT or not settings.SMTP_USER or not settings.SMTP_PASS:
+        raise RuntimeError("La configuration SMTP est incomplète.")
+    from_name = settings.SMTP_FROM_NAME or "D+ x Strava x Glucose"
+    from_email = settings.SMTP_FROM_EMAIL or settings.SMTP_USER
+    safe_filename = re.sub(r"[^a-z0-9-]+", "-", (course_name or "plan-course").lower()).strip("-") or "plan-course"
+    msg = EmailMessage()
+    msg["Subject"] = f"Ton plan de course - {course_name or 'simulation'}"
+    msg["From"] = f"{from_name} <{from_email}>"
+    msg["To"] = to_email
+    msg.set_content(_append_login_link_footer(
+        "Bonjour,\n\n"
+        "Voici ton plan de course au format PDF. Les recommandations nutritionnelles sont indicatives : "
+        "teste-les à l'entraînement et fais-les personnaliser par un professionnel si nécessaire.\n"
+    ))
+    msg.add_attachment(pdf_data, maintype="application", subtype="pdf", filename=f"{safe_filename}-plan-de-course.pdf")
+    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+        server.starttls()
+        server.login(settings.SMTP_USER, settings.SMTP_PASS)
+        server.send_message(msg)
 
 
 def _delete_user_account_data(db: Session, user: User) -> None:

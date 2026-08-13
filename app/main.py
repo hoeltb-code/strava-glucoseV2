@@ -6365,7 +6365,7 @@ def _build_course_plan_roadbook_png(*, plan: dict) -> bytes:
     draw.text((margin, 42), course_name, font=title_font, fill="#ffffff")
     overview = " · ".join(part for part in [str(plan.get("distance") or "").strip(), str(plan.get("total_time") or "").strip()] if part)
     draw.text((margin, 96), overview or "Feuille de route", font=subtitle_font, fill="#b9d5ea")
-    draw.text((margin, 142), "PASSAGES ESTIMÉS · RAVITOS · ASSISTANCES · CONTRÔLES", font=type_font, fill="#b8ff45")
+    draw.text((margin, 142), "PASSAGES ESTIMÉS · ARRÊTS · RAVITOS · ASSISTANCES · CONTRÔLES", font=type_font, fill="#b8ff45")
 
     colors = {
         "départ": (77, 226, 255),
@@ -6387,8 +6387,10 @@ def _build_course_plan_roadbook_png(*, plan: dict) -> bytes:
         type_width = type_bbox[2] - type_bbox[0]
         draw.text((margin + (164 - type_width) / 2, y + 27), row_type.upper(), font=type_font, fill="#0a1b2e")
         draw.text((pill_right + 22, y + 16), _short(row.get("name"), 33), font=name_font, fill="#ffffff")
-        draw.text((pill_right + 22, y + 45), _short(row.get("km"), 16), font=detail_font, fill="#a8c2d8")
-        passage = _short(row.get("passage"), 16)
+        stop = str(row.get("stop") or "").strip()
+        stop_detail = f"   ·   arrêt {stop}" if stop and stop not in {"-", "0 min", "0"} else ""
+        draw.text((pill_right + 22, y + 45), _short(f"{_short(row.get('km'), 16)}{stop_detail}", 38), font=detail_font, fill="#a8c2d8")
+        passage = re.sub(r"^(J\+\d+)\s*", r"\1   -   ", _short(row.get("passage"), 22))
         passage_bbox = draw.textbbox((0, 0), passage, font=name_font)
         draw.text((width - margin - (passage_bbox[2] - passage_bbox[0]), y + 23), passage, font=name_font, fill="#ffffff")
         y += row_height

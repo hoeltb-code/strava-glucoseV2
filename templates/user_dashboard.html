@@ -194,6 +194,7 @@
   .timeline-detail-heading { color:#fff; font-size:.7rem; font-weight:800; letter-spacing:.055em; text-transform:uppercase; }
   .timeline-nutrition-intro { margin:4px 0 0; color:#e8eef8; font-size:.76rem; line-height:1.35; }
   .timeline-nutrition-advice { margin:8px 0 0; color:#fff3cd; font-size:.76rem; line-height:1.35; }
+  .timeline-nutrition-disclaimer { margin:9px 0 0; padding-top:8px; border-top:1px solid rgba(255,255,255,.14); color:#cbd5e1; font-size:.7rem; font-style:italic; line-height:1.4; }
   .timeline-leg-profile { margin-top:10px; }
   .timeline-leg-profile svg { display:block; width:100%; height:72px; border-radius:8px; background:rgba(5,12,24,.34); }
   .timeline-leg-profile-label { margin:0 0 4px; color:#dbeafe; font-size:.7rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; }
@@ -450,7 +451,7 @@
         <select id="home-official-course">
           <option value="">Choisir une course enregistrée</option>
           {% for course in official_courses %}
-          <option value="{{ course.id }}" {% if not course.route_available %}disabled{% endif %}>{{ course.name }}{% if course.distance_km %} · {{ course.distance_km }} km{% endif %}{% if course.course_pace_category == 'technical' %} · 🔴 Technique{% elif course.course_pace_category == 'fast' %} · 🟢 Rapide{% else %} · 🟡 Roulant{% endif %}{% if not course.route_available %} · GPX manquant{% endif %}</option>
+          <option value="{{ course.id }}" {% if not course.route_available %}disabled{% endif %}>{{ course.name }}{% if course.distance_km %} · {{ course.distance_km }} km{% endif %}{% if not course.route_available %} · GPX manquant{% endif %}</option>
           {% endfor %}
         </select>
         <a class="custom-course-link" href="/ui/user/{{ user.id }}/course-simulator">＋ Simuler ma propre trace GPX</a>
@@ -1015,7 +1016,8 @@
         const previous = coordinates[index];
         return `<line x1="${previous.x.toFixed(1)}" y1="${previous.y.toFixed(1)}" x2="${point.x.toFixed(1)}" y2="${point.y.toFixed(1)}" stroke="${colorForGrade(point.grade)}" stroke-width="3" stroke-linecap="round"/>`;
       }).join('');
-      return `<div class="timeline-leg-profile"><p class="timeline-leg-profile-label">Profil jusqu’à ${label} · ${(toKm - fromKm).toFixed(1)} km · D+ ${Math.round(metrics.gain)} m · D− ${Math.round(metrics.loss)} m</p><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Profil de l'étape jusqu'à ${label}, coloré selon la pente">${lines}</svg></div>`;
+      const averagePace = metrics.distance > 0 ? formatPace(metrics.seconds / metrics.distance) : '—';
+      return `<div class="timeline-leg-profile"><p class="timeline-leg-profile-label">Profil jusqu’à ${label} · ${(toKm - fromKm).toFixed(1)} km · D+ ${Math.round(metrics.gain)} m · D− ${Math.round(metrics.loss)} m · allure prévue ${averagePace}</p><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Profil de l'étape jusqu'à ${label}, coloré selon la pente">${lines}</svg></div>`;
     }
 
     function nutritionPlan(totalMovingSeconds, weightKg, distanceKm, elevationGainM, zone) {
@@ -1323,6 +1325,12 @@
         };
         const renderTimeline = () => {
           timelineHost.innerHTML = buildProjectionTimeline(projectedRows, 0, aidStations, nutrition, departureTime, data.elevation_profile);
+          timelineHost.querySelectorAll('[data-timeline-panel-content="nutrition"]').forEach((panel) => {
+            const disclaimer = document.createElement('p');
+            disclaimer.className = 'timeline-nutrition-disclaimer';
+            disclaimer.textContent = 'Ces apports restent génériques. Pour un plan réellement précis, adapté à ta tolérance digestive, ta santé ou ta glycémie, fais-toi accompagner par un professionnel.';
+            panel.appendChild(disclaimer);
+          });
         };
         renderTimeline();
         refreshProjectionSummary();

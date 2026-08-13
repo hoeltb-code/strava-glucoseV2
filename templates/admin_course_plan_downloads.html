@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Archives des plans de course · Administration{% endblock %}
+
+{% block extra_head %}
+<style>
+  .plan-archive { max-width:1200px; margin:0 auto; }
+  .plan-archive-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:16px; }
+  .plan-archive-header h1 { margin:0; color:#fff; font-size:1.45rem; }
+  .plan-archive-header p { margin:5px 0 0; color:var(--text-muted); }
+  .plan-archive-stats { display:flex; flex-wrap:wrap; gap:8px; }
+  .plan-archive-stat { min-width:110px; padding:9px 11px; border:1px solid rgba(77,226,255,.22); border-radius:11px; background:rgba(77,226,255,.07); }
+  .plan-archive-stat strong { display:block; color:#b8ff45; font-size:1.05rem; }.plan-archive-stat span { color:var(--text-muted); font-size:.7rem; }
+  .plan-archive-table-wrap { overflow-x:auto; }
+  .plan-archive-table { width:100%; border-collapse:collapse; min-width:760px; }
+  .plan-archive-table th { padding:9px; color:var(--text-muted); font-size:.72rem; letter-spacing:.05em; text-align:left; text-transform:uppercase; border-bottom:1px solid rgba(148,174,214,.2); }
+  .plan-archive-table td { padding:10px 9px; color:var(--text-main); border-bottom:1px solid rgba(148,174,214,.11); vertical-align:top; }
+  .plan-archive-table tr:hover td { background:rgba(77,226,255,.05); }.plan-archive-email { display:block; margin-top:3px; color:var(--text-muted); font-size:.76rem; }
+  .plan-archive-course { color:#d9ff88; font-weight:700; }.plan-archive-pagination { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:14px; color:var(--text-muted); font-size:.82rem; }.plan-archive-pagination a { padding:7px 10px; border:1px solid rgba(148,174,214,.25); border-radius:8px; color:var(--text-main); text-decoration:none; }
+  @media (max-width:640px) { .plan-archive-header { display:block; }.plan-archive-stats { margin-top:12px; }.plan-archive-stat { flex:1; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="plan-archive">
+  <div class="plan-archive-header">
+    <div><h1>Archives des plans téléchargés</h1><p>Historique des plans PDF envoyés et téléchargés depuis le simulateur.</p></div>
+    <div class="plan-archive-stats"><div class="plan-archive-stat"><strong>{{ total }}</strong><span>plans délivrés</span></div><div class="plan-archive-stat"><strong>{{ unique_users }}</strong><span>coureurs concernés</span></div></div>
+  </div>
+  <section class="card" style="padding:16px;">
+    {% if downloads %}
+      <div class="plan-archive-table-wrap"><table class="plan-archive-table"><thead><tr><th>Archive</th><th>Date de téléchargement</th><th>Utilisateur</th><th>Course</th></tr></thead><tbody>
+      {% for download in downloads %}
+        <tr><td>#{{ download.id }}</td><td>{{ download.downloaded_at.strftime('%d/%m/%Y · %H:%M') if download.downloaded_at else '—' }}</td><td><strong>#{{ download.user_id }} · {{ download.first_name or '' }} {{ download.last_name or '' }}</strong><span class="plan-archive-email">{{ download.user_email }}</span></td><td class="plan-archive-course">{{ download.course_name }}</td></tr>
+      {% endfor %}
+      </tbody></table></div>
+    {% else %}<p style="margin:0; color:var(--text-muted);">Aucun plan n’a encore été téléchargé.</p>{% endif %}
+    <nav class="plan-archive-pagination" aria-label="Pagination des archives"><a href="/ui">← Retour à l’administration</a><span>Page {{ page }} / {{ total_pages }}</span><span>{% if page > 1 %}<a href="/admin/course-plan-downloads?page={{ page - 1 }}">← Précédente</a>{% endif %}{% if page < total_pages %}<a href="/admin/course-plan-downloads?page={{ page + 1 }}">Suivante →</a>{% endif %}</span></nav>
+  </section>
+</main>
+{% endblock %}

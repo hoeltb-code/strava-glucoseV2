@@ -3938,6 +3938,43 @@ def admin_run_enrichment_jobs(request: Request):
     )
 
 
+@app.get("/admin/course-plan-downloads", response_class=HTMLResponse)
+def admin_course_plan_downloads(request: Request):
+    guard = _guard_admin(request)
+    if guard:
+        return guard
+
+    page_size = 50
+    page = _safe_positive_int(request.query_params.get("page"), 1)
+    db = SessionLocal()
+    try:
+        total = db.query(CoursePlanDownload.id).count()
+        total_pages = max(1, math.ceil(total / page_size))
+        page = min(page, total_pages)
+        downloads = (
+            db.query(CoursePlanDownload)
+            .order_by(CoursePlanDownload.downloaded_at.desc(), CoursePlanDownload.id.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+            .all()
+        )
+        unique_users = db.query(func.count(func.distinct(CoursePlanDownload.user_id))).scalar() or 0
+    finally:
+        db.close()
+
+    return templates.TemplateResponse(
+        "admin_course_plan_downloads.html",
+        {
+            "request": request,
+            "downloads": downloads,
+            "total": total,
+            "unique_users": unique_users,
+            "page": page,
+            "total_pages": total_pages,
+        },
+    )
+
+
 @app.post("/admin/enrichment-jobs/{job_id}/retry")
 def admin_retry_enrichment_job(request: Request, job_id: int):
     guard = _guard_admin(request)

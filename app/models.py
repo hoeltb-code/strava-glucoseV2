@@ -576,3 +576,19 @@ class PasswordResetToken(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User")
+
+
+class CoursePlanDownload(Base):
+    """Archive of delivered race plans, used for the administrator usage dashboard."""
+
+    __tablename__ = "course_plan_downloads"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_email = Column(String, nullable=False)
+    first_name = Column(String, nullable=True)
+    last_name = Column(String, nullable=True)
+    course_name = Column(String(160), nullable=False)
+    downloaded_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+    user = relationship("User")

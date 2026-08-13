@@ -187,7 +187,8 @@ from app.models import (
     UserSettings,
     ActivityEnrichmentJob,
     ActivityVamPeak,
-    ActivityZoneSlopeAgg
+    ActivityZoneSlopeAgg,
+    CoursePlanDownload,
 )
 from app.secrets import encrypt_secret
 
@@ -3776,6 +3777,8 @@ def ui_home(request: Request):
     total_activity_count = 0
     user_pagination = {}
     activity_pagination = {}
+    course_plan_usage = {"total": 0, "last_30_days": 0, "unique_users": 0}
+    course_plan_downloads = []
     admin_status = request.query_params.get("admin_status")
     admin_message = request.query_params.get("admin_msg")
 
@@ -3790,6 +3793,18 @@ def ui_home(request: Request):
             nightscout_filter=nightscout_filter,
         )
         enrichment_dashboard = _collect_enrichment_admin_rows(db)
+        usage_since = dt.datetime.utcnow() - dt.timedelta(days=30)
+        course_plan_usage = {
+            "total": db.query(CoursePlanDownload.id).count(),
+            "last_30_days": db.query(CoursePlanDownload.id).filter(CoursePlanDownload.downloaded_at >= usage_since).count(),
+            "unique_users": db.query(func.count(func.distinct(CoursePlanDownload.user_id))).scalar() or 0,
+        }
+        course_plan_downloads = (
+            db.query(CoursePlanDownload)
+            .order_by(CoursePlanDownload.downloaded_at.desc())
+            .limit(50)
+            .all()
+        )
 
         total_filtered_users = len(filtered_users)
         user_total_pages = max(1, math.ceil(total_filtered_users / user_page_size))
@@ -3895,6 +3910,8 @@ def ui_home(request: Request):
             "enrichment_dashboard": enrichment_dashboard,
             "admin_status": admin_status,
             "admin_message": admin_message,
+            "course_plan_usage": course_plan_usage,
+            "course_plan_downloads": course_plan_downloads,
         },
     )
 
@@ -5845,6 +5862,14 @@ async def ui_send_course_plan_email(
             roadbook_png=roadbook_png,
             plan=plan,
         )
+        db.add(CoursePlanDownload(
+            user_id=user.id,
+            user_email=user.email,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            course_name=course_name,
+        ))
+        db.commit()
     except RuntimeError as exc:
         logger.warning("[COURSE PLAN] Envoi PDF indisponible pour user=%s : %s", user_id, exc)
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -6468,6 +6493,7 @@ def _delete_user_account_data(db: Session, user: User) -> None:
     db.query(DexcomToken).filter(DexcomToken.user_id == user.id).delete()
     db.query(CareLinkCredential).filter(CareLinkCredential.user_id == user.id).delete()
     db.query(NightscoutCredential).filter(NightscoutCredential.user_id == user.id).delete()
+    db.query(CoursePlanDownload).filter(CoursePlanDownload.user_id == user.id).delete()
     db.query(GlucosePoint).filter(GlucosePoint.user_id == user.id).delete()
     db.query(UserSettings).filter(UserSettings.user_id == user.id).delete()
     db.query(models.UserVamPR).filter(models.UserVamPR.user_id == user.id).delete()

@@ -48,6 +48,8 @@
   {% set enrichment_dashboard = enrichment_dashboard|default({'status_counts': {'pending': 0, 'processing': 0, 'retry': 0, 'succeeded': 0, 'failed': 0}, 'total_jobs': 0, 'recent_jobs': [], 'worker_poll_seconds': 0, 'retry_base_seconds': 0, 'retry_max_seconds': 0, 'max_attempts': 0}) %}
   {% set admin_status = admin_status|default(None) %}
   {% set admin_message = admin_message|default(None) %}
+  {% set course_plan_usage = course_plan_usage|default({'total': 0, 'last_30_days': 0, 'unique_users': 0}) %}
+  {% set course_plan_downloads = course_plan_downloads|default([]) %}
   <div class="card">
     <h2>👥 Utilisateurs</h2>
     <p style="color: var(--text-muted); margin-top: -4px;">
@@ -75,6 +77,25 @@
         {{ admin_message }}
       </div>
     {% endif %}
+
+    <section class="card admin-subcard" style="margin-top:14px; padding:14px; background:#f8fafc;">
+      <h3 style="margin:0 0 5px; font-size:1rem;">📄 Utilisation des plans de course</h3>
+      <p style="margin:0 0 12px; color:var(--text-muted); font-size:.82rem;">Chaque envoi avec téléchargement PDF est archivé pour suivre l’usage du simulateur.</p>
+      <div style="display:grid; grid-template-columns:repeat(3,minmax(120px,1fr)); gap:9px; margin-bottom:13px;">
+        <div style="padding:10px; border-radius:9px; background:rgba(77,226,255,.09);"><strong style="display:block; font-size:1.15rem;">{{ course_plan_usage.total }}</strong><span style="color:var(--text-muted); font-size:.72rem;">plans délivrés</span></div>
+        <div style="padding:10px; border-radius:9px; background:rgba(184,255,69,.09);"><strong style="display:block; font-size:1.15rem;">{{ course_plan_usage.last_30_days }}</strong><span style="color:var(--text-muted); font-size:.72rem;">sur 30 jours</span></div>
+        <div style="padding:10px; border-radius:9px; background:rgba(250,204,21,.09);"><strong style="display:block; font-size:1.15rem;">{{ course_plan_usage.unique_users }}</strong><span style="color:var(--text-muted); font-size:.72rem;">coureurs concernés</span></div>
+      </div>
+      {% if course_plan_downloads %}
+        <div class="admin-table-wrap"><table style="width:100%; border-collapse:collapse; font-size:.8rem;"><thead><tr style="border-bottom:1px solid var(--border); color:var(--text-muted);"><th style="text-align:left; padding:6px;">Date</th><th style="text-align:left; padding:6px;">Utilisateur</th><th style="text-align:left; padding:6px;">Course</th></tr></thead><tbody>
+          {% for download in course_plan_downloads %}
+          <tr style="border-bottom:1px solid rgba(255,255,255,.08);"><td style="padding:7px 6px; white-space:nowrap;">{{ download.downloaded_at.strftime('%d/%m/%Y · %H:%M') if download.downloaded_at else '—' }}</td><td style="padding:7px 6px;"><strong>#{{ download.user_id }} · {{ download.first_name or '' }} {{ download.last_name or '' }}</strong><span style="display:block; color:var(--text-muted); font-size:.72rem;">{{ download.user_email }}</span></td><td style="padding:7px 6px;">{{ download.course_name }}</td></tr>
+          {% endfor %}
+        </tbody></table></div>
+      {% else %}
+        <p style="margin:0; color:var(--text-muted); font-size:.8rem;">Aucun plan téléchargé pour l’instant.</p>
+      {% endif %}
+    </section>
 
     <form method="get" action="/ui" style="margin-top:14px; display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; align-items:end;">
       <input type="hidden" name="activity_page" value="{{ activity_pagination.page or 1 }}">

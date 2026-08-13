@@ -1359,6 +1359,23 @@
           const minuteOfDay = ((absoluteMinutes % 1440) + 1440) % 1440;
           return `${day ? `J+${day} ` : ''}${String(Math.floor(minuteOfDay / 60)).padStart(2, '0')}:${String(minuteOfDay % 60).padStart(2, '0')}`;
         };
+        const projectedMetricsBetween = (fromKm, toKm) => {
+          let previousKm = 0;
+          const metrics = { distance: 0, seconds: 0, gain: 0, loss: 0 };
+          projectedRows.forEach((row) => {
+            const overlap = Math.max(0, Math.min(toKm, row.cumulativeKm) - Math.max(fromKm, previousKm));
+            const rowDistance = Math.max(0.001, row.cumulativeKm - previousKm);
+            if (overlap > 0) {
+              const ratio = overlap / rowDistance;
+              metrics.distance += overlap;
+              metrics.seconds += row.seconds * ratio;
+              metrics.gain += row.gain * ratio;
+              metrics.loss += row.loss * ratio;
+            }
+            previousKm = row.cumulativeKm;
+          });
+          return metrics;
+        };
         emailPlanButton.addEventListener('click', async () => {
           const finishKm = Number(data.total_distance_km || 0);
           const routePoints = [
@@ -1383,6 +1400,32 @@
             };
           });
           const plannedRate = nutrition.carbRate * 4 + nutrition.proteinRate * 4 + nutrition.fatRate * 9;
+          const legs = routePoints.slice(1).map((point, index) => {
+            const previous = routePoints[index];
+            const metrics = projectedMetricsBetween(previous.km, point.km);
+            return {
+              from_name: previous.label, to_name: point.label, from_km: previous.km, to_km: point.km,
+              distance: `${metrics.distance.toFixed(1)} km`, gain: `D+ ${Math.round(metrics.gain)} m`, loss: `D- ${Math.round(metrics.loss)} m`,
+              duration: formatDuration(metrics.seconds), pace: metrics.distance ? formatPace(metrics.seconds / metrics.distance) : '-',
+            };
+          }).filter((leg) => leg.to_km > leg.from_km + .001);
+          const nutritionStops = routePoints.filter((point) => ['start', 'aid', 'aid_assistance'].includes(point.type)).map((point, index, points) => {
+            const nextAid = points.slice(index + 1).find((candidate) => ['aid', 'aid_assistance'].includes(candidate.type));
+            const nextKm = nextAid ? nextAid.km : finishKm;
+            const seconds = Math.max(0, projectedTimeAtKm(nextKm) - projectedTimeAtKm(point.km));
+            const hours = seconds / 3600;
+            return {
+              point: point.label, km: `km ${point.km.toFixed(1)}`, destination: nextAid ? nextAid.label : 'Arrivée', duration: formatDuration(seconds),
+              carbs: `${Math.round(nutrition.carbRate * hours)} g`, proteins: `${Math.round(nutrition.proteinRate * hours)} g`, fats: `${Math.round(nutrition.fatRate * hours)} g`,
+              calories: `${Math.round(plannedRate * hours)} kcal`,
+            };
+          });
+          const pacing = slopeIds.map((slopeId) => {
+            const pace = paceWithCourseDifficulty(manualMode.checked ? manualPaceForSlope(slopeId) : projectedPaceForSlope(slopeId, zoneInput.value).pace, simulationCoefficientPercent);
+            const grade = slopeCenters[slopeId] || 0;
+            const vam = pace > 0 ? Math.round((3600 / pace) * 10 * grade) : 0;
+            return { slope: slopeLabels[slopeId], pace: formatPace(pace), vam: vam ? `${vam > 0 ? '+' : '−'}${Math.abs(vam)} m/h` : '-' };
+          });
           const plan = {
             course_name: data.official_course?.name || manualCourseName,
             total_time: totalProjectionOutput.textContent,
@@ -1390,8 +1433,8 @@
             distance: `${finishKm.toFixed(1)} km`, elevation: `D+ ${Math.round(gain)} m · D- ${Math.round(loss)} m`,
             zone: manualMode.checked ? 'Réglages manuels' : zoneInput.value,
             departure_time: departureTime,
-            nutrition: { carbs_rate: `${Math.round(nutrition.carbRate)} g`, calories_rate: `${Math.round(plannedRate)} kcal`, expenditure_rate: `~${Math.round(nutrition.expenditureRate)} kcal` },
-            roadbook,
+            nutrition: { carbs_rate: `${Math.round(nutrition.carbRate)} g`, protein_rate: `${Math.round(nutrition.proteinRate)} g`, fat_rate: `${Math.round(nutrition.fatRate)} g`, calories_rate: `${Math.round(plannedRate)} kcal`, expenditure_rate: `~${Math.round(nutrition.expenditureRate)} kcal`, total_carbs: `${Math.round(nutrition.carbRate * movingSeconds / 3600)} g`, total_proteins: `${Math.round(nutrition.proteinRate * movingSeconds / 3600)} g`, total_fats: `${Math.round(nutrition.fatRate * movingSeconds / 3600)} g`, total_calories: `${Math.round(plannedRate * movingSeconds / 3600)} kcal` },
+            roadbook, pacing, nutrition_stops: nutritionStops, legs, elevation_profile: data.elevation_profile || [],
           };
           emailPlanButton.disabled = true;
           emailPlanButton.textContent = 'Préparation du PDF…';

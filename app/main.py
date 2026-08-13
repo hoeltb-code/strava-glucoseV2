@@ -1498,7 +1498,7 @@ def _compute_slope_distribution_from_gpx(content: bytes) -> tuple[dict[str, floa
     prev = points[0]
     elevation_profile = []
     if prev[2] is not None:
-        elevation_profile.append({"distance_km": 0.0, "elevation_m": prev[2], "grade_percent": 0.0})
+        elevation_profile.append({"distance_km": 0.0, "elevation_m": prev[2], "grade_percent": 0.0, "latitude": prev[0], "longitude": prev[1]})
 
     km_segments: list[dict] = []
 
@@ -1540,6 +1540,8 @@ def _compute_slope_distribution_from_gpx(content: bytes) -> tuple[dict[str, floa
                     "distance_km": total_distance / 1000.0,
                     "elevation_m": ele2,
                     "grade_percent": grade if grade is not None else 0.0,
+                    "latitude": lat2,
+                    "longitude": lon2,
                 }
             )
 
@@ -1587,6 +1589,8 @@ def _compute_slope_distribution_from_gpx(content: bytes) -> tuple[dict[str, floa
                     "distance_km": total_distance / 1000.0,
                     "elevation_m": points[-1][2],
                     "grade_percent": elevation_profile[-1].get("grade_percent", 0.0),
+                    "latitude": points[-1][0],
+                    "longitude": points[-1][1],
                 }
             )
 
@@ -5781,7 +5785,7 @@ async def ui_send_course_plan_email(
     course_name = str(plan.get("course_name") or "Course simulée").strip()[:120]
     try:
         pdf_data = _build_course_plan_pdf(user=user, plan=plan)
-        _send_course_plan_email(to_email=user.email, course_name=course_name, pdf_data=pdf_data)
+        _send_course_plan_email(to_email=user.email, course_name=course_name, pdf_data=pdf_data, plan=plan)
     except RuntimeError as exc:
         logger.warning("[COURSE PLAN] Envoi PDF indisponible pour user=%s : %s", user_id, exc)
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -5897,7 +5901,8 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
         from reportlab.lib.pagesizes import A4
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib.units import mm
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, KeepTogether
+        from reportlab.graphics.shapes import Drawing, Line, PolyLine, Rect, String
     except ImportError as exc:
         raise RuntimeError("La génération PDF n'est pas encore installée sur le serveur. Lance `pip install -r requirements.txt` puis redémarre le serveur.") from exc
     buffer = BytesIO()
@@ -5931,6 +5936,81 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
     small_style = ParagraphStyle(
         "CoursePlanSmall", parent=body_style, fontSize=7.2, leading=9.5,
     )
+    table_header_style = ParagraphStyle(
+        "CoursePlanTableHeader", parent=small_style, fontName="Helvetica-Bold", textColor=colors.white,
+    )
+
+    def clean_profile(raw_points) -> list[dict]:
+        return [
+            point for point in (raw_points or [])
+            if isinstance(point, dict)
+            and isinstance(point.get("distance_km"), (int, float))
+            and isinstance(point.get("elevation_m"), (int, float))
+        ][:900]
+
+    def grade_color(grade: float) -> colors.Color:
+        if grade <= -8:
+            return colors.HexColor("#38bdf8")
+        if grade < -2:
+            return colors.HexColor("#60a5fa")
+        if grade < 5:
+            return colors.HexColor("#84cc16")
+        if grade < 12:
+            return colors.HexColor("#eab308")
+        if grade < 20:
+            return colors.HexColor("#f97316")
+        return colors.HexColor("#ef4444")
+
+    def elevation_drawing(raw_points, title: str, width: float = 180 * mm, height: float = 54 * mm):
+        points = clean_profile(raw_points)
+        if len(points) < 2:
+            return Paragraph("Profil indisponible pour ce tronçon.", small_style)
+        drawing = Drawing(width, height)
+        pad_x, pad_y = 7 * mm, 8 * mm
+        values_x = [float(point["distance_km"]) for point in points]
+        values_y = [float(point["elevation_m"]) for point in points]
+        min_x, max_x = min(values_x), max(values_x)
+        min_y, max_y = min(values_y), max(values_y)
+        range_x, range_y = max(.01, max_x - min_x), max(1.0, max_y - min_y)
+        drawing.add(Rect(0, 0, width, height, fillColor=colors.HexColor("#f8fafc"), strokeColor=colors.HexColor("#cbd5e1"), strokeWidth=.4))
+        drawing.add(String(pad_x, height - 4.5 * mm, title, fontName="Helvetica-Bold", fontSize=7.5, fillColor=colors.HexColor("#102a43")))
+        coords = []
+        for point in points:
+            x = pad_x + ((float(point["distance_km"]) - min_x) / range_x) * (width - 2 * pad_x)
+            y = pad_y + ((float(point["elevation_m"]) - min_y) / range_y) * (height - pad_y - 9 * mm)
+            coords.append((x, y, float(point.get("grade_percent") or 0)))
+        for index in range(1, len(coords)):
+            previous, current = coords[index - 1], coords[index]
+            drawing.add(Line(previous[0], previous[1], current[0], current[1], strokeColor=grade_color(current[2]), strokeWidth=1.4, strokeLineCap=1))
+        drawing.add(String(pad_x, 2.5 * mm, f"{min_x:.1f} km", fontName="Helvetica", fontSize=6.5, fillColor=colors.HexColor("#52616b")))
+        drawing.add(String(width - pad_x - 23 * mm, 2.5 * mm, f"{max_x:.1f} km", fontName="Helvetica", fontSize=6.5, fillColor=colors.HexColor("#52616b")))
+        drawing.add(String(width - 27 * mm, height - 4.5 * mm, f"{min_y:.0f}-{max_y:.0f} m", fontName="Helvetica", fontSize=6.5, fillColor=colors.HexColor("#52616b")))
+        return drawing
+
+    def route_map_drawing(raw_points, width: float = 180 * mm, height: float = 72 * mm):
+        points = [
+            point for point in clean_profile(raw_points)
+            if isinstance(point.get("latitude"), (int, float)) and isinstance(point.get("longitude"), (int, float))
+        ]
+        if len(points) < 2:
+            return Paragraph("Carte indisponible : coordonnées GPS absentes de la trace.", small_style)
+        drawing = Drawing(width, height)
+        pad = 7 * mm
+        lats = [float(point["latitude"]) for point in points]
+        lons = [float(point["longitude"]) for point in points]
+        min_lat, max_lat, min_lon, max_lon = min(lats), max(lats), min(lons), max(lons)
+        span_lat, span_lon = max(.00001, max_lat - min_lat), max(.00001, max_lon - min_lon)
+        drawing.add(Rect(0, 0, width, height, fillColor=colors.HexColor("#eefbf8"), strokeColor=colors.HexColor("#99f6e4"), strokeWidth=.4))
+        coords = [
+            (pad + ((float(point["longitude"]) - min_lon) / span_lon) * (width - 2 * pad), pad + ((float(point["latitude"]) - min_lat) / span_lat) * (height - 2 * pad))
+            for point in points
+        ]
+        flat_coords = [coordinate for point in coords for coordinate in point]
+        drawing.add(PolyLine(flat_coords, strokeColor=colors.HexColor("#0f766e"), strokeWidth=1.35, strokeLineJoin=1))
+        drawing.add(Rect(coords[0][0] - 1.5, coords[0][1] - 1.5, 3, 3, fillColor=colors.HexColor("#16a34a"), strokeColor=None))
+        drawing.add(Rect(coords[-1][0] - 1.5, coords[-1][1] - 1.5, 3, 3, fillColor=colors.HexColor("#dc2626"), strokeColor=None))
+        drawing.add(String(pad, height - 4.5 * mm, "Trace GPS - départ vert, arrivée rouge", fontName="Helvetica-Bold", fontSize=7.5, fillColor=colors.HexColor("#102a43")))
+        return drawing
 
     first_name = (user.first_name or "").strip()
     runner_name = first_name or user.email
@@ -5968,6 +6048,34 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
     ]))
     story.extend([Paragraph("Synthèse de la projection", section_style), overview_table])
 
+    elevation_profile = clean_profile(plan.get("elevation_profile"))
+    if elevation_profile:
+        story.extend([
+            Paragraph("Parcours et profil", section_style),
+            route_map_drawing(elevation_profile), Spacer(1, 5),
+            elevation_drawing(elevation_profile, "Profil global - couleurs selon la pente"),
+            Paragraph("Bleu : descente - vert : plat - jaune/orange/rouge : montée de plus en plus raide.", small_style),
+        ])
+
+    pacing = plan.get("pacing") if isinstance(plan.get("pacing"), list) else []
+    if pacing:
+        story.append(Paragraph("Allures prises en compte pour le calcul", section_style))
+        pacing_rows = [[Paragraph("Pente", table_header_style), Paragraph("Allure projetée", table_header_style), Paragraph("VAM", table_header_style)]]
+        for row in pacing[:20]:
+            if isinstance(row, dict):
+                pacing_rows.append([
+                    Paragraph(_course_plan_pdf_value(row.get("slope")), small_style),
+                    Paragraph(_course_plan_pdf_value(row.get("pace")), small_style),
+                    Paragraph(_course_plan_pdf_value(row.get("vam")), small_style),
+                ])
+        pacing_table = Table(pacing_rows, colWidths=[55 * mm, 62 * mm, 48 * mm], hAlign="LEFT", repeatRows=1)
+        pacing_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#102a43")), ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#eefbf8")]),
+            ("GRID", (0, 0), (-1, -1), .25, colors.HexColor("#cbd5e1")), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        story.append(pacing_table)
+
     nutrition = plan.get("nutrition") if isinstance(plan.get("nutrition"), dict) else {}
     story.append(Paragraph("Repères nutritionnels", section_style))
     nutrition_text = (
@@ -5986,13 +6094,50 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
         ),
     ])
 
+    nutrition_totals = [
+        ["Glucides à préparer", _course_plan_pdf_value(nutrition.get("total_carbs"))],
+        ["Protéines à prévoir", _course_plan_pdf_value(nutrition.get("total_proteins"))],
+        ["Lipides à prévoir", _course_plan_pdf_value(nutrition.get("total_fats"))],
+        ["Apports énergétiques planifiés", _course_plan_pdf_value(nutrition.get("total_calories"))],
+    ]
+    nutrition_totals_table = Table(nutrition_totals, colWidths=[72 * mm, 93 * mm], hAlign="LEFT")
+    nutrition_totals_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#fff7d6")), ("GRID", (0, 0), (-1, -1), .35, colors.HexColor("#facc15")),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 8.5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.extend([Spacer(1, 6), nutrition_totals_table])
+
+    nutrition_stops = plan.get("nutrition_stops") if isinstance(plan.get("nutrition_stops"), list) else []
+    if nutrition_stops:
+        story.append(Paragraph("Préparation nutritionnelle par ravito", section_style))
+        nutrition_rows = [[
+            Paragraph("À préparer à", table_header_style), Paragraph("Jusqu'à", table_header_style), Paragraph("Durée", table_header_style),
+            Paragraph("Glucides", table_header_style), Paragraph("Protéines", table_header_style), Paragraph("Lipides", table_header_style), Paragraph("Kcal", table_header_style),
+        ]]
+        for stop in nutrition_stops[:80]:
+            if isinstance(stop, dict):
+                nutrition_rows.append([
+                    Paragraph(f"{_course_plan_pdf_value(stop.get('point'))}<br/>{_course_plan_pdf_value(stop.get('km'))}", small_style),
+                    Paragraph(_course_plan_pdf_value(stop.get("destination")), small_style), Paragraph(_course_plan_pdf_value(stop.get("duration")), small_style),
+                    Paragraph(_course_plan_pdf_value(stop.get("carbs")), small_style), Paragraph(_course_plan_pdf_value(stop.get("proteins")), small_style),
+                    Paragraph(_course_plan_pdf_value(stop.get("fats")), small_style), Paragraph(_course_plan_pdf_value(stop.get("calories")), small_style),
+                ])
+        nutrition_table = Table(nutrition_rows, colWidths=[38 * mm, 34 * mm, 21 * mm, 22 * mm, 22 * mm, 20 * mm, 22 * mm], repeatRows=1)
+        nutrition_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#102a43")), ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#fffdf0")]),
+            ("GRID", (0, 0), (-1, -1), .25, colors.HexColor("#d6d3d1")), ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        story.append(nutrition_table)
+
     roadbook = plan.get("roadbook") if isinstance(plan.get("roadbook"), list) else []
     if roadbook:
         story.append(Paragraph("Feuille de route", section_style))
         rows = [[
-            Paragraph("Type", small_style), Paragraph("Point", small_style), Paragraph("Km", small_style),
-            Paragraph("Passage", small_style), Paragraph("Arrêt", small_style), Paragraph("Tronçon", small_style),
-            Paragraph("Allure", small_style), Paragraph("Nutrition", small_style),
+            Paragraph("Type", table_header_style), Paragraph("Point", table_header_style), Paragraph("Km", table_header_style),
+            Paragraph("Passage", table_header_style), Paragraph("Arrêt", table_header_style), Paragraph("Tronçon", table_header_style),
+            Paragraph("Allure", table_header_style), Paragraph("Nutrition", table_header_style),
         ]]
         for point in roadbook[:120]:
             if not isinstance(point, dict):
@@ -6021,6 +6166,28 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
         ]))
         story.append(roadbook_table)
 
+    legs = plan.get("legs") if isinstance(plan.get("legs"), list) else []
+    if legs and elevation_profile:
+        story.append(PageBreak())
+        story.append(Paragraph("Détail visuel des tronçons", title_style))
+        story.append(Paragraph("Chaque profil est extrait de la trace GPX utilisée pour cette simulation.", subtitle_style))
+        for index, leg in enumerate(legs[:80], start=1):
+            if not isinstance(leg, dict):
+                continue
+            try:
+                from_km, to_km = float(leg.get("from_km")), float(leg.get("to_km"))
+            except (TypeError, ValueError):
+                continue
+            leg_profile = [point for point in elevation_profile if from_km - .02 <= float(point["distance_km"]) <= to_km + .02]
+            heading = f"{index}. {_course_plan_pdf_value(leg.get('from_name'))} - {_course_plan_pdf_value(leg.get('to_name'))}"
+            detail = f"{_course_plan_pdf_value(leg.get('distance'))} - {_course_plan_pdf_value(leg.get('gain'))} - {_course_plan_pdf_value(leg.get('loss'))} - {_course_plan_pdf_value(leg.get('duration'))} - allure {_course_plan_pdf_value(leg.get('pace'))}"
+            story.extend([
+                Paragraph(heading, section_style),
+                Paragraph(detail, small_style), Spacer(1, 3),
+                elevation_drawing(leg_profile, f"Profil du tronçon - km {from_km:.1f} à {to_km:.1f}", height=42 * mm),
+                Spacer(1, 6),
+            ])
+
     def add_footer(canvas, _doc):
         canvas.saveState()
         canvas.setStrokeColor(colors.HexColor("#b8e6df"))
@@ -6035,7 +6202,7 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
     return buffer.getvalue()
 
 
-def _send_course_plan_email(*, to_email: str, course_name: str, pdf_data: bytes) -> None:
+def _send_course_plan_email(*, to_email: str, course_name: str, pdf_data: bytes, plan: dict) -> None:
     if not settings.SMTP_HOST or not settings.SMTP_PORT or not settings.SMTP_USER or not settings.SMTP_PASS:
         raise RuntimeError("La configuration SMTP est incomplète.")
     from_name = settings.SMTP_FROM_NAME or "D+ x Strava x Glucose"
@@ -6045,10 +6212,22 @@ def _send_course_plan_email(*, to_email: str, course_name: str, pdf_data: bytes)
     msg["Subject"] = f"Ton plan de course - {course_name or 'simulation'}"
     msg["From"] = f"{from_name} <{from_email}>"
     msg["To"] = to_email
+    nutrition = plan.get("nutrition") if isinstance(plan.get("nutrition"), dict) else {}
+    overview_lines = [
+        f"- Temps total estimé : {str(plan.get('total_time') or '-').strip()}",
+        f"- Parcours : {str(plan.get('distance') or '-').strip()} · {str(plan.get('elevation') or '-').strip()}",
+        f"- Intensité : {str(plan.get('zone') or '-').strip()} · départ {str(plan.get('departure_time') or '-').strip()}",
+        f"- Repère nutrition : {str(nutrition.get('carbs_rate') or '-').strip()} de glucides/h · {str(nutrition.get('calories_rate') or '-').strip()} d'apports/h",
+    ]
+    overview_summary = "\n".join(overview_lines)
     msg.set_content(_append_login_link_footer(
         "Bonjour,\n\n"
-        "Voici ton plan de course au format PDF. Les recommandations nutritionnelles sont indicatives : "
-        "teste-les à l'entraînement et fais-les personnaliser par un professionnel si nécessaire.\n"
+        f"Voici ton plan de course pour {course_name or 'ta simulation'}.\n\n"
+        "Résumé de la projection :\n"
+        f"{overview_summary}\n\n"
+        "Le PDF joint rassemble le profil global coloré selon les pentes, la trace GPS, les allures et VAM utilisées pour le calcul, "
+        "la feuille de route avec passages et arrêts, le plan nutritionnel total et par ravito, ainsi qu'un profil visuel de chaque tronçon.\n\n"
+        "Les recommandations nutritionnelles sont indicatives : teste-les à l'entraînement et fais-les personnaliser par un professionnel si nécessaire.\n"
     ))
     msg.add_attachment(pdf_data, maintype="application", subtype="pdf", filename=f"{safe_filename}-plan-de-course.pdf")
     with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:

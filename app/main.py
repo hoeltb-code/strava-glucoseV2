@@ -5420,7 +5420,7 @@ def ui_runner_profile(
             values_24h = [float(point["mgdl"]) for point in glucose_chart_24h]
             latest_point = glucose_chart_24h[-1]
             latest_dt = _safe_dt(valid_points_24h[-1].ts) if valid_points_24h else now_utc
-            freshness_minutes = max(0, int((now_utc - latest_dt).total_seconds() // 60))
+            freshness_minutes = max(0, int((_safe_dt(now_utc) - latest_dt).total_seconds() // 60))
             delta_mgdl = None
             trend_label = "Stable"
             trend_tone = "stable"

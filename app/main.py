@@ -238,6 +238,7 @@ def _load_official_course_catalog() -> list[dict]:
                     "id": course_id,
                     "name": course.get("name") or course_id,
                     "distance_km": course.get("distance_km"),
+                    "difficulty_coefficient_percent": course.get("difficulty_coefficient_percent", 0),
                     "route_available": os.path.isfile(os.path.join(OFFICIAL_COURSES_DIR, route_file)),
                     "points": course.get("points") or [],
                 }

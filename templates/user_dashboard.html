@@ -175,6 +175,18 @@
   .timeline-race-time small { display:block; color:var(--text-muted); font-family:inherit; font-size:.6rem; letter-spacing:.04em; }
   .timeline-title { font-size:.94rem; font-weight:700; }
   .timeline-meta { margin-top:3px; color:var(--text-muted); font-size:.78rem; }
+  .timeline-summary { margin-top:4px; color:#e5edf8; font-size:.78rem; font-weight:650; }
+  .timeline-detail-toggle { margin-top:8px; padding:5px 8px; border-radius:8px; border-color:rgba(255,255,255,.22); background:rgba(255,255,255,.07); color:var(--text-main); font-size:.72rem; line-height:1; }
+  .timeline-detail-toggle::after { content:'⌄'; display:inline-block; margin-left:5px; font-size:.85rem; transition:transform .16s ease; }
+  .timeline-row.is-expanded .timeline-detail-toggle::after { transform:rotate(180deg); }
+  .timeline-details { display:none; margin-top:10px; padding:10px; border-left:2px solid rgba(255,255,255,.3); border-radius:0 10px 10px 0; background:rgba(0,0,0,.16); }
+  .timeline-row.is-expanded .timeline-details { display:block; }
+  .timeline-detail-heading { color:#fff; font-size:.7rem; font-weight:800; letter-spacing:.055em; text-transform:uppercase; }
+  .timeline-nutrition-intro { margin:4px 0 0; color:#e8eef8; font-size:.76rem; line-height:1.35; }
+  .timeline-nutrition-advice { margin:8px 0 0; color:#fff3cd; font-size:.76rem; line-height:1.35; }
+  .timeline-leg-profile { margin-top:10px; }
+  .timeline-leg-profile svg { display:block; width:100%; height:72px; border-radius:8px; background:rgba(5,12,24,.34); }
+  .timeline-leg-profile-label { margin:0 0 4px; color:#dbeafe; font-size:.7rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; }
   .timeline-time { color:var(--accent-2); font-family:"Orbitron", sans-serif; font-size:.9rem; white-space:nowrap; }
   .timeline-time small { display:block; margin-bottom:2px; color:var(--text-muted); font-family:inherit; font-size:.56rem; letter-spacing:.05em; }
   .timeline-aid { grid-template-columns:92px minmax(0, 1fr) auto; border-color:rgba(251,146,60,.65); background:linear-gradient(90deg, rgba(251,146,60,.22), rgba(127,29,29,.2)); }
@@ -196,6 +208,8 @@
   .projection-timeline.show-points-only .timeline-segment { display:none; }
   .timeline-toolbar { display:flex; flex-wrap:wrap; align-items:end; gap:12px; margin:15px 0 0; }
   .timeline-toolbar > div { min-width:190px; }
+  .timeline-toolbar-actions { display:flex; flex-wrap:wrap; gap:8px; }
+  .timeline-toolbar-actions button { padding:8px 11px; font-size:.75rem; background:rgba(255,255,255,.07); color:var(--text-main); border-color:rgba(255,255,255,.2); }
   .nutrition-chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
   .nutrition-chip { padding:3px 7px; border-radius:999px; background:rgba(255,255,255,.1); color:#fff7ed; font-size:.72rem; font-weight:700; }
   .timeline-stop-control { display:inline-flex; align-items:center; gap:6px; margin-top:8px; padding:5px 7px; border:1px solid rgba(255,255,255,.24); border-radius:9px; background:rgba(0,0,0,.14); color:var(--text-muted); font-size:.72rem; font-weight:700; }
@@ -350,6 +364,7 @@
     .aid-station-row button { grid-column:span 2; }
     .timeline-row, .timeline-aid { grid-template-columns:70px minmax(0, 1fr); gap:8px; }
     .timeline-time { grid-column:2; }
+    .timeline-details { grid-column:1 / -1; }
     .mini-table {
       font-size:0.74rem;
       min-width:360px;
@@ -405,7 +420,7 @@
         <select id="home-official-course">
           <option value="">Choisir une course enregistrée</option>
           {% for course in official_courses %}
-          <option value="{{ course.id }}" {% if not course.route_available %}disabled{% endif %}>{{ course.name }}{% if course.distance_km %} · {{ course.distance_km }} km{% endif %}{% if not course.route_available %} · GPX manquant{% endif %}</option>
+          <option value="{{ course.id }}" {% if not course.route_available %}disabled{% endif %}>{{ course.name }}{% if course.distance_km %} · {{ course.distance_km }} km{% endif %}{% if course.difficulty_coefficient_percent %} · difficulté +{{ course.difficulty_coefficient_percent }}%{% endif %}{% if not course.route_available %} · GPX manquant{% endif %}</option>
           {% endfor %}
         </select>
       </div>
@@ -543,6 +558,20 @@
     };
     let refreshLiveProjection = null;
 
+    function currentCourseDifficultyPercent() {
+      const value = Number(selectedOfficialCourse()?.difficulty_coefficient_percent || 0);
+      return Math.max(0, Math.min(200, Number.isFinite(value) ? value : 0));
+    }
+
+    function currentCourseDifficultyMultiplier() {
+      return 1 + currentCourseDifficultyPercent() / 100;
+    }
+
+    function paceWithCourseDifficulty(pace, difficultyPercent = currentCourseDifficultyPercent()) {
+      const multiplier = 1 + Math.max(0, Number(difficultyPercent) || 0) / 100;
+      return pace > 0 ? pace * multiplier : pace;
+    }
+
     function refreshManualLabels() {
       document.getElementById('home-flat-speed-output').textContent = `${Number(flatSpeed.value).toFixed(1)} km/h`;
       document.getElementById('home-descent-level-output').textContent = `${Math.round(Number(descentLevel.value))} / 10`;
@@ -670,17 +699,20 @@
       const historicalZone = (runnerProfileData.zones || {})[zone] || {};
       const manual = manualMode.checked;
       const hasHistoricalData = Object.values(historicalZone).some((cell) => Number(cell?.avg_pace_s_per_km) > 0);
-      profileTableTitle.textContent = `Profil utilisé · ${zone}`;
+      const difficultyPercent = currentCourseDifficultyPercent();
+      const difficultySuffix = difficultyPercent ? ` · difficulté +${difficultyPercent}%` : '';
+      profileTableTitle.textContent = `Profil utilisé · ${zone}${difficultySuffix}`;
       profileTableNote.textContent = manual
         ? 'Réglages manuels : ajuste les curseurs pour visualiser ton profil.'
         : hasHistoricalData
           ? 'Historique personnel par pente ; les trous sont complétés pour la simulation.'
           : 'Historique insuffisant : active les réglages manuels pour créer un profil de départ.';
+      if (difficultyPercent) profileTableNote.textContent += ` · Allures adaptées à la difficulté de la course (×${currentCourseDifficultyMultiplier().toFixed(2)}).`;
       const points = slopeIds.map((slopeId) => {
         const historyCell = historicalZone[slopeId] || {};
         const historicalPace = Number(historyCell.avg_pace_s_per_km);
         const projected = projectedPaceForSlope(slopeId, zone);
-        const pace = manual ? manualPaceForSlope(slopeId) : projected.pace;
+        const pace = paceWithCourseDifficulty(manual ? manualPaceForSlope(slopeId) : projected.pace);
         return { slopeId, x:slopeCenters[slopeId], pace, source:manual ? 'Manuel' : projected.source };
       }).filter((point) => Number.isFinite(point.x) && point.pace > 0).sort((a, b) => a.x - b.x);
       if (!points.length) {
@@ -705,7 +737,7 @@
       ].join('');
       const communityZone = (communityPaceCurves.zones || {})[zone] || {};
       const communityPath = (key) => slopeIds.map((slopeId) => {
-        const pace = Number((communityZone[slopeId] || {})[key]);
+        const pace = paceWithCourseDifficulty(Number((communityZone[slopeId] || {})[key]));
         return Number.isFinite(pace) && pace > 0 ? { x:slopeCenters[slopeId], pace } : null;
       }).filter(Boolean).sort((a, b) => a.x - b.x).map((point, index) => `${index ? 'L' : 'M'} ${xScale(point.x).toFixed(1)} ${yScale(point.pace).toFixed(1)}`).join(' ');
       const p20Path = communityPath('p20');
@@ -780,11 +812,16 @@
       if (official) {
         const course = selectedOfficialCourse();
         pointSettingsTitle.textContent = `Ravitos officiels · ${course?.name || 'course sélectionnée'}`;
+        const difficultyPercent = Math.max(0, Number(course?.difficulty_coefficient_percent || 0));
+        courseSelectionNote.textContent = difficultyPercent
+          ? `Ravitos, assistances, contrôles et barrières sont appliqués automatiquement. Difficulté course : +${difficultyPercent}% de temps, soit des allures ×${(1 + difficultyPercent / 100).toFixed(2)}. Les temps d’arrêt se règlent dans le déroulé de course.`
+          : 'Les ravitos, assistances, contrôles et barrières sont appliqués automatiquement. Les temps d’arrêt se règlent directement dans le déroulé de course.';
         renderOfficialPointSettings(course);
       } else {
         pointSettingsTitle.textContent = 'Points de ma trace';
         renderAidStations();
       }
+      renderProfilePacingTable();
     }
 
     function officialCoursePoints(course) {
@@ -873,16 +910,49 @@
       return `<div class="projection-profile"><div class="home-summary-label">Profil du parcours · ${Math.round(minElevation)}–${Math.round(maxElevation)} m</div><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Profil d'altitude du parcours, coloré selon la pente">${segments}<line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" stroke="rgba(200,215,239,.45)"/><text x="${padding}" y="${height - 1}" fill="#c8d7ef" font-size="11">0 km</text><text x="${width - padding - 45}" y="${height - 1}" fill="#c8d7ef" font-size="11">${maxDistance.toFixed(1)} km</text></svg><div class="slope-legend"><span><i style="background:#38bdf8"></i>descente &lt; −8 %</span><span><i style="background:#b8ff45"></i>plat −2 à 5 %</span><span><i style="background:#facc15"></i>montée 5–12 %</span><span><i style="background:#f87171"></i>montée &gt; 20 %</span></div></div>`;
     }
 
-    function nutritionPlan(totalMovingSeconds, weightKg) {
-      const hours = totalMovingSeconds / 3600;
-      const weight = Number.isFinite(weightKg) && weightKg >= 35 ? weightKg : 70;
-      const carbRate = Math.max(30, Math.min(90, weight * (hours > 4 ? 0.75 : hours > 2 ? 0.65 : 0.55)));
-      const proteinRate = hours >= 4 ? Math.min(8, weight * 0.04) : 0;
-      const fatRate = hours >= 6 ? Math.min(7, weight * 0.03) : 0;
-      return { carbRate, proteinRate, fatRate, weightIsEstimated: !(Number.isFinite(weightKg) && weightKg >= 35) };
+    function legElevationProfileSvg(rawPoints, fromKm, toKm, label, metrics) {
+      const allPoints = (rawPoints || []).filter((point) => Number.isFinite(Number(point.distance_km)) && Number.isFinite(Number(point.elevation_m)));
+      const points = allPoints.filter((point) => Number(point.distance_km) >= fromKm - 0.001 && Number(point.distance_km) <= toKm + 0.001);
+      if (points.length < 2 || toKm <= fromKm) return '';
+      const width = 430;
+      const height = 72;
+      const padding = 6;
+      const elevations = points.map((point) => Number(point.elevation_m));
+      const minElevation = Math.min(...elevations);
+      const maxElevation = Math.max(...elevations);
+      const elevationRange = Math.max(1, maxElevation - minElevation);
+      const colorForGrade = (grade) => grade <= -8 ? '#38bdf8' : grade < -2 ? '#60a5fa' : grade < 5 ? '#b8ff45' : grade < 12 ? '#facc15' : grade < 20 ? '#fb923c' : '#f87171';
+      const coordinates = points.map((point) => ({
+        x: padding + ((Number(point.distance_km) - fromKm) / Math.max(.01, toKm - fromKm)) * (width - padding * 2),
+        y: height - padding - ((Number(point.elevation_m) - minElevation) / elevationRange) * (height - padding * 2),
+        grade: Number(point.grade_percent || 0),
+      }));
+      const lines = coordinates.slice(1).map((point, index) => {
+        const previous = coordinates[index];
+        return `<line x1="${previous.x.toFixed(1)}" y1="${previous.y.toFixed(1)}" x2="${point.x.toFixed(1)}" y2="${point.y.toFixed(1)}" stroke="${colorForGrade(point.grade)}" stroke-width="3" stroke-linecap="round"/>`;
+      }).join('');
+      return `<div class="timeline-leg-profile"><p class="timeline-leg-profile-label">Profil jusqu’à ${label} · ${(toKm - fromKm).toFixed(1)} km · D+ ${Math.round(metrics.gain)} m · D− ${Math.round(metrics.loss)} m</p><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Profil de l'étape jusqu'à ${label}, coloré selon la pente">${lines}</svg></div>`;
     }
 
-    function buildProjectionTimeline(rows, splitSize, aidStations, nutrition, departureTime) {
+    function nutritionPlan(totalMovingSeconds, weightKg, distanceKm, elevationGainM, zone) {
+      const hours = totalMovingSeconds / 3600;
+      const weight = Number.isFinite(weightKg) && weightKg >= 35 ? weightKg : 70;
+      const zoneNumber = Math.max(1, Math.min(5, Number(String(zone || '').match(/\d+/)?.[0]) || 2));
+      const durationRate = hours <= 2 ? 35 : hours <= 4 ? 50 : hours <= 8 ? 60 : 70;
+      const intensityAdjustment = zoneNumber <= 2 ? -5 : zoneNumber >= 4 ? 10 : 0;
+      const carbRate = Math.max(30, Math.min(90, durationRate + intensityAdjustment));
+      const proteinRate = hours >= 10 ? 8 : hours >= 5 ? 6 : 0;
+      const fatRate = hours >= 12 ? 8 : hours >= 6 ? 5 : 0;
+      const effortFactor = [0.86, 0.93, 1, 1.06, 1.12][zoneNumber - 1];
+      const estimatedExpenditureKcal = Math.round((weight * Math.max(0, Number(distanceKm) || 0) * effortFactor) + (weight * Math.max(0, Number(elevationGainM) || 0) * 0.009));
+      return {
+        carbRate, proteinRate, fatRate, weight, effortFactor, estimatedExpenditureKcal,
+        expenditureRate: hours > 0 ? estimatedExpenditureKcal / hours : 0,
+        weightIsEstimated: !(Number.isFinite(weightKg) && weightKg >= 35),
+      };
+    }
+
+    function buildProjectionTimeline(rows, splitSize, aidStations, nutrition, departureTime, elevationProfile) {
       const finishKm = rows.length ? rows[rows.length - 1].cumulativeKm : 0;
       const departureMatch = /^(\d{2}):(\d{2})$/.exec(departureTime || '');
       const departureMinutes = departureMatch ? Number(departureMatch[1]) * 60 + Number(departureMatch[2]) : null;
@@ -928,6 +998,15 @@
         });
         return metrics;
       };
+      const nutritionForLeg = (seconds, distance, gain) => {
+        const hours = seconds / 3600;
+        const carbs = Math.round(nutrition.carbRate * hours);
+        const proteins = Math.round(nutrition.proteinRate * hours);
+        const fats = Math.round(nutrition.fatRate * hours);
+        const calories = Math.round(carbs * 4 + proteins * 4 + fats * 9);
+        const energySpent = Math.round((nutrition.weight * Math.max(0, distance) * nutrition.effortFactor) + (nutrition.weight * Math.max(0, gain) * 0.009));
+        return { carbs, proteins, fats, calories, energySpent, deficit: Math.max(0, energySpent - calories) };
+      };
       const splitSegments = [];
       if (splitSize > 0 && finishKm > 0) {
         const courseBoundaries = [0, ...aidStations.map((point) => point.km), finishKm]
@@ -968,66 +1047,65 @@
       };
 
       const events = splitSegments.map((segment) => {
-        const nutritionHours = segment.seconds / 3600;
-        const carbs = Math.round(nutrition.carbRate * nutritionHours);
-        const proteins = Math.round(nutrition.proteinRate * nutritionHours);
-        const fats = Math.round(nutrition.fatRate * nutritionHours);
-        const calories = Math.round(carbs * 4 + proteins * 4 + fats * 9);
+        const { carbs, proteins, fats, calories } = nutritionForLeg(segment.seconds, segment.distance, segment.gain);
         return {
           type: 'segment',
           position: segment.toKm,
-          html: `<article class="timeline-row timeline-segment"><div class="timeline-km">KM ${segment.fromKm.toFixed(1)}–${segment.toKm.toFixed(1)}</div><div><div class="timeline-title">Tronçon de course</div><div class="timeline-meta">D+ ${Math.round(segment.gain)} m · D− ${Math.round(segment.loss)} m · ${formatDuration(segment.seconds)} en mouvement</div><div class="nutrition-chips"><span class="nutrition-chip">${carbs} g glucides</span><span class="nutrition-chip">${calories} kcal</span>${proteins ? `<span class="nutrition-chip">${proteins} g protéines</span>` : ''}${fats ? `<span class="nutrition-chip">${fats} g lipides</span>` : ''}</div></div><div class="timeline-time">${timelineTime(elapsedAtPoint(segment.toKm), segment.seconds)}</div></article>`,
+          html: `<article class="timeline-row timeline-segment"><div class="timeline-km">KM ${segment.fromKm.toFixed(1)}–${segment.toKm.toFixed(1)}</div><div><div class="timeline-title">Tronçon de course</div><div class="timeline-summary">D+ ${Math.round(segment.gain)} m · D− ${Math.round(segment.loss)} m · ${formatDuration(segment.seconds)}</div><button type="button" class="timeline-detail-toggle" aria-expanded="false">Détail</button><div class="timeline-details"><div class="timeline-detail-heading">Pendant ce tronçon</div><p class="timeline-nutrition-intro">À consommer entre le km ${segment.fromKm.toFixed(1)} et le km ${segment.toKm.toFixed(1)}.</p><div class="nutrition-chips"><span class="nutrition-chip">${carbs} g glucides</span><span class="nutrition-chip">${calories} kcal</span>${proteins ? `<span class="nutrition-chip">${proteins} g protéines</span>` : ''}${fats ? `<span class="nutrition-chip">${fats} g lipides</span>` : ''}</div><p class="timeline-nutrition-advice">Répartis les glucides régulièrement plutôt que d’attendre la fin du tronçon.</p></div></div><div class="timeline-time">${timelineTime(elapsedAtPoint(segment.toKm), segment.seconds)}</div></article>`,
         };
       });
       const firstAid = aidStations.find((point) => point.type === 'aid' || point.type === 'aid_assistance');
+      const firstRoadbookPoint = aidStations[0];
       const firstDestinationKm = firstAid ? firstAid.km : finishKm;
       const firstLegSeconds = timeAtKm(firstDestinationKm);
-      const firstLegHours = firstLegSeconds / 3600;
-      const firstLegCarbs = Math.round(nutrition.carbRate * firstLegHours);
-      const firstLegProteins = Math.round(nutrition.proteinRate * firstLegHours);
-      const firstLegFats = Math.round(nutrition.fatRate * firstLegHours);
-      const firstLegCalories = Math.round(firstLegCarbs * 4 + firstLegProteins * 4 + firstLegFats * 9);
+      const firstLegMetrics = metricsBetween(0, firstDestinationKm);
+      const firstLegNutrition = nutritionForLeg(firstLegSeconds, firstLegMetrics.distance, firstLegMetrics.gain);
+      const { carbs: firstLegCarbs, proteins: firstLegProteins, fats: firstLegFats, calories: firstLegCalories, energySpent: firstLegEnergySpent, deficit: firstLegDeficit } = firstLegNutrition;
       const firstDestination = firstAid
         ? `jusqu’au ravito ${firstAid.label} · km ${firstDestinationKm.toFixed(1)}`
         : `jusqu’à l’arrivée · km ${finishKm.toFixed(1)}`;
+      const firstRoadbookKm = firstRoadbookPoint ? firstRoadbookPoint.km : finishKm;
+      const firstRoadbookMetrics = metricsBetween(0, firstRoadbookKm);
+      const firstLegProfile = legElevationProfileSvg(elevationProfile, 0, firstRoadbookKm, firstRoadbookPoint ? firstRoadbookPoint.label : 'l’arrivée', firstRoadbookMetrics);
       events.push({
         type: 'start',
         position: 0,
-        html: `<article class="timeline-row timeline-start"><div><div class="timeline-race-time"><small>TEMPS DE COURSE</small>0 min</div><div class="timeline-km">DÉPART<br>KM 0</div></div><div><div class="timeline-title">Départ</div><div class="timeline-meta">À prévoir ${firstDestination} · ${formatDuration(firstLegSeconds)} de course prévue</div><label class="timeline-start-control">Heure de départ <input class="timeline-departure-input" data-departure-part="hour" type="number" min="0" max="23" step="1" value="${departureHour}" aria-label="Heure de départ"><span>:</span><input class="timeline-departure-input" data-departure-part="minute" type="number" min="0" max="59" step="1" value="${departureMinute}" aria-label="Minutes de départ"></label><div class="nutrition-chips"><span class="nutrition-chip">${firstLegCarbs} g glucides</span><span class="nutrition-chip">${firstLegCalories} kcal</span>${firstLegProteins ? `<span class="nutrition-chip">${firstLegProteins} g protéines</span>` : ''}${firstLegFats ? `<span class="nutrition-chip">${firstLegFats} g lipides</span>` : ''}</div></div><div class="timeline-time">${timelineTime(0)}</div></article>`,
+        html: `<article class="timeline-row timeline-start"><div><div class="timeline-race-time"><small>TEMPS DE COURSE</small>0 min</div><div class="timeline-km">DÉPART<br>KM 0</div></div><div><div class="timeline-title">Départ</div><label class="timeline-start-control">Heure de départ <input class="timeline-departure-input" data-departure-part="hour" type="number" min="0" max="23" step="1" value="${departureHour}" aria-label="Heure de départ"><span>:</span><input class="timeline-departure-input" data-departure-part="minute" type="number" min="0" max="59" step="1" value="${departureMinute}" aria-label="Minutes de départ"></label><button type="button" class="timeline-detail-toggle" aria-expanded="false">Détail</button><div class="timeline-details"><div class="timeline-detail-heading">Premier ravito</div>${firstLegProfile}<p class="timeline-nutrition-intro">À prévoir ${firstDestination} · ${formatDuration(firstLegSeconds)} de course prévue.</p><div class="nutrition-chips"><span class="nutrition-chip">Apports : ${firstLegCalories} kcal</span><span class="nutrition-chip">Dépense : ~${firstLegEnergySpent} kcal</span><span class="nutrition-chip">Déficit : ~${firstLegDeficit} kcal</span><span class="nutrition-chip">${firstLegCarbs} g glucides</span>${firstLegProteins ? `<span class="nutrition-chip">${firstLegProteins} g protéines</span>` : ''}${firstLegFats ? `<span class="nutrition-chip">${firstLegFats} g lipides</span>` : ''}</div><p class="timeline-nutrition-advice">Pars avec ces apports déjà accessibles et répartis-les avant le premier ravito ; le déficit est attendu et ne doit pas être compensé d’un coup.</p></div></div><div class="timeline-time">${timelineTime(0)}</div></article>`,
       });
       aidStations.forEach((point, index) => {
         const incomingSegment = segmentTimeAtPoint(point.km);
         const incomingTimeLabel = timelineTime(elapsedAtPoint(point.km), incomingSegment.seconds);
+        const nextRoadbookPoint = aidStations[index + 1];
+        const nextRoadbookKm = nextRoadbookPoint ? nextRoadbookPoint.km : finishKm;
+        const nextRoadbookMetrics = metricsBetween(point.km, nextRoadbookKm);
+        const nextLegProfile = legElevationProfileSvg(elevationProfile, point.km, nextRoadbookKm, nextRoadbookPoint ? nextRoadbookPoint.label : 'l’arrivée', nextRoadbookMetrics);
         if (point.type === 'control') {
           events.push({
             type: 'control',
             position: point.km,
-            html: `<article class="timeline-row timeline-control"><div><div class="timeline-race-time"><small>TEMPS DE COURSE</small>${formatDuration(elapsedAtPoint(point.km))}</div><div class="timeline-km">CONTRÔLE<br>KM ${point.km.toFixed(1)}</div></div><div><div class="timeline-title">${point.label}</div><div class="timeline-meta">Point de passage chronométré${point.cutoffLabel ? ` · barrière ${point.cutoffLabel}` : ''}${point.stopSeconds ? ` · arrêt prévu ${Math.round(point.stopSeconds / 60)} min` : ''}</div></div><div class="timeline-time">${incomingTimeLabel}</div></article>`,
+            html: `<article class="timeline-row timeline-control"><div><div class="timeline-race-time"><small>TEMPS DE COURSE</small>${formatDuration(elapsedAtPoint(point.km))}</div><div class="timeline-km">CONTRÔLE<br>KM ${point.km.toFixed(1)}</div></div><div><div class="timeline-title">${point.label}</div><div class="timeline-summary">Point de passage chronométré${point.cutoffLabel ? ` · barrière ${point.cutoffLabel}` : ''}</div><button type="button" class="timeline-detail-toggle" aria-expanded="false">Détail</button><div class="timeline-details"><div class="timeline-detail-heading">Prochaine étape</div>${nextLegProfile}<p class="timeline-nutrition-intro">Depuis le dernier point : ${formatDuration(incomingSegment.seconds)} de course.${point.stopSeconds ? ` Arrêt prévu : ${Math.round(point.stopSeconds / 60)} min.` : ''}</p>${point.cutoffLabel ? `<p class="timeline-nutrition-advice">Barrière horaire : ${point.cutoffLabel}. Vérifie ta marge à ce point de contrôle.</p>` : ''}</div></div><div class="timeline-time">${incomingTimeLabel}</div></article>`,
           });
           return;
         }
         const nextAid = aidStations.slice(index + 1).find((candidate) => candidate.type === 'aid' || candidate.type === 'aid_assistance');
         const nextKm = nextAid ? nextAid.km : finishKm;
         const untilNextSeconds = Math.max(0, timeAtKm(nextKm) - timeAtKm(point.km));
-        const hours = untilNextSeconds / 3600;
-        const carbs = Math.round(nutrition.carbRate * hours);
-        const proteins = Math.round(nutrition.proteinRate * hours);
-        const fats = Math.round(nutrition.fatRate * hours);
-        const calories = Math.round(carbs * 4 + proteins * 4 + fats * 9);
+        const nextLegMetrics = metricsBetween(point.km, nextKm);
+        const { carbs, proteins, fats, calories, energySpent, deficit } = nutritionForLeg(untilNextSeconds, nextLegMetrics.distance, nextLegMetrics.gain);
         const destination = nextAid ? `jusqu’au ravito ${nextAid.label} · km ${nextKm.toFixed(1)}` : `jusqu’à l’arrivée km ${finishKm.toFixed(1)}`;
         const isAssistance = point.type === 'aid_assistance';
         const stopMinutes = Math.round(point.stopSeconds / 60);
         events.push({
           type: isAssistance ? 'aid_assistance' : 'aid',
           position: point.km,
-          html: `<article class="timeline-row timeline-aid ${isAssistance ? 'timeline-aid-assistance' : ''}"><div><div class="timeline-race-time"><small>TEMPS DE COURSE</small>${formatDuration(elapsedAtPoint(point.km))}</div><div class="timeline-km">${isAssistance ? 'ASSISTANCE' : 'RAVITO'}<br>KM ${point.km.toFixed(1)}</div></div><div><div class="timeline-title">${point.label}</div><div class="timeline-meta">À prendre ${destination} · ${formatDuration(untilNextSeconds)} de course prévue${point.cutoffLabel ? ` · barrière ${point.cutoffLabel}` : ''}</div><label class="timeline-stop-control">Arrêt prévu <input class="timeline-stop-input" data-stop-km="${point.km}" type="number" min="0" max="120" step="1" value="${stopMinutes}" aria-label="Temps d’arrêt prévu à ${point.label}, en minutes"><span>min</span></label><div class="nutrition-chips"><span class="nutrition-chip">${carbs} g glucides</span><span class="nutrition-chip">${calories} kcal</span>${proteins ? `<span class="nutrition-chip">${proteins} g protéines</span>` : ''}${fats ? `<span class="nutrition-chip">${fats} g lipides</span>` : ''}</div></div><div class="timeline-time">${incomingTimeLabel}</div></article>`,
+          html: `<article class="timeline-row timeline-aid ${isAssistance ? 'timeline-aid-assistance' : ''}"><div><div class="timeline-race-time"><small>TEMPS DE COURSE</small>${formatDuration(elapsedAtPoint(point.km))}</div><div class="timeline-km">${isAssistance ? 'ASSISTANCE' : 'RAVITO'}<br>KM ${point.km.toFixed(1)}</div></div><div><div class="timeline-title">${point.label}</div><label class="timeline-stop-control">Arrêt prévu <input class="timeline-stop-input" data-stop-km="${point.km}" type="number" min="0" max="120" step="1" value="${stopMinutes}" aria-label="Temps d’arrêt prévu à ${point.label}, en minutes"><span>min</span></label><div class="timeline-summary">Prochain ravito : ${nextAid ? `${nextAid.label} · km ${nextKm.toFixed(1)}` : `arrivée · km ${finishKm.toFixed(1)}`}</div><button type="button" class="timeline-detail-toggle" aria-expanded="false">Détail nutrition</button><div class="timeline-details"><div class="timeline-detail-heading">À emporter pour la suite</div>${nextLegProfile}<p class="timeline-nutrition-intro">À prendre ${destination} · ${formatDuration(untilNextSeconds)} de course prévue${point.cutoffLabel ? ` · barrière ${point.cutoffLabel}` : ''}.</p><div class="nutrition-chips"><span class="nutrition-chip">Apports : ${calories} kcal</span><span class="nutrition-chip">Dépense : ~${energySpent} kcal</span><span class="nutrition-chip">Déficit : ~${deficit} kcal</span><span class="nutrition-chip">${carbs} g glucides</span>${proteins ? `<span class="nutrition-chip">${proteins} g protéines</span>` : ''}${fats ? `<span class="nutrition-chip">${fats} g lipides</span>` : ''}</div><p class="timeline-nutrition-advice">Objectif : ~${Math.round(calories / Math.max(0.1, untilNextSeconds / 3600))} kcal/h et ${Math.round(carbs / Math.max(0.1, untilNextSeconds / 3600))} g de glucides/h, répartis régulièrement avant le prochain ravito.</p></div></div><div class="timeline-time">${incomingTimeLabel}</div></article>`,
         });
       });
       const totalStopSeconds = aidStations.reduce((sum, point) => sum + point.stopSeconds, 0);
       events.push({
         type: 'finish',
         position: finishKm,
-        html: `<article class="timeline-row timeline-finish"><div><div class="timeline-race-time"><small>TEMPS DE COURSE</small>${formatDuration(timeAtKm(finishKm) + totalStopSeconds)}</div><div class="timeline-km">ARRIVÉE<br>KM ${finishKm.toFixed(1)}</div></div><div><div class="timeline-title">Arrivée</div><div class="timeline-meta">Fin de course · ${formatDuration(timeAtKm(finishKm))} en mouvement${totalStopSeconds ? ` · ${formatDuration(totalStopSeconds)} d’arrêts inclus dans le total` : ''}</div></div><div class="timeline-time">${timelineTime(timeAtKm(finishKm) + totalStopSeconds)}</div></article>`,
+        html: `<article class="timeline-row timeline-finish"><div><div class="timeline-race-time"><small>TEMPS DE COURSE</small>${formatDuration(timeAtKm(finishKm) + totalStopSeconds)}</div><div class="timeline-km">ARRIVÉE<br>KM ${finishKm.toFixed(1)}</div></div><div><div class="timeline-title">Arrivée</div><div class="timeline-summary">${formatDuration(timeAtKm(finishKm))} en mouvement${totalStopSeconds ? ` · ${formatDuration(totalStopSeconds)} d’arrêts` : ''}</div><button type="button" class="timeline-detail-toggle" aria-expanded="false">Bilan</button><div class="timeline-details"><div class="timeline-detail-heading">Bilan de la projection</div><p class="timeline-nutrition-intro">Temps total incluant les arrêts : ${formatDuration(timeAtKm(finishKm) + totalStopSeconds)}.</p><p class="timeline-nutrition-advice">Prévois ta récupération dès l’arrivée : hydratation, glucides et protéines selon ta tolérance.</p></div></div><div class="timeline-time">${timelineTime(timeAtKm(finishKm) + totalStopSeconds)}</div></article>`,
       });
       const eventRank = { start: -1, segment: 0, control: 1, aid: 2, aid_assistance: 2, finish: 3 };
       return `<div class="projection-timeline">${events.sort((a, b) => a.position - b.position || eventRank[a.type] - eventRank[b.type]).map((event) => event.html).join('')}</div>`;
@@ -1058,6 +1136,7 @@
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || 'Impossible de lire ce GPX.');
+        const simulationDifficultyPercent = Math.max(0, Number(data.official_course?.difficulty_coefficient_percent || 0));
 
         let movingSeconds = 0;
         let gain = 0;
@@ -1070,11 +1149,11 @@
           let segmentSeconds = 0;
           (segment.slope_distribution || []).forEach((part) => {
             const projectedPace = projectedPaceForSlope(part.slope_id, zone);
-            let pace = manualMode.checked ? manualPaceForSlope(part.slope_id) : projectedPace.pace;
+            let pace = paceWithCourseDifficulty(manualMode.checked ? manualPaceForSlope(part.slope_id) : projectedPace.pace, simulationDifficultyPercent);
             if (!manualMode.checked && projectedPace.source === 'Courbe de départ') manualFallback = true;
             const distance = Number(part.distance_km || 0);
             if (!(pace > 0) && distance > 0) {
-              pace = manualPaceForSlope(part.slope_id);
+              pace = paceWithCourseDifficulty(manualPaceForSlope(part.slope_id), simulationDifficultyPercent);
               manualFallback = true;
             }
             if (pace > 0 && distance > 0) {
@@ -1099,28 +1178,30 @@
         status.textContent = '';
         const aidStations = (data.official_course ? officialCoursePoints(data.official_course) : getAidStations()).filter((aid) => aid.km <= Number(data.total_distance_km || 0));
         const stopSeconds = aidStations.reduce((sum, aid) => sum + aid.stopSeconds, 0);
-        let nutrition = nutritionPlan(movingSeconds, Number(weightInput.value));
+        let nutrition = nutritionPlan(movingSeconds, Number(weightInput.value), Number(data.total_distance_km || 0), gain, zone);
         const totalSeconds = movingSeconds + stopSeconds;
         const stopDetail = stopSeconds ? ` · ${formatDuration(stopSeconds)} de ravito` : '';
         const manualCourseName = manualCourseNameInput.value.trim() || 'Ma trace GPX';
         const courseDetail = data.official_course ? ` · ${data.official_course.name}` : ` · ${manualCourseName}`;
+        const difficultyDetail = simulationDifficultyPercent ? ` · difficulté +${simulationDifficultyPercent}% (allures ×${(1 + simulationDifficultyPercent / 100).toFixed(2)})` : '';
         result.innerHTML = `
-          <div class="home-summary-label">Temps total estimé · ${manualMode.checked ? 'réglages manuels' : zone}${courseDetail}</div>
+          <div class="home-summary-label">Temps total estimé · ${manualMode.checked ? 'réglages manuels' : zone}${courseDetail}${difficultyDetail}</div>
           <div class="projection-time" id="home-projection-total">${formatDuration(totalSeconds)}</div>
           <div class="projection-detail" id="home-projection-distance-detail">${Number(data.total_distance_km || 0).toFixed(1)} km · D+ ${Math.round(gain)} m · D− ${Math.round(loss)} m · ${formatDuration(movingSeconds)} en mouvement${stopDetail}</div>
+          ${simulationDifficultyPercent ? `<div class="projection-detail" style="margin-top:8px; color:#fde68a;">Coefficient de technicité appliqué : +${simulationDifficultyPercent}% de temps sur toutes les pentes. Cette simulation utilise donc des allures ×${(1 + simulationDifficultyPercent / 100).toFixed(2)}.</div>` : ''}
           ${manualMode.checked ? '<div class="projection-detail" style="margin-top:8px;">Projection calculée avec tes réglages manuels. Ils ne sont pas encore sauvegardés.</div>' : ''}
           ${manualFallback ? '<div class="projection-detail" style="margin-top:8px;">Les pentes sans historique suffisant utilisent une courbe parabolique de départ, ajustable dans le tableau de profil.</div>' : ''}
-          <div class="projection-detail" style="margin-top:8px;">Cible nutrition : ~${Math.round(nutrition.carbRate)} g de glucides/h${nutrition.proteinRate ? ` · ${nutrition.proteinRate.toFixed(0)} g de protéines/h` : ''}${nutrition.fatRate ? ` · ${nutrition.fatRate.toFixed(0)} g de lipides/h` : ''}${nutrition.weightIsEstimated ? ' · poids non renseigné : estimation basée sur 70 kg' : ''}.</div>
+          <div class="projection-detail" id="home-projection-nutrition-detail" style="margin-top:8px;">Plan nutrition : ~${Math.round(nutrition.carbRate)} g de glucides/h${nutrition.proteinRate ? ` · ${nutrition.proteinRate.toFixed(0)} g de protéines/h` : ''}${nutrition.fatRate ? ` · ${nutrition.fatRate.toFixed(0)} g de lipides/h` : ''} · apports planifiés ~${Math.round(nutrition.carbRate * 4 + nutrition.proteinRate * 4 + nutrition.fatRate * 9)} kcal/h · dépense estimée ~${Math.round(nutrition.expenditureRate)} kcal/h${nutrition.weightIsEstimated ? ' · poids non renseigné : estimation basée sur 70 kg' : ''}.</div>
+          <div class="projection-detail" style="margin-top:6px; font-size:.76rem;">Ce plan est une estimation générique basée sur ton poids, le parcours et l’intensité choisie. Pour une stratégie précise et adaptée à ta santé, à ta tolérance digestive ou à un suivi glycémique, fais valider et personnaliser l’analyse par un professionnel de la nutrition.</div>
           ${elevationProfileSvg(data.elevation_profile)}
-          <div class="timeline-toolbar"><div><label for="home-result-split">Découpage des tronçons</label><select id="home-result-split"><option value="0">Sans tronçons</option><option value="1">Tous les 1 km</option><option value="5">Tous les 5 km</option><option value="10">Tous les 10 km</option><option value="25">Tous les 25 km</option></select></div><div class="timeline-filter" role="group" aria-label="Affichage de la feuille de route"><button type="button" class="is-active" data-timeline-mode="all">Tous les tronçons</button><button type="button" data-timeline-mode="points">Ravitos & contrôles uniquement</button></div></div>
+          <div class="timeline-toolbar"><div><div class="home-summary-label">Feuille de route · ravitos, assistance et contrôles</div></div><div class="timeline-toolbar-actions"><button type="button" data-timeline-expand="all">Tout déplier</button><button type="button" data-timeline-expand="none">Tout replier</button></div></div>
           <div id="home-projection-timeline"></div>
         `;
         result.classList.add('is-visible');
         const timelineHost = result.querySelector('#home-projection-timeline');
-        const resultSplitInput = result.querySelector('#home-result-split');
         const totalProjectionOutput = result.querySelector('#home-projection-total');
         const distanceDetailOutput = result.querySelector('#home-projection-distance-detail');
-        let pointsOnly = false;
+        const nutritionDetailOutput = result.querySelector('#home-projection-nutrition-detail');
         let departureTime = '07:00';
         const refreshProjectionSummary = () => {
           const currentStopSeconds = aidStations.reduce((sum, point) => sum + point.stopSeconds, 0);
@@ -1129,6 +1210,8 @@
           distanceDetailOutput.textContent = `${Number(data.total_distance_km || 0).toFixed(1)} km · D+ ${Math.round(gain)} m · D− ${Math.round(loss)} m · ${formatDuration(movingSeconds)} en mouvement${currentStopDetail}`;
           profileLiveTotal.textContent = `Temps estimé · ${formatDuration(movingSeconds + currentStopSeconds)}`;
           profileLiveStopDetail.textContent = `Arrêts ravito · ${currentStopSeconds ? formatDuration(currentStopSeconds) : '0 min'}`;
+          const plannedRate = nutrition.carbRate * 4 + nutrition.proteinRate * 4 + nutrition.fatRate * 9;
+          nutritionDetailOutput.textContent = `Plan nutrition : ~${Math.round(nutrition.carbRate)} g de glucides/h${nutrition.proteinRate ? ` · ${nutrition.proteinRate.toFixed(0)} g de protéines/h` : ''}${nutrition.fatRate ? ` · ${nutrition.fatRate.toFixed(0)} g de lipides/h` : ''} · apports planifiés ~${Math.round(plannedRate)} kcal/h · dépense estimée ~${Math.round(nutrition.expenditureRate)} kcal/h · déficit estimé ~${Math.max(0, Math.round(nutrition.expenditureRate - plannedRate))} kcal/h${nutrition.weightIsEstimated ? ' · poids non renseigné : estimation basée sur 70 kg' : ''}.`;
         };
         const syncStopToCourseSettings = (km, minutes) => {
           Array.from(aidStationList.querySelectorAll('[data-course-km]')).forEach((input) => {
@@ -1141,9 +1224,7 @@
           });
         };
         const renderTimeline = () => {
-          timelineHost.innerHTML = buildProjectionTimeline(projectedRows, Number(resultSplitInput.value || 0), aidStations, nutrition, departureTime);
-          const timeline = timelineHost.querySelector('.projection-timeline');
-          if (timeline) timeline.classList.toggle('show-points-only', pointsOnly);
+          timelineHost.innerHTML = buildProjectionTimeline(projectedRows, 0, aidStations, nutrition, departureTime, data.elevation_profile);
         };
         renderTimeline();
         refreshProjectionSummary();
@@ -1156,11 +1237,11 @@
             let segmentSeconds = 0;
             (segment.slope_distribution || []).forEach((part) => {
               const projectedPace = projectedPaceForSlope(part.slope_id, activeZone);
-              let pace = manualMode.checked ? manualPaceForSlope(part.slope_id) : projectedPace.pace;
+              let pace = paceWithCourseDifficulty(manualMode.checked ? manualPaceForSlope(part.slope_id) : projectedPace.pace, simulationDifficultyPercent);
               if (!manualMode.checked && projectedPace.source === 'Courbe de départ') nextManualFallback = true;
               const distance = Number(part.distance_km || 0);
               if (!(pace > 0) && distance > 0) {
-                pace = manualPaceForSlope(part.slope_id);
+                pace = paceWithCourseDifficulty(manualPaceForSlope(part.slope_id), simulationDifficultyPercent);
                 nextManualFallback = true;
               }
               if (pace > 0 && distance > 0) {
@@ -1181,11 +1262,10 @@
           movingSeconds = nextMovingSeconds;
           manualFallback = nextManualFallback;
           projectedRows.splice(0, projectedRows.length, ...nextRows);
-          nutrition = nutritionPlan(movingSeconds, Number(weightInput.value));
+          nutrition = nutritionPlan(movingSeconds, Number(weightInput.value), Number(data.total_distance_km || 0), gain, activeZone);
           refreshProjectionSummary();
           renderTimeline();
         };
-        resultSplitInput.addEventListener('change', renderTimeline);
         timelineHost.addEventListener('input', (event) => {
           const input = event.target.closest('.timeline-stop-input');
           if (!input) return;
@@ -1214,11 +1294,20 @@
         };
         timelineHost.addEventListener('input', updateDeparturePassages);
         timelineHost.addEventListener('change', updateDeparturePassages);
-        result.querySelectorAll('[data-timeline-mode]').forEach((button) => button.addEventListener('click', () => {
-          pointsOnly = button.dataset.timelineMode === 'points';
-          const timeline = timelineHost.querySelector('.projection-timeline');
-          if (timeline) timeline.classList.toggle('show-points-only', pointsOnly);
-          result.querySelectorAll('[data-timeline-mode]').forEach((item) => item.classList.toggle('is-active', item === button));
+        timelineHost.addEventListener('click', (event) => {
+          const toggle = event.target.closest('.timeline-detail-toggle');
+          if (!toggle) return;
+          const row = toggle.closest('.timeline-row');
+          const expanded = !row.classList.contains('is-expanded');
+          row.classList.toggle('is-expanded', expanded);
+          toggle.setAttribute('aria-expanded', String(expanded));
+        });
+        result.querySelectorAll('[data-timeline-expand]').forEach((button) => button.addEventListener('click', () => {
+          const expand = button.dataset.timelineExpand === 'all';
+          timelineHost.querySelectorAll('.timeline-row').forEach((row) => {
+            row.classList.toggle('is-expanded', expand);
+            row.querySelector('.timeline-detail-toggle')?.setAttribute('aria-expanded', String(expand));
+          });
         }));
       } catch (error) {
         status.textContent = error.message || 'La simulation n’a pas pu être calculée.';

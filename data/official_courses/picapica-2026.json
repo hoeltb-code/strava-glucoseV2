@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "id": "picapica-2026",
+  "name": "PICaPICA 2026",
+  "short_name": "PICaPICA",
+  "edition_year": 2026,
+  "sport": "trail",
+  "route_file": "picapica-2026.gpx",
+  "distance_km": 104.7,
+  "difficulty_coefficient_percent": 75,
+  "start_location": "Auzat – Plaine des sports",
+  "finish_location": "Auzat – Plaine des sports",
+  "timezone": "Europe/Paris",
+  "points": [
+    {"order": 1, "km": 0.0, "name": "Auzat – Plaine des sports", "altitude_m": 747, "type": "start"},
+    {"order": 2, "km": 14.3, "name": "Izourt", "altitude_m": 1661, "type": "aid_station_assistance"},
+    {"order": 3, "km": 24.3, "name": "Refuge du Fourcat", "altitude_m": 2434, "type": "aid_station_assistance"},
+    {"order": 4, "km": 30.2, "name": "Soulcem 1", "altitude_m": 1636, "type": "aid_station_assistance", "cutoff_label": "14 h de course"},
+    {"order": 5, "km": 38.4, "name": "Coma d’Arcalis", "altitude_m": 2241, "type": "aid_station_assistance"},
+    {"order": 6, "km": 51.3, "name": "Cabane de la Crouts", "altitude_m": 1856, "type": "aid_station_assistance"},
+    {"order": 7, "km": 63.8, "name": "Soulcem 2", "altitude_m": 1635, "type": "aid_station_assistance", "cutoff_label": "30 h de course"},
+    {"order": 8, "km": 69.6, "name": "Pic du Montcalm – point d’eau", "altitude_m": 3048, "type": "checkpoint"},
+    {"order": 9, "km": 76.5, "name": "Refuge du Pinet", "altitude_m": 2228, "type": "aid_station_assistance"},
+    {"order": 10, "km": 81.1, "name": "Lartigue", "altitude_m": 1192, "type": "aid_station_assistance", "cutoff_label": "42 h de course"},
+    {"order": 11, "km": 93.5, "name": "Refuge de Bassiès", "altitude_m": 1655, "type": "aid_station_assistance"},
+    {"order": 12, "km": 104.7, "name": "Auzat – Plaine des sports", "altitude_m": 747, "type": "finish"}
+  ]
+}

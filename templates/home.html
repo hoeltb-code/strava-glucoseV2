@@ -170,15 +170,31 @@
             0 résultat
           {% endif %}
         </div>
-        <div style="display:flex; gap:8px; align-items:center;">
+        <nav aria-label="Pagination des utilisateurs" style="display:flex; gap:5px; align-items:center; flex-wrap:wrap;">
           {% if user_pagination.has_prev %}
-            <a href="{{ user_pagination.prev_url }}" style="text-decoration:none;">← Précédents</a>
+            <a href="{{ user_pagination.first_url }}" title="Première page" aria-label="Première page" style="text-decoration:none;">«</a>
+            <a href="{{ user_pagination.prev_url }}" title="Page précédente" aria-label="Page précédente" style="text-decoration:none;">‹</a>
+          {% else %}
+            <span aria-hidden="true" style="color:var(--text-muted);">«</span>
+            <span aria-hidden="true" style="color:var(--text-muted);">‹</span>
           {% endif %}
-          <span style="font-size:0.9rem; color:var(--text-muted);">Page {{ user_pagination.page }}</span>
+          {% for page_link in user_pagination.page_links|default([]) %}
+            {% if page_link is none %}
+              <span style="padding:0 2px; color:var(--text-muted);">…</span>
+            {% elif page_link.current %}
+              <span aria-current="page" style="min-width:26px; padding:3px 7px; border-radius:7px; background:var(--accent); color:#06111d; text-align:center; font-weight:800;">{{ page_link.number }}</span>
+            {% else %}
+              <a href="{{ page_link.url }}" style="min-width:26px; padding:3px 7px; border-radius:7px; border:1px solid var(--border); text-align:center; text-decoration:none;">{{ page_link.number }}</a>
+            {% endif %}
+          {% endfor %}
           {% if user_pagination.has_next %}
-            <a href="{{ user_pagination.next_url }}" style="text-decoration:none;">Suivants →</a>
+            <a href="{{ user_pagination.next_url }}" title="Page suivante" aria-label="Page suivante" style="text-decoration:none;">›</a>
+            <a href="{{ user_pagination.last_url }}" title="Dernière page" aria-label="Dernière page" style="text-decoration:none;">»</a>
+          {% else %}
+            <span aria-hidden="true" style="color:var(--text-muted);">›</span>
+            <span aria-hidden="true" style="color:var(--text-muted);">»</span>
           {% endif %}
-        </div>
+        </nav>
       </div>
 
       <form id="bulk-delete-form" method="post" action="/admin/users/bulk-delete" onsubmit="return confirm('Supprimer définitivement les utilisateurs sélectionnés et toutes leurs données ?');">

@@ -3784,20 +3784,41 @@ def ui_home(request: Request):
         enrichment_dashboard = _collect_enrichment_admin_rows(db)
 
         total_filtered_users = len(filtered_users)
+        user_total_pages = max(1, math.ceil(total_filtered_users / user_page_size))
+        user_page = min(user_page, user_total_pages)
         user_offset = (user_page - 1) * user_page_size
         ui_users = filtered_users[user_offset:user_offset + user_page_size]
         user_has_prev = user_page > 1
         user_has_next = user_offset + user_page_size < total_filtered_users
+        page_numbers = {1, 2, user_total_pages - 1, user_total_pages, user_page - 1, user_page, user_page + 1}
+        page_numbers = sorted(page for page in page_numbers if 1 <= page <= user_total_pages)
+        page_links = []
+        previous_page_number = 0
+        for page_number in page_numbers:
+            if previous_page_number and page_number > previous_page_number + 1:
+                page_links.append(None)
+            page_links.append(
+                {
+                    "number": page_number,
+                    "url": _build_url_with_query(request, user_page=page_number),
+                    "current": page_number == user_page,
+                }
+            )
+            previous_page_number = page_number
         user_pagination = {
             "page": user_page,
             "page_size": user_page_size,
             "total": total_filtered_users,
+            "total_pages": user_total_pages,
             "start_index": user_offset + 1 if total_filtered_users else 0,
             "end_index": min(user_offset + user_page_size, total_filtered_users),
             "has_prev": user_has_prev,
             "has_next": user_has_next,
+            "first_url": _build_url_with_query(request, user_page=1),
+            "last_url": _build_url_with_query(request, user_page=user_total_pages),
             "prev_url": _build_url_with_query(request, user_page=user_page - 1) if user_has_prev else None,
             "next_url": _build_url_with_query(request, user_page=user_page + 1) if user_has_next else None,
+            "page_links": page_links,
         }
 
         activity_offset = (activity_page - 1) * activity_page_size

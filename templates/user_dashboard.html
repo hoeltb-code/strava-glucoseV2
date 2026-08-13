@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard · {{ user.email }}{% endblock %}
+{% block title %}{% if custom_course_mode %}Ma trace GPX · {{ user.email }}{% else %}Dashboard · {{ user.email }}{% endif %}{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -118,6 +118,9 @@
   .projection-form > div:nth-child(1), .projection-form #home-gpx-source { grid-column:span 3; min-width:0; }
   .projection-form > div:nth-child(3), .projection-form > button { grid-column:span 3; }
   .projection-form select { min-width:0; }
+  .custom-course-link { display:inline-flex; align-items:center; justify-content:center; min-height:43px; margin-top:8px; padding:9px 12px; border:1px solid rgba(184,255,69,.5); border-radius:11px; background:rgba(184,255,69,.1); color:#e6ffb5; font-size:.78rem; font-weight:800; text-decoration:none; }
+  .custom-course-link:hover { background:rgba(184,255,69,.18); color:#fff; }
+  .custom-simulator-back { display:inline-flex; margin-top:10px; color:var(--accent-2); font-size:.82rem; font-weight:700; text-decoration:none; }
   .gpx-source-fields { display:grid; grid-template-columns:minmax(160px, .7fr) minmax(0, 1.3fr); gap:10px; }
   .projection-form input[type="file"] { width:100%; min-height:44px; padding:8px; border:1px dashed var(--border); border-radius:12px; color:var(--text-muted); background:rgba(8,17,31,.68); }
   .manual-profile { margin-top:14px; padding:13px; border-radius:14px; background:rgba(8,17,31,.45); border:1px solid rgba(148,174,214,.2); }
@@ -128,6 +131,9 @@
   .manual-control output { color:var(--accent-2); font-weight:700; }
   .manual-control input[type="range"] { width:100%; accent-color:var(--accent); }
   .profile-pacing-preview { margin-top:14px; padding:13px; border:1px solid rgba(77,226,255,.24); border-radius:14px; background:rgba(8,17,31,.36); }
+  .profile-projection-zone { display:flex; flex-wrap:wrap; align-items:end; gap:10px; margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid rgba(148,174,214,.16); }
+  .profile-projection-zone > div { min-width:190px; }
+  .profile-projection-zone p { flex:1 1 240px; margin:0; color:var(--text-muted); font-size:.75rem; line-height:1.35; }
   .profile-pacing-heading { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:8px; }
   .profile-pacing-heading strong { font-size:.9rem; }
   .profile-pacing-note { color:var(--text-muted); font-size:.76rem; }
@@ -231,11 +237,15 @@
   .aid-stations { margin-top:14px; padding:13px; border-radius:14px; background:rgba(8,17,31,.45); border:1px solid rgba(148,174,214,.2); }
   .aid-stations-header { display:flex; align-items:end; gap:10px; }
   .aid-stations-header > div { max-width:180px; }
+  .aid-point-adder { display:flex; gap:8px; width:min(100%, 560px); margin-top:7px; }
+  .aid-point-adder select { min-width:250px; }
+  .aid-station-row.is-saved { border-color:rgba(184,255,69,.5); background:rgba(101,163,13,.12); }
   .aid-station-list { display:grid; gap:8px; margin-top:10px; }
   .official-point-settings { color:var(--accent-2); font-size:.8rem; margin:8px 0 0; }
-  .aid-station-row { display:grid; grid-template-columns:1fr 130px 100px 105px auto; gap:8px; align-items:end; }
+  .aid-station-row { display:grid; grid-template-columns:minmax(145px, .8fr) 175px 100px 105px auto auto; gap:8px; align-items:end; }
   .aid-station-row label { margin:0; font-size:.72rem; }
   .aid-station-row button { padding:9px 11px; background:rgba(255,122,89,.12); color:#ffd3c8; border-color:rgba(255,122,89,.35); }
+  .aid-station-row .aid-save { background:rgba(184,255,69,.13); color:#e6ffb5; border-color:rgba(184,255,69,.42); }
   .weight-note { margin:9px 0 0; font-size:.76rem; color:var(--text-muted); }
   .course-selection-note { margin:10px 0 0; color:var(--accent-2); font-size:.8rem; }
   .profile-summary-list { display:grid; gap:10px; margin-top:14px; }
@@ -372,6 +382,7 @@
     .gpx-source-fields { grid-template-columns:1fr; }
     .manual-controls { grid-template-columns:1fr; }
     .aid-stations-header { align-items:stretch; flex-direction:column; }
+    .aid-point-adder { flex-direction:column; }
     .aid-station-row { grid-template-columns:1fr 1fr; }
     .aid-station-row button { grid-column:span 2; }
     .timeline-row, .timeline-aid { grid-template-columns:70px minmax(0, 1fr); gap:8px; }
@@ -396,11 +407,18 @@
 {% set runner_name = user.first_name or user.email.split('@')[0] %}
 <section class="dashboard-hero" aria-labelledby="home-title">
   <div>
+    {% if custom_course_mode %}
+    <p class="dashboard-eyebrow">Simulateur GPX personnel</p>
+    <h1 id="home-title">Crée ta simulation de course</h1>
+    <p>Importe ta trace, positionne tes ravitos, assistances et contrôles, puis construis ton roadbook, ton chrono et ton plan nutritionnel.</p>
+    <a class="custom-simulator-back" href="/ui/user/{{ user.id }}#simulation">← Retour aux courses enregistrées</a>
+    {% else %}
     <p class="dashboard-eyebrow">Ton cockpit de course</p>
     <h1 id="home-title">Bonjour {{ runner_name }} 👋</h1>
     <p>
       Prépare un chrono sur ton prochain parcours, consulte ton profil coureur et retrouve tes outils de suivi au même endroit.
     </p>
+    {% endif %}
   </div>
   <div class="profile-orb" aria-label="{{ runner_name }}">{{ runner_name[0]|upper }}</div>
 </section>
@@ -411,11 +429,11 @@
 {% set descent_profile = profile_zone.get('Sneg10_15') or profile_zone.get('Sneg5_10') %}
 <section class="projection-workbench" aria-label="Simulation de course">
   <div class="card projection-panel" id="simulation">
-    <h2>Simuler une course</h2>
+    <h2>{% if custom_course_mode %}Simuler ma propre trace GPX{% else %}Simuler une course{% endif %}</h2>
     <div class="simulation-explainer">
       <article class="simulation-explainer-card">
-        <strong>🗺️ Choisis ton parcours</strong>
-        <p>Sélectionne une course enregistrée, puis l’intensité cardiaque à laquelle tu souhaites la courir.</p>
+        <strong>🗺️ {% if custom_course_mode %}Importe ta trace{% else %}Choisis ton parcours{% endif %}</strong>
+        <p>{% if custom_course_mode %}Donne un nom à ta course, ajoute son GPX puis place tes ravitos, assistances et contrôles.{% else %}Sélectionne une course enregistrée, puis l’intensité cardiaque à laquelle tu souhaites la courir.{% endif %}</p>
       </article>
       <article class="simulation-explainer-card">
         <strong>📈 Ton historique affine le chrono</strong>
@@ -427,7 +445,7 @@
       </article>
     </div>
     <form class="projection-form" id="home-projection-form">
-      <div>
+      <div {% if custom_course_mode %}hidden{% endif %}>
         <label for="home-official-course">Parcours</label>
         <select id="home-official-course">
           <option value="">Choisir une course enregistrée</option>
@@ -435,8 +453,9 @@
           <option value="{{ course.id }}" {% if not course.route_available %}disabled{% endif %}>{{ course.name }}{% if course.distance_km %} · {{ course.distance_km }} km{% endif %}{% if course.course_pace_category == 'technical' %} · 🔴 Technique{% elif course.course_pace_category == 'fast' %} · 🟢 Rapide{% else %} · 🟡 Roulant{% endif %}{% if not course.route_available %} · GPX manquant{% endif %}</option>
           {% endfor %}
         </select>
+        <a class="custom-course-link" href="/ui/user/{{ user.id }}/course-simulator">＋ Simuler ma propre trace GPX</a>
       </div>
-      <div id="home-gpx-source" hidden aria-hidden="true">
+      <div id="home-gpx-source" {% if not custom_course_mode %}hidden aria-hidden="true"{% endif %}>
         <div class="gpx-source-fields">
           <div>
             <label for="home-manual-course-name">Nom de ma course</label>
@@ -444,23 +463,15 @@
           </div>
           <div>
             <label for="home-projection-gpx">Trace GPX</label>
-            <input id="home-projection-gpx" type="file" accept=".gpx,application/gpx+xml" disabled>
+            <input id="home-projection-gpx" type="file" accept=".gpx,application/gpx+xml" {% if not custom_course_mode %}disabled{% endif %}>
           </div>
         </div>
-      </div>
-      <div>
-        <label for="home-projection-zone">Intensité</label>
-        <select id="home-projection-zone">
-          {% for zone in dashboard_hr_zones %}
-          <option value="{{ zone }}" {% if zone == 'Zone 2' %}selected{% endif %}>{{ zone }}</option>
-          {% endfor %}
-        </select>
       </div>
     </form>
     <div class="manual-profile">
       <label class="manual-profile-toggle" for="home-manual-mode">
         <input id="home-manual-mode" type="checkbox" {% if not runner_profile_overview or not runner_profile_overview.zones %}checked{% endif %}>
-        Ajuster manuellement mon profil pour cette simulation
+        Ajuster manuellement les allures prévues pour cette course
       </label>
       <div class="manual-controls" id="home-manual-controls" {% if runner_profile_overview and runner_profile_overview.zones %}hidden{% endif %}>
         <div class="manual-control">
@@ -476,8 +487,19 @@
           <input id="home-ascent-level" type="range" min="1" max="10" step="1" value="5">
         </div>
       </div>
-      <p class="profile-pacing-note" style="margin:10px 0 0;">Niveau 1&nbsp;: prudent · Niveau 5&nbsp;: équilibré · Niveau 10&nbsp;: très performant. Les niveaux alimentent une courbe universelle lissée.</p>
+      <p class="profile-pacing-note" style="margin:10px 0 0;">Ce réglage permet de corriger à la main les allures prévues pour la course. Niveau 1&nbsp;: prudent · Niveau 5&nbsp;: équilibré · Niveau 10&nbsp;: très performant.</p>
       <div class="profile-pacing-preview" aria-live="polite">
+        <div class="profile-projection-zone">
+          <div>
+            <label for="home-projection-zone">Intensité visée pour la course</label>
+            <select id="home-projection-zone">
+              {% for zone in dashboard_hr_zones %}
+              <option value="{{ zone }}" {% if zone == 'Zone 2' %}selected{% endif %}>{{ zone }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <p id="home-profile-zone-note">Critère basé sur l’historique de vos activités : les allures et la VAM enregistrées dans cette zone cardiaque servent de référence à la projection.</p>
+        </div>
         <div class="profile-pacing-heading">
           <strong id="home-profile-table-title">Profil utilisé par pente</strong>
           <span class="profile-pacing-note" id="home-profile-table-note"></span>
@@ -494,13 +516,19 @@
         <input id="home-runner-weight" type="number" min="35" max="150" step="0.5" value="{{ user.weight_kg or '' }}" placeholder="kg">
       </div>
     </div>
-    <button type="button" class="profile-calculate" id="home-projection-submit">Recalculer après mes ajustements</button>
     <div class="aid-stations" id="home-course-points">
       <div style="font-weight:700; margin-bottom:8px;" id="home-point-settings-title">Points de ma trace</div>
       <div class="aid-stations-header">
         <div id="home-aid-count-control">
-          <label for="home-aid-count">Nombre de points de course</label>
-          <input id="home-aid-count" type="number" min="0" max="15" step="1" value="0">
+          <label for="home-point-type">Ajouter un point de course</label>
+          <div class="aid-point-adder">
+            <select id="home-point-type">
+              <option value="aid">Ravito autonome</option>
+              <option value="aid_assistance">Ravito avec assistance</option>
+              <option value="control">Point de contrôle</option>
+            </select>
+            <button type="button" id="home-add-point">Ajouter le point</button>
+          </div>
         </div>
       </div>
       <div class="aid-station-list" id="home-aid-station-list"></div>
@@ -528,10 +556,12 @@
     const pointSettingsTitle = document.getElementById('home-point-settings-title');
     const zoneInput = document.getElementById('home-projection-zone');
     const weightInput = document.getElementById('home-runner-weight');
-    const aidCountInput = document.getElementById('home-aid-count');
+    const pointTypeInput = document.getElementById('home-point-type');
+    const addPointButton = document.getElementById('home-add-point');
     const aidStationList = document.getElementById('home-aid-station-list');
     const status = document.getElementById('home-projection-status');
     const result = document.getElementById('home-projection-result');
+    const customCourseMode = {{ custom_course_mode | default(false) | tojson }};
     const runnerProfileData = {{ runner_profile_overview | default({}) | tojson | safe }};
     const communityPaceCurves = {{ dashboard_cohort_curves | default({}) | tojson | safe }};
     const officialCourses = {{ official_courses | default([]) | tojson | safe }};
@@ -540,7 +570,6 @@
     const flatSpeed = document.getElementById('home-flat-speed');
     const descentLevel = document.getElementById('home-descent-level');
     const ascentLevel = document.getElementById('home-ascent-level');
-    const projectionSubmit = document.getElementById('home-projection-submit');
     const profileTableTitle = document.getElementById('home-profile-table-title');
     const profileTableNote = document.getElementById('home-profile-table-note');
     const profileCurve = document.getElementById('home-profile-curve');
@@ -730,6 +759,12 @@
       const zone = zoneInput.value;
       const historicalZone = (runnerProfileData.zones || {})[zone] || {};
       const manual = manualMode.checked;
+      const zoneNote = document.getElementById('home-profile-zone-note');
+      if (zoneNote) {
+        zoneNote.textContent = manual
+          ? 'Réglage manuel actif : les allures et la VAM de cette projection sont corrigées avec les curseurs ci-dessus, pour cette course uniquement.'
+          : 'Critère basé sur l’historique de vos activités : les allures et la VAM enregistrées dans cette zone cardiaque servent de référence à la projection.';
+      }
       const hasHistoricalData = Object.values(historicalZone).some((cell) => Number(cell?.avg_pace_s_per_km) > 0);
       const coefficientPercent = currentCourseCoefficientPercent();
       const coefficientSuffix = coefficientPercent !== 100 ? ` · coefficient ${coefficientPercent}%` : '';
@@ -793,19 +828,35 @@
     }
 
     function renderAidStations() {
-      const count = Math.max(0, Math.min(15, Number(aidCountInput.value) || 0));
-      aidStationList.innerHTML = Array.from({ length: count }, (_, index) => `
+      // Les lignes restent dans le DOM : modifier ou supprimer un point ne doit
+      // jamais effacer les informations saisies dans les autres lignes.
+    }
+
+    function addAidStation(type) {
+      const index = aidStationList.querySelectorAll('.aid-station-row').length;
+      aidStationList.insertAdjacentHTML('beforeend', `
         <div class="aid-station-row">
           <div><label for="aid-name-${index}">Nom du point</label><input id="aid-name-${index}" class="aid-name" type="text" placeholder="ex. Col de la Forclaz"></div>
-          <div><label for="aid-type-${index}">Type</label><select id="aid-type-${index}" class="aid-type"><option value="aid">Ravito autonome</option><option value="aid_assistance">Ravito avec assistance</option><option value="control">Contrôle</option></select></div>
+          <div><label for="aid-type-${index}">Type</label><select id="aid-type-${index}" class="aid-type"><option value="aid" ${type === 'aid' ? 'selected' : ''}>Ravito autonome</option><option value="aid_assistance" ${type === 'aid_assistance' ? 'selected' : ''}>Ravito avec assistance</option><option value="control" ${type === 'control' ? 'selected' : ''}>Contrôle</option></select></div>
           <div><label for="aid-km-${index}">Kilomètre</label><input id="aid-km-${index}" class="aid-km" type="number" min="0" step="0.1" placeholder="24.5"></div>
           <div><label for="aid-stop-${index}">Arrêt prévu · min</label><input id="aid-stop-${index}" class="aid-stop" type="number" min="0" max="90" step="1" value="5"></div>
+          <button type="button" class="aid-save">Valider</button>
           <button type="button" class="aid-remove" aria-label="Supprimer le point ${index + 1}">Supprimer</button>
-        </div>`).join('');
-      aidStationList.querySelectorAll('.aid-remove').forEach((button) => button.addEventListener('click', () => {
-        aidCountInput.value = Math.max(0, Number(aidCountInput.value || 0) - 1);
-        renderAidStations();
-      }));
+        </div>`);
+      const row = aidStationList.lastElementChild;
+      row.querySelector('.aid-save').addEventListener('click', () => {
+        row.classList.add('is-saved');
+        row.querySelector('.aid-save').textContent = 'Validé';
+        if (fileInput.files && fileInput.files[0]) form.requestSubmit();
+      });
+      row.querySelector('.aid-remove').addEventListener('click', () => {
+        row.remove();
+        if (fileInput.files && fileInput.files[0]) form.requestSubmit();
+      });
+      row.querySelectorAll('input, select').forEach((input) => ['input', 'change'].forEach((eventName) => input.addEventListener(eventName, () => {
+        row.classList.remove('is-saved');
+        row.querySelector('.aid-save').textContent = 'Valider';
+      })));
     }
 
     function getAidStations() {
@@ -834,11 +885,13 @@
 
     function updateCourseSource() {
       const official = Boolean(officialCourseInput.value);
-      gpxSource.hidden = true;
-      fileInput.required = false;
-      fileInput.disabled = true;
-      customCoursePoints.hidden = true;
-      aidCountControl.hidden = official;
+      const useCustomTrace = customCourseMode && !official;
+      gpxSource.hidden = !useCustomTrace;
+      gpxSource.setAttribute('aria-hidden', String(!useCustomTrace));
+      fileInput.required = useCustomTrace;
+      fileInput.disabled = !useCustomTrace;
+      customCoursePoints.hidden = !useCustomTrace;
+      aidCountControl.hidden = !useCustomTrace;
       officialPointSettings.hidden = !official;
       courseSelectionNote.hidden = !official;
       if (official) {
@@ -850,7 +903,7 @@
           : `Profil : ${coursePaceCategoryLabel(course)}. Les ravitos, assistances, contrôles et barrières sont appliqués automatiquement. Les temps d’arrêt se règlent directement dans le déroulé de course.`;
         renderOfficialPointSettings(course);
       } else {
-        pointSettingsTitle.textContent = 'Points de ma trace';
+        pointSettingsTitle.textContent = 'Points de ma trace · ravitos, assistance et contrôles';
         renderAidStations();
       }
       renderProfilePacingTable();
@@ -883,8 +936,7 @@
       renderArchivedProfileTable();
       if (refreshLiveProjection) refreshLiveProjection();
     });
-    projectionSubmit.addEventListener('click', () => form.requestSubmit());
-    aidCountInput.addEventListener('input', renderAidStations);
+    addPointButton.addEventListener('click', () => addAidStation(pointTypeInput.value));
     officialCourseInput.addEventListener('change', () => {
       updateCourseSource();
       if (officialCourseInput.value) form.requestSubmit();

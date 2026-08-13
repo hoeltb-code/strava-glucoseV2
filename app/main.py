@@ -6062,6 +6062,8 @@ def ui_user_dashboard(user_id: int, request: Request):
     if guard:
         return guard
 
+    custom_course_mode = request.query_params.get("mode") == "custom"
+
     db = SessionLocal()
 
     # ✅ variables par défaut (sécurité en cas d'erreur intermédiaire)
@@ -6693,9 +6695,19 @@ def ui_user_dashboard(user_id: int, request: Request):
             "daily_glucose_day_end": daily_glucose_day_end,
             "show_daily_glucose": show_daily_glucose,
             "dashboard_warning": dashboard_warning,
+            "custom_course_mode": custom_course_mode,
             "debug_js": debug_js,
         },
     )
+
+
+@app.get("/ui/user/{user_id}/course-simulator")
+def ui_user_custom_course_simulator(user_id: int, request: Request):
+    """Entrée dédiée vers le simulateur d'une trace GPX personnelle."""
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+    return RedirectResponse(url=f"/ui/user/{user_id}?mode=custom#simulation", status_code=303)
 
 
 #-----------------------------------------------------------------------------

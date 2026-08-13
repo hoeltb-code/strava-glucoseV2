@@ -18,6 +18,8 @@
     align-items: stretch;
   }
 
+  .login-grid > * { min-width: 0; }
+
   .login-hero,
   .login-panel,
   .login-flow {
@@ -73,6 +75,20 @@
     line-height: 1.55;
   }
 
+  .login-promise {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 17px 0 0;
+    padding: 8px 11px;
+    border: 1px solid rgba(184,255,69,.3);
+    border-radius: 999px;
+    background: rgba(184,255,69,.08);
+    color: #ebffc5;
+    font-size: .78rem;
+    font-weight: 700;
+  }
+
   .login-meta {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -121,6 +137,12 @@
   .login-mini-metrics { display:grid; gap:7px; margin-top:10px; }
   .login-mini-metrics span { display:flex; justify-content:space-between; gap:8px; color:var(--text-muted); font-size:.76rem; }
   .login-mini-metrics strong { color:var(--accent-2); font-family:"Orbitron",sans-serif; font-size:.74rem; }
+  .login-glucose-visual { margin-top:12px; padding:12px; border-radius:16px; border:1px solid rgba(248,113,113,.25); background:linear-gradient(135deg,rgba(127,29,29,.18),rgba(8,47,73,.25)); }
+  .login-glucose-visual > div { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+  .login-glucose-visual strong { color:#fff; font-size:.9rem; }
+  .login-glucose-visual span { color:#b8ff45; font-family:"Orbitron",sans-serif; font-size:.72rem; }
+  .login-glucose-chart { display:block; width:100%; height:54px; margin-top:7px; }
+  .login-glucose-visual p { margin:3px 0 0; color:var(--text-muted); font-size:.76rem; line-height:1.4; }
   .login-courses { padding:20px 22px; border-radius:20px; background:rgba(9,20,37,.82); border:1px solid rgba(77,226,255,.2); }
   .login-courses h3 { margin:0; font-family:"Orbitron",sans-serif; font-size:1rem; letter-spacing:.08em; text-transform:uppercase; }
   .login-courses > p { margin:7px 0 14px; color:var(--text-muted); }
@@ -163,6 +185,18 @@
     font-size: 0.92rem;
     line-height: 1.45;
   }
+
+  .login-method {
+    margin-top: 24px;
+    padding: 16px;
+    border-radius: 18px;
+    border: 1px solid rgba(148,174,214,.2);
+    background: rgba(5,14,27,.34);
+  }
+  .login-method h3 { margin:0 0 11px; color:#fff; font-size:1.02rem; }
+  .login-method-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
+  .login-method-step { padding:10px; border-radius:12px; background:rgba(255,255,255,.035); color:var(--text-muted); font-size:.78rem; line-height:1.4; }
+  .login-method-step b { display:block; margin-bottom:4px; color:#b8ff45; font-family:"Orbitron",sans-serif; font-size:.68rem; }
 
   .login-panel {
     padding: 24px;
@@ -213,6 +247,8 @@
     font-weight: 700;
   }
 
+  .login-panel-note { margin:15px 0 0; padding:11px; border-radius:12px; background:rgba(77,226,255,.08); border:1px solid rgba(77,226,255,.18); color:#d9f8ff; font-size:.78rem; line-height:1.45; }
+
   .login-flow {
     padding: 20px 22px;
     border-radius: 20px;
@@ -258,6 +294,9 @@
       grid-template-columns: 1fr;
     }
 
+    .login-panel { order: -1; }
+    .login-method-grid { grid-template-columns:1fr; }
+
     .login-visuals { grid-template-columns:1fr; }
 
     .login-title {
@@ -282,9 +321,10 @@
           Prépare. Analyse. Régule.
         </h1>
         <p class="login-copy">
-          Un cockpit de trail pour comprendre ton effort sur chaque pente, construire ton profil coureur,
-          projeter un chrono et, si tu le souhaites, relier l’intensité de course à ta glycémie.
+          Transforme tes sorties Strava en un profil de trail vivant : allures selon la pente, VAM, endurance,
+          cardio et capacité à enchaîner les dénivelés. Plus ton historique s’enrichit, plus les projections de course deviennent personnelles.
         </p>
+        <div class="login-promise">✦ Connecte Strava, construis ton profil, planifie ta prochaine course</div>
 
         <div class="login-meta">
           <div class="login-meta-card">
@@ -308,12 +348,22 @@
               <path d="M0 67 L28 60 L56 45 L84 12 L112 38 L140 55 L170 44 L202 20 L236 33 L270 58 L310 49 L310 78 L0 78 Z" fill="rgba(77,226,255,.10)"/>
               <path d="M0 67 L28 60" stroke="#4de2ff" stroke-width="5" fill="none"/><path d="M28 60 L56 45" stroke="#fbbf24" stroke-width="5" fill="none"/><path d="M56 45 L84 12" stroke="#ef4444" stroke-width="5" fill="none"/><path d="M84 12 L112 38" stroke="#2563eb" stroke-width="5" fill="none"/><path d="M112 38 L140 55" stroke="#60a5fa" stroke-width="5" fill="none"/><path d="M140 55 L170 44" stroke="#4de2ff" stroke-width="5" fill="none"/><path d="M170 44 L202 20" stroke="#f97316" stroke-width="5" fill="none"/><path d="M202 20 L236 33" stroke="#fbbf24" stroke-width="5" fill="none"/><path d="M236 33 L270 58" stroke="#2563eb" stroke-width="5" fill="none"/><path d="M270 58 L310 49" stroke="#fbbf24" stroke-width="5" fill="none"/>
             </svg>
-            <p>Allure, VAM ±, FC et glycémie lisibles au même kilomètre.</p>
+            <p>Une lecture directe du relief pour comprendre où tu montes, descends et récupères.</p>
           </article>
           <article class="login-visual-card">
-            <h3>Projection chrono</h3>
+            <h3>Projection de course</h3>
             <div class="login-mini-metrics"><span>Temps estimé <strong>22h 48</strong></span><span>Montées <strong>+730 m/h</strong></span><span>Ravitos <strong>+34 min</strong></span><span>Nutrition <strong>61 g/h</strong></span></div>
           </article>
+        </div>
+
+        <div class="login-glucose-visual">
+          <div><strong>Glycémie & intensité · en option</strong><span>112 mg/dL</span></div>
+          <svg class="login-glucose-chart" viewBox="0 0 350 54" role="img" aria-label="Exemple d'évolution de glycémie pendant un effort">
+            <path d="M0 34 L35 30 L70 35 L104 20 L140 17 L175 25 L210 19 L245 29 L280 23 L315 30 L350 18" fill="none" stroke="#b8ff45" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M0 10 H350 M0 43 H350" stroke="rgba(77,226,255,.25)" stroke-dasharray="4 5"/>
+            <circle cx="350" cy="18" r="4" fill="#b8ff45"/>
+          </svg>
+          <p>Pour les personnes vivant avec un diabète de type 1 ou 2 : relie Dexcom ou FreeStyle Libre pour visualiser les tendances en parallèle de l’effort. Ce suivi ne remplace jamais les recommandations de ton équipe soignante.</p>
         </div>
       </div>
 
@@ -328,6 +378,15 @@
           </div>
           {% endfor %}
       </div>
+
+      <section class="login-method" aria-label="Construction du profil coureur">
+        <h3>Comment ton profil coureur se construit</h3>
+        <div class="login-method-grid">
+          <div class="login-method-step"><b>01 · STRAVA</b>Chaque activité apporte de nouvelles données : allure, durée, pente, dénivelé et fréquence cardiaque.</div>
+          <div class="login-method-step"><b>02 · PROFIL</b>L’application observe tes repères sur plat, montée et descente, à différentes intensités.</div>
+          <div class="login-method-step"><b>03 · PROJECTION</b>Choisis une course, une zone d’effort et ajuste si besoin : chrono, ravitos et nutrition s’actualisent.</div>
+        </div>
+      </section>
     </section>
 
     <section id="login-card" class="login-panel">
@@ -335,7 +394,7 @@
         Connexion sécurisée
       </h2>
       <p class="login-panel-subtitle">
-        Accède à ton cockpit Strava Glucose pour suivre tes dernières activités enrichies.
+        Retrouve ton profil coureur, tes projections de course et, si tu le souhaites, tes analyses glycémie.
       </p>
 
       <form method="post" action="/ui/login" class="login-form">
@@ -369,6 +428,7 @@
         Pas encore de compte ?
         <a href="/ui/signup">Inscris-toi ici</a>
       </div>
+      <p class="login-panel-note">Nouveau ici ? Commence par connecter Strava : tes sorties alimentent progressivement ton profil. Tu pourras toujours ajuster les allures manuellement pour une première projection.</p>
     </section>
   </div>
 

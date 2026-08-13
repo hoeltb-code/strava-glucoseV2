@@ -5267,6 +5267,21 @@ def ui_runner_profile(
 
     glucose_zone_summary = []
     glucose_chart_24h = []
+    glucose_dashboard_metrics = {
+        "has_data": False,
+        "latest_mgdl": None,
+        "latest_label": "—",
+        "delta_mgdl": None,
+        "trend_label": "Données insuffisantes",
+        "trend_tone": "neutral",
+        "average_mgdl": None,
+        "variability_pct": None,
+        "minimum_mgdl": None,
+        "maximum_mgdl": None,
+        "time_in_range_pct": None,
+        "low_pct": None,
+        "high_pct": None,
+    }
     recent_glucose_activities = []
     glucose_activity_chart = {"labels": [], "start": [], "avg": [], "tir": []}
     glucose_activity_profile_radar = None
@@ -5392,14 +5407,47 @@ def ui_runner_profile(
                 aware = aware.replace(tzinfo=dt.timezone.utc)
             return aware.isoformat()
 
+        valid_points_24h = [p for p in points_24h if p.mgdl is not None and p.ts is not None]
         glucose_chart_24h = [
             {
                 "ts": _ts_iso(p.ts),
                 "mgdl": float(p.mgdl),
             }
-            for p in points_24h
-            if p.mgdl is not None and p.ts is not None
+            for p in valid_points_24h
         ]
+
+        if glucose_chart_24h:
+            values_24h = [float(point["mgdl"]) for point in glucose_chart_24h]
+            latest_point = glucose_chart_24h[-1]
+            latest_dt = _safe_dt(valid_points_24h[-1].ts) if valid_points_24h else now_utc
+            freshness_minutes = max(0, int((now_utc - latest_dt).total_seconds() // 60))
+            delta_mgdl = None
+            trend_label = "Stable"
+            trend_tone = "stable"
+            if len(values_24h) >= 2:
+                delta_mgdl = values_24h[-1] - values_24h[-2]
+                if delta_mgdl >= 12:
+                    trend_label, trend_tone = "En hausse", "up"
+                elif delta_mgdl <= -12:
+                    trend_label, trend_tone = "En baisse", "down"
+            first_summary = glucose_zone_summary[0] if glucose_zone_summary else {}
+            rows_by_id = {row["id"]: row for row in first_summary.get("rows", [])}
+            time_in_range_pct = sum(rows_by_id.get(zone, {}).get("percent", 0) for zone in ("G2", "G3", "G4"))
+            glucose_dashboard_metrics = {
+                "has_data": True,
+                "latest_mgdl": round(values_24h[-1]),
+                "latest_label": "à l’instant" if freshness_minutes <= 5 else f"il y a {freshness_minutes} min",
+                "delta_mgdl": round(delta_mgdl) if delta_mgdl is not None else None,
+                "trend_label": trend_label,
+                "trend_tone": trend_tone,
+                "average_mgdl": round(statistics.mean(values_24h)),
+                "variability_pct": round((statistics.pstdev(values_24h) / statistics.mean(values_24h)) * 100) if len(values_24h) > 1 and statistics.mean(values_24h) else None,
+                "minimum_mgdl": round(min(values_24h)),
+                "maximum_mgdl": round(max(values_24h)),
+                "time_in_range_pct": time_in_range_pct,
+                "low_pct": rows_by_id.get("G1", {}).get("percent", 0),
+                "high_pct": rows_by_id.get("G5", {}).get("percent", 0),
+            }
 
         # 6bis) Historique glycémie par activité (20 dernières activités avec données)
         recent_glucose_activities = []
@@ -5672,6 +5720,7 @@ def ui_runner_profile(
             "show_glucose_tabs": show_glucose_tabs,
             "glucose_zone_summary": glucose_zone_summary,
             "glucose_chart_24h": glucose_chart_24h,
+            "glucose_dashboard_metrics": glucose_dashboard_metrics,
             "glucose_activity_chart": glucose_activity_chart,
             "glucose_activity_table": recent_glucose_activities,
             "glucose_activity_profile_radar": glucose_activity_profile_radar,

@@ -120,14 +120,21 @@
   .projection-form select { min-width:0; }
   .custom-course-link { display:inline-flex; align-items:center; justify-content:center; min-height:43px; margin-top:8px; padding:9px 12px; border:1px solid rgba(184,255,69,.5); border-radius:11px; background:rgba(184,255,69,.1); color:#e6ffb5; font-size:.78rem; font-weight:800; text-decoration:none; }
   .custom-course-link:hover { background:rgba(184,255,69,.18); color:#fff; }
-  .course-picker { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px; margin-top:7px; }
-  .course-picker-card { min-height:120px; padding:13px; border:1px solid rgba(148,163,184,.28); border-radius:13px; background:linear-gradient(145deg, rgba(30,41,59,.88), rgba(15,23,42,.72)); color:var(--text-main); text-align:left; cursor:pointer; letter-spacing:normal; transition:transform .16s ease, border-color .16s ease, background .16s ease; }
-  .course-picker-card:hover, .course-picker-card.is-selected { transform:translateY(-2px); border-color:rgba(184,255,69,.8); background:linear-gradient(145deg, rgba(72,92,39,.4), rgba(15,23,42,.82)); }
-  .course-picker-card strong { display:block; color:#fff; font-size:.94rem; line-height:1.2; letter-spacing:0; }
-  .course-picker-card small { display:block; margin-top:7px; color:#cbd5e1; font-size:.73rem; line-height:1.45; letter-spacing:0; }
-  .course-picker-card .course-picker-action { display:block; margin-top:9px; color:#d9ff88; font-size:.71rem; font-weight:800; letter-spacing:0; }
-  .course-picker-card.is-custom { border-style:dashed; border-color:rgba(77,226,255,.55); background:linear-gradient(145deg, rgba(8,47,73,.55), rgba(15,23,42,.72)); }
-  .course-picker-card.is-custom .course-picker-action { color:#a5f3fc; }
+  .projection-form > div.course-selection-showcase { grid-column:1 / -1; }
+  .course-selection-showcase { padding:16px; border:1px solid rgba(255,255,255,.82); border-radius:18px; background:linear-gradient(135deg,#f8fbff,#e9f4ff); box-shadow:inset 0 1px rgba(255,255,255,.9),0 10px 26px rgba(0,0,0,.13); }
+  .course-selection-showcase > label { display:block; color:#17233a; font-size:1.07rem; font-weight:800; }
+  .course-selection-showcase .course-selection-intro { margin:4px 0 12px; color:#52657f; font-size:.8rem; line-height:1.4; }
+  .course-picker { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:11px; margin-top:7px; }
+  .course-picker-card { min-height:156px; padding:0 14px 14px; border:1px solid rgba(30,64,110,.14); border-radius:15px; background:linear-gradient(145deg,#dbf4ff,#b9e6ff); color:#17233a; text-align:left; cursor:pointer; letter-spacing:normal; box-shadow:0 7px 14px rgba(51,91,132,.14); overflow:hidden; transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease, filter .16s ease; }
+  .course-picker-card:nth-child(2) { background:linear-gradient(145deg,#fff1b8,#ffd274); }.course-picker-card:nth-child(3) { background:linear-gradient(145deg,#ffd9e4,#ffa5c0); }
+  .course-picker-card:hover, .course-picker-card.is-selected { transform:translateY(-3px); border-color:#0ea5e9; box-shadow:0 12px 22px rgba(14,165,233,.26),0 0 0 3px rgba(14,165,233,.13); filter:saturate(1.12); }
+  .course-picker-card-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0 -14px 12px; padding:11px 12px; background:rgba(21,35,59,.88); color:#fff; }
+  .course-picker-card:nth-child(2) .course-picker-card-head { background:rgba(120,71,4,.88); }.course-picker-card:nth-child(3) .course-picker-card-head { background:rgba(130,32,65,.87); }.course-picker-card.is-custom .course-picker-card-head { background:rgba(13,94,87,.88); }
+  .course-picker-card .course-picker-card-head strong { display:block; color:#fff !important; font-family:"Orbitron",sans-serif; font-size:.82rem; line-height:1.2; letter-spacing:.02em; font-weight:800; text-shadow:0 1px 1px rgba(0,0,0,.24); }.course-picker-arrow { color:#fff; font-size:1rem; line-height:1; }
+  .course-picker-card small { display:block; margin-top:8px; color:#344865; font-family:Inter,sans-serif; font-size:.72rem; line-height:1.45; letter-spacing:0; font-weight:400; }
+  .course-picker-card .course-picker-action { display:block; margin-top:10px; color:#075985; font-size:.72rem; font-weight:900; letter-spacing:0; }
+  .course-picker-card.is-custom { border:1px dashed rgba(8,145,178,.7); background:linear-gradient(145deg,#d8fff7,#a7f3e5); }
+  .course-picker-card.is-custom .course-picker-action { color:#0f766e; }
   .custom-simulator-back { display:inline-flex; margin-top:10px; color:var(--accent-2); font-size:.82rem; font-weight:700; text-decoration:none; }
   .gpx-source-fields { display:grid; grid-template-columns:minmax(160px, .7fr) minmax(0, 1.3fr); gap:10px; }
   .projection-form input[type="file"] { width:100%; min-height:44px; padding:8px; border:1px dashed var(--border); border-radius:12px; color:var(--text-muted); background:rgba(8,17,31,.68); }
@@ -474,8 +481,9 @@
       </article>
     </div>
     <form class="projection-form" id="home-projection-form">
-      <div {% if custom_course_mode %}hidden{% endif %}>
+      <div class="course-selection-showcase" {% if custom_course_mode %}hidden{% endif %}>
         <label for="home-official-course">Choisis un parcours</label>
+        <p class="course-selection-intro">Des parcours officiels déjà préparés, avec leurs ravitos, assistances, contrôles et barrières. Sélectionne simplement celui que tu veux planifier.</p>
         <select id="home-official-course" hidden aria-hidden="true" tabindex="-1">
           <option value="">Choisir une course enregistrée</option>
           {% for course in official_courses %}<option value="{{ course.id }}" {% if not course.route_available %}disabled{% endif %}>{{ course.name }}</option>{% endfor %}
@@ -483,13 +491,13 @@
         <div class="course-picker" role="list" aria-label="Courses à planifier">
           {% for course in official_courses %}
           <button class="course-picker-card" type="button" data-course-picker="{{ course.id }}" {% if not course.route_available %}disabled{% endif %} role="listitem">
-            <strong>{{ course.name }}</strong>
+            <span class="course-picker-card-head"><strong>🏔️ {{ course.name }}</strong><span class="course-picker-arrow">→</span></span>
             <small>{% if course.distance_km %}{{ course.distance_km }} km{% endif %}{% if course.elevation_gain_m %} · D+ {{ course.elevation_gain_m|round|int }} m{% endif %}{% if course.elevation_loss_m %} · D− {{ course.elevation_loss_m|round|int }} m{% endif %}{% if not course.route_available %}<br>GPX manquant{% endif %}</small>
             <span class="course-picker-action">Planifier cette course →</span>
           </button>
           {% endfor %}
           <a class="course-picker-card is-custom" href="/ui/user/{{ user.id }}/course-simulator" role="listitem">
-            <strong>Ma propre trace GPX</strong>
+            <span class="course-picker-card-head"><strong>Ma propre trace GPX</strong><span class="course-picker-arrow">→</span></span>
             <small>Importe ton GPX, puis définis toi-même les ravitos, assistances et contrôles.</small>
             <span class="course-picker-action">Créer ma simulation →</span>
           </a>

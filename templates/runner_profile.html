@@ -247,9 +247,15 @@
   .glucose-zone-list { display:grid; gap:6px; }
   .glucose-zone-row { display:grid; grid-template-columns:10px minmax(0,1fr) auto; align-items:center; gap:7px; color:var(--text-muted); font-size:.7rem; }
   .glucose-zone-dot { width:8px; height:8px; border-radius:50%; }.glucose-zone-row strong { color:#fff; font-size:.72rem; font-weight:700; }.glucose-zone-row span:last-child { color:#d8e4f2; }
-  .glucose-chart-card { margin-top:14px; padding:15px; border:1px solid rgba(77,226,255,.22); border-radius:17px; background:rgba(5,14,27,.34); }
-  .glucose-chart-card h4 { margin:0; font-size:.96rem; letter-spacing:0; text-transform:none; }.glucose-chart-card p { margin:4px 0 12px; }
-  .glucose-chart-legend { display:flex; flex-wrap:wrap; gap:9px; margin:0 0 10px; color:var(--text-muted); font-size:.69rem; }.glucose-chart-legend b { color:#fff; }.glucose-chart-legend i { display:inline-block; width:8px; height:8px; margin-right:4px; border-radius:50%; }
+  .glucose-chart-card { margin-top:14px; padding:17px; border:1px solid rgba(77,226,255,.28); border-radius:18px; background:radial-gradient(circle at 88% 0,rgba(77,226,255,.12),transparent 28%),linear-gradient(145deg,rgba(7,24,42,.88),rgba(12,30,52,.68)); box-shadow:inset 0 1px rgba(255,255,255,.045),0 14px 30px rgba(0,0,0,.16); }
+  .glucose-chart-card h4 { margin:0; font-size:1.02rem; letter-spacing:0; text-transform:none; }.glucose-chart-card p { margin:4px 0 12px; }
+  .glucose-chart-legend { display:flex; flex-wrap:wrap; gap:7px; margin:0 0 12px; color:var(--text-muted); font-size:.69rem; }.glucose-chart-legend span { padding:5px 7px; border:1px solid rgba(148,174,214,.15); border-radius:999px; background:rgba(255,255,255,.035); }.glucose-chart-legend b { color:#fff; }.glucose-chart-legend i { display:inline-block; width:8px; height:8px; margin-right:4px; border-radius:50%; }
+  .glucose-chart-frame { position:relative; padding:10px 8px 2px; border-radius:13px; background:rgba(2,10,22,.30); border:1px solid rgba(148,174,214,.12); }
+  .glucose-chart-frame::after { content:"Dernière mesure"; position:absolute; top:10px; right:12px; color:rgba(216,228,242,.58); font-size:.62rem; letter-spacing:.08em; text-transform:uppercase; }
+  .glucose-activity-charts { display:grid !important; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px !important; }
+  .glucose-activity-chart-card { min-width:0; padding:14px !important; border:1px solid rgba(148,174,214,.2) !important; border-radius:16px !important; background:linear-gradient(145deg,rgba(9,28,50,.84),rgba(20,32,58,.64)) !important; box-shadow:inset 0 1px rgba(255,255,255,.04); }
+  .glucose-activity-chart-card:nth-child(2) { border-color:rgba(184,255,69,.22) !important; }.glucose-activity-chart-card:nth-child(3) { border-color:rgba(77,226,255,.25) !important; }
+  .glucose-activity-chart-title { margin-bottom:8px; color:#fff; font-size:.83rem; font-weight:800; }.glucose-activity-chart-title span { display:block; margin-top:3px; color:var(--text-muted); font-size:.68rem; font-weight:400; }
 
   @media (max-width: 640px) {
     .runner-section p,
@@ -298,6 +304,7 @@
     .glucose-header { display:block; }.glucose-disclaimer { margin-top:11px; }
     .glucose-now, .glucose-periods { grid-template-columns:1fr 1fr; }
     .glucose-now-card.is-current { grid-column:span 2; }
+    .glucose-activity-charts { grid-template-columns:1fr; }
   }
 
   @media (max-width: 900px) {
@@ -1151,7 +1158,7 @@
           <p class="muted">Les bandes de couleur aident à situer la courbe : bas, cible et élevé.</p>
           <div class="glucose-chart-legend"><span><i style="background:#60a5fa"></i>Bas &lt; 70</span><span><i style="background:#b8ff45"></i><b>Cible 70–180 mg/dL</b></span><span><i style="background:#f87171"></i>Élevé &gt; 180</span></div>
           {% if glucose_chart_24h and glucose_chart_24h|length > 1 %}
-            <div style="height:280px;"><canvas id="glucose24hChart" height="250"></canvas></div>
+            <div class="glucose-chart-frame" style="height:290px;"><canvas id="glucose24hChart" height="260"></canvas></div>
           {% else %}
             <p class="muted" style="margin:0;">Pas assez de points récents pour dessiner la courbe.</p>
           {% endif %}
@@ -1170,6 +1177,10 @@
             }));
 
             const ctx = document.getElementById('glucose24hChart').getContext('2d');
+            const curveGradient = ctx.createLinearGradient(0, 0, 0, 280);
+            curveGradient.addColorStop(0, 'rgba(184,255,69,.32)');
+            curveGradient.addColorStop(.7, 'rgba(77,226,255,.07)');
+            curveGradient.addColorStop(1, 'rgba(77,226,255,0)');
             const glucoseBands = {
               id: 'glucoseBands',
               beforeDraw(chart) {
@@ -1190,6 +1201,20 @@
                 });
                 ctx.restore();
               },
+              afterDraw(chart) {
+                const { ctx, chartArea, scales } = chart;
+                const y = scales.y;
+                if (!chartArea || !y) return;
+                ctx.save();
+                [70, 180].forEach((value) => {
+                  const pixel = y.getPixelForValue(value);
+                  if (pixel < chartArea.top || pixel > chartArea.bottom) return;
+                  ctx.setLineDash([5, 5]);
+                  ctx.strokeStyle = value === 70 ? 'rgba(96,165,250,.55)' : 'rgba(248,113,113,.55)';
+                  ctx.beginPath(); ctx.moveTo(chartArea.left, pixel); ctx.lineTo(chartArea.right, pixel); ctx.stroke();
+                });
+                ctx.restore();
+              },
             };
 
             new Chart(ctx, {
@@ -1199,11 +1224,20 @@
                   label: 'Glycémie (mg/dL)',
                   data: series,
                   borderColor: '#b8ff45',
-                  backgroundColor: 'rgba(184,255,69,0.10)',
+                  backgroundColor: curveGradient,
                   tension: 0.28,
                   pointRadius: 0,
                   borderWidth: 2.5,
                   fill: true,
+                }, {
+                  label: 'Dernière mesure',
+                  data: [series[series.length - 1]],
+                  showLine: false,
+                  pointRadius: 5,
+                  pointHoverRadius: 7,
+                  pointBorderWidth: 3,
+                  pointBackgroundColor: '#b8ff45',
+                  pointBorderColor: '#102237',
                 }]
               },
               plugins: [glucoseBands],
@@ -1214,6 +1248,12 @@
                 plugins: {
                   legend: { display: false },
                   tooltip: {
+                    displayColors: false,
+                    backgroundColor: 'rgba(7,17,31,.96)',
+                    titleColor: '#d8e4f2',
+                    bodyColor: '#b8ff45',
+                    padding: 10,
+                    cornerRadius: 9,
                     callbacks: {
                       title: items => {
                         const point = items[0].raw;
@@ -1263,21 +1303,21 @@
         </p>
 
         {% if glucose_activity_chart.labels and glucose_activity_chart.labels|length > 0 %}
-          <div style="display:flex; flex-direction:column; gap:16px;">
-            <div style="border:1px solid #e5e7eb; border-radius:6px; padding:12px;">
-              <div style="font-weight:600; margin-bottom:6px;">Glycémie au départ</div>
+          <div class="glucose-activity-charts">
+            <div class="glucose-activity-chart-card">
+              <div class="glucose-activity-chart-title">Glycémie au départ<span>Avant de démarrer l’effort</span></div>
               <div style="height:220px;">
                 <canvas id="glucoseStartChart" style="width:100%; height:100%;"></canvas>
               </div>
             </div>
-            <div style="border:1px solid #e5e7eb; border-radius:6px; padding:12px;">
-              <div style="font-weight:600; margin-bottom:6px;">Glycémie moyenne</div>
+            <div class="glucose-activity-chart-card">
+              <div class="glucose-activity-chart-title">Glycémie moyenne<span>Pendant chaque activité</span></div>
               <div style="height:220px;">
                 <canvas id="glucoseAvgChart" style="width:100%; height:100%;"></canvas>
               </div>
             </div>
-            <div style="border:1px solid #e5e7eb; border-radius:6px; padding:12px;">
-              <div style="font-weight:600; margin-bottom:6px;">Temps dans la cible</div>
+            <div class="glucose-activity-chart-card">
+              <div class="glucose-activity-chart-title">Temps dans la cible<span>70–180 mg/dL par sortie</span></div>
               <div style="height:220px;">
                 <canvas id="glucoseTirChart" style="width:100%; height:100%;"></canvas>
               </div>
@@ -1380,10 +1420,13 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 interaction: { mode: 'index', intersect: false },
-                plugins: { legend: { display: false } },
+                plugins: {
+                  legend: { display: false },
+                  tooltip: { displayColors:false, backgroundColor:'rgba(7,17,31,.96)', titleColor:'#d8e4f2', bodyColor:'#fff', padding:9, cornerRadius:8 },
+                },
                 scales: {
                   x: {
-                    ticks: { maxRotation: 0 },
+                    ticks: { maxRotation: 0, color:'#b9c7d8', font:{ size:10 } },
                     grid: { display: false },
                   },
                 },
@@ -1407,9 +1450,9 @@
                 datasets: [{
                   label: 'Départ',
                   data: chartData.start,
-                  borderColor: '#2563eb',
-                  backgroundColor: 'rgba(37,99,235,0.12)',
-                  tension: 0.2,
+                  borderColor: '#60a5fa',
+                  backgroundColor: 'rgba(96,165,250,0.14)',
+                  tension: 0.3,
                   fill: true,
                   spanGaps: true,
                 }],
@@ -1419,8 +1462,8 @@
                 scales: {
                   ...baseConfig.options.scales,
                   y: {
-                    title: { display: true, text: 'mg/dL' },
-                    grid: { color: '#e5e7eb' },
+                    ticks: { color:'#b9c7d8' }, title: { display: true, text: 'mg/dL', color:'#d8e4f2' },
+                    grid: { color: 'rgba(148,174,214,.15)' },
                   },
                 },
               },
@@ -1433,9 +1476,9 @@
                 datasets: [{
                   label: 'Moyenne',
                   data: chartData.avg,
-                  borderColor: '#dc2626',
-                  backgroundColor: 'rgba(220,38,38,0.12)',
-                  tension: 0.2,
+                  borderColor: '#b8ff45',
+                  backgroundColor: 'rgba(184,255,69,0.13)',
+                  tension: 0.3,
                   fill: true,
                   spanGaps: true,
                 }],
@@ -1445,8 +1488,8 @@
                 scales: {
                   ...baseConfig.options.scales,
                   y: {
-                    title: { display: true, text: 'mg/dL' },
-                    grid: { color: '#e5e7eb' },
+                    ticks: { color:'#b9c7d8' }, title: { display: true, text: 'mg/dL', color:'#d8e4f2' },
+                    grid: { color: 'rgba(148,174,214,.15)' },
                   },
                 },
               },
@@ -1459,9 +1502,9 @@
                 datasets: [{
                   label: 'Temps dans la cible',
                   data: chartData.tir,
-                  borderColor: '#059669',
-                  backgroundColor: 'rgba(5,150,105,0.12)',
-                  tension: 0.2,
+                  borderColor: '#4de2ff',
+                  backgroundColor: 'rgba(77,226,255,0.13)',
+                  tension: 0.3,
                   fill: true,
                   spanGaps: true,
                 }],
@@ -1471,10 +1514,10 @@
                 scales: {
                   ...baseConfig.options.scales,
                   y: {
-                    title: { display: true, text: '%' },
+                    ticks: { color:'#b9c7d8' }, title: { display: true, text: '%', color:'#d8e4f2' },
                     min: 0,
                     max: 100,
-                    grid: { color: '#e5e7eb' },
+                    grid: { color: 'rgba(148,174,214,.15)' },
                   },
                 },
               },

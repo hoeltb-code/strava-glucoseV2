@@ -1512,10 +1512,6 @@
           profileLiveTotal.textContent = `Temps estimé · ${formatDuration(movingSeconds + currentStopSeconds)}`;
           profileLiveStopDetail.textContent = `Arrêts ravito · ${currentStopSeconds ? formatDuration(currentStopSeconds) : '0 min'}`;
           const plannedRate = nutrition.carbRate * 4 + nutrition.proteinRate * 4 + nutrition.fatRate * 9;
-          const pdfFuelingSchedule = buildTwentyMinuteFuelingSchedule(data.elevation_profile, projectedRows, terrainNutritionWindows, aidStations).intakes.map((intake) => ({
-            moment: intake.seconds ? `H+${formatDuration(intake.courseSeconds)}` : 'Départ', km: `km ${intake.km.toFixed(1)}`,
-            gain: `D+ ${intake.gain} m`, loss: `D- ${intake.loss} m`, carbs: `${intake.carbs} g`, advice: intake.advice, terrain: intake.terrain,
-          }));
           nutritionDetailOutput.textContent = `Plan nutrition : ~${Math.round(nutrition.carbRate)} g de glucides/h${nutrition.proteinRate ? ` · ${nutrition.proteinRate.toFixed(0)} g de protéines/h` : ''}${nutrition.fatRate ? ` · ${nutrition.fatRate.toFixed(0)} g de lipides/h` : ''} · apports planifiés ~${Math.round(plannedRate)} kcal/h · dépense estimée ~${Math.round(nutrition.expenditureRate)} kcal/h · déficit estimé ~${Math.max(0, Math.round(nutrition.expenditureRate - plannedRate))} kcal/h${nutrition.weightIsEstimated ? ' · poids non renseigné : estimation basée sur 70 kg' : ''}.`;
         };
         const syncStopToCourseSettings = (km, minutes) => {
@@ -1559,6 +1555,15 @@
         renderTimeline();
         renderFuelingSchedule();
         const emailPlanButton = result.querySelector('#home-plan-email-btn');
+        const buildPdfFuelingSchedule = () => buildTwentyMinuteFuelingSchedule(data.elevation_profile, projectedRows, terrainNutritionWindows, aidStations).intakes.map((intake) => ({
+          moment: intake.seconds ? `H+${formatDuration(intake.courseSeconds)}` : 'Départ',
+          km: `km ${intake.km.toFixed(1)}`,
+          gain: `D+ ${intake.gain} m`,
+          loss: `D- ${intake.loss} m`,
+          carbs: `${intake.carbs} g`,
+          advice: intake.advice,
+          terrain: intake.terrain,
+        }));
         const projectedTimeAtKm = (targetKm) => {
           let previousKm = 0;
           let previousSeconds = 0;
@@ -1650,7 +1655,7 @@
             zone: manualMode.checked ? 'Réglages manuels' : zoneInput.value,
             departure_time: departureTime,
             nutrition: { carbs_rate: `${Math.round(nutrition.carbRate)} g`, protein_rate: `${Math.round(nutrition.proteinRate)} g`, fat_rate: `${Math.round(nutrition.fatRate)} g`, calories_rate: `${Math.round(plannedRate)} kcal`, expenditure_rate: `~${Math.round(nutrition.expenditureRate)} kcal`, total_carbs: `${Math.round(nutrition.carbRate * movingSeconds / 3600)} g`, total_proteins: `${Math.round(nutrition.proteinRate * movingSeconds / 3600)} g`, total_fats: `${Math.round(nutrition.fatRate * movingSeconds / 3600)} g`, total_calories: `${Math.round(plannedRate * movingSeconds / 3600)} kcal` },
-            roadbook, pacing, nutrition_stops: nutritionStops, fueling_schedule: pdfFuelingSchedule, legs, elevation_profile: data.elevation_profile || [], fueling_windows: terrainNutritionWindows,
+            roadbook, pacing, nutrition_stops: nutritionStops, fueling_schedule: buildPdfFuelingSchedule(), legs, elevation_profile: data.elevation_profile || [], fueling_windows: terrainNutritionWindows,
           };
           emailPlanButton.disabled = true;
           emailPlanButton.textContent = 'Préparation du PDF…';

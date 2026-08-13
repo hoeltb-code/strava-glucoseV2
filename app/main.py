@@ -5836,11 +5836,13 @@ async def ui_send_course_plan_email(
     course_name = str(plan.get("course_name") or "Course simulée").strip()[:120]
     try:
         pdf_data = _build_course_plan_pdf(user=user, plan=plan)
+        roadbook_png = _build_course_plan_roadbook_png(plan=plan)
         _send_course_plan_email(
             to_email=user.email,
             recipient_name=user.first_name,
             course_name=course_name,
             pdf_data=pdf_data,
+            roadbook_png=roadbook_png,
             plan=plan,
         )
     except RuntimeError as exc:
@@ -6322,12 +6324,90 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
     return buffer.getvalue()
 
 
+def _build_course_plan_roadbook_png(*, plan: dict) -> bytes:
+    """Build a compact phone-friendly roadbook image attached with the race PDF."""
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+    except ImportError as exc:
+        raise RuntimeError("La génération de la feuille de route PNG n'est pas installée sur le serveur.") from exc
+
+    roadbook = [row for row in (plan.get("roadbook") or []) if isinstance(row, dict)]
+    if not roadbook:
+        raise RuntimeError("La feuille de route PNG nécessite une projection de course.")
+
+    def _font(size: int, *, bold: bool = False):
+        candidates = (
+            ["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "/Library/Fonts/Arial Bold.ttf"]
+            if bold
+            else ["/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/Library/Fonts/Arial.ttf"]
+        )
+        for candidate in candidates:
+            try:
+                return ImageFont.truetype(candidate, size)
+            except OSError:
+                continue
+        return ImageFont.load_default()
+
+    def _short(value: object, limit: int) -> str:
+        text = str(value or "—").strip()
+        return text if len(text) <= limit else f"{text[:limit - 1].rstrip()}…"
+
+    width, margin = 1080, 54
+    header_height, row_height, footer_height = 210, 76, 70
+    height = header_height + len(roadbook) * row_height + footer_height
+    image = Image.new("RGB", (width, height), "#071525")
+    draw = ImageDraw.Draw(image)
+    title_font, subtitle_font = _font(40, bold=True), _font(22)
+    type_font, name_font, detail_font = _font(18, bold=True), _font(25, bold=True), _font(20)
+    draw.rounded_rectangle((0, 0, width, header_height), radius=0, fill="#12304d")
+    draw.rectangle((0, header_height - 8, width, header_height), fill="#4de2ff")
+    course_name = _short(plan.get("course_name") or "Plan de course", 44)
+    draw.text((margin, 42), course_name, font=title_font, fill="#ffffff")
+    overview = " · ".join(part for part in [str(plan.get("distance") or "").strip(), str(plan.get("total_time") or "").strip()] if part)
+    draw.text((margin, 96), overview or "Feuille de route", font=subtitle_font, fill="#b9d5ea")
+    draw.text((margin, 142), "PASSAGES ESTIMÉS · RAVITOS · ASSISTANCES · CONTRÔLES", font=type_font, fill="#b8ff45")
+
+    colors = {
+        "départ": (77, 226, 255),
+        "ravito": (250, 204, 21),
+        "assistance": (249, 115, 22),
+        "contrôle": (167, 139, 250),
+        "arrivée": (184, 255, 69),
+    }
+    y = header_height
+    for index, row in enumerate(roadbook):
+        row_type = _short(row.get("type") or "Point", 16)
+        color = colors.get(row_type.lower(), (148, 174, 214))
+        row_fill = "#0c2036" if index % 2 == 0 else "#0a1b2e"
+        draw.rectangle((0, y, width, y + row_height), fill=row_fill)
+        draw.rectangle((0, y, 10, y + row_height), fill=color)
+        pill_right = margin + 164
+        draw.rounded_rectangle((margin, y + 19, pill_right, y + 55), radius=18, fill=color)
+        type_bbox = draw.textbbox((0, 0), row_type.upper(), font=type_font)
+        type_width = type_bbox[2] - type_bbox[0]
+        draw.text((margin + (164 - type_width) / 2, y + 27), row_type.upper(), font=type_font, fill="#0a1b2e")
+        draw.text((pill_right + 22, y + 16), _short(row.get("name"), 33), font=name_font, fill="#ffffff")
+        draw.text((pill_right + 22, y + 45), _short(row.get("km"), 16), font=detail_font, fill="#a8c2d8")
+        passage = _short(row.get("passage"), 16)
+        passage_bbox = draw.textbbox((0, 0), passage, font=name_font)
+        draw.text((width - margin - (passage_bbox[2] - passage_bbox[0]), y + 23), passage, font=name_font, fill="#ffffff")
+        y += row_height
+
+    draw.rectangle((0, height - footer_height, width, height), fill="#102b46")
+    draw.text((margin, height - 47), "D+ × Strava × Glucose · Feuille de route indicative", font=detail_font, fill="#b9d5ea")
+    draw.text((width - margin - 214, height - 47), "À enregistrer sur ton téléphone", font=detail_font, fill="#b8ff45")
+    png_buffer = BytesIO()
+    image.save(png_buffer, format="PNG", optimize=True)
+    return png_buffer.getvalue()
+
+
 def _send_course_plan_email(
     *,
     to_email: str,
     recipient_name: str | None,
     course_name: str,
     pdf_data: bytes,
+    roadbook_png: bytes,
     plan: dict,
 ) -> None:
     if not settings.SMTP_HOST or not settings.SMTP_PORT or not settings.SMTP_USER or not settings.SMTP_PASS:
@@ -6352,7 +6432,8 @@ def _send_course_plan_email(
     msg.set_content(_append_login_link_footer(
         f"{greeting}\n\n"
         f"Ton plan de course pour {course_name or 'ta simulation'} est prêt.\n\n"
-        "Tu trouveras le PDF en pièce jointe. Il est aussi proposé au téléchargement sur ton appareil après cet envoi. "
+        "Tu trouveras le PDF et une feuille de route PNG en pièces jointes. Le PNG, compact et lisible sur téléphone, "
+        "reprend les passages, ravitos, assistances, contrôles et l’arrivée. Le PDF est aussi proposé au téléchargement sur ton appareil après cet envoi. "
         "Il rassemble les éléments utiles pour préparer ta course :\n\n"
         "• ton temps estimé et l’intensité retenue ;\n"
         "• les allures et VAM utilisées selon les pentes ;\n"
@@ -6368,6 +6449,7 @@ def _send_course_plan_email(
         "Toute l'équipe D+ × Strava × Glucose\n"
     ))
     msg.add_attachment(pdf_data, maintype="application", subtype="pdf", filename=f"{safe_filename}-plan-de-course.pdf")
+    msg.add_attachment(roadbook_png, maintype="image", subtype="png", filename=f"{safe_filename}-feuille-de-route.png")
     with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
         server.starttls()
         server.login(settings.SMTP_USER, settings.SMTP_PASS)

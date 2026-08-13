@@ -7,6 +7,8 @@
   "sport": "trail",
   "route_file": "grp-ultra-tour-2026.gpx",
   "distance_km": 174.2,
+  "elevation_gain_m": 11043,
+  "elevation_loss_m": 11043,
   "course_coefficient_percent": 96,
   "course_pace_category": "rolling",
   "start_location": "Vielle-Aure",

@@ -105,7 +105,7 @@
     margin-bottom:20px;
   }
   .projection-panel { padding:22px; margin:0; }
-  .projection-panel h2 { margin:0 0 6px; font-size:1.2rem; }
+  .projection-panel h2 { margin:0 0 8px; font-size:1.42rem; }
   .projection-panel p { color:var(--text-muted); margin:0 0 18px; line-height:1.45; }
   .simulation-explainer { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; margin:14px 0 18px; }
   .simulation-explainer-card { padding:12px; border-radius:14px; border:1px solid rgba(148,174,214,.22); background:rgba(8,17,31,.42); }
@@ -120,10 +120,29 @@
   .projection-form select { min-width:0; }
   .custom-course-link { display:inline-flex; align-items:center; justify-content:center; min-height:43px; margin-top:8px; padding:9px 12px; border:1px solid rgba(184,255,69,.5); border-radius:11px; background:rgba(184,255,69,.1); color:#e6ffb5; font-size:.78rem; font-weight:800; text-decoration:none; }
   .custom-course-link:hover { background:rgba(184,255,69,.18); color:#fff; }
+  .course-picker { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px; margin-top:7px; }
+  .course-picker-card { min-height:120px; padding:13px; border:1px solid rgba(148,163,184,.28); border-radius:13px; background:linear-gradient(145deg, rgba(30,41,59,.88), rgba(15,23,42,.72)); color:var(--text-main); text-align:left; cursor:pointer; letter-spacing:normal; transition:transform .16s ease, border-color .16s ease, background .16s ease; }
+  .course-picker-card:hover, .course-picker-card.is-selected { transform:translateY(-2px); border-color:rgba(184,255,69,.8); background:linear-gradient(145deg, rgba(72,92,39,.4), rgba(15,23,42,.82)); }
+  .course-picker-card strong { display:block; color:#fff; font-size:.94rem; line-height:1.2; letter-spacing:0; }
+  .course-picker-card small { display:block; margin-top:7px; color:#cbd5e1; font-size:.73rem; line-height:1.45; letter-spacing:0; }
+  .course-picker-card .course-picker-action { display:block; margin-top:9px; color:#d9ff88; font-size:.71rem; font-weight:800; letter-spacing:0; }
+  .course-picker-card.is-custom { border-style:dashed; border-color:rgba(77,226,255,.55); background:linear-gradient(145deg, rgba(8,47,73,.55), rgba(15,23,42,.72)); }
+  .course-picker-card.is-custom .course-picker-action { color:#a5f3fc; }
   .custom-simulator-back { display:inline-flex; margin-top:10px; color:var(--accent-2); font-size:.82rem; font-weight:700; text-decoration:none; }
   .gpx-source-fields { display:grid; grid-template-columns:minmax(160px, .7fr) minmax(0, 1.3fr); gap:10px; }
   .projection-form input[type="file"] { width:100%; min-height:44px; padding:8px; border:1px dashed var(--border); border-radius:12px; color:var(--text-muted); background:rgba(8,17,31,.68); }
+  .course-profile-preview { margin-top:14px; padding:13px; border:1px solid rgba(148,174,214,.2); border-radius:14px; background:rgba(8,17,31,.36); }
+  .course-profile-preview .projection-profile { margin:0; }
+  .course-profile-title, .projection-planning-title, .projection-section-title { margin:16px 0 9px; color:#fff; font-size:1.2rem; line-height:1.2; letter-spacing:0; }
+  .course-profile-preview .course-profile-title { margin:0 0 10px; }
   .manual-profile { margin-top:14px; padding:13px; border-radius:14px; background:rgba(8,17,31,.45); border:1px solid rgba(148,174,214,.2); }
+  .pace-setup-title { margin-bottom:13px; }
+  .pace-setup-title h3 { margin:0; color:#fff; font-size:1.2rem; letter-spacing:0; }
+  .pace-setup-title p { margin:4px 0 0; color:var(--text-muted); font-size:.78rem; line-height:1.4; }
+  .profile-history-choice { padding:11px; border:1px solid rgba(77,226,255,.26); border-radius:11px; background:rgba(8,47,73,.2); }
+  .pace-choice-kicker { display:block; margin-bottom:5px; color:#a5f3fc; font-size:.69rem; font-weight:800; letter-spacing:.02em; text-transform:uppercase; }
+  .manual-profile-choice { margin-top:12px; padding:11px; border:1px solid rgba(184,255,69,.2); border-radius:11px; background:rgba(72,92,39,.12); }
+  .manual-profile-choice .profile-pacing-note { display:block; margin:5px 0 0; }
   .manual-profile-toggle { display:flex; align-items:center; gap:8px; margin:0; color:var(--text-main); font-size:.9rem; text-transform:none; letter-spacing:0; cursor:pointer; }
   .manual-controls { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px; margin-top:14px; }
   .manual-controls[hidden] { display:none; }
@@ -134,10 +153,12 @@
   .profile-projection-zone { display:flex; flex-wrap:wrap; align-items:end; gap:10px; margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid rgba(148,174,214,.16); }
   .profile-projection-zone > div { min-width:190px; }
   .profile-projection-zone p { flex:1 1 240px; margin:0; color:var(--text-muted); font-size:.75rem; line-height:1.35; }
+  .profile-projection-zone.profile-history-choice { margin-bottom:0; padding:11px; border:1px solid rgba(77,226,255,.26); border-radius:11px; background:rgba(8,47,73,.2); }
   .profile-pacing-heading { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:8px; }
   .profile-pacing-heading strong { font-size:.9rem; }
   .profile-pacing-note { color:var(--text-muted); font-size:.76rem; }
   .profile-live-total { display:grid; gap:2px; margin-left:auto; color:var(--accent-2); font-family:"Orbitron", sans-serif; font-size:.84rem; text-align:right; white-space:nowrap; }
+  .profile-live-total > strong { display:block; color:#b8ff45 !important; font-size:1.3rem !important; line-height:1.1; letter-spacing:.01em; text-shadow:0 0 12px rgba(184,255,69,.3); }
   .profile-live-total small { color:var(--text-muted); font-family:inherit; font-size:.6rem; }
   .profile-pacing-table { width:100%; margin-top:10px; border-collapse:collapse; font-size:.77rem; }
   .profile-pacing-table th, .profile-pacing-table td { padding:5px 4px; border-bottom:1px solid rgba(148,174,214,.14); text-align:left; color:var(--text-main); white-space:nowrap; }
@@ -210,7 +231,7 @@
   .course-plan-email button { padding:10px 15px; border-radius:10px; border:1px solid rgba(45,212,191,.55); background:linear-gradient(135deg, #0f766e, #155e75); color:#fff; font-weight:800; box-shadow:0 8px 18px rgba(15,118,110,.2); }
   .course-plan-email button:disabled { cursor:wait; opacity:.68; }
   .fueling-schedule { margin-top:18px; padding:14px; border:1px solid rgba(250,204,21,.35); border-radius:14px; background:linear-gradient(135deg, rgba(250,204,21,.1), rgba(15,23,42,.25)); }
-  .fueling-schedule h3 { margin:0; color:#fff; font-size:1rem; }
+  .fueling-schedule h3 { margin:0; color:#fff; font-size:1.18rem; }
   .fueling-schedule > p { margin:5px 0 10px; color:#e2e8f0; font-size:.78rem; line-height:1.4; }
   .fueling-profile { display:block; width:100%; height:155px; border-radius:10px; background:rgba(5,12,24,.35); }
   .fueling-intakes { display:grid; grid-template-columns:repeat(auto-fill, minmax(145px, 1fr)); gap:7px; margin-top:10px; max-height:330px; overflow:auto; padding-right:3px; }
@@ -236,10 +257,6 @@
   .timeline-filter button { padding:8px 11px; font-size:.75rem; background:rgba(77,226,255,.08); color:var(--text-main); border-color:rgba(77,226,255,.28); }
   .timeline-filter button.is-active { background:rgba(77,226,255,.25); border-color:var(--accent); }
   .projection-timeline.show-points-only .timeline-segment { display:none; }
-  .timeline-toolbar { display:flex; flex-wrap:wrap; align-items:end; gap:12px; margin:15px 0 0; }
-  .timeline-toolbar > div { min-width:190px; }
-  .timeline-toolbar-actions { display:flex; flex-wrap:wrap; gap:8px; }
-  .timeline-toolbar-actions button { padding:8px 11px; font-size:.75rem; background:rgba(255,255,255,.07); color:var(--text-main); border-color:rgba(255,255,255,.2); }
   .nutrition-chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
   .nutrition-chip { padding:3px 7px; border-radius:999px; background:rgba(255,255,255,.1); color:#fff7ed; font-size:.72rem; font-weight:700; }
   .timeline-stop-control { display:inline-flex; align-items:center; gap:6px; margin-top:8px; padding:5px 7px; border:1px solid rgba(255,255,255,.24); border-radius:9px; background:rgba(0,0,0,.14); color:var(--text-muted); font-size:.72rem; font-weight:700; }
@@ -458,14 +475,25 @@
     </div>
     <form class="projection-form" id="home-projection-form">
       <div {% if custom_course_mode %}hidden{% endif %}>
-        <label for="home-official-course">Parcours</label>
-        <select id="home-official-course">
+        <label for="home-official-course">Choisis un parcours</label>
+        <select id="home-official-course" hidden aria-hidden="true" tabindex="-1">
           <option value="">Choisir une course enregistrée</option>
-          {% for course in official_courses %}
-          <option value="{{ course.id }}" {% if not course.route_available %}disabled{% endif %}>{{ course.name }}{% if course.distance_km %} · {{ course.distance_km }} km{% endif %}{% if not course.route_available %} · GPX manquant{% endif %}</option>
-          {% endfor %}
+          {% for course in official_courses %}<option value="{{ course.id }}" {% if not course.route_available %}disabled{% endif %}>{{ course.name }}</option>{% endfor %}
         </select>
-        <a class="custom-course-link" href="/ui/user/{{ user.id }}/course-simulator">＋ Simuler ma propre trace GPX</a>
+        <div class="course-picker" role="list" aria-label="Courses à planifier">
+          {% for course in official_courses %}
+          <button class="course-picker-card" type="button" data-course-picker="{{ course.id }}" {% if not course.route_available %}disabled{% endif %} role="listitem">
+            <strong>{{ course.name }}</strong>
+            <small>{% if course.distance_km %}{{ course.distance_km }} km{% endif %}{% if course.elevation_gain_m %} · D+ {{ course.elevation_gain_m|round|int }} m{% endif %}{% if course.elevation_loss_m %} · D− {{ course.elevation_loss_m|round|int }} m{% endif %}{% if not course.route_available %}<br>GPX manquant{% endif %}</small>
+            <span class="course-picker-action">Planifier cette course →</span>
+          </button>
+          {% endfor %}
+          <a class="course-picker-card is-custom" href="/ui/user/{{ user.id }}/course-simulator" role="listitem">
+            <strong>Ma propre trace GPX</strong>
+            <small>Importe ton GPX, puis définis toi-même les ravitos, assistances et contrôles.</small>
+            <span class="course-picker-action">Créer ma simulation →</span>
+          </a>
+        </div>
       </div>
       <div id="home-gpx-source" {% if not custom_course_mode %}hidden aria-hidden="true"{% endif %}>
         <div class="gpx-source-fields">
@@ -480,11 +508,28 @@
         </div>
       </div>
     </form>
+    <div class="course-profile-preview" id="home-course-profile-preview" hidden></div>
     <div class="manual-profile">
-      <label class="manual-profile-toggle" for="home-manual-mode">
-        <input id="home-manual-mode" type="checkbox" {% if not runner_profile_overview or not runner_profile_overview.zones %}checked{% endif %}>
-        Ajuster manuellement les allures prévues pour cette course
-      </label>
+      <div class="pace-setup-title"><h3>Choisir mes allures pour la course</h3><p>Définis l’intensité cible à partir de ton historique, ou corrige les allures manuellement pour cette simulation.</p></div>
+      <div class="profile-projection-zone profile-history-choice">
+        <div>
+          <span class="pace-choice-kicker">Sur base de mon historique de sorties</span>
+          <label for="home-projection-zone">Intensité visée pour la course</label>
+          <select id="home-projection-zone">
+            {% for zone in dashboard_hr_zones %}
+            <option value="{{ zone }}" {% if zone == 'Zone 2' %}selected{% endif %}>{{ zone }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <p id="home-profile-zone-note">Les allures et la VAM enregistrées dans cette zone cardiaque servent de référence à la projection.</p>
+      </div>
+      <div class="manual-profile-choice">
+        <label class="manual-profile-toggle" for="home-manual-mode">
+          <input id="home-manual-mode" type="checkbox" {% if not runner_profile_overview or not runner_profile_overview.zones %}checked{% endif %}>
+          Modifier manuellement mes allures pour cette course
+        </label>
+        <p class="profile-pacing-note">À utiliser pour corriger les données proposées ou créer un profil de départ. Niveau 1 : prudent · Niveau 5 : équilibré · Niveau 10 : très performant.</p>
+      </div>
       <div class="manual-controls" id="home-manual-controls" {% if runner_profile_overview and runner_profile_overview.zones %}hidden{% endif %}>
         <div class="manual-control">
           <label for="home-flat-speed">Vitesse sur plat <output id="home-flat-speed-output">8.5 km/h</output></label>
@@ -499,19 +544,7 @@
           <input id="home-ascent-level" type="range" min="1" max="10" step="1" value="5">
         </div>
       </div>
-      <p class="profile-pacing-note" style="margin:10px 0 0;">Ce réglage permet de corriger à la main les allures prévues pour la course. Niveau 1&nbsp;: prudent · Niveau 5&nbsp;: équilibré · Niveau 10&nbsp;: très performant.</p>
       <div class="profile-pacing-preview" aria-live="polite">
-        <div class="profile-projection-zone">
-          <div>
-            <label for="home-projection-zone">Intensité visée pour la course</label>
-            <select id="home-projection-zone">
-              {% for zone in dashboard_hr_zones %}
-              <option value="{{ zone }}" {% if zone == 'Zone 2' %}selected{% endif %}>{{ zone }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <p id="home-profile-zone-note">Critère basé sur l’historique de vos activités : les allures et la VAM enregistrées dans cette zone cardiaque servent de référence à la projection.</p>
-        </div>
         <div class="profile-pacing-heading">
           <strong id="home-profile-table-title">Profil utilisé par pente</strong>
           <span class="profile-pacing-note" id="home-profile-table-note"></span>
@@ -547,7 +580,6 @@
       <div class="official-point-settings" id="home-official-point-settings" hidden>Renseigne ci-dessous le temps d’arrêt prévu à chaque ravito et ravito avec assistance.</div>
       <p class="weight-note">Les quantités alimentaires sont des repères de planification à tester à l’entraînement et à adapter avec un professionnel de santé si nécessaire.</p>
     </div>
-    <p class="course-selection-note" id="home-course-selection-note" hidden>Les ravitos, assistances, contrôles et barrières sont appliqués automatiquement. Les temps d’arrêt se règlent directement dans le déroulé de course.</p>
     <div class="projection-status" id="home-projection-status" aria-live="polite"></div>
     <div class="projection-result" id="home-projection-result" aria-live="polite"></div>
   </div>
@@ -562,7 +594,6 @@
     const officialCourseInput = document.getElementById('home-official-course');
     const gpxSource = document.getElementById('home-gpx-source');
     const customCoursePoints = document.getElementById('home-course-points');
-    const courseSelectionNote = document.getElementById('home-course-selection-note');
     const aidCountControl = document.getElementById('home-aid-count-control');
     const officialPointSettings = document.getElementById('home-official-point-settings');
     const pointSettingsTitle = document.getElementById('home-point-settings-title');
@@ -573,6 +604,7 @@
     const aidStationList = document.getElementById('home-aid-station-list');
     const status = document.getElementById('home-projection-status');
     const result = document.getElementById('home-projection-result');
+    const courseProfilePreview = document.getElementById('home-course-profile-preview');
     const customCourseMode = {{ custom_course_mode | default(false) | tojson }};
     const runnerProfileData = {{ runner_profile_overview | default({}) | tojson | safe }};
     const communityPaceCurves = {{ dashboard_cohort_curves | default({}) | tojson | safe }};
@@ -905,19 +937,15 @@
       customCoursePoints.hidden = !useCustomTrace;
       aidCountControl.hidden = !useCustomTrace;
       officialPointSettings.hidden = !official;
-      courseSelectionNote.hidden = !official;
       if (official) {
         const course = selectedOfficialCourse();
         pointSettingsTitle.textContent = `Ravitos officiels · ${course?.name || 'course sélectionnée'}`;
-        const coefficientPercent = currentCourseCoefficientPercent();
-        courseSelectionNote.textContent = coefficientPercent !== 100
-          ? `Profil : ${coursePaceCategoryLabel(course)}. Ravitos, assistances, contrôles et barrières sont appliqués automatiquement. Coefficient course : ${coefficientPercent}% (${courseTimeAdjustmentLabel(coefficientPercent)}). Les temps d’arrêt se règlent dans le déroulé de course.`
-          : `Profil : ${coursePaceCategoryLabel(course)}. Les ravitos, assistances, contrôles et barrières sont appliqués automatiquement. Les temps d’arrêt se règlent directement dans le déroulé de course.`;
         renderOfficialPointSettings(course);
       } else {
         pointSettingsTitle.textContent = 'Points de ma trace · ravitos, assistance et contrôles';
         renderAidStations();
       }
+      document.querySelectorAll('[data-course-picker]').forEach((card) => card.classList.toggle('is-selected', card.dataset.coursePicker === officialCourseInput.value));
       renderProfilePacingTable();
     }
 
@@ -953,6 +981,10 @@
       updateCourseSource();
       if (officialCourseInput.value) form.requestSubmit();
     });
+    document.querySelectorAll('[data-course-picker]').forEach((card) => card.addEventListener('click', () => {
+      officialCourseInput.value = card.dataset.coursePicker;
+      officialCourseInput.dispatchEvent(new Event('change'));
+    }));
     fileInput.addEventListener('change', () => {
       const file = fileInput.files && fileInput.files[0];
       if (file && !manualCourseNameInput.value.trim()) {
@@ -1012,7 +1044,7 @@
         return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" fill="${color}" stroke="#fff" stroke-width="2"><title>${label} · ${window.fromLabel}</title></circle>`;
       }).join('');
       const nutritionLegend = nutritionWindows.length ? '<span><i style="background:#facc15"></i>prise à anticiper avant montée</span><span><i style="background:#60a5fa"></i>prise facilitée en descente</span>' : '';
-      return `<div class="projection-profile"><div class="home-summary-label">Profil du parcours · ${Math.round(minElevation)}–${Math.round(maxElevation)} m</div><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Profil d'altitude du parcours, coloré selon la pente">${segments}${fuelingMarkers}<line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" stroke="rgba(200,215,239,.45)"/><text x="${padding}" y="${height - 1}" fill="#c8d7ef" font-size="11">0 km</text><text x="${width - padding - 45}" y="${height - 1}" fill="#c8d7ef" font-size="11">${maxDistance.toFixed(1)} km</text></svg><div class="slope-legend"><span><i style="background:#38bdf8"></i>descente &lt; −8 %</span><span><i style="background:#b8ff45"></i>plat −2 à 5 %</span><span><i style="background:#facc15"></i>montée 5–12 %</span><span><i style="background:#f87171"></i>montée &gt; 20 %</span>${nutritionLegend}</div></div>`;
+      return `<div class="projection-profile"><h3 class="course-profile-title">Profil de la course</h3><div class="home-summary-label">${Math.round(minElevation)}–${Math.round(maxElevation)} m</div><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Profil d'altitude du parcours, coloré selon la pente">${segments}${fuelingMarkers}<line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" stroke="rgba(200,215,239,.45)"/><text x="${padding}" y="${height - 1}" fill="#c8d7ef" font-size="11">0 km</text><text x="${width - padding - 45}" y="${height - 1}" fill="#c8d7ef" font-size="11">${maxDistance.toFixed(1)} km</text></svg><div class="slope-legend"><span><i style="background:#38bdf8"></i>descente &lt; −8 %</span><span><i style="background:#b8ff45"></i>plat −2 à 5 %</span><span><i style="background:#facc15"></i>montée 5–12 %</span><span><i style="background:#f87171"></i>montée &gt; 20 %</span>${nutritionLegend}</div></div>`;
     }
 
     function buildTwentyMinuteFuelingSchedule(rawPoints, rows, nutritionWindows, aidStations = []) {
@@ -1378,6 +1410,8 @@
       event.preventDefault();
       result.classList.remove('is-visible');
       result.innerHTML = '';
+      courseProfilePreview.hidden = true;
+      courseProfilePreview.innerHTML = '';
       const file = fileInput.files && fileInput.files[0];
       const courseId = officialCourseInput.value;
       if (!courseId && !file) {
@@ -1443,22 +1477,22 @@
         const stopSeconds = aidStations.reduce((sum, aid) => sum + aid.stopSeconds, 0);
         let nutrition = nutritionPlan(movingSeconds, Number(weightInput.value), Number(data.total_distance_km || 0), gain, zone);
         let terrainNutritionWindows = buildTerrainNutritionWindows(projectedRows, aidStations, nutrition);
+        courseProfilePreview.innerHTML = elevationProfileSvg(data.elevation_profile);
+        courseProfilePreview.hidden = false;
         const totalSeconds = movingSeconds + stopSeconds;
         const stopDetail = stopSeconds ? ` · ${formatDuration(stopSeconds)} de ravito` : '';
         const manualCourseName = manualCourseNameInput.value.trim() || 'Ma trace GPX';
         const courseDetail = data.official_course ? ` · ${data.official_course.name}` : ` · ${manualCourseName}`;
         const coefficientDetail = simulationCoefficientPercent !== 100 ? ` · coefficient ${simulationCoefficientPercent}% (${courseTimeAdjustmentLabel(simulationCoefficientPercent)})` : '';
         result.innerHTML = `
+          <h3 class="projection-planning-title">Planifier mon temps d’arrêts aux ravitos</h3>
           <div class="home-summary-label">Temps total estimé · ${manualMode.checked ? 'réglages manuels' : zone}${courseDetail}${coefficientDetail}</div>
           <div class="projection-time" id="home-projection-total">${formatDuration(totalSeconds)}</div>
           <div class="projection-detail" id="home-projection-distance-detail">${Number(data.total_distance_km || 0).toFixed(1)} km · D+ ${Math.round(gain)} m · D− ${Math.round(loss)} m · ${formatDuration(movingSeconds)} en mouvement${stopDetail}</div>
-          ${simulationCoefficientPercent !== 100 ? `<div class="projection-detail" style="margin-top:8px; color:#fde68a;">Coefficient de course appliqué : ${simulationCoefficientPercent}% (${courseTimeAdjustmentLabel(simulationCoefficientPercent)}) sur toutes les pentes.</div>` : ''}
           ${manualMode.checked ? '<div class="projection-detail" style="margin-top:8px;">Projection calculée avec tes réglages manuels. Ils ne sont pas encore sauvegardés.</div>' : ''}
           ${manualFallback ? '<div class="projection-detail" style="margin-top:8px;">Les pentes sans historique suffisant utilisent une courbe parabolique de départ, ajustable dans le tableau de profil.</div>' : ''}
           <div class="projection-detail" id="home-projection-nutrition-detail" style="margin-top:8px;">Plan nutrition : ~${Math.round(nutrition.carbRate)} g de glucides/h${nutrition.proteinRate ? ` · ${nutrition.proteinRate.toFixed(0)} g de protéines/h` : ''}${nutrition.fatRate ? ` · ${nutrition.fatRate.toFixed(0)} g de lipides/h` : ''} · apports planifiés ~${Math.round(nutrition.carbRate * 4 + nutrition.proteinRate * 4 + nutrition.fatRate * 9)} kcal/h · dépense estimée ~${Math.round(nutrition.expenditureRate)} kcal/h${nutrition.weightIsEstimated ? ' · poids non renseigné : estimation basée sur 70 kg' : ''}.</div>
           <div class="projection-detail" style="margin-top:6px; font-size:.76rem;">Ce plan est une estimation générique basée sur ton poids, le parcours et l’intensité choisie. Pour une stratégie précise et adaptée à ta santé, à ta tolérance digestive ou à un suivi glycémique, fais valider et personnaliser l’analyse par un professionnel de la nutrition.</div>
-          ${elevationProfileSvg(data.elevation_profile)}
-          <div class="timeline-toolbar"><div><div class="home-summary-label">Feuille de route · ravitos, assistance et contrôles</div></div><div class="timeline-toolbar-actions"><button type="button" data-timeline-expand="all">Tout déplier</button><button type="button" data-timeline-expand="none">Tout replier</button></div></div>
           <div id="home-projection-timeline"></div>
           <div id="home-fueling-schedule"></div>
           <div class="course-plan-email"><button type="button" id="home-plan-email-btn">✉ Envoyer ce plan par e-mail (PDF)</button></div>
@@ -1730,13 +1764,6 @@
           row.classList.toggle('is-expanded', expanded);
           toggle.setAttribute('aria-expanded', String(expanded));
         });
-        result.querySelectorAll('[data-timeline-expand]').forEach((button) => button.addEventListener('click', () => {
-          const expand = button.dataset.timelineExpand === 'all';
-          timelineHost.querySelectorAll('.timeline-row').forEach((row) => {
-            row.classList.toggle('is-expanded', expand);
-            row.querySelector('.timeline-detail-toggle')?.setAttribute('aria-expanded', String(expand));
-          });
-        }));
       } catch (error) {
         status.textContent = error.message || 'La simulation n’a pas pu être calculée.';
       }

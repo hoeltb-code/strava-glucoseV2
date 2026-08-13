@@ -7,6 +7,8 @@
   "sport": "trail",
   "route_file": "picapica-2026.gpx",
   "distance_km": 104.7,
+  "elevation_gain_m": 11610,
+  "elevation_loss_m": 11610,
   "course_coefficient_percent": 75,
   "course_pace_category": "technical",
   "start_location": "Auzat – Plaine des sports",

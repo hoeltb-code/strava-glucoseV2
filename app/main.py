@@ -240,6 +240,8 @@ def _load_official_course_catalog() -> list[dict]:
                     "id": course_id,
                     "name": course.get("name") or course_id,
                     "distance_km": course.get("distance_km"),
+                    "elevation_gain_m": course.get("elevation_gain_m"),
+                    "elevation_loss_m": course.get("elevation_loss_m"),
                     "course_coefficient_percent": course.get("course_coefficient_percent", 100),
                     "course_pace_category": course.get("course_pace_category", ""),
                     "route_available": os.path.isfile(os.path.join(OFFICIAL_COURSES_DIR, route_file)),

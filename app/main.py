@@ -5836,7 +5836,13 @@ async def ui_send_course_plan_email(
     course_name = str(plan.get("course_name") or "Course simulée").strip()[:120]
     try:
         pdf_data = _build_course_plan_pdf(user=user, plan=plan)
-        _send_course_plan_email(to_email=user.email, course_name=course_name, pdf_data=pdf_data, plan=plan)
+        _send_course_plan_email(
+            to_email=user.email,
+            recipient_name=user.first_name,
+            course_name=course_name,
+            pdf_data=pdf_data,
+            plan=plan,
+        )
     except RuntimeError as exc:
         logger.warning("[COURSE PLAN] Envoi PDF indisponible pour user=%s : %s", user_id, exc)
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -6316,11 +6322,20 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
     return buffer.getvalue()
 
 
-def _send_course_plan_email(*, to_email: str, course_name: str, pdf_data: bytes, plan: dict) -> None:
+def _send_course_plan_email(
+    *,
+    to_email: str,
+    recipient_name: str | None,
+    course_name: str,
+    pdf_data: bytes,
+    plan: dict,
+) -> None:
     if not settings.SMTP_HOST or not settings.SMTP_PORT or not settings.SMTP_USER or not settings.SMTP_PASS:
         raise RuntimeError("La configuration SMTP est incomplète.")
     from_name = settings.SMTP_FROM_NAME or "D+ x Strava x Glucose"
     from_email = settings.SMTP_FROM_EMAIL or settings.SMTP_USER
+    first_name = (recipient_name or "").strip()
+    greeting = f"Bonjour {first_name}," if first_name else "Bonjour,"
     safe_filename = re.sub(r"[^a-z0-9-]+", "-", (course_name or "plan-course").lower()).strip("-") or "plan-course"
     msg = EmailMessage()
     msg["Subject"] = f"Ton plan de course - {course_name or 'simulation'}"
@@ -6335,13 +6350,22 @@ def _send_course_plan_email(*, to_email: str, course_name: str, pdf_data: bytes,
     ]
     overview_summary = "\n".join(overview_lines)
     msg.set_content(_append_login_link_footer(
-        "Bonjour,\n\n"
-        f"Voici ton plan de course pour {course_name or 'ta simulation'}.\n\n"
-        "Résumé de la projection :\n"
+        f"{greeting}\n\n"
+        f"Ton plan de course pour {course_name or 'ta simulation'} est prêt.\n\n"
+        "Tu trouveras le PDF en pièce jointe. Il est aussi proposé au téléchargement sur ton appareil après cet envoi. "
+        "Il rassemble les éléments utiles pour préparer ta course :\n\n"
+        "• ton temps estimé et l’intensité retenue ;\n"
+        "• les allures et VAM utilisées selon les pentes ;\n"
+        "• le profil du parcours et le détail de chaque tronçon ;\n"
+        "• les heures de passage, ravitos, assistances et temps d’arrêt prévus ;\n"
+        "• les repères nutritionnels à préparer et le timing des prises de glucides.\n\n"
+        "Résumé de ta projection :\n"
         f"{overview_summary}\n\n"
-        "Le PDF joint rassemble le profil global coloré selon les pentes, la trace GPS, les allures et VAM utilisées pour le calcul, "
-        "la feuille de route avec passages et arrêts, le plan nutritionnel total et par ravito, ainsi qu'un profil visuel de chaque tronçon.\n\n"
-        "Les recommandations nutritionnelles sont indicatives : teste-les à l'entraînement et fais-les personnaliser par un professionnel si nécessaire.\n"
+        "Ce plan est construit à partir de ton profil coureur, du parcours et de tes réglages. Plus ton historique Strava est riche, "
+        "plus les allures utilisées deviennent personnalisées. Pense à tester la nutrition et les temps d’arrêt à l’entraînement : "
+        "ce document est une base de préparation, à adapter à ton expérience, ta tolérance digestive et, si nécessaire, avec un professionnel.\n\n"
+        "Bonne préparation pour ta course,\n"
+        "Toute l'équipe D+ × Strava × Glucose\n"
     ))
     msg.add_attachment(pdf_data, maintype="application", subtype="pdf", filename=f"{safe_filename}-plan-de-course.pdf")
     with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:

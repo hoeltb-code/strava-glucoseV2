@@ -133,8 +133,8 @@
   .course-picker-card .course-picker-card-head strong { display:block; color:#fff !important; font-family:"Orbitron",sans-serif; font-size:.82rem; line-height:1.2; letter-spacing:.02em; font-weight:800; text-shadow:0 1px 1px rgba(0,0,0,.24); }.course-picker-arrow { color:#fff; font-size:1rem; line-height:1; }
   .course-picker-card small { display:block; margin-top:8px; color:#344865; font-family:Inter,sans-serif; font-size:.72rem; line-height:1.45; letter-spacing:0; font-weight:400; }
   .course-picker-card .course-picker-action { display:block; margin-top:10px; color:#075985; font-size:.72rem; font-weight:900; letter-spacing:0; }
-  .course-picker-card.is-custom { border:1px dashed rgba(8,145,178,.7); background:linear-gradient(145deg,#d8fff7,#a7f3e5); }
-  .course-picker-card.is-custom .course-picker-action { color:#0f766e; }
+  .course-picker-card.is-custom { border:1px dashed rgba(77,226,255,.68); background:radial-gradient(circle at 88% 10%,rgba(77,226,255,.18),transparent 35%),linear-gradient(145deg,#112a45,#071525); box-shadow:0 9px 18px rgba(4,14,29,.3); }
+  .course-picker-card.is-custom small { color:#d1e1f2; }.course-picker-card.is-custom .course-picker-action { color:#a5f3fc; }
   .custom-simulator-back { display:inline-flex; margin-top:10px; color:var(--accent-2); font-size:.82rem; font-weight:700; text-decoration:none; }
   .gpx-source-fields { display:grid; grid-template-columns:minmax(160px, .7fr) minmax(0, 1.3fr); gap:10px; }
   .projection-form input[type="file"] { width:100%; min-height:44px; padding:8px; border:1px dashed var(--border); border-radius:12px; color:var(--text-muted); background:rgba(8,17,31,.68); }
@@ -498,7 +498,7 @@
           {% endfor %}
           <a class="course-picker-card is-custom" href="/ui/user/{{ user.id }}/course-simulator" role="listitem">
             <span class="course-picker-card-head"><strong>Ma propre trace GPX</strong><span class="course-picker-arrow">→</span></span>
-            <small>Importe ton GPX, puis définis toi-même les ravitos, assistances et contrôles.</small>
+            <small>Importe ton GPX, définis tes ravitos, assistances et contrôles, puis utilise toutes les fonctionnalités disponibles pour les courses préparées.</small>
             <span class="course-picker-action">Créer ma simulation →</span>
           </a>
         </div>

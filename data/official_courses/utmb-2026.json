@@ -7,7 +7,7 @@
   "sport": "trail",
   "route_file": "utmb-2026.gpx",
   "distance_km": 176.8,
-  "difficulty_coefficient_percent": 100,
+  "course_coefficient_percent": 100,
   "start_location": "Chamonix",
   "finish_location": "Chamonix",
   "timezone": "Europe/Paris",

@@ -7,7 +7,7 @@
   "sport": "trail",
   "route_file": "picapica-2026.gpx",
   "distance_km": 104.7,
-  "difficulty_coefficient_percent": 75,
+  "course_coefficient_percent": 75,
   "start_location": "Auzat – Plaine des sports",
   "finish_location": "Auzat – Plaine des sports",
   "timezone": "Europe/Paris",

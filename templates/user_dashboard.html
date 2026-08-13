@@ -420,7 +420,7 @@
         <select id="home-official-course">
           <option value="">Choisir une course enregistrée</option>
           {% for course in official_courses %}
-          <option value="{{ course.id }}" {% if not course.route_available %}disabled{% endif %}>{{ course.name }}{% if course.distance_km %} · {{ course.distance_km }} km{% endif %}{% if course.difficulty_coefficient_percent %} · difficulté +{{ course.difficulty_coefficient_percent }}%{% endif %}{% if not course.route_available %} · GPX manquant{% endif %}</option>
+          <option value="{{ course.id }}" {% if not course.route_available %}disabled{% endif %}>{{ course.name }}{% if course.distance_km %} · {{ course.distance_km }} km{% endif %}{% if course.course_coefficient_percent is not none %} · coefficient {{ course.course_coefficient_percent }}%{% endif %}{% if not course.route_available %} · GPX manquant{% endif %}</option>
           {% endfor %}
         </select>
       </div>
@@ -558,17 +558,26 @@
     };
     let refreshLiveProjection = null;
 
-    function currentCourseDifficultyPercent() {
-      const value = Number(selectedOfficialCourse()?.difficulty_coefficient_percent || 0);
-      return Math.max(0, Math.min(200, Number.isFinite(value) ? value : 0));
+    function currentCourseCoefficientPercent() {
+      const value = Number(selectedOfficialCourse()?.course_coefficient_percent ?? 100);
+      return Math.max(0, Math.min(175, Number.isFinite(value) ? value : 100));
     }
 
-    function currentCourseDifficultyMultiplier() {
-      return 1 + currentCourseDifficultyPercent() / 100;
+    function courseTimeMultiplier(coefficientPercent) {
+      return Math.max(0.25, Math.min(2, 2 - Math.max(0, Number(coefficientPercent) || 100) / 100));
     }
 
-    function paceWithCourseDifficulty(pace, difficultyPercent = currentCourseDifficultyPercent()) {
-      const multiplier = 1 + Math.max(0, Number(difficultyPercent) || 0) / 100;
+    function currentCourseTimeMultiplier() {
+      return courseTimeMultiplier(currentCourseCoefficientPercent());
+    }
+
+    function courseTimeAdjustmentLabel(coefficientPercent) {
+      const adjustment = 100 - coefficientPercent;
+      return adjustment === 0 ? 'référence standard' : adjustment > 0 ? `+${adjustment}% de temps` : `${adjustment}% de temps`;
+    }
+
+    function paceWithCourseDifficulty(pace, coefficientPercent = currentCourseCoefficientPercent()) {
+      const multiplier = courseTimeMultiplier(coefficientPercent);
       return pace > 0 ? pace * multiplier : pace;
     }
 
@@ -699,15 +708,15 @@
       const historicalZone = (runnerProfileData.zones || {})[zone] || {};
       const manual = manualMode.checked;
       const hasHistoricalData = Object.values(historicalZone).some((cell) => Number(cell?.avg_pace_s_per_km) > 0);
-      const difficultyPercent = currentCourseDifficultyPercent();
-      const difficultySuffix = difficultyPercent ? ` · difficulté +${difficultyPercent}%` : '';
-      profileTableTitle.textContent = `Profil utilisé · ${zone}${difficultySuffix}`;
+      const coefficientPercent = currentCourseCoefficientPercent();
+      const coefficientSuffix = coefficientPercent !== 100 ? ` · coefficient ${coefficientPercent}%` : '';
+      profileTableTitle.textContent = `Profil utilisé · ${zone}${coefficientSuffix}`;
       profileTableNote.textContent = manual
         ? 'Réglages manuels : ajuste les curseurs pour visualiser ton profil.'
         : hasHistoricalData
           ? 'Historique personnel par pente ; les trous sont complétés pour la simulation.'
           : 'Historique insuffisant : active les réglages manuels pour créer un profil de départ.';
-      if (difficultyPercent) profileTableNote.textContent += ` · Allures adaptées à la difficulté de la course (×${currentCourseDifficultyMultiplier().toFixed(2)}).`;
+      if (coefficientPercent !== 100) profileTableNote.textContent += ` · Allures adaptées à la course : ${courseTimeAdjustmentLabel(coefficientPercent)} (×${currentCourseTimeMultiplier().toFixed(2)}).`;
       const points = slopeIds.map((slopeId) => {
         const historyCell = historicalZone[slopeId] || {};
         const historicalPace = Number(historyCell.avg_pace_s_per_km);
@@ -812,9 +821,9 @@
       if (official) {
         const course = selectedOfficialCourse();
         pointSettingsTitle.textContent = `Ravitos officiels · ${course?.name || 'course sélectionnée'}`;
-        const difficultyPercent = Math.max(0, Number(course?.difficulty_coefficient_percent || 0));
-        courseSelectionNote.textContent = difficultyPercent
-          ? `Ravitos, assistances, contrôles et barrières sont appliqués automatiquement. Difficulté course : +${difficultyPercent}% de temps, soit des allures ×${(1 + difficultyPercent / 100).toFixed(2)}. Les temps d’arrêt se règlent dans le déroulé de course.`
+        const coefficientPercent = currentCourseCoefficientPercent();
+        courseSelectionNote.textContent = coefficientPercent !== 100
+          ? `Ravitos, assistances, contrôles et barrières sont appliqués automatiquement. Coefficient course : ${coefficientPercent}% (${courseTimeAdjustmentLabel(coefficientPercent)} ; allures ×${currentCourseTimeMultiplier().toFixed(2)}). Les temps d’arrêt se règlent dans le déroulé de course.`
           : 'Les ravitos, assistances, contrôles et barrières sont appliqués automatiquement. Les temps d’arrêt se règlent directement dans le déroulé de course.';
         renderOfficialPointSettings(course);
       } else {
@@ -1136,7 +1145,7 @@
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || 'Impossible de lire ce GPX.');
-        const simulationDifficultyPercent = Math.max(0, Number(data.official_course?.difficulty_coefficient_percent || 0));
+        const simulationCoefficientPercent = Math.max(0, Math.min(175, Number(data.official_course?.course_coefficient_percent ?? 100) || 100));
 
         let movingSeconds = 0;
         let gain = 0;
@@ -1149,11 +1158,11 @@
           let segmentSeconds = 0;
           (segment.slope_distribution || []).forEach((part) => {
             const projectedPace = projectedPaceForSlope(part.slope_id, zone);
-            let pace = paceWithCourseDifficulty(manualMode.checked ? manualPaceForSlope(part.slope_id) : projectedPace.pace, simulationDifficultyPercent);
+            let pace = paceWithCourseDifficulty(manualMode.checked ? manualPaceForSlope(part.slope_id) : projectedPace.pace, simulationCoefficientPercent);
             if (!manualMode.checked && projectedPace.source === 'Courbe de départ') manualFallback = true;
             const distance = Number(part.distance_km || 0);
             if (!(pace > 0) && distance > 0) {
-              pace = paceWithCourseDifficulty(manualPaceForSlope(part.slope_id), simulationDifficultyPercent);
+              pace = paceWithCourseDifficulty(manualPaceForSlope(part.slope_id), simulationCoefficientPercent);
               manualFallback = true;
             }
             if (pace > 0 && distance > 0) {
@@ -1183,12 +1192,12 @@
         const stopDetail = stopSeconds ? ` · ${formatDuration(stopSeconds)} de ravito` : '';
         const manualCourseName = manualCourseNameInput.value.trim() || 'Ma trace GPX';
         const courseDetail = data.official_course ? ` · ${data.official_course.name}` : ` · ${manualCourseName}`;
-        const difficultyDetail = simulationDifficultyPercent ? ` · difficulté +${simulationDifficultyPercent}% (allures ×${(1 + simulationDifficultyPercent / 100).toFixed(2)})` : '';
+        const coefficientDetail = simulationCoefficientPercent !== 100 ? ` · coefficient ${simulationCoefficientPercent}% (${courseTimeAdjustmentLabel(simulationCoefficientPercent)})` : '';
         result.innerHTML = `
-          <div class="home-summary-label">Temps total estimé · ${manualMode.checked ? 'réglages manuels' : zone}${courseDetail}${difficultyDetail}</div>
+          <div class="home-summary-label">Temps total estimé · ${manualMode.checked ? 'réglages manuels' : zone}${courseDetail}${coefficientDetail}</div>
           <div class="projection-time" id="home-projection-total">${formatDuration(totalSeconds)}</div>
           <div class="projection-detail" id="home-projection-distance-detail">${Number(data.total_distance_km || 0).toFixed(1)} km · D+ ${Math.round(gain)} m · D− ${Math.round(loss)} m · ${formatDuration(movingSeconds)} en mouvement${stopDetail}</div>
-          ${simulationDifficultyPercent ? `<div class="projection-detail" style="margin-top:8px; color:#fde68a;">Coefficient de technicité appliqué : +${simulationDifficultyPercent}% de temps sur toutes les pentes. Cette simulation utilise donc des allures ×${(1 + simulationDifficultyPercent / 100).toFixed(2)}.</div>` : ''}
+          ${simulationCoefficientPercent !== 100 ? `<div class="projection-detail" style="margin-top:8px; color:#fde68a;">Coefficient de course appliqué : ${simulationCoefficientPercent}% (${courseTimeAdjustmentLabel(simulationCoefficientPercent)}) sur toutes les pentes. Cette simulation utilise donc des allures ×${courseTimeMultiplier(simulationCoefficientPercent).toFixed(2)}.</div>` : ''}
           ${manualMode.checked ? '<div class="projection-detail" style="margin-top:8px;">Projection calculée avec tes réglages manuels. Ils ne sont pas encore sauvegardés.</div>' : ''}
           ${manualFallback ? '<div class="projection-detail" style="margin-top:8px;">Les pentes sans historique suffisant utilisent une courbe parabolique de départ, ajustable dans le tableau de profil.</div>' : ''}
           <div class="projection-detail" id="home-projection-nutrition-detail" style="margin-top:8px;">Plan nutrition : ~${Math.round(nutrition.carbRate)} g de glucides/h${nutrition.proteinRate ? ` · ${nutrition.proteinRate.toFixed(0)} g de protéines/h` : ''}${nutrition.fatRate ? ` · ${nutrition.fatRate.toFixed(0)} g de lipides/h` : ''} · apports planifiés ~${Math.round(nutrition.carbRate * 4 + nutrition.proteinRate * 4 + nutrition.fatRate * 9)} kcal/h · dépense estimée ~${Math.round(nutrition.expenditureRate)} kcal/h${nutrition.weightIsEstimated ? ' · poids non renseigné : estimation basée sur 70 kg' : ''}.</div>
@@ -1237,11 +1246,11 @@
             let segmentSeconds = 0;
             (segment.slope_distribution || []).forEach((part) => {
               const projectedPace = projectedPaceForSlope(part.slope_id, activeZone);
-              let pace = paceWithCourseDifficulty(manualMode.checked ? manualPaceForSlope(part.slope_id) : projectedPace.pace, simulationDifficultyPercent);
+              let pace = paceWithCourseDifficulty(manualMode.checked ? manualPaceForSlope(part.slope_id) : projectedPace.pace, simulationCoefficientPercent);
               if (!manualMode.checked && projectedPace.source === 'Courbe de départ') nextManualFallback = true;
               const distance = Number(part.distance_km || 0);
               if (!(pace > 0) && distance > 0) {
-                pace = paceWithCourseDifficulty(manualPaceForSlope(part.slope_id), simulationDifficultyPercent);
+                pace = paceWithCourseDifficulty(manualPaceForSlope(part.slope_id), simulationCoefficientPercent);
                 nextManualFallback = true;
               }
               if (pace > 0 && distance > 0) {

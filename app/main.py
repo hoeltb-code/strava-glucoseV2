@@ -114,7 +114,7 @@ from fastapi import (
     Depends,
 )
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
+from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -5811,7 +5811,7 @@ async def ui_runner_profile_pace_projection(
     }
 
 
-@app.post("/ui/user/{user_id}/course-plan/email", response_class=JSONResponse)
+@app.post("/ui/user/{user_id}/course-plan/email")
 async def ui_send_course_plan_email(
     request: Request,
     user_id: int,
@@ -5843,7 +5843,15 @@ async def ui_send_course_plan_email(
     except Exception:
         logger.exception("[COURSE PLAN] Impossible d'envoyer le PDF à l'utilisateur %s", user_id)
         raise HTTPException(status_code=500, detail="Impossible de préparer ou d'envoyer le PDF.")
-    return {"message": f"Le plan PDF a été envoyé à {user.email}."}
+    safe_filename = re.sub(r"[^a-z0-9-]+", "-", course_name.lower()).strip("-") or "plan-course"
+    return Response(
+        content=pdf_data,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{safe_filename}-plan-de-course.pdf"',
+            "X-Course-Plan-Message": "PDF envoyé par e-mail et prêt au téléchargement.",
+        },
+    )
 
 
 

@@ -1503,7 +1503,7 @@
           <div class="projection-detail" style="margin-top:6px; font-size:.76rem;">Ce plan est une estimation générique basée sur ton poids, le parcours et l’intensité choisie. Pour une stratégie précise et adaptée à ta santé, à ta tolérance digestive ou à un suivi glycémique, fais valider et personnaliser l’analyse par un professionnel de la nutrition.</div>
           <div id="home-projection-timeline"></div>
           <div id="home-fueling-schedule"></div>
-          <div class="course-plan-email"><button type="button" id="home-plan-email-btn">✉ Envoyer ce plan par e-mail (PDF)</button></div>
+          <div class="course-plan-email"><button type="button" id="home-plan-email-btn">✉ Envoyer et télécharger le plan PDF</button></div>
         `;
         result.classList.add('is-visible');
         const timelineHost = result.querySelector('#home-projection-timeline');
@@ -1669,13 +1669,27 @@
           emailPlanButton.textContent = 'Préparation du PDF…';
           try {
             const response = await fetch('/ui/user/{{ user.id }}/course-plan/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(plan) });
-            const responseData = await response.json();
-            if (!response.ok) throw new Error(responseData.detail || 'Envoi impossible.');
-            emailPlanButton.textContent = '✓ Plan envoyé par e-mail';
-            status.textContent = responseData.message;
+            if (!response.ok) {
+              const responseData = await response.json().catch(() => ({}));
+              throw new Error(responseData.detail || 'Envoi impossible.');
+            }
+            const pdfBlob = await response.blob();
+            const downloadUrl = URL.createObjectURL(pdfBlob);
+            const contentDisposition = response.headers.get('Content-Disposition') || '';
+            const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+            const downloadLink = document.createElement('a');
+            downloadLink.href = downloadUrl;
+            downloadLink.download = filenameMatch?.[1] || 'plan-de-course.pdf';
+            downloadLink.style.display = 'none';
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            downloadLink.remove();
+            window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1500);
+            emailPlanButton.textContent = '✓ PDF envoyé et téléchargé';
+            status.textContent = response.headers.get('X-Course-Plan-Message') || 'Le plan a été envoyé par e-mail et téléchargé sur cet appareil.';
           } catch (error) {
             emailPlanButton.disabled = false;
-            emailPlanButton.textContent = '✉ Envoyer ce plan par e-mail (PDF)';
+            emailPlanButton.textContent = '✉ Envoyer et télécharger le plan PDF';
             status.textContent = error.message || 'L’envoi du plan a échoué.';
           }
         });

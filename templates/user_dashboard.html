@@ -180,10 +180,8 @@
   .profile-pacing-curve .curve-axis-label { fill:#bfd2e9; font-size:11px; font-family:Inter, sans-serif; }
   .profile-pacing-curve .curve-line { fill:none; stroke:var(--accent-2); stroke-width:3; stroke-linecap:round; stroke-linejoin:round; filter:drop-shadow(0 0 7px rgba(184,255,69,.45)); }
   .profile-pacing-curve .curve-point { fill:#fff; stroke:var(--accent-2); stroke-width:2; }
-  .profile-pacing-curve .cohort-line { fill:none; stroke:#fff; stroke-width:1.2; opacity:.78; stroke-linecap:round; stroke-linejoin:round; }
-  .profile-pacing-curve .cohort-line--p50 { opacity:.95; }
-  .profile-pacing-curve .cohort-line--p80 { stroke-dasharray:4 4; }
-  .profile-pacing-curve .cohort-legend { fill:#fff; font-size:10px; font-family:Inter, sans-serif; opacity:.86; }
+  .profile-pacing-curve .cohort-band { fill:rgba(255,255,255,.16); stroke:rgba(255,255,255,.38); stroke-width:1; stroke-linejoin:round; }
+  .profile-pacing-curve .cohort-legend { fill:#fff; font-size:10px; font-family:Inter, sans-serif; opacity:.9; }
   .profile-pacing-live-table { width:100%; margin-top:10px; border-collapse:collapse; font-size:.76rem; }
   .profile-pacing-live-table th, .profile-pacing-live-table td { padding:5px 4px; border-bottom:1px solid rgba(148,174,214,.14); text-align:left; color:var(--text-main); }
   .profile-pacing-live-table th { color:#fff; font-size:.66rem; letter-spacing:.05em; text-transform:uppercase; }
@@ -855,18 +853,24 @@
         ...yTicks.map((tick) => `<line class="curve-grid" x1="${pad.left}" y1="${yScale(tick)}" x2="${width - pad.right}" y2="${yScale(tick)}"/><text class="curve-axis-label" x="${pad.left - 7}" y="${yScale(tick) + 4}" text-anchor="end">${formatPace(tick).replace(' /km', '')}</text>`),
       ].join('');
       const communityZone = (communityPaceCurves.zones || {})[zone] || {};
-      const communityPath = (key) => slopeIds.map((slopeId) => {
+      const communityPoints = (key) => slopeIds.map((slopeId) => {
         const pace = paceWithCourseDifficulty(Number((communityZone[slopeId] || {})[key]));
         return Number.isFinite(pace) && pace > 0 ? { x:slopeCenters[slopeId], pace } : null;
-      }).filter(Boolean).sort((a, b) => a.x - b.x).map((point, index) => `${index ? 'L' : 'M'} ${xScale(point.x).toFixed(1)} ${yScale(point.pace).toFixed(1)}`).join(' ');
-      const p20Path = communityPath('p20');
-      const p50Path = communityPath('p50');
-      const p80Path = communityPath('p80');
-      const hasCommunityCurves = [p20Path, p50Path, p80Path].some((curve) => curve.includes('L'));
-      const communityPaths = hasCommunityCurves
-        ? `<path class="cohort-line cohort-line--p20" d="${p20Path}"/><path class="cohort-line cohort-line--p50" d="${p50Path}"/><path class="cohort-line cohort-line--p80" d="${p80Path}"/><text class="cohort-legend" x="${width - 14}" y="${pad.top + 12}" text-anchor="end">P20 rapide · P50 milieu · P80 prudent</text>`
+      }).filter(Boolean).sort((a, b) => a.x - b.x);
+      const p20Points = communityPoints('p20');
+      const p80Points = communityPoints('p80');
+      const referenceRange = p20Points.map((fastPoint) => {
+        const prudentPoint = p80Points.find((point) => Math.abs(point.x - fastPoint.x) < .001);
+        return prudentPoint ? { fastPoint, prudentPoint } : null;
+      }).filter(Boolean);
+      const rangePath = referenceRange.length > 1
+        ? `M ${referenceRange.map(({ fastPoint }) => `${xScale(fastPoint.x).toFixed(1)} ${yScale(fastPoint.pace).toFixed(1)}`).join(' L ')} L ${referenceRange.slice().reverse().map(({ prudentPoint }) => `${xScale(prudentPoint.x).toFixed(1)} ${yScale(prudentPoint.pace).toFixed(1)}`).join(' L ')} Z`
         : '';
-      if (hasCommunityCurves) {
+      const hasCommunityRange = Boolean(rangePath);
+      const communityPaths = hasCommunityRange
+        ? `<path class="cohort-band" d="${rangePath}"/><text class="cohort-legend" x="${width - 14}" y="${pad.top + 12}" text-anchor="end">Plage de référence · 20 % rapides à 20 % prudents</text>`
+        : '';
+      if (hasCommunityRange) {
         profileTableNote.textContent += ` · Repères anonymisés (minimum ${communityPaceCurves.minimum_runners || 8} coureurs par pente).`;
       }
       const dots = points.map((point) => `<circle class="curve-point" cx="${xScale(point.x)}" cy="${yScale(point.pace)}" r="3"><title>${slopeLabels[point.slopeId]} · ${formatPace(point.pace)} · ${point.source}</title></circle>`).join('');

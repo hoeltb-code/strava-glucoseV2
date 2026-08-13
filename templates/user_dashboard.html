@@ -100,13 +100,20 @@
   .home-section-heading h2 { margin:0; font-size:1.1rem; }
   .projection-workbench {
     display:grid;
-    grid-template-columns:minmax(0, 1.35fr) minmax(250px, .65fr);
+    grid-template-columns:minmax(0, 1fr);
     gap:16px;
     margin-bottom:20px;
   }
   .projection-panel { padding:22px; margin:0; }
   .projection-panel h2 { margin:0 0 6px; font-size:1.2rem; }
   .projection-panel p { color:var(--text-muted); margin:0 0 18px; line-height:1.45; }
+  .simulation-explainer { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; margin:14px 0 18px; }
+  .simulation-explainer-card { padding:12px; border-radius:14px; border:1px solid rgba(148,174,214,.22); background:rgba(8,17,31,.42); }
+  .simulation-explainer-card:nth-child(1) { border-color:rgba(77,226,255,.38); background:linear-gradient(145deg,rgba(16,119,153,.3),rgba(8,17,31,.6)); }
+  .simulation-explainer-card:nth-child(2) { border-color:rgba(184,255,69,.35); background:linear-gradient(145deg,rgba(90,132,28,.28),rgba(8,17,31,.6)); }
+  .simulation-explainer-card:nth-child(3) { border-color:rgba(249,115,22,.4); background:linear-gradient(145deg,rgba(151,68,22,.3),rgba(8,17,31,.6)); }
+  .simulation-explainer-card strong { display:block; color:#fff; font-size:.9rem; }
+  .simulation-explainer-card p { margin:6px 0 0; font-size:.82rem; line-height:1.45; }
   .projection-form { display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:12px; align-items:end; }
   .projection-form > div:nth-child(1), .projection-form #home-gpx-source { grid-column:span 3; min-width:0; }
   .projection-form > div:nth-child(3), .projection-form > button { grid-column:span 3; }
@@ -333,6 +340,7 @@
     .quick-action { min-height:120px; padding:14px; }
     .home-summary { grid-template-columns:1fr; gap:8px; }
     .projection-workbench { grid-template-columns:1fr; }
+    .simulation-explainer { grid-template-columns:1fr; }
     .projection-form { grid-template-columns:1fr; }
     .projection-form > div:nth-child(1), .projection-form #home-gpx-source, .projection-form > div:nth-child(3), .projection-form > button { grid-column:auto; }
     .gpx-source-fields { grid-template-columns:1fr; }
@@ -377,7 +385,20 @@
 <section class="projection-workbench" aria-label="Simulation de course">
   <div class="card projection-panel" id="simulation">
     <h2>Simuler une course</h2>
-    <p>Choisis une course enregistrée, règle l’intensité visée et obtiens un temps de course fondé sur ton profil pente × cardio. Plus l’outil dispose de sorties enregistrées, à différentes intensités et sur différents profils de pente, plus la simulation sera précise ; sinon, ajuste le profil manuellement.</p>
+    <div class="simulation-explainer">
+      <article class="simulation-explainer-card">
+        <strong>🗺️ Choisis ton parcours</strong>
+        <p>Sélectionne une course enregistrée, puis l’intensité cardiaque à laquelle tu souhaites la courir.</p>
+      </article>
+      <article class="simulation-explainer-card">
+        <strong>📈 Ton historique affine le chrono</strong>
+        <p>La projection personnalisée devient fiable après avoir enregistré de nombreuses sorties, à différentes intensités et sur des profils de pente variés. Plus ton historique est riche, plus les vitesses utilisées sont précises.</p>
+      </article>
+      <article class="simulation-explainer-card">
+        <strong>🎚️ Ajuste si nécessaire</strong>
+        <p>Si tu viens de t’inscrire ou que ton historique est encore limité, l’ajustement manuel est recommandé : il crée un profil de départ représentatif, que tu peux affiner à tout moment.</p>
+      </article>
+    </div>
     <form class="projection-form" id="home-projection-form">
       <div>
         <label for="home-official-course">Parcours</label>
@@ -420,18 +441,15 @@
           <input id="home-flat-speed" type="range" min="5" max="16" step="0.1" value="8.5">
         </div>
         <div class="manual-control">
-          <label for="home-climb-vam">VAM (10–15 %) <output id="home-climb-vam-output">700 m/h</output></label>
-          <input id="home-climb-vam" type="range" min="300" max="1800" step="25" value="700">
+          <label for="home-descent-level">Niveau en descente <output id="home-descent-level-output">5 / 10</output></label>
+          <input id="home-descent-level" type="range" min="1" max="10" step="1" value="5">
         </div>
         <div class="manual-control">
-          <label for="home-descent-speed">Vitesse en descente <output id="home-descent-speed-output">11.0 km/h</output></label>
-          <input id="home-descent-speed" type="range" min="5" max="20" step="0.1" value="11">
-        </div>
-        <div class="manual-control">
-          <label for="home-steep-vam">VAM (30–40 %) <output id="home-steep-vam-output">1100 m/h</output></label>
-          <input id="home-steep-vam" type="range" min="400" max="2400" step="25" value="1100">
+          <label for="home-ascent-level">Niveau en montée <output id="home-ascent-level-output">5 / 10</output></label>
+          <input id="home-ascent-level" type="range" min="1" max="10" step="1" value="5">
         </div>
       </div>
+      <p class="profile-pacing-note" style="margin:10px 0 0;">Niveau 1&nbsp;: prudent · Niveau 5&nbsp;: équilibré · Niveau 10&nbsp;: très performant. Les niveaux alimentent une courbe universelle lissée.</p>
       <div class="profile-pacing-preview" aria-live="polite">
         <div class="profile-pacing-heading">
           <strong id="home-profile-table-title">Profil utilisé par pente</strong>
@@ -467,34 +485,6 @@
     <div class="projection-result" id="home-projection-result" aria-live="polite"></div>
   </div>
 
-  <aside class="card projection-panel" aria-labelledby="profile-summary-title">
-    <h2 id="profile-summary-title">Ton profil coureur</h2>
-    {% if runner_profile_overview and runner_profile_overview.zones %}
-    <p>Valeurs archivées issues de tes activités. Le tableau suit la zone d’intensité choisie pour la simulation.</p>
-    <section class="runner-history" aria-labelledby="archived-profile-title">
-      <h3 id="archived-profile-title">Allure & VAM par pente</h3>
-      <p class="runner-history-note" id="home-archived-profile-note"></p>
-      <table class="profile-pacing-table runner-history-table">
-        <thead><tr><th>Pente %</th><th>Allure</th><th>VAM ±</th></tr></thead>
-        <tbody id="home-archived-profile-body"></tbody>
-      </table>
-    </section>
-    {% else %}
-    <p>Ton profil sera créé après quelques activités GPS contenant altitude et fréquence cardiaque.</p>
-    {% endif %}
-    {% if fc_info and fc_info.zones %}
-    <section class="runner-history" aria-labelledby="hr-zones-title">
-      <h3 id="hr-zones-title">Zones cardiaques · FC max {{ fc_info.fc_max }} bpm</h3>
-      <div class="hr-zones-list">
-        {% for zone in fc_info.zones %}
-        <div class="hr-zone-row"><strong>{{ zone.label }}</strong><span>{{ zone.bpm_min }}–{{ zone.bpm_max }} bpm · {{ zone.percent_label }}</span></div>
-        {% endfor %}
-      </div>
-      <p class="runner-history-note" style="margin-top:9px;">Tu peux modifier ta FC max dans ton profil pour recalculer ces zones.</p>
-    </section>
-    {% endif %}
-    <a class="button button-secondary" style="margin-top:18px; width:100%;" href="/ui/user/{{ user.id }}/runner-profile">Voir le profil complet</a>
-  </aside>
 </section>
 
 <script>
@@ -521,9 +511,8 @@
     const manualMode = document.getElementById('home-manual-mode');
     const manualControls = document.getElementById('home-manual-controls');
     const flatSpeed = document.getElementById('home-flat-speed');
-    const climbVam = document.getElementById('home-climb-vam');
-    const descentSpeed = document.getElementById('home-descent-speed');
-    const steepVam = document.getElementById('home-steep-vam');
+    const descentLevel = document.getElementById('home-descent-level');
+    const ascentLevel = document.getElementById('home-ascent-level');
     const projectionSubmit = document.getElementById('home-projection-submit');
     const profileTableTitle = document.getElementById('home-profile-table-title');
     const profileTableNote = document.getElementById('home-profile-table-note');
@@ -556,18 +545,27 @@
 
     function refreshManualLabels() {
       document.getElementById('home-flat-speed-output').textContent = `${Number(flatSpeed.value).toFixed(1)} km/h`;
-      document.getElementById('home-climb-vam-output').textContent = `${Math.round(Number(climbVam.value))} m/h`;
-      document.getElementById('home-descent-speed-output').textContent = `${Number(descentSpeed.value).toFixed(1)} km/h`;
-      document.getElementById('home-steep-vam-output').textContent = `${Math.round(Number(steepVam.value))} m/h`;
+      document.getElementById('home-descent-level-output').textContent = `${Math.round(Number(descentLevel.value))} / 10`;
+      document.getElementById('home-ascent-level-output').textContent = `${Math.round(Number(ascentLevel.value))} / 10`;
       renderProfilePacingTable();
       if (refreshLiveProjection) refreshLiveProjection();
     }
 
     function manualPaceForSlope(slopeId) {
       const flatPace = 3600 / Number(flatSpeed.value);
-      const descentPace = 3600 / Number(descentSpeed.value);
-      const climbPace = (36000 * 12.5) / Math.max(1, Number(climbVam.value));
-      const steepClimbPace = (36000 * 35) / Math.max(1, Number(steepVam.value));
+      // Profil universel : les niveaux 1–10 sont volontairement simples.
+      // La progression est parabolique : niveau 1 = 20 % du niveau 10,
+      // avec des écarts plus marqués entre les niveaux 7, 8, 9 et 10.
+      const levelFactor = (level) => {
+        const normalized = Math.max(0, Math.min(1, (Number(level) - 1) / 9));
+        return 0.20 + 0.80 * normalized * normalized;
+      };
+      const descentSpeedKmh = 15.5 * levelFactor(descentLevel.value);
+      const descentPace = 3600 / descentSpeedKmh;
+      const moderateVam = 1430 * levelFactor(ascentLevel.value);
+      const steepVam = moderateVam * 1.35;
+      const climbPace = (36000 * 12.5) / moderateVam;
+      const steepClimbPace = (36000 * 35) / steepVam;
       // Les extrêmes restent ancrés : modifier le plat ne peut donc pas
       // ralentir artificiellement les allures à -40 % ou +40 %.
       const descentExtremePace = descentPace * 1.65;
@@ -810,7 +808,7 @@
       renderProfilePacingTable();
       if (refreshLiveProjection) refreshLiveProjection();
     });
-    [flatSpeed, climbVam, descentSpeed, steepVam].forEach((input) => input.addEventListener('input', refreshManualLabels));
+    [flatSpeed, descentLevel, ascentLevel].forEach((input) => input.addEventListener('input', refreshManualLabels));
     zoneInput.addEventListener('change', () => {
       renderProfilePacingTable();
       renderArchivedProfileTable();

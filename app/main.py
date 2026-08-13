@@ -6059,6 +6059,7 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
 
     pacing = plan.get("pacing") if isinstance(plan.get("pacing"), list) else []
     if pacing:
+        story.append(PageBreak())
         story.append(Paragraph("Allures prises en compte pour le calcul", section_style))
         pacing_rows = [[Paragraph("Pente", table_header_style), Paragraph("Allure projetée", table_header_style), Paragraph("VAM", table_header_style)]]
         for row in pacing[:20]:
@@ -6077,6 +6078,7 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
         story.append(pacing_table)
 
     nutrition = plan.get("nutrition") if isinstance(plan.get("nutrition"), dict) else {}
+    story.append(PageBreak())
     story.append(Paragraph("Repères nutritionnels", section_style))
     nutrition_text = (
         f"Cible indicative : <b>{_course_plan_pdf_value(nutrition.get('carbs_rate'))} de glucides/h</b>"
@@ -6133,6 +6135,7 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
 
     roadbook = plan.get("roadbook") if isinstance(plan.get("roadbook"), list) else []
     if roadbook:
+        story.append(PageBreak())
         story.append(Paragraph("Feuille de route", section_style))
         rows = [[
             Paragraph("Type", table_header_style), Paragraph("Point", table_header_style), Paragraph("Km", table_header_style),

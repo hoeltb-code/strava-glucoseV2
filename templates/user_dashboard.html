@@ -420,7 +420,7 @@
         <select id="home-official-course">
           <option value="">Choisir une course enregistrée</option>
           {% for course in official_courses %}
-          <option value="{{ course.id }}" {% if not course.route_available %}disabled{% endif %}>{{ course.name }}{% if course.distance_km %} · {{ course.distance_km }} km{% endif %}{% if course.course_coefficient_percent is not none %} · coefficient {{ course.course_coefficient_percent }}%{% endif %}{% if not course.route_available %} · GPX manquant{% endif %}</option>
+          <option value="{{ course.id }}" {% if not course.route_available %}disabled{% endif %}>{{ course.name }}{% if course.distance_km %} · {{ course.distance_km }} km{% endif %}{% if course.course_pace_category == 'technical' %} · 🔴 Technique{% elif course.course_pace_category == 'fast' %} · 🟢 Rapide{% else %} · 🟡 Roulant{% endif %}{% if not course.route_available %} · GPX manquant{% endif %}</option>
           {% endfor %}
         </select>
       </div>
@@ -561,6 +561,17 @@
     function currentCourseCoefficientPercent() {
       const value = Number(selectedOfficialCourse()?.course_coefficient_percent ?? 100);
       return Math.max(0, Math.min(175, Number.isFinite(value) ? value : 100));
+    }
+
+    function coursePaceCategory(course = selectedOfficialCourse()) {
+      const declared = String(course?.course_pace_category || '').toLowerCase();
+      if (['technical', 'rolling', 'fast'].includes(declared)) return declared;
+      const coefficient = Number(course?.course_coefficient_percent ?? 100);
+      return coefficient >= 125 ? 'fast' : coefficient < 100 ? 'technical' : 'rolling';
+    }
+
+    function coursePaceCategoryLabel(course = selectedOfficialCourse()) {
+      return { technical: '🔴 Technique', rolling: '🟡 Roulant', fast: '🟢 Rapide' }[coursePaceCategory(course)];
     }
 
     function courseTimeMultiplier(coefficientPercent) {
@@ -823,8 +834,8 @@
         pointSettingsTitle.textContent = `Ravitos officiels · ${course?.name || 'course sélectionnée'}`;
         const coefficientPercent = currentCourseCoefficientPercent();
         courseSelectionNote.textContent = coefficientPercent !== 100
-          ? `Ravitos, assistances, contrôles et barrières sont appliqués automatiquement. Coefficient course : ${coefficientPercent}% (${courseTimeAdjustmentLabel(coefficientPercent)} ; allures ×${currentCourseTimeMultiplier().toFixed(2)}). Les temps d’arrêt se règlent dans le déroulé de course.`
-          : 'Les ravitos, assistances, contrôles et barrières sont appliqués automatiquement. Les temps d’arrêt se règlent directement dans le déroulé de course.';
+          ? `Profil : ${coursePaceCategoryLabel(course)}. Ravitos, assistances, contrôles et barrières sont appliqués automatiquement. Coefficient course : ${coefficientPercent}% (${courseTimeAdjustmentLabel(coefficientPercent)} ; allures ×${currentCourseTimeMultiplier().toFixed(2)}). Les temps d’arrêt se règlent dans le déroulé de course.`
+          : `Profil : ${coursePaceCategoryLabel(course)}. Les ravitos, assistances, contrôles et barrières sont appliqués automatiquement. Les temps d’arrêt se règlent directement dans le déroulé de course.`;
         renderOfficialPointSettings(course);
       } else {
         pointSettingsTitle.textContent = 'Points de ma trace';

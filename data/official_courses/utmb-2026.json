@@ -8,6 +8,7 @@
   "route_file": "utmb-2026.gpx",
   "distance_km": 176.8,
   "course_coefficient_percent": 100,
+  "course_pace_category": "rolling",
   "start_location": "Chamonix",
   "finish_location": "Chamonix",
   "timezone": "Europe/Paris",

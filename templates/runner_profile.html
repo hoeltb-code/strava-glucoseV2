@@ -14,6 +14,10 @@
     gap:18px;
     align-items:flex-start;
   }
+  .runner-layout > main,
+  .runner-section {
+    min-width:0;
+  }
   .runner-topbar {
     display:flex;
     align-items:center;
@@ -232,9 +236,18 @@
     .runner-section table td {
       font-size:0.72rem !important;
       padding:5px 4px !important;
+      overflow-wrap:anywhere;
     }
     .runner-section table th span {
-      font-size:0.65rem !important;
+      display:none;
+    }
+    .runner-table-scroll {
+      width:100%;
+      overflow-x:auto;
+      -webkit-overflow-scrolling:touch;
+    }
+    .runner-table-scroll table {
+      min-width:520px;
     }
     .series-pace {
       font-weight:500 !important;
@@ -277,6 +290,7 @@
       flex-direction:column;
       align-items:flex-start;
     }
+    .pace-curve-grid { grid-template-columns:1fr; }
   }
 
   @media (min-width: 901px) {
@@ -342,12 +356,24 @@
     color:var(--accent-2);
     font-family:"Orbitron", sans-serif;
   }
+  .pace-curve-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; margin:14px 0 16px; }
+  .pace-curve-card { padding:13px; border:1px solid rgba(184,255,69,.26); border-radius:16px; background:linear-gradient(145deg, rgba(77,121,42,.18), rgba(12,30,48,.72)); }
+  .pace-curve-card[data-curve="descent"] { border-color:rgba(96,165,250,.35); background:linear-gradient(145deg, rgba(37,99,235,.2), rgba(12,30,48,.72)); }
+  .pace-curve-card h4 { margin:0 0 3px; color:#fff !important; font-size:.84rem; }
+  .pace-curve-card p { margin:0 0 8px; color:var(--text-muted) !important; font-size:.72rem !important; }
+  .pace-curve-canvas { height:260px; }
+  .pace-curve-head { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+  .pace-zone-select { width:auto; min-width:100px; padding:5px 7px; font-size:.72rem; }
+  @media (max-width: 900px) {
+    .pace-curve-grid { grid-template-columns:1fr; }
+    .pace-curve-card { min-width:0; }
+  }
 </style>
-{% set needs_chart_js = show_glucose_tabs and (
+{% set needs_chart_js = (profile.zones and profile.zones|length > 0) or (show_glucose_tabs and (
   (glucose_chart_24h and glucose_chart_24h|length > 1)
   or (glucose_activity_chart.labels and glucose_activity_chart.labels|length > 0)
   or (glucose_activity_profile_radar and glucose_activity_profile_radar.has_data)
-) %}
+)) %}
 {% if needs_chart_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
@@ -502,7 +528,6 @@
                 <th style="text-align:right; padding:8px 4px;">D-</th>
                 <th style="text-align:right; padding:8px 4px;">Distance</th>
                 <th style="text-align:right; padding:8px 4px;">D+/h</th>
-                <th style="text-align:left; padding:8px 4px;">Activité</th>
               </tr>
             </thead>
             <tbody>
@@ -537,16 +562,6 @@
                       –
                     {% endif %}
                   </td>
-                  <td style="padding:8px 4px;">
-                    {% if window.activity_id %}
-                      <a href="/ui/user/{{ user.id }}/activity/{{ window.activity_id }}"
-                         style="color:#2563eb; text-decoration:none;">
-                        Détail →
-                      </a>
-                    {% else %}
-                      –
-                    {% endif %}
-                  </td>
                 </tr>
               {% endfor %}
             </tbody>
@@ -560,48 +575,228 @@
             VAM (m/h) par % de pente et zone cardio
           </h3>
           <p class="muted" style="margin:0 0 10px 0; font-size:0.8rem;">
-            Ici on ne regarde que les <strong>pentes positives</strong> (montées).
+            Compare la réponse verticale par zone cardio, aussi bien en montée qu’en descente.
+            En descente, le signe ≈ indique une VAM reconstituée depuis l’allure et la pente lorsque l’archive ne contient pas la mesure native.
           </p>
+          <label class="pace-zone-select" style="display:inline-flex; align-items:center; gap:8px; margin-bottom:2px;">
+            Zone cardio affichée
+            <select id="vamZone" aria-label="Zone cardio affichée pour la VAM">{% for z in hr_zones %}<option value="{{ z }}" {% if z == "Zone 2" %}selected{% endif %}>{{ z }}</option>{% endfor %}</select>
+          </label>
+          <p id="vamZoneHeartRate" class="muted" style="margin:2px 0 8px; font-size:.75rem;"></p>
 
-          <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
-            <thead>
+          <div class="pace-curve-grid">
+            <article class="pace-curve-card" data-curve="climb">
+              <div class="pace-curve-head"><h4>Courbes VAM en montée</h4></div>
+              <p>Vitesse ascensionnelle selon la pente positive.</p>
+              <div class="pace-curve-canvas"><canvas id="vamClimbChart"></canvas></div>
+            </article>
+            <article class="pace-curve-card" data-curve="descent">
+              <div class="pace-curve-head"><h4>Courbes VAM en descente</h4></div>
+              <p>Vitesse verticale négative selon la pente descendante.</p>
+              <div class="pace-curve-canvas"><canvas id="vamDescentChart"></canvas></div>
+            </article>
+          </div>
+
+          <div class="runner-table-scroll">
+            <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+              <thead>
               <tr style="border-bottom:1px solid #e5e7eb;">
                 <th style="text-align:left; padding:4px 2px;">Pente</th>
-                {% for z in hr_zones %}
-                  <th style="text-align:right; padding:4px 2px;">
-                    {{ z }}<br>
-                    <span style="font-weight:400; font-size:0.7rem;">VAM (m/h)</span>
-                  </th>
-                {% endfor %}
+                <th id="vamZoneTableTitle" style="text-align:right; padding:4px 2px;">Zone 2 · VAM (m/h)</th>
               </tr>
             </thead>
-            <tbody>
-              {% for slope_id, slope_label in slopes_order %}
-                {% if not slope_id.startswith("Sneg") %} {# ❌ exclut pentes négatives #}
-                  <tr style="border-bottom:1px solid #f3f4f6;">
-                    <td style="padding:4px 2px;">{{ slope_label }}</td>
-
-                    {% for z in hr_zones %}
-                      {% set zone = profile.zones.get(z) %}
-                      {% if zone %}
-                        {% set cell = zone.get(slope_id) %}
-                      {% else %}
-                        {% set cell = None %}
-                      {% endif %}
-
-                      <td style="text-align:right; padding:4px 2px;">
-                        {% if cell and cell.avg_vam_m_per_h %}
-                          {{ cell.avg_vam_m_per_h|round(0)|int }}
-                        {% else %}
-                          –
-                        {% endif %}
-                      </td>
-                    {% endfor %}
-                  </tr>
-                {% endif %}
-              {% endfor %}
-            </tbody>
+            <tbody id="vamZoneTable"></tbody>
           </table>
+          </div>
+          <script>
+            (function() {
+              window.addEventListener('DOMContentLoaded', () => {
+              if (typeof Chart === 'undefined') return;
+              const profileData = {{ profile | tojson | safe }};
+              const zones = {{ hr_zones | tojson | safe }};
+              const fcMax = {{ (user.max_heartrate or 180) | int | tojson }};
+              const zoneHeartRateRatios = {
+                'Zone 1': [0.10, 0.60], 'Zone 2': [0.60, 0.70], 'Zone 3': [0.70, 0.80],
+                'Zone 4': [0.80, 0.90], 'Zone 5': [0.90, 1.00],
+              };
+              const zoneHeartRates = Object.fromEntries(Object.entries(zoneHeartRateRatios).map(([zone, [min, max]]) => [zone, {
+                min_bpm: Math.round(min * fcMax), max_bpm: Math.round(max * fcMax),
+                min_percent: Math.round(min * 100), max_percent: Math.round(max * 100),
+              }]));
+              const slopesOrder = {{ slopes_order | tojson | safe }};
+              const colors = ['#60a5fa', '#4de2ff', '#b8ff45', '#fbbf24', '#f97316'];
+              const slopeCenters = {
+                Sneg40p: -45, Sneg30_40: -35, Sneg25_30: -27.5, Sneg20_25: -22.5,
+                Sneg15_20: -17.5, Sneg10_15: -12.5, Sneg5_10: -7.5, Sneg0_5: -2.5,
+                S0_5: 2.5, S5_10: 7.5, S10_15: 12.5, S15_20: 17.5,
+                S20_25: 22.5, S25_30: 27.5, S30_40: 35, S40p: 45,
+              };
+              const coloredTextLegend = {
+                labels: {
+                  boxWidth: 0,
+                  padding: 11,
+                  filter: item => !item.text.startsWith('_'),
+                  generateLabels: chart => Chart.defaults.plugins.legend.labels.generateLabels(chart)
+                    .filter(item => !item.text.startsWith('_'))
+                    .map(item => ({
+                      ...item,
+                      fillStyle: 'transparent', strokeStyle: 'transparent', lineWidth: 0,
+                      fontColor: chart.data.datasets[item.datasetIndex].borderColor,
+                    })),
+                },
+              };
+              const solveQuadratic = (points) => {
+                if (points.length < 3) return null;
+                const sums = points.reduce((value, point) => ({
+                  n: value.n + 1, x: value.x + point.x, x2: value.x2 + point.x ** 2,
+                  x3: value.x3 + point.x ** 3, x4: value.x4 + point.x ** 4,
+                  y: value.y + point.y, xy: value.xy + point.x * point.y, x2y: value.x2y + point.x ** 2 * point.y,
+                }), { n:0, x:0, x2:0, x3:0, x4:0, y:0, xy:0, x2y:0 });
+                const matrix = [[sums.x4,sums.x3,sums.x2,sums.x2y],[sums.x3,sums.x2,sums.x,sums.xy],[sums.x2,sums.x,sums.n,sums.y]];
+                for (let pivot = 0; pivot < 3; pivot += 1) {
+                  let maxRow = pivot;
+                  for (let row = pivot + 1; row < 3; row += 1) if (Math.abs(matrix[row][pivot]) > Math.abs(matrix[maxRow][pivot])) maxRow = row;
+                  [matrix[pivot], matrix[maxRow]] = [matrix[maxRow], matrix[pivot]];
+                  if (Math.abs(matrix[pivot][pivot]) < 0.00001) return null;
+                  const divisor = matrix[pivot][pivot];
+                  for (let column = pivot; column < 4; column += 1) matrix[pivot][column] /= divisor;
+                  for (let row = 0; row < 3; row += 1) {
+                    if (row === pivot) continue;
+                    const factor = matrix[row][pivot];
+                    for (let column = pivot; column < 4; column += 1) matrix[row][column] -= factor * matrix[pivot][column];
+                  }
+                }
+                return { a:matrix[0][3], b:matrix[1][3], c:matrix[2][3] };
+              };
+              const curveData = (points) => {
+                const coefficients = solveQuadratic(points);
+                if (!coefficients) return points;
+                const start = points[0].x;
+                const end = points[points.length - 1].x;
+                return Array.from({ length:25 }, (_, index) => {
+                  const x = start + (end - start) * index / 24;
+                  const y = coefficients.a * x * x + coefficients.b * x + coefficients.c;
+                  return { x, y:Math.max(2, Math.min(60, y)) };
+                });
+              };
+              const datasetsFor = (direction) => zones.flatMap((zone, index) => {
+                const raw = Object.entries((profileData.zones || {})[zone] || {})
+                  .map(([slopeId, cell]) => ({ x:slopeCenters[slopeId], y:Number(cell.avg_pace_s_per_km) / 60, duration:Number(cell.pace_duration_sec || cell.duration_sec || 0) }))
+                  .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y) && point.y > 0 && point.duration >= 60)
+                  .filter((point) => direction === 'climb' ? point.x >= 0 : point.x <= 0)
+                  .sort((a, b) => a.x - b.x);
+                if (!raw.length) return [];
+                return [{ label:zone, data:curveData(raw), borderColor:colors[index], backgroundColor:colors[index], borderWidth:2.5, pointRadius:0, tension:.35, fill:false }, { label:`_${zone}`, data:raw, borderColor:colors[index], backgroundColor:colors[index], pointRadius:3, pointHoverRadius:5, showLine:false }];
+              });
+              const renderPaceCurve = (canvasId, direction, selectId) => {
+                const canvas = document.getElementById(canvasId);
+                const select = document.getElementById(selectId);
+                if (!canvas || !select) return;
+                const datasets = datasetsFor(direction);
+                const chart = new Chart(canvas.getContext('2d'), {
+                  type:'line', data:{ datasets },
+                  options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'x', intersect:false, axis:'x' }, plugins:{ legend:coloredTextLegend, tooltip:{ filter:item => { const selected = select.value; return selected ? item.dataset.label === selected : !item.dataset.label.startsWith('_'); }, callbacks:{ label:item => { const pace = Math.round(item.parsed.y * 60); return `${item.dataset.label.replace('_','')} · ${Math.floor(pace / 60)}:${String(pace % 60).padStart(2,'0')}/km`; } } } }, scales:{ x:{ type:'linear', title:{ display:true, text:'Pente (%)', color:'#d6e4f8' }, ticks:{ color:'#d6e4f8' }, grid:{ color:'rgba(148,174,214,.16)' } }, y:{ reverse:true, title:{ display:true, text:'Allure (min/km) · haut = plus rapide', color:'#d6e4f8' }, ticks:{ color:'#d6e4f8', callback:value => { const pace = Math.round(value * 60); return `${Math.floor(pace / 60)}:${String(pace % 60).padStart(2,'0')}`; } }, grid:{ color:'rgba(148,174,214,.16)' } } } }
+                });
+                const applyZoneFocus = () => {
+                  const selected = select.value;
+                  datasets.forEach((dataset) => {
+                    const zone = dataset.label.replace('_', '');
+                    const selectedOrAll = !selected || zone === selected;
+                    const baseColor = dataset._baseColor || dataset.backgroundColor;
+                    dataset._baseColor = baseColor;
+                    dataset.borderWidth = dataset.label.startsWith('_') ? 1 : selectedOrAll ? 3.6 : 1.05;
+                    dataset.pointRadius = dataset.label.startsWith('_') ? selectedOrAll ? 1.8 : 0.8 : 0;
+                    dataset.pointHoverRadius = dataset.label.startsWith('_') ? 3.5 : 0;
+                    dataset.borderColor = selectedOrAll ? baseColor : `${baseColor}88`;
+                    dataset.backgroundColor = selectedOrAll ? baseColor : `${baseColor}88`;
+                  });
+                  chart.update();
+                };
+                select.addEventListener('change', applyZoneFocus);
+                applyZoneFocus();
+              };
+              renderPaceCurve('paceClimbChart', 'climb', 'paceZone');
+              renderPaceCurve('paceDescentChart', 'descent', 'paceZone');
+              const datasetsForVam = (direction) => zones.flatMap((zone, index) => {
+                const raw = Object.entries((profileData.zones || {})[zone] || {})
+                  .map(([slopeId, cell]) => ({ x:slopeCenters[slopeId], y:Number(cell.avg_vam_m_per_h) }))
+                  // Même règle que le tableau : toute VAM calculée doit être visible,
+                  // y compris les données très spécifiques d'une zone 5.
+                  .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y) && point.y !== 0)
+                  .filter((point) => direction === 'climb' ? point.x >= 0 : point.x <= 0)
+                  .sort((a, b) => a.x - b.x);
+                if (!raw.length) return [];
+                const coefficients = solveQuadratic(raw);
+                const curve = coefficients ? Array.from({ length:25 }, (_, item) => {
+                  const x = raw[0].x + (raw[raw.length - 1].x - raw[0].x) * item / 24;
+                  return { x, y:Math.max(-5000, Math.min(5000, coefficients.a * x * x + coefficients.b * x + coefficients.c)) };
+                }) : raw;
+                return [{ label:zone, data:curve, borderColor:colors[index], backgroundColor:colors[index], borderWidth:2.5, pointRadius:0, tension:.35, fill:false }, { label:`_${zone}`, data:raw, borderColor:colors[index], backgroundColor:colors[index], pointRadius:2, pointHoverRadius:3.5, showLine:false }];
+              });
+              const renderVamCurve = (canvasId, direction, selectId) => {
+                const canvas = document.getElementById(canvasId);
+                const select = document.getElementById(selectId);
+                if (!canvas || !select) return;
+                const datasets = datasetsForVam(direction);
+                const chart = new Chart(canvas.getContext('2d'), {
+                  type:'line', data:{ datasets },
+                  options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'x', intersect:false, axis:'x' }, plugins:{ legend:coloredTextLegend, tooltip:{ filter:item => { const selected = select.value; return selected ? item.dataset.label === selected : !item.dataset.label.startsWith('_'); }, callbacks:{ label:item => `${item.dataset.label.replace('_','')} · ${item.parsed.y >= 0 ? '+' : ''}${Math.round(item.parsed.y)} m/h` } } }, scales:{ x:{ type:'linear', title:{ display:true, text:'Pente (%)', color:'#d6e4f8' }, ticks:{ color:'#d6e4f8' }, grid:{ color:'rgba(148,174,214,.16)' } }, y:{ title:{ display:true, text:'VAM (m/h)', color:'#d6e4f8' }, ticks:{ color:'#d6e4f8', callback:value => `${value >= 0 ? '+' : ''}${value}` }, grid:{ color:'rgba(148,174,214,.16)' } } } }
+                });
+                const applyZoneFocus = () => {
+                  const selected = select.value;
+                  datasets.forEach((dataset) => {
+                    const zone = dataset.label.replace('_', '');
+                    const selectedOrAll = !selected || zone === selected;
+                    const baseColor = dataset._baseColor || dataset.backgroundColor;
+                    dataset._baseColor = baseColor;
+                    dataset.borderWidth = dataset.label.startsWith('_') ? 1 : selectedOrAll ? 3.6 : 1.05;
+                    dataset.pointRadius = dataset.label.startsWith('_') ? selectedOrAll ? 1.6 : 0.7 : 0;
+                    dataset.pointHoverRadius = dataset.label.startsWith('_') ? 3.2 : 0;
+                    dataset.borderColor = selectedOrAll ? baseColor : `${baseColor}88`;
+                    dataset.backgroundColor = selectedOrAll ? baseColor : `${baseColor}88`;
+                  });
+                  chart.update();
+                };
+                select.addEventListener('change', applyZoneFocus);
+                applyZoneFocus();
+              };
+              renderVamCurve('vamClimbChart', 'climb', 'vamZone');
+              renderVamCurve('vamDescentChart', 'descent', 'vamZone');
+              const renderSelectedZoneTable = (selectId, tableId, titleId, heartRateId, metric) => {
+                const select = document.getElementById(selectId);
+                const table = document.getElementById(tableId);
+                const title = document.getElementById(titleId);
+                const heartRate = document.getElementById(heartRateId);
+                if (!select || !table || !title) return;
+                const update = () => {
+                  const zone = select.value;
+                  title.textContent = `${zone} · ${metric === 'pace' ? 'allure (min/km)' : 'VAM (m/h)'}`;
+                  const range = zoneHeartRates[zone];
+                  if (heartRate && range) {
+                    heartRate.textContent = `${zone} · ${range.min_bpm}–${range.max_bpm} bpm (${range.min_percent}–${range.max_percent}% de FC max ${fcMax} bpm)`;
+                  }
+                  table.innerHTML = slopesOrder.map(([slopeId, slopeLabel]) => {
+                    const cell = ((profileData.zones || {})[zone] || {})[slopeId];
+                    let value = '–';
+                    if (metric === 'pace' && Number(cell?.avg_pace_s_per_km) > 0) {
+                      const seconds = Math.round(Number(cell.avg_pace_s_per_km));
+                      value = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+                    }
+                    if (metric === 'vam' && Number.isFinite(Number(cell?.avg_vam_m_per_h)) && Number(cell?.avg_vam_m_per_h) !== 0) {
+                      const vam = Math.round(Number(cell.avg_vam_m_per_h));
+                      value = `${cell.vam_is_estimated ? '≈' : ''}${vam >= 0 ? '+' : ''}${vam}`;
+                    }
+                    return `<tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:4px 2px;">${slopeLabel}</td><td style="text-align:right; padding:4px 2px;">${value}</td></tr>`;
+                  }).join('');
+                };
+                select.addEventListener('change', update);
+                update();
+              };
+              renderSelectedZoneTable('paceZone', 'paceZoneTable', 'paceZoneTableTitle', 'paceZoneHeartRate', 'pace');
+              renderSelectedZoneTable('vamZone', 'vamZoneTable', 'vamZoneTableTitle', 'vamZoneHeartRate', 'vam');
+              });
+            })();
+          </script>
         {% else %}
           <p class="muted" style="margin:0;">
             Aucune donnée d’agrégats trouvée pour ce profil (sport={{ sport }}, période={{ period }}).
@@ -615,87 +810,41 @@
             Allure moyenne (min/km) par % de pente et zone cardio
           </h3>
           <p class="muted" style="margin:0 0 10px 0; font-size:0.8rem;">
-            On inclut ici montées <strong>et descentes</strong> pour voir comment tu gères
-            toutes les pentes, et on affiche aussi le temps total passé dans chaque croisement
-            pente × zone cardio sur la période.
+            Deux courbes lissées pour visualiser ton allure en montée et en descente.
+            Sélectionne une zone cardio pour la mettre en avant.
           </p>
+          <label class="pace-zone-select" style="display:inline-flex; align-items:center; gap:8px; margin-bottom:2px;">
+            Zone cardio affichée
+            <select id="paceZone" aria-label="Zone cardio affichée pour les allures">{% for z in hr_zones %}<option value="{{ z }}" {% if z == "Zone 2" %}selected{% endif %}>{{ z }}</option>{% endfor %}</select>
+          </label>
+          <p id="paceZoneHeartRate" class="muted" style="margin:2px 0 8px; font-size:.75rem;"></p>
 
-          <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
-            <thead>
-              <tr style="border-bottom:1px solid #e5e7eb;">
-                <th style="text-align:left; padding:4px 2px;">Pente</th>
-                {% for z in hr_zones %}
-                  <th style="text-align:right; padding:4px 2px;">
-                    {{ z }}<br>
-                    <span style="font-weight:400; font-size:0.7rem;">Allure (min/km)</span>
-                  </th>
-                {% endfor %}
-              </tr>
-            </thead>
-            <tbody>
-              {% for slope_id, slope_label in slopes_order %}
-                <tr style="border-bottom:1px solid #f3f4f6;">
-                  <td style="padding:4px 2px;">{{ slope_label }}</td>
+          <div class="pace-curve-grid">
+            <article class="pace-curve-card" data-curve="climb">
+              <div class="pace-curve-head"><h4>Courbes d’allure en montée</h4></div>
+              <p>Une courbe par zone cardio · pente positive en abscisse.</p>
+              <div class="pace-curve-canvas"><canvas id="paceClimbChart"></canvas></div>
+            </article>
+            <article class="pace-curve-card" data-curve="descent">
+              <div class="pace-curve-head"><h4>Courbes d’allure en descente</h4></div>
+              <p>Lecture dédiée aux pentes négatives et à la VAM négative.</p>
+              <div class="pace-curve-canvas"><canvas id="paceDescentChart"></canvas></div>
+            </article>
+          </div>
 
-                  {% for z in hr_zones %}
-                    {% set zone = profile.zones.get(z) %}
-                    {% if zone %}
-                      {% set cell = zone.get(slope_id) %}
-                    {% else %}
-                      {% set cell = None %}
-                    {% endif %}
-
-                    {% set duration_sec = 0 %}
-                    {% if cell and cell.pace_duration_sec %}
-                      {% set duration_sec = cell.pace_duration_sec %}
-                    {% endif %}
-                    <td style="text-align:right; padding:4px 2px;">
-                      {% if cell and cell.avg_pace_s_per_km and duration_sec >= 60 %}
-                        {% set pace_sec = cell.avg_pace_s_per_km|round(0)|int %}
-                        {% set pace_min = pace_sec // 60 %}
-                        {% set pace_rem = pace_sec % 60 %}
-                        {{ pace_min }}'{{ "%02d"|format(pace_rem) }}
-                      {% else %}
-                        –
-                      {% endif %}
-                      {% if duration_sec and duration_sec > 0 %}
-                        {% set dur_min = duration_sec // 60 %}
-                        {% set dur_sec = duration_sec % 60 %}
-                        <div class="muted duration-label">
-                          {{ dur_min }}′{{ "%02d"|format(dur_sec) }}
-                        </div>
-                      {% endif %}
-                    </td>
-                  {% endfor %}
-                </tr>
-              {% endfor %}
-            </tbody>
+          <div class="runner-table-scroll">
+            <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+            <thead><tr style="border-bottom:1px solid #e5e7eb;"><th style="text-align:left; padding:4px 2px;">Pente</th><th id="paceZoneTableTitle" style="text-align:right; padding:4px 2px;">Zone 2 · allure (min/km)</th></tr></thead>
+            <tbody id="paceZoneTable"></tbody>
           </table>
+          </div>
+
         {% else %}
           <p class="muted" style="margin:0;">
             Aucune donnée d’agrégats trouvée pour ce profil (sport={{ sport }}, période={{ period }}).
           </p>
         {% endif %}
 
-        <div id="gpx-projection" class="card" style="margin-top:14px; padding:14px; border:1px solid #fecaca; background:#fee2e2;">
-          <h3 style="margin:0 0 6px 0; font-size:0.95rem;">🗺️ Projection de chrono sur ta trace GPX</h3>
-          <p class="muted" style="margin:0 0 10px 0; font-size:0.8rem;">
-            Télécharge ta trace, puis on calcule automatiquement la distance passée dans chaque pente
-            et on applique tes allures historiques par zone cardio × % de pente pour simuler ton chrono final.
-          </p>
-
-          <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
-            <input type="file"
-                   id="projection-gpx"
-                   accept=".gpx"
-                   style="flex:1; min-width:200px;"
-                   onchange='runSlopeAnalysis({{ user.id }}, {{ sport|tojson }}, {{ period|tojson }})'>
-          </div>
-
-          <div id="projection-feedback" style="font-size:0.8rem; color:#0f172a; margin-top:6px;"></div>
-
-          <div id="projection-result" style="margin-top:12px;"></div>
-        </div>
       </div>
 
     <div class="card runner-section {% if tab == 'cadence' %}is-active{% endif %}" style="padding:14px;" data-section="cadence">
@@ -707,7 +856,8 @@
             Ça permet de voir à quelles pentes tu marches, trottines ou cours.
           </p>
 
-          <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+          <div class="runner-table-scroll">
+            <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
             <thead>
               <tr style="border-bottom:1px solid #e5e7eb;">
                 <th style="text-align:left; padding:4px 2px;">Pente</th>
@@ -718,8 +868,8 @@
                   </th>
                 {% endfor %}
               </tr>
-            </thead>
-            <tbody>
+              </thead>
+              <tbody>
               {% for slope_id, slope_label in slopes_order %}
                 <tr style="border-bottom:1px solid #f3f4f6;">
                   <td style="padding:4px 2px;">{{ slope_label }}</td>
@@ -742,8 +892,9 @@
                   {% endfor %}
                 </tr>
               {% endfor %}
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          </div>
         {% else %}
           <p class="muted" style="margin:0;">
             Aucune donnée d’agrégats trouvée pour ce profil (sport={{ sport }}, période={{ period }}).

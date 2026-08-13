@@ -133,7 +133,20 @@
   .profile-pacing-table td:first-child { color:#fff; font-weight:700; }
   .profile-pacing-table td:last-child { color:var(--accent-2); font-weight:700; }
   .profile-pacing-table th:nth-child(2), .profile-pacing-table td:nth-child(2) { width:72px; }
-  .profile-pace-override { box-sizing:border-box; width:48px; min-height:24px; padding:1px 2px; font-size:.72rem; }
+  .profile-pacing-curve { height:250px; margin-top:10px; border-radius:12px; overflow:hidden; background:rgba(8,17,31,.42); border:1px solid rgba(148,174,214,.15); }
+  .profile-pacing-curve svg { display:block; width:100%; height:100%; }
+  .profile-pacing-curve .curve-grid { stroke:rgba(148,174,214,.16); stroke-width:1; }
+  .profile-pacing-curve .curve-axis-label { fill:#bfd2e9; font-size:11px; font-family:Inter, sans-serif; }
+  .profile-pacing-curve .curve-line { fill:none; stroke:var(--accent-2); stroke-width:3; stroke-linecap:round; stroke-linejoin:round; filter:drop-shadow(0 0 7px rgba(184,255,69,.45)); }
+  .profile-pacing-curve .curve-point { fill:#fff; stroke:var(--accent-2); stroke-width:2; }
+  .profile-pacing-curve .cohort-line { fill:none; stroke:#fff; stroke-width:1.2; opacity:.78; stroke-linecap:round; stroke-linejoin:round; }
+  .profile-pacing-curve .cohort-line--p50 { opacity:.95; }
+  .profile-pacing-curve .cohort-line--p80 { stroke-dasharray:4 4; }
+  .profile-pacing-curve .cohort-legend { fill:#fff; font-size:10px; font-family:Inter, sans-serif; opacity:.86; }
+  .profile-pacing-live-table { width:100%; margin-top:10px; border-collapse:collapse; font-size:.76rem; }
+  .profile-pacing-live-table th, .profile-pacing-live-table td { padding:5px 4px; border-bottom:1px solid rgba(148,174,214,.14); text-align:left; color:var(--text-main); }
+  .profile-pacing-live-table th { color:#fff; font-size:.66rem; letter-spacing:.05em; text-transform:uppercase; }
+  .profile-pacing-live-table td:first-child { font-weight:700; color:#fff; }
   .profile-nutrition-control { margin-top:12px; max-width:260px; }
   .profile-calculate { width:100%; margin-top:14px; }
   .projection-status { min-height:20px; margin:12px 0 0; color:var(--text-muted); font-size:.88rem; }
@@ -407,12 +420,16 @@
           <input id="home-flat-speed" type="range" min="5" max="16" step="0.1" value="8.5">
         </div>
         <div class="manual-control">
-          <label for="home-climb-vam">Vitesse ascensionnelle <output id="home-climb-vam-output">700 m/h</output></label>
+          <label for="home-climb-vam">VAM (10–15 %) <output id="home-climb-vam-output">700 m/h</output></label>
           <input id="home-climb-vam" type="range" min="300" max="1800" step="25" value="700">
         </div>
         <div class="manual-control">
           <label for="home-descent-speed">Vitesse en descente <output id="home-descent-speed-output">11.0 km/h</output></label>
           <input id="home-descent-speed" type="range" min="5" max="20" step="0.1" value="11">
+        </div>
+        <div class="manual-control">
+          <label for="home-steep-vam">VAM (30–40 %) <output id="home-steep-vam-output">1100 m/h</output></label>
+          <input id="home-steep-vam" type="range" min="400" max="2400" step="25" value="1100">
         </div>
       </div>
       <div class="profile-pacing-preview" aria-live="polite">
@@ -421,9 +438,10 @@
           <span class="profile-pacing-note" id="home-profile-table-note"></span>
           <span class="profile-live-total"><strong id="home-profile-live-total">Sélectionne un parcours</strong><small id="home-profile-live-stop-detail">Arrêts ravito · 0 min</small></span>
         </div>
-        <table class="profile-pacing-table">
-          <thead><tr><th>Pente</th><th>Allure <small>min/km</small></th><th>VAM ±</th><th>Source</th></tr></thead>
-          <tbody id="home-profile-table-body"></tbody>
+        <div class="profile-pacing-curve" id="home-profile-curve" role="img" aria-label="Courbe d’allure utilisée pour la projection selon la pente"></div>
+        <table class="profile-pacing-live-table" aria-live="polite">
+          <thead><tr><th>Pente</th><th>Allure</th><th>VAM</th></tr></thead>
+          <tbody id="home-profile-live-data"></tbody>
         </table>
       </div>
       <div class="profile-nutrition-control">
@@ -498,16 +516,19 @@
     const status = document.getElementById('home-projection-status');
     const result = document.getElementById('home-projection-result');
     const runnerProfileData = {{ runner_profile_overview | default({}) | tojson | safe }};
+    const communityPaceCurves = {{ dashboard_cohort_curves | default({}) | tojson | safe }};
     const officialCourses = {{ official_courses | default([]) | tojson | safe }};
     const manualMode = document.getElementById('home-manual-mode');
     const manualControls = document.getElementById('home-manual-controls');
     const flatSpeed = document.getElementById('home-flat-speed');
     const climbVam = document.getElementById('home-climb-vam');
     const descentSpeed = document.getElementById('home-descent-speed');
+    const steepVam = document.getElementById('home-steep-vam');
     const projectionSubmit = document.getElementById('home-projection-submit');
     const profileTableTitle = document.getElementById('home-profile-table-title');
     const profileTableNote = document.getElementById('home-profile-table-note');
-    const profileTableBody = document.getElementById('home-profile-table-body');
+    const profileCurve = document.getElementById('home-profile-curve');
+    const profileLiveData = document.getElementById('home-profile-live-data');
     const profileLiveTotal = document.getElementById('home-profile-live-total');
     const profileLiveStopDetail = document.getElementById('home-profile-live-stop-detail');
     const archivedProfileBody = document.getElementById('home-archived-profile-body');
@@ -531,28 +552,35 @@
       S0_5: '0/5', S5_10: '5/10', S10_15: '10/15', S15_20: '15/20',
       S20_25: '20/25', S25_30: '25/30', S30_40: '30/40', S40p: '>40',
     };
-    const manualPaceOverrides = {};
     let refreshLiveProjection = null;
 
     function refreshManualLabels() {
       document.getElementById('home-flat-speed-output').textContent = `${Number(flatSpeed.value).toFixed(1)} km/h`;
       document.getElementById('home-climb-vam-output').textContent = `${Math.round(Number(climbVam.value))} m/h`;
       document.getElementById('home-descent-speed-output').textContent = `${Number(descentSpeed.value).toFixed(1)} km/h`;
+      document.getElementById('home-steep-vam-output').textContent = `${Math.round(Number(steepVam.value))} m/h`;
       renderProfilePacingTable();
       if (refreshLiveProjection) refreshLiveProjection();
     }
 
     function manualPaceForSlope(slopeId) {
-      if (manualPaceOverrides[slopeId] > 0) return manualPaceOverrides[slopeId];
       const flatPace = 3600 / Number(flatSpeed.value);
       const descentPace = 3600 / Number(descentSpeed.value);
-      const climbPace = (36000 * 12.5) / Number(climbVam.value);
-      const coefficients = quadraticThroughPoints([
-        [-7.5, descentPace],
-        [2.5, flatPace],
-        [12.5, climbPace],
-      ]);
-      const predicted = coefficients ? evaluateQuadratic(coefficients, slopeCenters[slopeId] || 0) : flatPace;
+      const climbPace = (36000 * 12.5) / Math.max(1, Number(climbVam.value));
+      const steepClimbPace = (36000 * 35) / Math.max(1, Number(steepVam.value));
+      // Les extrêmes restent ancrés : modifier le plat ne peut donc pas
+      // ralentir artificiellement les allures à -40 % ou +40 %.
+      const descentExtremePace = descentPace * 1.65;
+      const slope = slopeCenters[slopeId] || 0;
+      let predicted = slope <= 0
+        ? (() => {
+            const ratio = Math.max(0, Math.min(1, (slope + 45) / 45));
+            return descentExtremePace + (flatPace - descentExtremePace) * ratio * (2 - ratio);
+          })()
+        : (() => {
+            const coefficients = quadraticThroughPoints([[0, flatPace], [12.5, climbPace], [35, steepClimbPace]]);
+            return coefficients ? evaluateQuadratic(coefficients, slope) : flatPace;
+          })();
       return Math.max(120, Math.min(7200, predicted));
     }
 
@@ -639,6 +667,7 @@
     }
 
     function renderProfilePacingTable() {
+      if (!profileCurve) return;
       const zone = zoneInput.value;
       const historicalZone = (runnerProfileData.zones || {})[zone] || {};
       const manual = manualMode.checked;
@@ -649,25 +678,56 @@
         : hasHistoricalData
           ? 'Historique personnel par pente ; les trous sont complétés pour la simulation.'
           : 'Historique insuffisant : active les réglages manuels pour créer un profil de départ.';
-      profileTableBody.innerHTML = slopeIds.map((slopeId) => {
+      const points = slopeIds.map((slopeId) => {
         const historyCell = historicalZone[slopeId] || {};
         const historicalPace = Number(historyCell.avg_pace_s_per_km);
         const projected = projectedPaceForSlope(slopeId, zone);
         const pace = manual ? manualPaceForSlope(slopeId) : projected.pace;
-        const grade = slopeCenters[slopeId] || 0;
-        const speedKmh = pace > 0 ? 3600 / pace : 0;
-        const historicalVam = Number(historyCell.avg_vam_m_per_h);
-        const calculatedVam = speedKmh > 0 && grade !== 0 ? Math.round(speedKmh * 10 * grade) : null;
-        const vam = !manual && historicalPace > 0 && Number.isFinite(historicalVam) && historicalVam !== 0 && grade !== 0
-          ? Math.sign(grade) * Math.abs(Math.round(historicalVam))
-          : calculatedVam;
-        const source = manual ? 'Manuel' : projected.source;
-        const paceDisplay = manual
-          ? `<input class="profile-pace-override" data-slope-id="${slopeId}" type="number" min="2" max="120" step="0.1" value="${(pace / 60).toFixed(1)}" aria-label="Allure manuelle pour ${slopeLabels[slopeId]}, en minutes par kilomètre">`
-          : formatPace(pace);
-        const vamDisplay = vam ? `${vam > 0 ? '+' : '−'}${Math.abs(vam)} m/h` : '—';
-        return `<tr><td>${slopeLabels[slopeId]}</td><td>${paceDisplay}</td><td>${vamDisplay}</td><td>${source}</td></tr>`;
-      }).join('');
+        return { slopeId, x:slopeCenters[slopeId], pace, source:manual ? 'Manuel' : projected.source };
+      }).filter((point) => Number.isFinite(point.x) && point.pace > 0).sort((a, b) => a.x - b.x);
+      if (!points.length) {
+        profileCurve.innerHTML = '<p class="runner-history-empty">Aucune allure exploitable pour cette zone.</p>';
+        return;
+      }
+      const width = 680; const height = 250; const pad = { left:52, right:16, top:18, bottom:36 };
+      // Échelle fixe (logarithmique) : modifier la VAM ne déplace pas
+      // visuellement la partie descente, qui ne dépend pas de ce réglage.
+      const yMin = 120; const yMax = 7200;
+      const xScale = (x) => pad.left + ((x + 45) / 90) * (width - pad.left - pad.right);
+      const yScale = (pace) => {
+        const bounded = Math.max(yMin, Math.min(yMax, pace));
+        return pad.top + ((Math.log(bounded) - Math.log(yMin)) / (Math.log(yMax) - Math.log(yMin))) * (height - pad.top - pad.bottom);
+      };
+      const path = points.map((point, index) => `${index ? 'L' : 'M'} ${xScale(point.x).toFixed(1)} ${yScale(point.pace).toFixed(1)}`).join(' ');
+      const xTicks = [-40, -20, 0, 20, 40];
+      const yTicks = [120, 180, 300, 600, 1200, 2400, 4800, 7200];
+      const grid = [
+        ...xTicks.map((tick) => `<line class="curve-grid" x1="${xScale(tick)}" y1="${pad.top}" x2="${xScale(tick)}" y2="${height - pad.bottom}"/><text class="curve-axis-label" x="${xScale(tick)}" y="${height - 12}" text-anchor="middle">${tick > 0 ? '+' : ''}${tick}%</text>`),
+        ...yTicks.map((tick) => `<line class="curve-grid" x1="${pad.left}" y1="${yScale(tick)}" x2="${width - pad.right}" y2="${yScale(tick)}"/><text class="curve-axis-label" x="${pad.left - 7}" y="${yScale(tick) + 4}" text-anchor="end">${formatPace(tick).replace(' /km', '')}</text>`),
+      ].join('');
+      const communityZone = (communityPaceCurves.zones || {})[zone] || {};
+      const communityPath = (key) => slopeIds.map((slopeId) => {
+        const pace = Number((communityZone[slopeId] || {})[key]);
+        return Number.isFinite(pace) && pace > 0 ? { x:slopeCenters[slopeId], pace } : null;
+      }).filter(Boolean).sort((a, b) => a.x - b.x).map((point, index) => `${index ? 'L' : 'M'} ${xScale(point.x).toFixed(1)} ${yScale(point.pace).toFixed(1)}`).join(' ');
+      const p20Path = communityPath('p20');
+      const p50Path = communityPath('p50');
+      const p80Path = communityPath('p80');
+      const hasCommunityCurves = [p20Path, p50Path, p80Path].some((curve) => curve.includes('L'));
+      const communityPaths = hasCommunityCurves
+        ? `<path class="cohort-line cohort-line--p20" d="${p20Path}"/><path class="cohort-line cohort-line--p50" d="${p50Path}"/><path class="cohort-line cohort-line--p80" d="${p80Path}"/><text class="cohort-legend" x="${width - 14}" y="${pad.top + 12}" text-anchor="end">P20 rapide · P50 milieu · P80 prudent</text>`
+        : '';
+      if (hasCommunityCurves) {
+        profileTableNote.textContent += ` · Repères anonymisés (minimum ${communityPaceCurves.minimum_runners || 8} coureurs par pente).`;
+      }
+      const dots = points.map((point) => `<circle class="curve-point" cx="${xScale(point.x)}" cy="${yScale(point.pace)}" r="3"><title>${slopeLabels[point.slopeId]} · ${formatPace(point.pace)} · ${point.source}</title></circle>`).join('');
+      profileCurve.innerHTML = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">${grid}${communityPaths}<path class="curve-line" d="${path}"/>${dots}<text class="curve-axis-label" x="${width / 2}" y="${height - 1}" text-anchor="middle">Pente</text><text class="curve-axis-label" x="12" y="${height / 2}" transform="rotate(-90 12 ${height / 2})" text-anchor="middle">Allure</text></svg>`;
+      if (profileLiveData) {
+        profileLiveData.innerHTML = points.map((point) => {
+          const vam = Math.round((3600 / point.pace) * 10 * point.x);
+          return `<tr><td>${slopeLabels[point.slopeId]}</td><td>${formatPace(point.pace)}</td><td>${vam ? `${vam > 0 ? '+' : '−'}${Math.abs(vam)} m/h` : '—'}</td></tr>`;
+        }).join('');
+      }
     }
 
     function renderAidStations() {
@@ -750,23 +810,13 @@
       renderProfilePacingTable();
       if (refreshLiveProjection) refreshLiveProjection();
     });
-    [flatSpeed, climbVam, descentSpeed].forEach((input) => input.addEventListener('input', refreshManualLabels));
+    [flatSpeed, climbVam, descentSpeed, steepVam].forEach((input) => input.addEventListener('input', refreshManualLabels));
     zoneInput.addEventListener('change', () => {
       renderProfilePacingTable();
       renderArchivedProfileTable();
       if (refreshLiveProjection) refreshLiveProjection();
     });
     projectionSubmit.addEventListener('click', () => form.requestSubmit());
-    profileTableBody.addEventListener('input', (event) => {
-      const input = event.target.closest('.profile-pace-override');
-      if (!input) return;
-      const paceMinutes = Math.max(2, Math.min(120, Number(input.value) || 2));
-      manualPaceOverrides[input.dataset.slopeId] = paceMinutes * 60;
-      renderProfilePacingTable();
-      if (refreshLiveProjection) refreshLiveProjection();
-      const refreshedInput = profileTableBody.querySelector(`.profile-pace-override[data-slope-id="${input.dataset.slopeId}"]`);
-      if (refreshedInput) refreshedInput.focus();
-    });
     aidCountInput.addEventListener('input', renderAidStations);
     officialCourseInput.addEventListener('change', () => {
       updateCourseSource();

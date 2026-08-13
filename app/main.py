@@ -458,6 +458,77 @@ def _build_pace_lookup_from_profile(profile_data: dict | None, hr_zone_names: li
     return pace_lookup
 
 
+def _percentile_from_sorted(values: list[float], quantile: float) -> float | None:
+    """Percentile interpolé, sans dépendance externe."""
+    if not values:
+        return None
+    index = max(0.0, min(1.0, quantile)) * (len(values) - 1)
+    lower = int(index)
+    upper = min(lower + 1, len(values) - 1)
+    weight = index - lower
+    return values[lower] + (values[upper] - values[lower]) * weight
+
+
+def _build_anonymized_pace_benchmarks(
+    db: Session,
+    *,
+    sport: str = "run",
+    excluded_user_id: int | None = None,
+    minimum_runners: int = 8,
+    minimum_cell_duration_sec: int = 300,
+) -> dict:
+    """Construit des repères anonymisés P20/P50/P80 par zone et pente.
+
+    Chaque coureur ne contribue qu'une fois à une cellule, avec son allure
+    moyenne pondérée par durée. Cela évite de surpondérer les utilisateurs qui
+    importent beaucoup plus de sorties que les autres.
+    """
+    q = (
+        db.query(
+            models.RunnerProfileMonthly.user_id.label("user_id"),
+            models.RunnerProfileMonthly.hr_zone.label("hr_zone"),
+            models.RunnerProfileMonthly.slope_band.label("slope_band"),
+            func.sum(models.RunnerProfileMonthly.sum_pace_x_duration).label("pace_sum"),
+            func.sum(models.RunnerProfileMonthly.pace_duration_sec).label("pace_duration"),
+        )
+        .filter(
+            sport_column_condition(models.RunnerProfileMonthly.sport, canonicalize_sport_label(sport)),
+            models.RunnerProfileMonthly.metric_scope == "slope_zone",
+            models.RunnerProfileMonthly.hr_zone.isnot(None),
+            models.RunnerProfileMonthly.slope_band.isnot(None),
+        )
+        .group_by(
+            models.RunnerProfileMonthly.user_id,
+            models.RunnerProfileMonthly.hr_zone,
+            models.RunnerProfileMonthly.slope_band,
+        )
+    )
+    if excluded_user_id is not None:
+        q = q.filter(models.RunnerProfileMonthly.user_id != excluded_user_id)
+
+    values_by_cell: dict[tuple[str, str], list[float]] = defaultdict(list)
+    for row in q.all():
+        duration = float(row.pace_duration or 0.0)
+        pace = float(row.pace_sum or 0.0) / duration if duration > 0 else 0.0
+        if duration < minimum_cell_duration_sec or not (120.0 <= pace <= 7200.0):
+            continue
+        values_by_cell[(str(row.hr_zone), str(row.slope_band))].append(pace)
+
+    zones: dict[str, dict[str, dict]] = {}
+    for (zone, slope_band), values in values_by_cell.items():
+        if len(values) < minimum_runners:
+            continue
+        values.sort()
+        zones.setdefault(zone, {})[slope_band] = {
+            "p20": _percentile_from_sorted(values, 0.20),
+            "p50": _percentile_from_sorted(values, 0.50),
+            "p80": _percentile_from_sorted(values, 0.80),
+            "count": len(values),
+        }
+
+    return {"zones": zones, "minimum_runners": minimum_runners}
+
+
 def _fill_missing_zone_paces(pace_lookup: dict[str, dict[str, float]], hr_zone_names: list[str]):
     """Applique les règles de fallback (-7% par zone ou par pente adjacente)."""
     if not pace_lookup or not hr_zone_names:
@@ -6006,6 +6077,7 @@ def ui_user_dashboard(user_id: int, request: Request):
     vam_highlights = []
     dash_distance_projections = []
     runner_profile_overview = {"zones": {}}
+    dashboard_cohort_curves = {"zones": {}, "minimum_runners": 8}
     dashboard_pace_lookup = {}
     dashboard_hr_zones = [name for (name, _, _) in HR_ZONES]
     official_courses = _load_official_course_catalog()
@@ -6361,6 +6433,11 @@ def ui_user_dashboard(user_id: int, request: Request):
             runner_profile_overview,
             dashboard_hr_zones,
         )
+        dashboard_cohort_curves = _build_anonymized_pace_benchmarks(
+            db,
+            sport="run",
+            excluded_user_id=user_id,
+        )
 
         # ---------------------------
         # 🧗‍♂️ Meilleurs D+ / VAM et projections chrono
@@ -6602,6 +6679,7 @@ def ui_user_dashboard(user_id: int, request: Request):
             "vam_highlights": vam_highlights,
             "dash_distance_projections": dash_distance_projections,
             "runner_profile_overview": runner_profile_overview,
+            "dashboard_cohort_curves": dashboard_cohort_curves,
             "dashboard_pace_lookup": dashboard_pace_lookup,
             "dashboard_hr_zones": dashboard_hr_zones,
             "official_courses": official_courses,

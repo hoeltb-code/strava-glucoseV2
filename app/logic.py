@@ -1123,6 +1123,38 @@ def compute_vertical_speed_series(
 
     return out
 
+
+# Centre représentatif de chaque bande négative, utilisé uniquement quand les
+# archives anciennes ne contiennent pas de vitesse verticale descendante.
+_NEGATIVE_SLOPE_BAND_CENTERS = {
+    "Sneg40p": -45.0,
+    "Sneg30_40": -35.0,
+    "Sneg25_30": -27.5,
+    "Sneg20_25": -22.5,
+    "Sneg15_20": -17.5,
+    "Sneg10_15": -12.5,
+    "Sneg5_10": -7.5,
+    "Sneg0_5": -2.5,
+}
+
+
+def estimate_negative_vam_from_pace(
+    slope_band: str | None,
+    pace_s_per_km: float | None,
+) -> float | None:
+    """Estime la vitesse verticale négative depuis l'allure et la pente.
+
+    Les anciennes importations ne sauvegardaient que la VAM positive. Avec une
+    allure et la pente moyenne de la bande, la vitesse verticale vaut
+    vitesse horizontale × pente. Cette valeur est explicitement marquée comme
+    estimée dans le profil afin de ne pas la confondre avec une mesure native.
+    """
+    slope_percent = _NEGATIVE_SLOPE_BAND_CENTERS.get(str(slope_band))
+    if slope_percent is None or pace_s_per_km is None or pace_s_per_km <= 0:
+        return None
+    horizontal_speed_m_per_h = 3_600_000.0 / float(pace_s_per_km)
+    return horizontal_speed_m_per_h * (slope_percent / 100.0)
+
 # ---------------------------------------------------------------------------
 # Matching glycémie ↔ timeline Strava
 # ---------------------------------------------------------------------------
@@ -1275,7 +1307,7 @@ def save_activity_stream_points(
             alt_stream=alt_for_vam,
             window_pts=5,       # ≈ 10 s à 1 Hz
             min_dt=10.0,        # accepté (test "<" dans la fonction)
-            only_ascent=True,   # VAM uniquement en montée
+            only_ascent=False,  # conserve aussi la VAM négative en descente
             clamp_abs_mph=4000.0,
         )
     else:
@@ -1906,15 +1938,26 @@ def build_runner_profile(
                 return None
             return sum_x_dur / dur
 
+        avg_pace = _safe_avg(a["sum_pace_x_dur"], a["dur_for_pace"])
+        avg_vam = _safe_avg(a["sum_vam_x_dur"], a["dur_for_vam"])
+        estimated_negative_vam = False
+        if avg_vam is None:
+            estimated_vam = estimate_negative_vam_from_pace(slope_band, avg_pace)
+            if estimated_vam is not None:
+                avg_vam = estimated_vam
+                estimated_negative_vam = True
+
         hr_dict[slope_band] = {
             "duration_sec": int(a["duration_sec"]),
             "num_points": int(a["num_points"]),
             "distance_m": a["distance_m"],
             "elevation_gain_m": a["elevation_gain_m"],
-            "avg_vam_m_per_h": _safe_avg(a["sum_vam_x_dur"], a["dur_for_vam"]),
+            "avg_vam_m_per_h": avg_vam,
+            "vam_is_estimated": estimated_negative_vam,
             "avg_cadence_spm": _safe_avg(a["sum_cad_x_dur"], a["dur_for_cad"]),
             "avg_velocity_m_s": _safe_avg(a["sum_vel_x_dur"], a["dur_for_vel"]),
-            "avg_pace_s_per_km": _safe_avg(a["sum_pace_x_dur"], a["dur_for_pace"]),
+            "avg_pace_s_per_km": avg_pace,
+            "pace_duration_sec": int(a["dur_for_pace"]),
         }
 
     # 4 bis) Calcul de la "dégradation d'allure" par pente
@@ -2572,16 +2615,25 @@ def get_cached_runner_profile(
 
     for (hr_zone, slope_band), vals in agg.items():
         hr_dict = zones.setdefault(hr_zone, {})
+        avg_pace = _safe_avg(vals["sum_pace_x_dur"], vals["dur_for_pace"])
+        avg_vam = _safe_avg(vals["sum_vam_x_dur"], vals["dur_for_vam"])
+        estimated_negative_vam = False
+        if avg_vam is None:
+            estimated_vam = estimate_negative_vam_from_pace(slope_band, avg_pace)
+            if estimated_vam is not None:
+                avg_vam = estimated_vam
+                estimated_negative_vam = True
         hr_dict[slope_band] = {
             "duration_sec": int(vals["duration_sec"]),
             "num_points": int(vals["num_points"]),
             "distance_m": vals["distance_m"],
             "elevation_gain_m": vals["elevation_gain_m"],
-            "avg_vam_m_per_h": _safe_avg(vals["sum_vam_x_dur"], vals["dur_for_vam"]),
+            "avg_vam_m_per_h": avg_vam,
+            "vam_is_estimated": estimated_negative_vam,
             "avg_cadence_spm": _safe_avg(vals["sum_cad_x_dur"], vals["dur_for_cad"]),
             "avg_velocity_m_s": _safe_avg(vals["sum_vel_x_dur"], vals["dur_for_vel"]),
             "pace_duration_sec": int(vals["dur_for_pace"]),
-            "avg_pace_s_per_km": _safe_avg(vals["sum_pace_x_dur"], vals["dur_for_pace"]),
+            "avg_pace_s_per_km": avg_pace,
         }
 
     best_pace_by_slope: dict[str, float] = {}

@@ -161,6 +161,14 @@
   .manual-control label { display:flex; justify-content:space-between; gap:8px; text-transform:none; letter-spacing:0; font-size:.8rem; }
   .manual-control output { color:var(--accent-2); font-weight:700; }
   .manual-control input[type="range"] { width:100%; accent-color:var(--accent); }
+  .manual-advanced-ascent { grid-column:1 / -1; padding:10px; border:1px solid rgba(184,255,69,.25); border-radius:11px; background:rgba(72,92,39,.12); }
+  .manual-advanced-ascent summary { color:#e6ffb5; font-size:.82rem; font-weight:800; cursor:pointer; }
+  .manual-advanced-ascent p { margin:7px 0; color:var(--text-muted); font-size:.74rem; line-height:1.4; }
+  .manual-advanced-toggle { display:flex; align-items:center; gap:7px; margin:8px 0; color:var(--text-main); font-size:.78rem; cursor:pointer; }
+  .manual-advanced-fields { display:grid; grid-template-columns:repeat(2,minmax(150px,1fr)); gap:9px; }
+  .manual-advanced-fields label { display:flex; flex-wrap:wrap; justify-content:space-between; gap:4px 8px; color:var(--text-muted); font-size:.73rem; }
+  .manual-advanced-fields output { color:var(--accent-2); font-weight:800; }
+  .manual-advanced-fields input[type="range"] { width:100%; accent-color:var(--accent); }
   .profile-pacing-preview { margin-top:14px; padding:13px; border:1px solid rgba(77,226,255,.24); border-radius:14px; background:rgba(8,17,31,.36); }
   .profile-projection-zone { display:flex; flex-wrap:wrap; align-items:end; gap:10px; margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid rgba(148,174,214,.16); }
   .profile-projection-zone > div { min-width:190px; }
@@ -553,21 +561,30 @@
           <input id="home-manual-mode" type="checkbox" {% if not runner_profile_overview or not runner_profile_overview.zones %}checked{% endif %}>
           Modifier manuellement mes allures pour cette course
         </label>
-        <p class="profile-pacing-note">À utiliser pour corriger les données proposées ou créer un profil de départ. Niveau 1 : prudent · Niveau 5 : équilibré · Niveau 10 : très performant.</p>
+        <p class="profile-pacing-note">À utiliser pour corriger les données proposées ou créer un profil de départ. Niveau 1 : prudent · Niveau 5 : équilibré · Niveau 12 : très performant.</p>
       </div>
       <div class="manual-controls" id="home-manual-controls" {% if runner_profile_overview and runner_profile_overview.zones %}hidden{% endif %}>
         <div class="manual-control">
           <label for="home-flat-speed">Vitesse sur plat <output id="home-flat-speed-output">8.5 km/h</output></label>
-          <input id="home-flat-speed" type="range" min="5" max="16" step="0.1" value="8.5">
+          <input id="home-flat-speed" type="range" min="5" max="22" step="0.1" value="8.5">
         </div>
         <div class="manual-control">
-          <label for="home-descent-level">Niveau en descente <output id="home-descent-level-output">5 / 10</output></label>
-          <input id="home-descent-level" type="range" min="1" max="10" step="1" value="5">
+          <label for="home-descent-level">Niveau en descente <output id="home-descent-level-output">5 / 12</output></label>
+          <input id="home-descent-level" type="range" min="1" max="12" step="1" value="5">
         </div>
         <div class="manual-control">
-          <label for="home-ascent-level">Niveau en montée <output id="home-ascent-level-output">5 / 10</output></label>
-          <input id="home-ascent-level" type="range" min="1" max="10" step="1" value="5">
+          <label for="home-ascent-level">Niveau en montée <output id="home-ascent-level-output">5 / 12</output></label>
+          <input id="home-ascent-level" type="range" min="1" max="12" step="1" value="5">
         </div>
+        <details class="manual-advanced-ascent">
+          <summary>Affiner ma courbe de montée</summary>
+          <p>Indique ta VAM à +15 % et à +30 %. La courbe est ensuite lissée automatiquement entre le plat et ces deux repères.</p>
+          <label class="manual-advanced-toggle" for="home-advanced-ascent-mode"><input id="home-advanced-ascent-mode" type="checkbox"> Utiliser ces repères avancés pour cette projection</label>
+          <div class="manual-advanced-fields">
+            <label for="home-vam-15">VAM à +15 %<output id="home-vam-15-output">— m/h</output><input id="home-vam-15" type="range" min="100" max="3000" step="10"></label>
+            <label for="home-vam-30">VAM à +30 %<output id="home-vam-30-output">— m/h</output><input id="home-vam-30" type="range" min="100" max="3000" step="10"></label>
+          </div>
+        </details>
       </div>
       <div class="profile-pacing-preview" aria-live="polite">
         <div class="profile-pacing-heading">
@@ -642,6 +659,11 @@
     const flatSpeed = document.getElementById('home-flat-speed');
     const descentLevel = document.getElementById('home-descent-level');
     const ascentLevel = document.getElementById('home-ascent-level');
+    const advancedAscentMode = document.getElementById('home-advanced-ascent-mode');
+    const vam15Input = document.getElementById('home-vam-15');
+    const vam30Input = document.getElementById('home-vam-30');
+    const vam15Output = document.getElementById('home-vam-15-output');
+    const vam30Output = document.getElementById('home-vam-30-output');
     const profileTableTitle = document.getElementById('home-profile-table-title');
     const profileTableNote = document.getElementById('home-profile-table-note');
     const profileCurve = document.getElementById('home-profile-curve');
@@ -707,31 +729,32 @@
 
     function refreshManualLabels() {
       document.getElementById('home-flat-speed-output').textContent = `${Number(flatSpeed.value).toFixed(1)} km/h`;
-      document.getElementById('home-descent-level-output').textContent = `${Math.round(Number(descentLevel.value))} / 10`;
-      document.getElementById('home-ascent-level-output').textContent = `${Math.round(Number(ascentLevel.value))} / 10`;
+      document.getElementById('home-descent-level-output').textContent = `${Math.round(Number(descentLevel.value))} / ${descentLevel.max}`;
+      document.getElementById('home-ascent-level-output').textContent = `${Math.round(Number(ascentLevel.value))} / ${ascentLevel.max}`;
+      syncAdvancedAscentInputs();
+      refreshAdvancedAscentLabels();
       renderProfilePacingTable();
       if (refreshLiveProjection) refreshLiveProjection();
     }
 
-    function manualPaceForSlope(slopeId) {
+    function baseManualPaceForGrade(slope) {
       const flatPace = 3600 / Number(flatSpeed.value);
-      // Profil universel : les niveaux 1–10 sont volontairement simples.
-      // La progression est parabolique : niveau 1 = 20 % du niveau 10,
-      // avec des écarts plus marqués entre les niveaux 7, 8, 9 et 10.
+      // Profil universel : les niveaux 1–12 sont volontairement simples.
+      // La progression est parabolique : niveau 1 = 20 % du niveau 12,
+      // avec des écarts plus marqués dans les niveaux les plus élevés.
       const levelFactor = (level) => {
-        const normalized = Math.max(0, Math.min(1, (Number(level) - 1) / 9));
+        const normalized = Math.max(0, Math.min(1, (Number(level) - 1) / 11));
         return 0.20 + 0.80 * normalized * normalized;
       };
-      const descentSpeedKmh = 15.5 * levelFactor(descentLevel.value);
+      const descentSpeedKmh = 20 * levelFactor(descentLevel.value);
       const descentPace = 3600 / descentSpeedKmh;
-      const moderateVam = 1430 * levelFactor(ascentLevel.value);
+      const moderateVam = 1800 * levelFactor(ascentLevel.value);
       const steepVam = moderateVam * 1.35;
       const climbPace = (36000 * 12.5) / moderateVam;
       const steepClimbPace = (36000 * 35) / steepVam;
       // Les extrêmes restent ancrés : modifier le plat ne peut donc pas
       // ralentir artificiellement les allures à -40 % ou +40 %.
       const descentExtremePace = descentPace * 1.65;
-      const slope = slopeCenters[slopeId] || 0;
       let predicted = slope <= 0
         ? (() => {
             const ratio = Math.max(0, Math.min(1, (slope + 45) / 45));
@@ -742,6 +765,37 @@
             return coefficients ? evaluateQuadratic(coefficients, slope) : flatPace;
           })();
       return Math.max(120, Math.min(7200, predicted));
+    }
+
+    function baseManualPaceForSlope(slopeId) {
+      return baseManualPaceForGrade(slopeCenters[slopeId] || 0);
+    }
+
+    function syncAdvancedAscentInputs() {
+      if (advancedAscentMode.checked) return;
+      const vamForGrade = (grade) => Math.round((36000 * grade) / baseManualPaceForGrade(grade) / 10) * 10;
+      vam15Input.value = vamForGrade(15);
+      vam30Input.value = vamForGrade(30);
+    }
+
+    function refreshAdvancedAscentLabels() {
+      vam15Output.textContent = `${Math.round(Number(vam15Input.value))} m/h`;
+      vam30Output.textContent = `${Math.round(Number(vam30Input.value))} m/h`;
+    }
+
+    function manualPaceForSlope(slopeId) {
+      const slope = slopeCenters[slopeId] || 0;
+      const vam15 = Number(vam15Input.value);
+      const vam30 = Number(vam30Input.value);
+      if (advancedAscentMode.checked && slope > 0 && vam15 > 0 && vam30 > 0) {
+        const flatPace = 3600 / Number(flatSpeed.value);
+        const pace15 = (36000 * 15) / vam15;
+        const pace30 = (36000 * 30) / vam30;
+        const curve = quadraticThroughPoints([[0, flatPace], [15, pace15], [30, pace30]]);
+        const smoothed = curve ? evaluateQuadratic(curve, slope) : baseManualPaceForGrade(slope);
+        return Math.max(120, Math.min(7200, smoothed));
+      }
+      return baseManualPaceForGrade(slope);
     }
 
     function quadraticThroughPoints(points) {
@@ -1007,6 +1061,8 @@
       if (refreshLiveProjection) refreshLiveProjection();
     });
     [flatSpeed, descentLevel, ascentLevel].forEach((input) => input.addEventListener('input', refreshManualLabels));
+    [advancedAscentMode, vam15Input, vam30Input].forEach((input) => input.addEventListener('input', refreshManualLabels));
+    advancedAscentMode.addEventListener('change', refreshManualLabels);
     zoneInput.addEventListener('change', () => {
       renderProfilePacingTable();
       renderArchivedProfileTable();

@@ -133,6 +133,11 @@
   .course-picker-card .course-picker-card-head strong { display:block; color:#fff !important; font-family:"Orbitron",sans-serif; font-size:.82rem; line-height:1.2; letter-spacing:.02em; font-weight:800; text-shadow:0 1px 1px rgba(0,0,0,.24); }.course-picker-arrow { color:#fff; font-size:1rem; line-height:1; }
   .course-picker-card small { display:block; margin-top:8px; color:#344865; font-family:Inter,sans-serif; font-size:.72rem; line-height:1.45; letter-spacing:0; font-weight:400; }
   .course-picker-card .course-picker-action { display:block; margin-top:10px; color:#075985; font-size:.72rem; font-weight:900; letter-spacing:0; }
+  .course-picker-event { min-height:156px; padding:0 14px 14px; background:linear-gradient(145deg,#e6ddff,#c5b4ff); }
+  .course-picker-event .course-picker-card-head { margin:0 -14px 10px; background:rgba(67,40,124,.9); cursor:pointer; list-style:none; }
+  .course-picker-event .course-picker-card-head::-webkit-details-marker { display:none; }
+  .course-picker-event-list { display:block; margin-top:3px; color:rgba(255,255,255,.8); font-family:Inter,sans-serif; font-size:.68rem; line-height:1.4; font-weight:500; }
+  .course-picker-event select { width:100%; min-height:36px; padding:7px 9px; border:1px solid rgba(67,40,124,.25); border-radius:9px; background:#fff; color:#2f1d59; font:700 .75rem Inter,sans-serif; }
   .course-picker-card.is-custom { border:1px dashed rgba(77,226,255,.68); background:radial-gradient(circle at 88% 10%,rgba(77,226,255,.18),transparent 35%),linear-gradient(145deg,#112a45,#071525); box-shadow:0 9px 18px rgba(4,14,29,.3); }
   .course-picker-card.is-custom small { color:#d1e1f2; }.course-picker-card.is-custom .course-picker-action { color:#a5f3fc; }
   .custom-simulator-back { display:inline-flex; margin-top:10px; color:var(--accent-2); font-size:.82rem; font-weight:700; text-decoration:none; }
@@ -487,12 +492,26 @@
           {% for course in official_courses %}<option value="{{ course.id }}" {% if not course.route_available %}disabled{% endif %}>{{ course.name }}</option>{% endfor %}
         </select>
         <div class="course-picker" role="list" aria-label="Courses à planifier">
+          {% set utmb_course_ids = ['utmb-2026', 'ccc-2026', 'tds-2026', 'occ-2026', 'mcc-2026', 'etc-2026'] %}
+          {% set utmb_courses = official_courses | selectattr('id', 'in', utmb_course_ids) | list %}
+          {% if utmb_courses %}
+          <details class="course-picker-card course-picker-event" data-utmb-event-card role="listitem">
+            <summary class="course-picker-card-head"><span><strong>🏔️ UTMB Mont-Blanc 2026</strong><span class="course-picker-event-list">{% for course in utmb_courses %}{{ course.short_name or course.name }}{% if not loop.last %} · {% endif %}{% endfor %}</span></span><span class="course-picker-arrow">⌄</span></summary>
+            <label class="sr-only" for="home-utmb-course">Choisir une course UTMB</label>
+            <select id="home-utmb-course" data-utmb-course-picker>
+              <option value="">Choisir une course UTMB</option>
+              {% for course in utmb_courses %}<option value="{{ course.id }}">{{ course.name }} · {{ course.distance_km }} km</option>{% endfor %}
+            </select>
+          </details>
+          {% endif %}
           {% for course in official_courses %}
+          {% if course.id not in utmb_course_ids %}
           <button class="course-picker-card" type="button" data-course-picker="{{ course.id }}" {% if not course.route_available %}disabled{% endif %} role="listitem">
             <span class="course-picker-card-head"><strong>🏔️ {{ course.name }}</strong><span class="course-picker-arrow">→</span></span>
             <small>{% if course.distance_km %}{{ course.distance_km }} km{% endif %}{% if course.elevation_gain_m %} · D+ {{ course.elevation_gain_m|round|int }} m{% endif %}{% if course.elevation_loss_m %} · D− {{ course.elevation_loss_m|round|int }} m{% endif %}{% if not course.route_available %}<br>GPX manquant{% endif %}</small>
             <span class="course-picker-action">Planifier cette course →</span>
           </button>
+          {% endif %}
           {% endfor %}
           <a class="course-picker-card is-custom" href="/ui/user/{{ user.id }}/course-simulator" role="listitem">
             <span class="course-picker-card-head"><strong>Ma propre trace GPX</strong><span class="course-picker-arrow">→</span></span>
@@ -615,6 +634,9 @@
     const runnerProfileData = {{ runner_profile_overview | default({}) | tojson | safe }};
     const communityPaceCurves = {{ dashboard_cohort_curves | default({}) | tojson | safe }};
     const officialCourses = {{ official_courses | default([]) | tojson | safe }};
+    const utmbCourseIds = new Set(['utmb-2026', 'ccc-2026', 'tds-2026', 'occ-2026', 'mcc-2026', 'etc-2026']);
+    const utmbCoursePicker = document.querySelector('[data-utmb-course-picker]');
+    const utmbEventCard = document.querySelector('[data-utmb-event-card]');
     const manualMode = document.getElementById('home-manual-mode');
     const manualControls = document.getElementById('home-manual-controls');
     const flatSpeed = document.getElementById('home-flat-speed');
@@ -958,6 +980,8 @@
         renderAidStations();
       }
       document.querySelectorAll('[data-course-picker]').forEach((card) => card.classList.toggle('is-selected', card.dataset.coursePicker === officialCourseInput.value));
+      if (utmbCoursePicker) utmbCoursePicker.value = utmbCourseIds.has(officialCourseInput.value) ? officialCourseInput.value : '';
+      if (utmbEventCard) utmbEventCard.classList.toggle('is-selected', utmbCourseIds.has(officialCourseInput.value));
       renderProfilePacingTable();
     }
 
@@ -997,6 +1021,11 @@
       officialCourseInput.value = card.dataset.coursePicker;
       officialCourseInput.dispatchEvent(new Event('change'));
     }));
+    if (utmbCoursePicker) utmbCoursePicker.addEventListener('change', () => {
+      if (!utmbCoursePicker.value) return;
+      officialCourseInput.value = utmbCoursePicker.value;
+      officialCourseInput.dispatchEvent(new Event('change'));
+    });
     fileInput.addEventListener('change', () => {
       const file = fileInput.files && fileInput.files[0];
       if (file && !manualCourseNameInput.value.trim()) {

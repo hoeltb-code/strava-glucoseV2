@@ -495,7 +495,7 @@
           {% set utmb_course_ids = ['utmb-2026', 'ccc-2026', 'tds-2026', 'occ-2026', 'mcc-2026', 'etc-2026'] %}
           {% set utmb_courses = official_courses | selectattr('id', 'in', utmb_course_ids) | list %}
           {% if utmb_courses %}
-          <details class="course-picker-card course-picker-event" data-utmb-event-card role="listitem">
+          <details class="course-picker-card course-picker-event" data-utmb-event-card role="listitem" open>
             <summary class="course-picker-card-head"><span><strong>🏔️ UTMB Mont-Blanc 2026</strong><span class="course-picker-event-list">{% for course in utmb_courses %}{{ course.short_name or course.name }}{% if not loop.last %} · {% endif %}{% endfor %}</span></span><span class="course-picker-arrow">⌄</span></summary>
             <label class="sr-only" for="home-utmb-course">Choisir une course UTMB</label>
             <select id="home-utmb-course" data-utmb-course-picker>

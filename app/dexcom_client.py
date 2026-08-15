@@ -1,6 +1,6 @@
 # app/dexcom_client.py
 # -----------------------------------------------------------------------------
-# Client Dexcom Share pour l'application "D+ Glucose".
+# Client Dexcom Share pour l'application "Running Data Plan".
 #
 # Rôles :
 #   - Vérifier des identifiants Dexcom Share par utilisateur.

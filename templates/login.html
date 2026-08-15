@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}D+ Glucose · Connexion{% endblock %}
+{% block title %}Running Data Plan · Connexion{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -31,10 +31,10 @@
     padding: 28px;
     border-radius: 24px;
     background:
-      radial-gradient(circle at top right, rgba(184, 255, 69, 0.16), transparent 22%),
-      linear-gradient(160deg, rgba(17, 35, 59, 0.98) 0%, rgba(10, 19, 35, 0.98) 56%, rgba(8, 17, 31, 0.98) 100%);
-    border: 1px solid rgba(77, 226, 255, 0.2);
-    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.32);
+      radial-gradient(circle at top right, rgba(255, 90, 54, 0.10), transparent 26%),
+      linear-gradient(160deg, #ffffff 0%, #f8f4ed 100%);
+    border: 1px solid #dfdad0;
+    box-shadow: 0 18px 42px rgba(32,29,24,.09);
   }
 
   .login-hero::after,
@@ -44,27 +44,27 @@
     position: absolute;
     inset: 0;
     pointer-events: none;
-    border: 1px solid rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255,255,255,.6);
     border-radius: inherit;
   }
 
   .login-kicker {
     margin: 0 0 8px 0;
     color: var(--accent);
-    font-family: "Orbitron", sans-serif;
-    font-size: 0.82rem;
-    letter-spacing: 0.16em;
+    font-family: "DM Mono", monospace;
+    font-size: .72rem;
+    letter-spacing: .12em;
     text-transform: uppercase;
   }
 
   .login-title {
     margin: 0 0 14px 0;
-    font-family: "Orbitron", sans-serif;
+    font-family: "Manrope", sans-serif;
     max-width: 14ch;
     font-size: clamp(1.7rem, 4.2vw, 2.7rem);
     line-height: 1.04;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
+    letter-spacing: -.045em;
+    text-transform: none;
   }
 
   .login-copy {
@@ -81,10 +81,10 @@
     gap: 8px;
     margin: 17px 0 0;
     padding: 8px 11px;
-    border: 1px solid rgba(184,255,69,.3);
+    border: 1px solid #f0cfc5;
     border-radius: 999px;
-    background: rgba(184,255,69,.08);
-    color: #ebffc5;
+    background: #fff1eb;
+    color: #a93721;
     font-size: .78rem;
     font-weight: 700;
   }
@@ -98,8 +98,8 @@
 
   .login-meta-card,
   .login-point {
-    background: rgba(8, 17, 31, 0.58);
-    border: 1px solid rgba(77, 226, 255, 0.14);
+    background: #fff;
+    border: 1px solid #dfdad0;
     border-radius: 18px;
   }
 
@@ -109,7 +109,7 @@
 
   .login-meta-value {
     display: block;
-    font-family: "Orbitron", sans-serif;
+    font-family: "DM Mono", monospace;
     font-size: 1.35rem;
     color: var(--text-main);
   }
@@ -118,9 +118,9 @@
     display: block;
     margin-top: 6px;
     color: var(--text-muted);
-    font-size: 0.88rem;
+    font-size: .68rem;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: .10em;
   }
 
   .login-points {
@@ -130,25 +130,25 @@
   }
 
   .login-visuals { display:grid; grid-template-columns:1.25fr .75fr; gap:12px; margin-top:20px; }
-  .login-visual-card { padding:12px; border:1px solid rgba(77,226,255,.2); border-radius:16px; background:rgba(5,14,27,.48); }
-  .login-visual-card h3 { margin:0 0 7px; color:#fff; font-size:.78rem; font-family:"Orbitron",sans-serif; letter-spacing:.06em; text-transform:uppercase; }
+  .login-visual-card { padding:12px; border:1px solid #dfdad0; border-radius:16px; background:#fff; }
+  .login-visual-card h3 { margin:0 0 7px; color:var(--text-main); font-size:.72rem; font-family:"DM Mono",monospace; letter-spacing:.10em; text-transform:uppercase; }
   .login-visual-card p { margin:0; color:var(--text-muted); font-size:.76rem; }
   .login-mini-profile { display:block; width:100%; height:78px; margin:8px 0 4px; }
   .login-mini-metrics { display:grid; gap:7px; margin-top:10px; }
   .login-mini-metrics span { display:flex; justify-content:space-between; gap:8px; color:var(--text-muted); font-size:.76rem; }
-  .login-mini-metrics strong { color:var(--accent-2); font-family:"Orbitron",sans-serif; font-size:.74rem; }
-  .login-glucose-visual { margin-top:12px; padding:12px; border-radius:16px; border:1px solid rgba(248,113,113,.25); background:linear-gradient(135deg,rgba(127,29,29,.18),rgba(8,47,73,.25)); }
+  .login-mini-metrics strong { color:var(--accent); font-family:"DM Mono",monospace; font-size:.74rem; }
+  .login-glucose-visual { margin-top:12px; padding:12px; border-radius:16px; border:1px solid #f0d3d0; background:#fff8f6; }
   .login-glucose-visual > div { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
-  .login-glucose-visual strong { color:#fff; font-size:.9rem; }
-  .login-glucose-visual span { color:#b8ff45; font-family:"Orbitron",sans-serif; font-size:.72rem; }
+  .login-glucose-visual strong { color:var(--text-main); font-size:.9rem; }
+  .login-glucose-visual span { color:var(--accent); font-family:"DM Mono",monospace; font-size:.72rem; }
   .login-glucose-chart { display:block; width:100%; height:54px; margin-top:7px; }
   .login-glucose-visual p { margin:3px 0 0; color:var(--text-muted); font-size:.76rem; line-height:1.4; }
-  .login-courses { padding:20px 22px; border-radius:20px; background:rgba(9,20,37,.82); border:1px solid rgba(77,226,255,.2); }
-  .login-courses h3 { margin:0; font-family:"Orbitron",sans-serif; font-size:1rem; letter-spacing:.08em; text-transform:uppercase; }
+  .login-courses { padding:20px 22px; border-radius:20px; background:#fff; border:1px solid #dfdad0; }
+  .login-courses h3 { margin:0; font-family:"DM Mono",monospace; font-size:.78rem; letter-spacing:.10em; text-transform:uppercase; }
   .login-courses > p { margin:7px 0 14px; color:var(--text-muted); }
   .login-course-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:10px; }
-  .login-course-card { padding:13px; border:1px solid rgba(148,174,214,.24); border-radius:14px; background:rgba(7,16,30,.45); }
-  .login-course-card strong { color:#fff; display:block; font-size:.95rem; }
+  .login-course-card { padding:13px; border:1px solid #dfdad0; border-radius:14px; background:#fbfaf7; }
+  .login-course-card strong { color:var(--text-main); display:block; font-size:.95rem; }
   .login-course-card span { display:block; margin-top:5px; color:var(--text-muted); font-size:.8rem; }
   .login-course-card em { display:inline-block; margin-top:9px; color:var(--accent-2); font-size:.73rem; font-style:normal; font-weight:700; }
 
@@ -174,8 +174,8 @@
     align-items: center;
     justify-content: center;
     background: var(--grad-accent);
-    color: #08111f;
-    font-family: "Orbitron", sans-serif;
+    color: #fff;
+    font-family: "DM Mono", monospace;
     font-size: 0.8rem;
   }
 
@@ -191,27 +191,27 @@
     padding: 16px;
     border-radius: 18px;
     border: 1px solid rgba(148,174,214,.2);
-    background: rgba(5,14,27,.34);
+    background: #fbfaf7;
   }
-  .login-method h3 { margin:0 0 11px; color:#fff; font-size:1.02rem; }
+  .login-method h3 { margin:0 0 11px; color:var(--text-main); font-size:1.02rem; }
   .login-method-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
-  .login-method-step { padding:10px; border-radius:12px; background:rgba(255,255,255,.035); color:var(--text-muted); font-size:.78rem; line-height:1.4; }
-  .login-method-step b { display:block; margin-bottom:4px; color:#b8ff45; font-family:"Orbitron",sans-serif; font-size:.68rem; }
+  .login-method-step { padding:10px; border-radius:12px; background:#fff; color:var(--text-muted); font-size:.78rem; line-height:1.4; }
+  .login-method-step b { display:block; margin-bottom:4px; color:var(--accent); font-family:"DM Mono",monospace; font-size:.68rem; }
 
   .login-panel {
     padding: 24px;
     border-radius: 24px;
-    background: linear-gradient(180deg, rgba(14, 26, 45, 0.96), rgba(8, 17, 31, 0.98));
-    border: 1px solid rgba(77, 226, 255, 0.18);
-    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+    background: #fff;
+    border: 1px solid #dfdad0;
+    box-shadow: 0 18px 42px rgba(32,29,24,.09);
   }
 
   .login-panel h2 {
     margin: 0 0 8px 0;
-    font-family: "Orbitron", sans-serif;
-    font-size: 1.3rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    font-family: "Manrope", sans-serif;
+    font-size: 1.4rem;
+    letter-spacing: -.035em;
+    text-transform: none;
   }
 
   .login-panel-subtitle {
@@ -247,20 +247,20 @@
     font-weight: 700;
   }
 
-  .login-panel-note { margin:15px 0 0; padding:11px; border-radius:12px; background:rgba(77,226,255,.08); border:1px solid rgba(77,226,255,.18); color:#d9f8ff; font-size:.78rem; line-height:1.45; }
+  .login-panel-note { margin:15px 0 0; padding:11px; border-radius:12px; background:#fff3ef; border:1px solid #f0d3c9; color:#8a3c2b; font-size:.78rem; line-height:1.45; }
 
   .login-flow {
     padding: 20px 22px;
     border-radius: 20px;
-    background: rgba(9, 20, 37, 0.82);
-    border: 1px solid rgba(108, 135, 175, 0.2);
+    background: #fff;
+    border: 1px solid #dfdad0;
   }
 
   .login-flow h3 {
     margin: 0 0 12px 0;
-    font-family: "Orbitron", sans-serif;
-    font-size: 1rem;
-    letter-spacing: 0.08em;
+    font-family: "DM Mono", monospace;
+    font-size: .78rem;
+    letter-spacing: .10em;
     text-transform: uppercase;
   }
 
@@ -316,7 +316,7 @@
   <div class="login-grid">
     <section class="login-hero">
       <div>
-        <p class="login-kicker">D+ Glucose <span style="font-size:.8em; font-weight:600;">· Compatible with Strava</span></p>
+        <p class="login-kicker">Running Data Plan <span style="font-size:.8em; font-weight:600;">· Compatible with Strava</span></p>
         <h1 class="login-title">
           Prépare. Analyse. Régule.
         </h1>

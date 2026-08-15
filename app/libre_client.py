@@ -111,7 +111,7 @@ def _send_libre_disabled_email(to_email: str, reason: str) -> None:
     if not settings.SMTP_USER or not settings.SMTP_PASS:
         raise RuntimeError("SMTP settings missing (user/pass).")
 
-    from_name = settings.SMTP_FROM_NAME or "D+ Glucose"
+    from_name = settings.SMTP_FROM_NAME or "Running Data Plan"
     from_email = settings.SMTP_FROM_EMAIL or settings.SMTP_USER
     profile_url = f"{(settings.APP_BASE_URL or '').rstrip('/')}/ui/login" if settings.APP_BASE_URL else None
 

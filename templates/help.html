@@ -12,7 +12,7 @@
 
   <section class="info-card">
     <h2>Démarrer en 5 étapes</h2>
-    <div class="help-step"><span class="help-step-index">01</span><div><strong>Créez votre compte puis connectez Strava.</strong><p>Autorisez Running Data Plan à lire les activités nécessaires à l’analyse. Vos sorties apparaissent après la synchronisation.</p></div></div>
+    <div class="help-step"><span class="help-step-index">01</span><div><strong>Créez votre compte puis connectez Strava.</strong><p>Autorisez Running Data Plan à lire les activités nécessaires à l’analyse. Les nouvelles sorties sont synchronisées après la connexion ; les activités plus anciennes peuvent être importées en GPX ou FIT depuis votre profil.</p></div></div>
     <div class="help-step"><span class="help-step-index">02</span><div><strong>Vérifiez votre profil coureur.</strong><p>Plus l’historique contient des sorties variées — plat, montées, descentes et différentes intensités — plus les estimations seront utiles.</p></div></div>
     <div class="help-step"><span class="help-step-index">03</span><div><strong>Choisissez une course ou importez un GPX.</strong><p>Contrôlez toujours la distance, le dénivelé et les informations officielles de l’organisateur.</p></div></div>
     <div class="help-step"><span class="help-step-index">04</span><div><strong>Choisissez votre intensité.</strong><p>Utilisez votre historique ou ajustez manuellement les allures si vous connaissez mieux votre objectif du jour.</p></div></div>
@@ -30,11 +30,58 @@
     </article>
   </section>
 
+  <section class="info-card">
+    <h2>Connecter Strava</h2>
+    <p>Depuis votre profil, utilisez le bouton de connexion Strava puis validez les autorisations demandées par Strava. Les nouvelles activités peuvent ensuite être intégrées à Running Data Plan pour alimenter votre historique, vos graphiques et votre profil de performance.</p>
+    <p>Pour enrichir un historique déjà existant, téléchargez un fichier <strong>GPX</strong> ou <strong>FIT</strong> depuis Strava puis importez-le depuis votre profil. Cette étape est utile si votre profil coureur manque de sorties longues, vallonnées ou de descentes.</p>
+    <div class="info-notice"><strong>Si une activité n’apparaît pas :</strong> vérifiez d’abord que la connexion Strava est toujours active, attendez quelques minutes après l’enregistrement de la sortie, puis reconnectez Strava si nécessaire. Vérifiez aussi que l’activité est bien enregistrée dans Strava et que ses données ne sont pas vides.</div>
+  </section>
+
+  <section class="info-card">
+    <h2>Connecter une source de glycémie (CGM)</h2>
+    <p>Un CGM est un capteur de mesure continue du glucose. Sa connexion est facultative : elle sert uniquement à rapprocher vos valeurs de glucose de vos activités et à enrichir vos propres graphiques. Elle ne fournit ni diagnostic ni conseil médical.</p>
+    <div class="info-grid">
+      <article class="info-card">
+        <h3>Étapes de connexion</h3>
+        <ol style="margin:0; padding-left:20px; color:var(--text-muted); line-height:1.7;">
+          <li>Ouvrez votre profil, dans « Source glycémie ».</li>
+          <li>Choisissez LibreLinkUp, Dexcom Share, CareLink ou Nightscout.</li>
+          <li>Renseignez les informations demandées, puis enregistrez ou testez la connexion.</li>
+          <li>Activez la source voulue : une seule source peut être active à la fois.</li>
+        </ol>
+      </article>
+      <article class="info-card">
+        <h3>À savoir</h3>
+        <p>Utilisez les identifiants du service concerné, pas ceux de Running Data Plan. Pour Nightscout, privilégiez un jeton lecture seule. CareLink est en bêta : selon votre compte ou votre appareil, une reconnexion peut être demandée.</p>
+      </article>
+    </div>
+    <h3>Erreurs fréquentes et solutions</h3>
+    <ul>
+      <li><strong>Identifiants refusés :</strong> vérifiez l’adresse, le mot de passe, la région choisie et l’accès au compte dans l’application d’origine.</li>
+      <li><strong>Aucune valeur trouvée :</strong> le capteur peut ne pas avoir de mesures sur la période de l’activité, la source peut ne pas être active ou la synchronisation peut être en retard.</li>
+      <li><strong>Connexion temporairement bloquée :</strong> certains fournisseurs limitent les tentatives. Attendez avant de réessayer et évitez de relancer plusieurs fois la connexion.</li>
+      <li><strong>Nightscout inaccessible :</strong> contrôlez l’URL complète de votre instance et la validité du jeton de lecture.</li>
+    </ul>
+    <p>Ne transmettez jamais votre mot de passe ou un jeton d’accès dans une demande d’assistance. Vous pouvez retirer une connexion à tout moment depuis votre profil.</p>
+  </section>
+
+  <section class="info-card">
+    <h2>Comprendre votre profil de performance</h2>
+    <p>Le profil de performance est construit à partir de vos activités : l’application rapproche vos allures, votre dénivelé, vos pentes et, lorsqu’elle est disponible, votre fréquence cardiaque. Elle distingue ainsi progressivement votre comportement sur le plat, en montée et en descente, à différentes intensités.</p>
+    <p>Il ne cherche pas à vous attribuer un niveau définitif. Il sert à choisir des vitesses plus réalistes pour une simulation. Un historique régulier, avec des parcours variés et suffisamment longs, rend le profil plus représentatif. Lorsqu’il manque des données pour une pente ou une intensité, l’application utilise une estimation prudente que vous pouvez ajuster manuellement.</p>
+  </section>
+
+  <section class="info-card">
+    <h2>Partager une activité en PNG</h2>
+    <p>Depuis le détail d’une activité, sélectionnez <strong>Partager</strong>. Vous pouvez choisir un thème puis télécharger un visuel PNG adapté à vos réseaux sociaux : résumé sportif, focus glycémie, version mixte, trace du parcours ou profil plus avancé. Le partage n’est jamais automatique : vous téléchargez d’abord le fichier, puis décidez vous-même où le publier.</p>
+    <p>Avant de publier, relisez le visuel : selon la variante choisie, il peut montrer des données sportives, des données de glycémie ou le tracé de votre parcours. Si votre profil Strava est public, vérifiez également l’option « Publier automatiquement les stats Strava » dans votre profil : elle ajoute les statistiques sélectionnées à la description Strava de vos activités.</p>
+  </section>
+
   <section class="info-card faq">
     <h2>Questions fréquentes</h2>
     <details>
       <summary>Pourquoi ne vois-je pas encore mes activités Strava ?</summary>
-      <p>Après la connexion, la synchronisation peut prendre quelques instants. Vérifiez que vous avez autorisé la connexion Strava et rechargez la page. Si cela persiste, déconnectez puis reconnectez Strava depuis votre profil.</p>
+      <p>Après la connexion, les nouvelles activités peuvent demander quelques minutes avant d’apparaître. Vérifiez les autorisations Strava et rechargez la page. Les activités réalisées avant l’inscription doivent être importées en GPX ou FIT ; si le problème persiste, reconnectez Strava depuis votre profil.</p>
     </details>
     <details>
       <summary>Comment améliorer la précision de mon profil coureur ?</summary>
@@ -50,7 +97,11 @@
     </details>
     <details>
       <summary>Les données de glycémie ou de fréquence cardiaque sont-elles médicales ?</summary>
-      <p>Non. Elles sont affichées à titre informatif pour enrichir votre lecture de l’effort. Ne modifiez jamais un traitement ou une stratégie de santé sur la seule base de l’application.</p>
+      <p>Les valeurs de glycémie sont des données de santé ; l’application les affiche pour enrichir votre lecture de l’effort, pas pour poser un diagnostic. Ne modifiez jamais un traitement ou une stratégie de santé sur sa seule base.</p>
+    </details>
+    <details>
+      <summary>Pourquoi le bouton « Partager » est-il indisponible ?</summary>
+      <p>Les visuels de partage nécessitent assez de données exploitables pour construire la variante choisie, notamment pour les formats incluant la glycémie. Ouvrez une activité avec davantage de données synchronisées, ou vérifiez votre source CGM avant de réessayer.</p>
     </details>
     <details>
       <summary>Mon export PDF ne correspond pas à ce que je vois.</summary>

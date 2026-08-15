@@ -6348,35 +6348,41 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
     if roadbook:
         story.append(PageBreak())
         story.append(Paragraph("Feuille de route", section_style))
+        story.append(Paragraph("Tes passages estimés et les principales barrières horaires. Les informations nutritionnelles et le détail des tronçons sont présentés dans les sections dédiées.", subtitle_style))
         rows = [[
-            Paragraph("Type", table_header_style), Paragraph("Point", table_header_style), Paragraph("Km", table_header_style),
-            Paragraph("Passage", table_header_style), Paragraph("Arrêt", table_header_style), Paragraph("Tronçon", table_header_style),
-            Paragraph("Allure", table_header_style), Paragraph("Nutrition", table_header_style),
+            Paragraph("Point", table_header_style), Paragraph("Km", table_header_style), Paragraph("Alt.", table_header_style),
+            Paragraph("D+ cum.", table_header_style), Paragraph("Type", table_header_style), Paragraph("Passage prévu", table_header_style),
+            Paragraph("Barrière", table_header_style),
         ]]
         for point in roadbook[:120]:
             if not isinstance(point, dict):
                 continue
             rows.append([
-                Paragraph(_course_plan_pdf_value(point.get("type")), small_style),
                 Paragraph(_course_plan_pdf_value(point.get("name")), small_style),
                 Paragraph(_course_plan_pdf_value(point.get("km")), small_style),
+                Paragraph(_course_plan_pdf_value(point.get("altitude")), small_style),
+                Paragraph(_course_plan_pdf_value(point.get("cumulative_gain")), small_style),
+                Paragraph(_course_plan_pdf_value(point.get("type")), small_style),
                 Paragraph(_course_plan_pdf_value(point.get("passage")), small_style),
-                Paragraph(_course_plan_pdf_value(point.get("stop")), small_style),
-                Paragraph(_course_plan_pdf_value(point.get("segment")), small_style),
-                Paragraph(_course_plan_pdf_value(point.get("pace")), small_style),
-                Paragraph(_course_plan_pdf_value(point.get("nutrition")), small_style),
+                Paragraph(_course_plan_pdf_value(point.get("cutoff")), small_style),
             ])
-        roadbook_table = Table(rows, colWidths=[16 * mm, 31 * mm, 12 * mm, 18 * mm, 13 * mm, 22 * mm, 18 * mm, 35 * mm], repeatRows=1)
+        roadbook_table = Table(rows, colWidths=[45 * mm, 16 * mm, 20 * mm, 22 * mm, 23 * mm, 27 * mm, 27 * mm], repeatRows=1)
         roadbook_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), ink),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("BACKGROUND", (0, 0), (-1, 0), soft_ink),
+            ("TEXTCOLOR", (0, 0), (-1, 0), muted),
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
             ("BACKGROUND", (0, 1), (-1, -1), colors.white),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, ivory]),
-            ("GRID", (0, 0), (-1, -1), 0.3, border),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#fcfbf8")]),
+            ("LINEBELOW", (0, 0), (-1, -1), 0.35, border),
+            ("LINEABOVE", (0, 0), (-1, 0), 0.5, border),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, 0), 7),
+            ("BOTTOMPADDING", (0, 0), (-1, 0), 7),
+            ("TOPPADDING", (0, 1), (-1, -1), 8),
+            ("BOTTOMPADDING", (0, 1), (-1, -1), 8),
+            ("LEFTPADDING", (0, 0), (-1, -1), 5),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+            ("TEXTCOLOR", (6, 1), (6, -1), coral),
         ]))
         story.append(roadbook_table)
 

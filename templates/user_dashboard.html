@@ -120,7 +120,21 @@
   .custom-course-link:hover { background:#e6f0df; color:#243322; }
   .projection-form > div.course-selection-showcase { grid-column:1 / -1; }
   .course-selection-showcase { padding:16px; border:1px solid #dfdad0; border-radius:18px; background:#f8f5ef; box-shadow:none; }
-  .course-selection-showcase > label { display:block; color:var(--text-main); font-size:1.12rem; font-weight:800; letter-spacing:-.025em; }
+  /* Titres principaux du parcours : une seule hiérarchie, quel que soit le composant. */
+  .course-selection-showcase > label,
+  .course-profile-title,
+  .projection-planning-title,
+  .projection-section-title,
+  .pace-setup-title h3 {
+    color:var(--text-main);
+    font-family:"Manrope", system-ui, sans-serif;
+    font-size:1.42rem;
+    font-weight:700;
+    line-height:1.2;
+    letter-spacing:-.025em;
+    text-transform:none;
+  }
+  .course-selection-showcase > label { display:block; }
   .course-selection-showcase .course-selection-intro { margin:4px 0 12px; color:var(--text-muted); font-size:.8rem; line-height:1.5; }
   .course-picker { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:11px; margin-top:7px; }
   .course-picker-card { min-height:156px; padding:0 14px 14px; border:1px solid #dfdad0; border-radius:15px; background:#fff; color:var(--text-main); text-align:left; cursor:pointer; letter-spacing:normal; box-shadow:none; overflow:hidden; transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease; }
@@ -143,11 +157,11 @@
   .projection-form input[type="file"] { width:100%; min-height:44px; padding:8px; border:1px dashed var(--border); border-radius:12px; color:var(--text-muted); background:#fff; }
   .course-profile-preview { margin-top:14px; padding:13px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
   .course-profile-preview .projection-profile { margin:0; }
-  .course-profile-title, .projection-planning-title, .projection-section-title { margin:16px 0 9px; color:var(--text-main); font-size:1.2rem; line-height:1.2; letter-spacing:-.02em; }
+  .course-profile-title, .projection-planning-title, .projection-section-title { margin:16px 0 9px; }
   .course-profile-preview .course-profile-title { margin:0 0 10px; }
   .manual-profile { margin-top:14px; padding:13px; border-radius:14px; background:#fbfaf7; border:1px solid #dfdad0; }
   .pace-setup-title { margin-bottom:13px; }
-  .pace-setup-title h3 { margin:0; color:var(--text-main); font-size:1.2rem; letter-spacing:-.02em; }
+  .pace-setup-title h3 { margin:0; }
   .pace-setup-title p { margin:4px 0 0; color:var(--text-muted); font-size:.78rem; line-height:1.4; }
   .profile-history-choice,
   .manual-profile-choice { padding:15px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
@@ -213,10 +227,13 @@
   .slope-legend i { width:9px; height:9px; border-radius:50%; display:inline-block; }
   .projection-splits { width:100%; min-width:0; margin-top:16px; font-size:.84rem; }
   .projection-splits th, .projection-splits td { padding:8px 6px; }
-  .projection-timeline { display:grid; gap:9px; margin-top:16px; }
-  .timeline-row { display:grid; grid-template-columns:92px minmax(0, 1fr) auto; gap:12px; align-items:center; padding:13px 14px; border-radius:14px; border:1px solid #dfdad0; background:#fff; }
-  .timeline-km { color:var(--accent); font-family:"Orbitron", sans-serif; font-size:.76rem; font-weight:700; }
-  .timeline-race-time { margin-bottom:5px; color:var(--accent-2); font-family:"Orbitron", sans-serif; font-size:.8rem; font-weight:700; line-height:1.2; }
+  .projection-timeline { display:grid; gap:0; margin-top:16px; overflow:hidden; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
+  .roadbook-header { display:grid; grid-template-columns:92px minmax(0, 1fr) auto; gap:12px; padding:10px 14px; background:#eeebe4; color:#6b6a67; font-family:"DM Mono",monospace; font-size:.66rem; font-weight:700; letter-spacing:.10em; text-transform:uppercase; }
+  .roadbook-header span:last-child { text-align:right; }
+  .timeline-row { display:grid; grid-template-columns:92px minmax(0, 1fr) auto; gap:12px; align-items:center; padding:13px 14px; border:0; border-bottom:1px solid #e5e0d8; border-radius:0; background:#fff; }
+  .timeline-row:last-child { border-bottom:0; }
+  .timeline-km { color:#41434a; font-family:"DM Mono", monospace; font-size:.72rem; font-weight:700; letter-spacing:.04em; }
+  .timeline-race-time { margin-bottom:5px; color:#41434a; font-family:"DM Mono", monospace; font-size:.76rem; font-weight:700; line-height:1.2; }
   .timeline-race-time small { display:block; color:var(--text-muted); font-family:inherit; font-size:.6rem; letter-spacing:.04em; }
   .timeline-title { font-size:.94rem; font-weight:700; }
   .timeline-meta { margin-top:3px; color:var(--text-muted); font-size:.78rem; }
@@ -230,54 +247,54 @@
   .timeline-panel-toggle { padding:5px 8px; border-radius:8px; border-color:#dfdad0; background:#fff; color:var(--text-main); font-size:.72rem; line-height:1; }
   .timeline-panel { display:none !important; }
   .timeline-panel.is-open { display:block !important; }
-  .timeline-detail-heading { color:#fff; font-size:.7rem; font-weight:800; letter-spacing:.055em; text-transform:uppercase; }
-  .timeline-nutrition-intro { margin:4px 0 0; color:#e8eef8; font-size:.76rem; line-height:1.35; }
-  .timeline-nutrition-advice { margin:8px 0 0; color:#fff3cd; font-size:.76rem; line-height:1.35; }
-  .timeline-nutrition-disclaimer { margin:9px 0 0; padding-top:8px; border-top:1px solid rgba(255,255,255,.14); color:#cbd5e1; font-size:.7rem; font-style:italic; line-height:1.4; }
+  .timeline-detail-heading { color:var(--text-main); font-family:"DM Mono",monospace; font-size:.68rem; font-weight:800; letter-spacing:.10em; text-transform:uppercase; }
+  .timeline-nutrition-intro { margin:4px 0 0; color:var(--text-muted); font-size:.76rem; line-height:1.45; }
+  .timeline-nutrition-advice { margin:8px 0 0; color:#8c482f; font-size:.76rem; line-height:1.45; }
+  .timeline-nutrition-disclaimer { margin:9px 0 0; padding-top:8px; border-top:1px solid #e3ded5; color:var(--text-muted); font-size:.7rem; font-style:italic; line-height:1.4; }
   .timeline-leg-profile { margin-top:10px; }
-  .timeline-leg-profile svg { display:block; width:100%; height:72px; border-radius:8px; background:rgba(5,12,24,.34); }
-  .timeline-leg-profile-label { margin:0 0 4px; color:#dbeafe; font-size:.7rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; }
-  .timeline-km-detail-toggle { margin-top:8px; padding:5px 8px; border-radius:8px; border-color:rgba(77,226,255,.32); background:rgba(77,226,255,.08); color:#cffafe; font-size:.72rem; line-height:1; }
+  .timeline-leg-profile svg { display:block; width:100%; height:72px; border-radius:8px; background:#f5f2ec; }
+  .timeline-leg-profile-label { margin:0 0 4px; color:var(--text-muted); font-size:.7rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; }
+  .timeline-km-detail-toggle { margin-top:8px; padding:5px 8px; border-radius:8px; border-color:#f0c9bc; background:#fff3ef; color:#a73c27; font-size:.72rem; line-height:1; }
   .timeline-km-detail-toggle::after { content:'⌄'; display:inline-block; margin-left:5px; font-size:.85rem; transition:transform .16s ease; }
   .timeline-km-details { display:none; gap:5px; margin-top:8px; }
   .timeline-details.is-km-expanded .timeline-km-details { display:grid; }
   .timeline-details.is-km-expanded .timeline-km-detail-toggle::after { transform:rotate(180deg); }
-  .timeline-km-row { display:grid; grid-template-columns:minmax(0, 1fr) auto auto; gap:8px; align-items:center; padding:6px 8px; border-radius:7px; background:rgba(255,255,255,.06); color:#dbeafe; font-size:.72rem; }
-  .timeline-km-row strong { color:#fff; }
+  .timeline-km-row { display:grid; grid-template-columns:minmax(0, 1fr) auto auto; gap:8px; align-items:center; padding:6px 8px; border-radius:7px; background:#f7f4ee; color:var(--text-muted); font-size:.72rem; }
+  .timeline-km-row strong { color:var(--text-main); }
   .timeline-km-row span { white-space:nowrap; }
   .course-plan-email { display:flex; justify-content:center; margin:18px 0 2px; }
-  .course-plan-email button { padding:10px 15px; border-radius:10px; border:1px solid rgba(45,212,191,.55); background:linear-gradient(135deg, #0f766e, #155e75); color:#fff; font-weight:800; box-shadow:0 8px 18px rgba(15,118,110,.2); }
+  .course-plan-email button { padding:10px 15px; border-radius:10px; border:1px solid transparent; background:var(--grad-accent); color:#fff; font-weight:800; box-shadow:none; }
   .course-plan-email button:disabled { cursor:wait; opacity:.68; }
-  .fueling-schedule { margin-top:18px; padding:14px; border:1px solid rgba(250,204,21,.35); border-radius:14px; background:linear-gradient(135deg, rgba(250,204,21,.1), rgba(15,23,42,.25)); }
-  .fueling-schedule h3 { margin:0; color:#fff; font-size:1.18rem; }
-  .fueling-schedule > p { margin:5px 0 10px; color:#e2e8f0; font-size:.78rem; line-height:1.4; }
-  .fueling-profile { display:block; width:100%; height:155px; border-radius:10px; background:rgba(5,12,24,.35); }
+  .fueling-schedule { margin-top:18px; padding:14px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
+  .fueling-schedule h3 { margin:0; color:var(--text-main); font-size:1.18rem; }
+  .fueling-schedule > p { margin:5px 0 10px; color:var(--text-muted); font-size:.78rem; line-height:1.45; }
+  .fueling-profile { display:block; width:100%; height:155px; border-radius:10px; background:#f5f2ec; }
   .fueling-intakes { display:grid; grid-template-columns:repeat(auto-fill, minmax(145px, 1fr)); gap:7px; margin-top:10px; max-height:330px; overflow:auto; padding-right:3px; }
-  .fueling-intake { padding:7px 8px; border-radius:8px; background:rgba(255,255,255,.07); border-left:3px solid #b8ff45; color:#e8eef8; font-size:.72rem; line-height:1.35; }
-  .fueling-intake.is-climb { border-left-color:#facc15; } .fueling-intake.is-descent { border-left-color:#60a5fa; }
-  .fueling-intake strong { display:block; color:#fff; font-size:.75rem; }
-  .timeline-time { color:var(--accent-2); font-family:"Orbitron", sans-serif; font-size:.9rem; white-space:nowrap; }
+  .fueling-intake { padding:7px 8px; border-radius:8px; background:#faf8f4; border-left:3px solid var(--accent); color:var(--text-main); font-size:.72rem; line-height:1.35; }
+  .fueling-intake.is-climb { border-left-color:#c97b2a; } .fueling-intake.is-descent { border-left-color:#3f7180; }
+  .fueling-intake strong { display:block; color:var(--text-main); font-size:.75rem; }
+  .timeline-time { color:#41434a; font-family:"DM Mono", monospace; font-size:.82rem; white-space:nowrap; }
   .timeline-time small { display:block; margin-bottom:2px; color:var(--text-muted); font-family:inherit; font-size:.56rem; letter-spacing:.05em; }
-  .timeline-aid { grid-template-columns:92px minmax(0, 1fr) auto; border-color:#f0c9bc; background:#fff8f4; }
-  .timeline-aid .timeline-km, .timeline-aid .timeline-time { color:#bd492f; }
-  .timeline-aid-assistance { border-color:#d4dcb9; background:#f8faef; }
-  .timeline-aid-assistance .timeline-km, .timeline-aid-assistance .timeline-time { color:#53673e; }
-  .timeline-control { border-color:#d9d0e7; background:#faf8fc; }
-  .timeline-control .timeline-km, .timeline-control .timeline-time { color:#70568f; }
-  .timeline-start { border-color:rgba(77,226,255,.72); background:linear-gradient(90deg, rgba(14,116,144,.28), rgba(8,47,73,.3)); }
-  .timeline-start .timeline-km, .timeline-start .timeline-time { color:#a5f3fc; }
-  .timeline-finish { border:2px solid rgba(184,255,69,.8); background:linear-gradient(90deg, rgba(101,163,13,.28), rgba(8,47,73,.35)); box-shadow:0 0 0 1px rgba(184,255,69,.12); }
-  .timeline-finish .timeline-km, .timeline-finish .timeline-time { color:#d9ff9a; }
-  .timeline-finish .timeline-title { font-family:"Orbitron", sans-serif; letter-spacing:.06em; text-transform:uppercase; }
+  .timeline-aid { grid-template-columns:92px minmax(0, 1fr) auto; border-left:4px solid #ff5a36; background:#fff; }
+  .timeline-aid .timeline-km, .timeline-aid .timeline-time { color:#c4432b; }
+  .timeline-aid-assistance { border-left-color:#2e7065; background:#fff; }
+  .timeline-aid-assistance .timeline-km, .timeline-aid-assistance .timeline-time { color:#2e7065; }
+  .timeline-control { border-left:4px solid #59616c; background:#fff; }
+  .timeline-control .timeline-km, .timeline-control .timeline-time { color:#59616c; }
+  .timeline-start { border-left:4px solid #59616c; background:#fff; }
+  .timeline-start .timeline-km, .timeline-start .timeline-time { color:#59616c; }
+  .timeline-finish { border-bottom:0; border-left:4px solid #ff5a36; background:#fff; box-shadow:none; }
+  .timeline-finish .timeline-km, .timeline-finish .timeline-time { color:#c4432b; }
+  .timeline-finish .timeline-title { font-family:"Manrope", sans-serif; letter-spacing:-.01em; text-transform:none; }
   .timeline-filter { display:flex; flex-wrap:wrap; gap:8px; margin:15px 0 0; }
-  .timeline-filter button { padding:8px 11px; font-size:.75rem; background:rgba(77,226,255,.08); color:var(--text-main); border-color:rgba(77,226,255,.28); }
-  .timeline-filter button.is-active { background:rgba(77,226,255,.25); border-color:var(--accent); }
+  .timeline-filter button { padding:8px 11px; font-size:.75rem; background:#fff; color:var(--text-main); border-color:#dfdad0; }
+  .timeline-filter button.is-active { background:#fff0eb; border-color:var(--accent); color:#a93622; }
   .projection-timeline.show-points-only .timeline-segment { display:none; }
   .nutrition-chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
-  .nutrition-chip { padding:3px 7px; border-radius:999px; background:rgba(255,255,255,.1); color:#fff7ed; font-size:.72rem; font-weight:700; }
-  .timeline-stop-control { display:inline-flex; align-items:center; gap:6px; margin-top:8px; padding:5px 7px; border:1px solid rgba(255,255,255,.24); border-radius:9px; background:rgba(0,0,0,.14); color:var(--text-muted); font-size:.72rem; font-weight:700; }
+  .nutrition-chip { padding:3px 7px; border-radius:999px; background:#f3eee6; color:var(--text-main); font-size:.72rem; font-weight:700; }
+  .timeline-stop-control { display:inline-flex; align-items:center; gap:6px; margin-top:8px; padding:5px 7px; border:1px solid #edc8bd; border-radius:9px; background:#fff; color:var(--text-muted); font-size:.72rem; font-weight:700; }
   .timeline-stop-control input { width:58px; min-height:30px; margin:0; padding:3px 5px; text-align:center; font-weight:800; }
-  .timeline-start-control { display:inline-flex; align-items:center; gap:7px; margin-top:8px; color:#cffafe; font-size:.74rem; font-weight:700; }
+  .timeline-start-control { display:inline-flex; align-items:center; gap:7px; margin-top:8px; color:var(--text-main); font-size:.74rem; font-weight:700; }
   .timeline-start-control input { width:48px; min-height:32px; margin:0; padding:4px 3px; text-align:center; }
   .aid-stations { margin-top:14px; padding:13px; border-radius:14px; background:#fff; border:1px solid #dfdad0; }
   .aid-stations-header { display:flex; align-items:end; gap:10px; }
@@ -431,6 +448,7 @@
     .aid-point-adder { flex-direction:column; }
     .aid-station-row { grid-template-columns:1fr 1fr; }
     .aid-station-row button { grid-column:span 2; }
+    .roadbook-header { display:none; }
     .timeline-row, .timeline-aid { grid-template-columns:70px minmax(0, 1fr); gap:8px; }
     .timeline-time { grid-column:2; }
     .timeline-details { grid-column:1 / -1; }
@@ -1122,27 +1140,29 @@
         return { x, y, grade: Number(point.grade_percent || 0) };
       });
       const colorForGrade = (grade) => {
-        if (grade <= -8) return '#38bdf8';
-        if (grade < -2) return '#60a5fa';
-        if (grade < 5) return '#b8ff45';
-        if (grade < 12) return '#facc15';
-        if (grade < 20) return '#fb923c';
-        return '#f87171';
+        if (grade <= -8) return '#5bb9e6';
+        if (grade < -2) return '#83cceb';
+        if (grade < 5) return '#dfe68d';
+        if (grade < 12) return '#f4c446';
+        if (grade < 20) return '#f38b2d';
+        return '#e94c34';
       };
-      const segments = coordinates.slice(1).map((point, index) => {
+      const baseY = height - padding;
+      const filledSegments = coordinates.slice(1).map((point, index) => {
         const previous = coordinates[index];
-        return `<line x1="${previous.x.toFixed(1)}" y1="${previous.y.toFixed(1)}" x2="${point.x.toFixed(1)}" y2="${point.y.toFixed(1)}" stroke="${colorForGrade(point.grade)}" stroke-width="3" stroke-linecap="round"/>`;
+        return `<path d="M ${previous.x.toFixed(1)} ${baseY} L ${previous.x.toFixed(1)} ${previous.y.toFixed(1)} L ${point.x.toFixed(1)} ${point.y.toFixed(1)} L ${point.x.toFixed(1)} ${baseY} Z" fill="${colorForGrade(point.grade)}"/>`;
       }).join('');
+      const profileOutline = `<path d="M ${coordinates.map((point) => `${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' L ')}" fill="none" stroke="#45433f" stroke-opacity=".42" stroke-width="1.25" stroke-linejoin="round"/>`;
       const fuelingMarkers = nutritionWindows.filter((window) => window.terrain !== 'steady').map((window) => {
         const nearest = points.reduce((best, point) => Math.abs(Number(point.distance_km) - window.fromKm) < Math.abs(Number(best.distance_km) - window.fromKm) ? point : best, points[0]);
         const x = padding + (Number(nearest.distance_km) / maxDistance) * (width - padding * 2);
         const y = height - padding - ((Number(nearest.elevation_m) - minElevation) / elevationRange) * (height - padding * 2);
-        const color = window.terrain === 'climb' ? '#facc15' : '#60a5fa';
+        const color = window.terrain === 'climb' ? '#f4c446' : '#5bb9e6';
         const label = window.terrain === 'climb' ? 'Manger avant montée' : 'Manger/boire en descente';
         return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" fill="${color}" stroke="#fff" stroke-width="2"><title>${label} · ${window.fromLabel}</title></circle>`;
       }).join('');
-      const nutritionLegend = nutritionWindows.length ? '<span><i style="background:#facc15"></i>prise à anticiper avant montée</span><span><i style="background:#60a5fa"></i>prise facilitée en descente</span>' : '';
-      return `<div class="projection-profile"><h3 class="course-profile-title">Profil de la course</h3><div class="home-summary-label">${Math.round(minElevation)}–${Math.round(maxElevation)} m</div><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Profil d'altitude du parcours, coloré selon la pente">${segments}${fuelingMarkers}<line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" stroke="rgba(200,215,239,.45)"/><text x="${padding}" y="${height - 1}" fill="#c8d7ef" font-size="11">0 km</text><text x="${width - padding - 45}" y="${height - 1}" fill="#c8d7ef" font-size="11">${maxDistance.toFixed(1)} km</text></svg><div class="slope-legend"><span><i style="background:#38bdf8"></i>descente &lt; −8 %</span><span><i style="background:#b8ff45"></i>plat −2 à 5 %</span><span><i style="background:#facc15"></i>montée 5–12 %</span><span><i style="background:#f87171"></i>montée &gt; 20 %</span>${nutritionLegend}</div></div>`;
+      const nutritionLegend = nutritionWindows.length ? '<span><i style="background:#f4c446"></i>prise à anticiper avant montée</span><span><i style="background:#5bb9e6"></i>prise facilitée en descente</span>' : '';
+      return `<div class="projection-profile"><h3 class="course-profile-title">Profil de la course</h3><div class="home-summary-label">${Math.round(minElevation)}–${Math.round(maxElevation)} m</div><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Profil d'altitude du parcours, coloré selon la pente">${filledSegments}${profileOutline}${fuelingMarkers}<line x1="${padding}" y1="${baseY}" x2="${width - padding}" y2="${baseY}" stroke="#cfc9bf"/><text x="${padding}" y="${height - 1}" fill="#77746d" font-size="11">0 km</text><text x="${width - padding - 45}" y="${height - 1}" fill="#77746d" font-size="11">${maxDistance.toFixed(1)} km</text></svg><div class="slope-legend"><span><i style="background:#5bb9e6"></i>descente &lt; −8 %</span><span><i style="background:#dfe68d"></i>plat −2 à 5 %</span><span><i style="background:#f4c446"></i>montée 5–12 %</span><span><i style="background:#e94c34"></i>montée &gt; 20 %</span>${nutritionLegend}</div></div>`;
     }
 
     function buildTwentyMinuteFuelingSchedule(rawPoints, rows, nutritionWindows, aidStations = []) {
@@ -1166,8 +1186,10 @@
         return seconds + aidStations.filter((point) => point.km < km - .001).reduce((sum, point) => sum + Number(point.stopSeconds || 0), 0);
       };
       const profileCoordinates = points.map((point) => ({ x: padding + Number(point.distance_km) / maxDistance * (width - padding * 2), y: height - padding - (Number(point.elevation_m) - minElevation) / elevationRange * (height - padding * 2), grade: Number(point.grade_percent || 0) }));
-      const colorForGrade = (grade) => grade <= -8 ? '#38bdf8' : grade < -2 ? '#60a5fa' : grade < 5 ? '#b8ff45' : grade < 12 ? '#facc15' : grade < 20 ? '#fb923c' : '#f87171';
-      const profileLines = profileCoordinates.slice(1).map((point, index) => `<line x1="${profileCoordinates[index].x.toFixed(1)}" y1="${profileCoordinates[index].y.toFixed(1)}" x2="${point.x.toFixed(1)}" y2="${point.y.toFixed(1)}" stroke="${colorForGrade(point.grade)}" stroke-width="3" stroke-linecap="round"/>`).join('');
+      const colorForGrade = (grade) => grade <= -8 ? '#5bb9e6' : grade < -2 ? '#83cceb' : grade < 5 ? '#dfe68d' : grade < 12 ? '#f4c446' : grade < 20 ? '#f38b2d' : '#e94c34';
+      const profileBaseY = height - padding;
+      const profileAreas = profileCoordinates.slice(1).map((point, index) => `<path d="M ${profileCoordinates[index].x.toFixed(1)} ${profileBaseY} L ${profileCoordinates[index].x.toFixed(1)} ${profileCoordinates[index].y.toFixed(1)} L ${point.x.toFixed(1)} ${point.y.toFixed(1)} L ${point.x.toFixed(1)} ${profileBaseY} Z" fill="${colorForGrade(point.grade)}"/>`).join('');
+      const profileOutline = `<path d="M ${profileCoordinates.map((point) => `${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' L ')}" fill="none" stroke="#45433f" stroke-opacity=".42" stroke-width="1.1"/>`;
       const metricsBetweenKm = (fromKm, toKm) => {
         let previousKm = 0;
         const metrics = { gain: 0, loss: 0 };
@@ -1215,11 +1237,11 @@
       const markers = intakes.map((intake, index) => {
         const x = padding + intake.km / maxDistance * (width - padding * 2);
         const y = height - padding - (intake.elevation - minElevation) / elevationRange * (height - padding * 2);
-        const color = intake.terrain === 'climb' ? '#facc15' : intake.terrain === 'descent' ? '#60a5fa' : '#b8ff45';
+        const color = intake.terrain === 'climb' ? '#f4c446' : intake.terrain === 'descent' ? '#5bb9e6' : '#dfe68d';
         const label = index % 3 === 2 ? `H+${formatDuration(intake.courseSeconds).replace(/ min.*/, ' min')}` : '';
-        return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="${color}" stroke="#fff" stroke-width="1.4"><title>H+${formatDuration(intake.seconds)} · km ${intake.km.toFixed(1)} · ${intake.carbs} g glucides</title></circle>${label ? `<text x="${x.toFixed(1)}" y="${Math.max(10, y - 8).toFixed(1)}" text-anchor="middle" fill="#fff" font-size="9">${label}</text>` : ''}`;
+        return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="${color}" stroke="#fff" stroke-width="1.4"><title>H+${formatDuration(intake.seconds)} · km ${intake.km.toFixed(1)} · ${intake.carbs} g glucides</title></circle>${label ? `<text x="${x.toFixed(1)}" y="${Math.max(10, y - 8).toFixed(1)}" text-anchor="middle" fill="#45433f" font-size="9">${label}</text>` : ''}`;
       }).join('');
-      const svg = `<svg class="fueling-profile" viewBox="0 0 ${width} ${height}" role="img" aria-label="Profil du parcours avec prises de glucides toutes les 20 minutes">${profileLines}${markers}<text x="${padding}" y="${height - 1}" fill="#c8d7ef" font-size="10">0 km</text><text x="${width - padding - 45}" y="${height - 1}" fill="#c8d7ef" font-size="10">${maxDistance.toFixed(1)} km</text></svg>`;
+      const svg = `<svg class="fueling-profile" viewBox="0 0 ${width} ${height}" role="img" aria-label="Profil du parcours avec prises de glucides toutes les 20 minutes">${profileAreas}${profileOutline}${markers}<text x="${padding}" y="${height - 1}" fill="#77746d" font-size="10">0 km</text><text x="${width - padding - 45}" y="${height - 1}" fill="#77746d" font-size="10">${maxDistance.toFixed(1)} km</text></svg>`;
       return { svg, intakes };
     }
 
@@ -1234,18 +1256,20 @@
       const minElevation = Math.min(...elevations);
       const maxElevation = Math.max(...elevations);
       const elevationRange = Math.max(1, maxElevation - minElevation);
-      const colorForGrade = (grade) => grade <= -8 ? '#38bdf8' : grade < -2 ? '#60a5fa' : grade < 5 ? '#b8ff45' : grade < 12 ? '#facc15' : grade < 20 ? '#fb923c' : '#f87171';
+      const colorForGrade = (grade) => grade <= -8 ? '#5bb9e6' : grade < -2 ? '#83cceb' : grade < 5 ? '#dfe68d' : grade < 12 ? '#f4c446' : grade < 20 ? '#f38b2d' : '#e94c34';
       const coordinates = points.map((point) => ({
         x: padding + ((Number(point.distance_km) - fromKm) / Math.max(.01, toKm - fromKm)) * (width - padding * 2),
         y: height - padding - ((Number(point.elevation_m) - minElevation) / elevationRange) * (height - padding * 2),
         grade: Number(point.grade_percent || 0),
       }));
-      const lines = coordinates.slice(1).map((point, index) => {
+      const baseY = height - padding;
+      const areas = coordinates.slice(1).map((point, index) => {
         const previous = coordinates[index];
-        return `<line x1="${previous.x.toFixed(1)}" y1="${previous.y.toFixed(1)}" x2="${point.x.toFixed(1)}" y2="${point.y.toFixed(1)}" stroke="${colorForGrade(point.grade)}" stroke-width="3" stroke-linecap="round"/>`;
+        return `<path d="M ${previous.x.toFixed(1)} ${baseY} L ${previous.x.toFixed(1)} ${previous.y.toFixed(1)} L ${point.x.toFixed(1)} ${point.y.toFixed(1)} L ${point.x.toFixed(1)} ${baseY} Z" fill="${colorForGrade(point.grade)}"/>`;
       }).join('');
+      const outline = `<path d="M ${coordinates.map((point) => `${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' L ')}" fill="none" stroke="#45433f" stroke-opacity=".42" stroke-width="1"/>`;
       const averagePace = metrics.distance > 0 ? formatPace(metrics.seconds / metrics.distance) : '—';
-      return `<div class="timeline-leg-profile"><p class="timeline-leg-profile-label">Profil jusqu’à ${label} · ${(toKm - fromKm).toFixed(1)} km · D+ ${Math.round(metrics.gain)} m · D− ${Math.round(metrics.loss)} m · allure prévue ${averagePace}</p><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Profil de l'étape jusqu'à ${label}, coloré selon la pente">${lines}</svg></div>`;
+      return `<div class="timeline-leg-profile"><p class="timeline-leg-profile-label">Profil jusqu’à ${label} · ${(toKm - fromKm).toFixed(1)} km · D+ ${Math.round(metrics.gain)} m · D− ${Math.round(metrics.loss)} m · allure prévue ${averagePace}</p><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Profil de l'étape jusqu'à ${label}, coloré selon la pente">${areas}${outline}</svg></div>`;
     }
 
     function nutritionPlan(totalMovingSeconds, weightKg, distanceKm, elevationGainM, zone) {
@@ -1501,7 +1525,7 @@
         html: `<article class="timeline-row timeline-finish"><div><div class="timeline-race-time"><small>TEMPS DE COURSE</small>${formatDuration(timeAtKm(finishKm) + totalStopSeconds)}</div><div class="timeline-km">ARRIVÉE<br>KM ${finishKm.toFixed(1)}</div></div><div><div class="timeline-title">Arrivée</div><div class="timeline-summary">${formatDuration(timeAtKm(finishKm))} en mouvement${totalStopSeconds ? ` · ${formatDuration(totalStopSeconds)} d’arrêts` : ''}</div><button type="button" class="timeline-detail-toggle" aria-expanded="false">Bilan</button><div class="timeline-details"><div class="timeline-detail-heading">Bilan de la projection</div><p class="timeline-nutrition-intro">Temps total incluant les arrêts : ${formatDuration(timeAtKm(finishKm) + totalStopSeconds)}.</p><p class="timeline-nutrition-advice">Prévois ta récupération dès l’arrivée : hydratation, glucides et protéines selon ta tolérance.</p></div></div><div class="timeline-time">${timelineTime(timeAtKm(finishKm) + totalStopSeconds)}</div></article>`,
       });
       const eventRank = { start: -1, segment: 0, control: 1, aid: 2, aid_assistance: 2, finish: 3 };
-      return `<div class="projection-timeline">${events.sort((a, b) => a.position - b.position || eventRank[a.type] - eventRank[b.type]).map((event) => event.html).join('')}</div>`;
+      return `<div class="projection-timeline"><div class="roadbook-header"><span>Point</span><span>Tronçon / réglages</span><span>Passage</span></div>${events.sort((a, b) => a.position - b.position || eventRank[a.type] - eventRank[b.type]).map((event) => event.html).join('')}</div>`;
     }
 
     form.addEventListener('submit', async (event) => {

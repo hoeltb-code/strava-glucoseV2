@@ -6042,7 +6042,7 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib.units import mm
         from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, KeepTogether
-        from reportlab.graphics.shapes import Drawing, Line, PolyLine, Rect, String, Circle
+        from reportlab.graphics.shapes import Drawing, Line, PolyLine, Polygon, Rect, String, Circle
     except ImportError as exc:
         raise RuntimeError("La génération PDF n'est pas encore installée sur le serveur. Lance `pip install -r requirements.txt` puis redémarre le serveur.") from exc
     buffer = BytesIO()
@@ -6057,27 +6057,43 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
         author="Running Data Plan",
     )
     styles = getSampleStyleSheet()
+    # Palette alignée avec l'interface : fond ivoire, encre profonde et un seul accent corail.
+    ink = colors.HexColor("#121316")
+    muted = colors.HexColor("#6f6b64")
+    coral = colors.HexColor("#ff5a36")
+    ivory = colors.HexColor("#f8f5ef")
+    soft_ink = colors.HexColor("#efebe4")
+    border = colors.HexColor("#dfdad0")
+
     title_style = ParagraphStyle(
         "CoursePlanTitle", parent=styles["Title"], fontName="Helvetica-Bold",
-        fontSize=22, leading=26, textColor=colors.HexColor("#102a43"), spaceAfter=5,
+        fontSize=23, leading=27, textColor=ink, spaceAfter=5,
     )
     subtitle_style = ParagraphStyle(
         "CoursePlanSubtitle", parent=styles["Normal"], fontName="Helvetica",
-        fontSize=9, leading=13, textColor=colors.HexColor("#52616b"), spaceAfter=13,
+        fontSize=9, leading=13, textColor=muted, spaceAfter=13,
     )
     section_style = ParagraphStyle(
         "CoursePlanSection", parent=styles["Heading2"], fontName="Helvetica-Bold",
-        fontSize=13, leading=16, textColor=colors.HexColor("#0f766e"), spaceBefore=12, spaceAfter=7,
+        fontSize=13, leading=16, textColor=ink, spaceBefore=16, spaceAfter=7,
     )
     body_style = ParagraphStyle(
         "CoursePlanBody", parent=styles["BodyText"], fontName="Helvetica",
-        fontSize=8.6, leading=12, textColor=colors.HexColor("#243b53"),
+        fontSize=8.6, leading=12, textColor=colors.HexColor("#3f3c37"),
     )
     small_style = ParagraphStyle(
         "CoursePlanSmall", parent=body_style, fontSize=7.2, leading=9.5,
     )
     table_header_style = ParagraphStyle(
         "CoursePlanTableHeader", parent=small_style, fontName="Helvetica-Bold", textColor=colors.white,
+    )
+    table_label_style = ParagraphStyle(
+        "CoursePlanTableLabel", parent=small_style, fontName="Helvetica-Bold", textColor=muted,
+        fontSize=6.6, leading=8, spaceAfter=2,
+    )
+    table_value_style = ParagraphStyle(
+        "CoursePlanTableValue", parent=body_style, fontName="Helvetica-Bold", textColor=ink,
+        fontSize=11, leading=13,
     )
 
     def clean_profile(raw_points) -> list[dict]:
@@ -6090,16 +6106,16 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
 
     def grade_color(grade: float) -> colors.Color:
         if grade <= -8:
-            return colors.HexColor("#38bdf8")
+            return colors.HexColor("#5bb9e6")
         if grade < -2:
-            return colors.HexColor("#60a5fa")
+            return colors.HexColor("#83cceb")
         if grade < 5:
-            return colors.HexColor("#84cc16")
+            return colors.HexColor("#dfe68d")
         if grade < 12:
-            return colors.HexColor("#eab308")
+            return colors.HexColor("#f4c446")
         if grade < 20:
-            return colors.HexColor("#f97316")
-        return colors.HexColor("#ef4444")
+            return colors.HexColor("#f38b2d")
+        return colors.HexColor("#e94c34")
 
     def elevation_drawing(raw_points, title: str, width: float = 180 * mm, height: float = 54 * mm, fueling_windows: list[dict] | None = None):
         points = clean_profile(raw_points)
@@ -6112,16 +6128,18 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
         min_x, max_x = min(values_x), max(values_x)
         min_y, max_y = min(values_y), max(values_y)
         range_x, range_y = max(.01, max_x - min_x), max(1.0, max_y - min_y)
-        drawing.add(Rect(0, 0, width, height, fillColor=colors.HexColor("#f8fafc"), strokeColor=colors.HexColor("#cbd5e1"), strokeWidth=.4))
-        drawing.add(String(pad_x, height - 4.5 * mm, title, fontName="Helvetica-Bold", fontSize=7.5, fillColor=colors.HexColor("#102a43")))
+        drawing.add(Rect(0, 0, width, height, fillColor=ivory, strokeColor=border, strokeWidth=.5))
+        drawing.add(String(pad_x, height - 4.5 * mm, title.upper(), fontName="Helvetica-Bold", fontSize=6.8, fillColor=muted))
         coords = []
         for point in points:
             x = pad_x + ((float(point["distance_km"]) - min_x) / range_x) * (width - 2 * pad_x)
             y = pad_y + ((float(point["elevation_m"]) - min_y) / range_y) * (height - pad_y - 9 * mm)
             coords.append((x, y, float(point.get("grade_percent") or 0)))
+        base_y = pad_y
         for index in range(1, len(coords)):
             previous, current = coords[index - 1], coords[index]
-            drawing.add(Line(previous[0], previous[1], current[0], current[1], strokeColor=grade_color(current[2]), strokeWidth=1.4, strokeLineCap=1))
+            drawing.add(Polygon([previous[0], base_y, previous[0], previous[1], current[0], current[1], current[0], base_y], fillColor=grade_color(current[2]), strokeColor=None))
+        drawing.add(PolyLine([coordinate for point in coords for coordinate in point[:2]], strokeColor=colors.HexColor("#45433f"), strokeWidth=.75, strokeLineJoin=1))
         for window in fueling_windows or []:
             if not isinstance(window, dict) or window.get("terrain") == "steady":
                 continue
@@ -6132,11 +6150,12 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
             closest = min(points, key=lambda point: abs(float(point["distance_km"]) - marker_km))
             x = pad_x + ((float(closest["distance_km"]) - min_x) / range_x) * (width - 2 * pad_x)
             y = pad_y + ((float(closest["elevation_m"]) - min_y) / range_y) * (height - pad_y - 9 * mm)
-            color = colors.HexColor("#facc15") if window.get("terrain") == "climb" else colors.HexColor("#60a5fa")
+            color = colors.HexColor("#f4c446") if window.get("terrain") == "climb" else colors.HexColor("#5bb9e6")
             drawing.add(Circle(x, y, 2.3, fillColor=color, strokeColor=colors.white, strokeWidth=.7))
-        drawing.add(String(pad_x, 2.5 * mm, f"{min_x:.1f} km", fontName="Helvetica", fontSize=6.5, fillColor=colors.HexColor("#52616b")))
-        drawing.add(String(width - pad_x - 23 * mm, 2.5 * mm, f"{max_x:.1f} km", fontName="Helvetica", fontSize=6.5, fillColor=colors.HexColor("#52616b")))
-        drawing.add(String(width - 27 * mm, height - 4.5 * mm, f"{min_y:.0f}-{max_y:.0f} m", fontName="Helvetica", fontSize=6.5, fillColor=colors.HexColor("#52616b")))
+        drawing.add(Line(pad_x, base_y, width - pad_x, base_y, strokeColor=border, strokeWidth=.4))
+        drawing.add(String(pad_x, 2.5 * mm, f"{min_x:.1f} km", fontName="Helvetica", fontSize=6.5, fillColor=muted))
+        drawing.add(String(width - pad_x - 23 * mm, 2.5 * mm, f"{max_x:.1f} km", fontName="Helvetica", fontSize=6.5, fillColor=muted))
+        drawing.add(String(width - 27 * mm, height - 4.5 * mm, f"{min_y:.0f}-{max_y:.0f} m", fontName="Helvetica", fontSize=6.5, fillColor=muted))
         return drawing
 
     def route_map_drawing(raw_points, width: float = 180 * mm, height: float = 72 * mm):
@@ -6152,16 +6171,16 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
         lons = [float(point["longitude"]) for point in points]
         min_lat, max_lat, min_lon, max_lon = min(lats), max(lats), min(lons), max(lons)
         span_lat, span_lon = max(.00001, max_lat - min_lat), max(.00001, max_lon - min_lon)
-        drawing.add(Rect(0, 0, width, height, fillColor=colors.HexColor("#eefbf8"), strokeColor=colors.HexColor("#99f6e4"), strokeWidth=.4))
+        drawing.add(Rect(0, 0, width, height, fillColor=ivory, strokeColor=border, strokeWidth=.5))
         coords = [
             (pad + ((float(point["longitude"]) - min_lon) / span_lon) * (width - 2 * pad), pad + ((float(point["latitude"]) - min_lat) / span_lat) * (height - 2 * pad))
             for point in points
         ]
         flat_coords = [coordinate for point in coords for coordinate in point]
-        drawing.add(PolyLine(flat_coords, strokeColor=colors.HexColor("#0f766e"), strokeWidth=1.35, strokeLineJoin=1))
-        drawing.add(Rect(coords[0][0] - 1.5, coords[0][1] - 1.5, 3, 3, fillColor=colors.HexColor("#16a34a"), strokeColor=None))
-        drawing.add(Rect(coords[-1][0] - 1.5, coords[-1][1] - 1.5, 3, 3, fillColor=colors.HexColor("#dc2626"), strokeColor=None))
-        drawing.add(String(pad, height - 4.5 * mm, "Trace GPS - départ vert, arrivée rouge", fontName="Helvetica-Bold", fontSize=7.5, fillColor=colors.HexColor("#102a43")))
+        drawing.add(PolyLine(flat_coords, strokeColor=coral, strokeWidth=1.35, strokeLineJoin=1))
+        drawing.add(Circle(coords[0][0], coords[0][1], 1.8, fillColor=ink, strokeColor=colors.white, strokeWidth=.55))
+        drawing.add(Circle(coords[-1][0], coords[-1][1], 1.8, fillColor=coral, strokeColor=colors.white, strokeWidth=.55))
+        drawing.add(String(pad, height - 4.5 * mm, "TRACE GPS - DÉPART / ARRIVÉE", fontName="Helvetica-Bold", fontSize=6.8, fillColor=muted))
         return drawing
 
     first_name = (user.first_name or "").strip()
@@ -6169,7 +6188,7 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
     course_name = _course_plan_pdf_value(plan.get("course_name"), "Course simulée")
     generated_at = dt.datetime.now().strftime("%d/%m/%Y à %H:%M")
     story = [
-        Paragraph("Running Data Plan", subtitle_style),
+        Paragraph("RUNNING DATA PLAN · PLAN PERSONNALISÉ", ParagraphStyle("CoursePlanKicker", parent=subtitle_style, fontName="Helvetica-Bold", fontSize=7, leading=10, textColor=coral, spaceAfter=5)),
         Paragraph(f"Plan de course - {course_name}", title_style),
         Paragraph(
             f"Préparé pour <b>{_course_plan_pdf_value(runner_name)}</b> - simulation générée le {generated_at}.",
@@ -6185,18 +6204,18 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
         ["Intensité visée", _course_plan_pdf_value(plan.get("zone"))],
         ["Départ", _course_plan_pdf_value(plan.get("departure_time"))],
     ]
-    overview_table = Table(overview, colWidths=[52 * mm, 113 * mm], hAlign="LEFT")
+    overview_cards = []
+    for label, value in overview:
+        overview_cards.append(Paragraph(f"<font size='6.5' color='#6f6b64'><b>{label.upper()}</b></font><br/><font size='11' color='#121316'><b>{value}</b></font>", body_style))
+    overview_table = Table([overview_cards[:3], overview_cards[3:]], colWidths=[55 * mm, 55 * mm, 55 * mm], hAlign="LEFT")
     overview_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#e6fffb")),
-        ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#102a43")),
-        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
-        ("FONTNAME", (1, 0), (1, -1), "Helvetica"),
-        ("FONTSIZE", (0, 0), (-1, -1), 9),
-        ("LEADING", (0, 0), (-1, -1), 12),
-        ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#b8e6df")),
+        ("BACKGROUND", (0, 0), (-1, -1), colors.white),
+        ("GRID", (0, 0), (-1, -1), 0.5, border),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 9),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 9),
+        ("LEFTPADDING", (0, 0), (-1, -1), 9),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 9),
     ]))
     story.extend([Paragraph("Synthèse de la projection", section_style), overview_table])
 
@@ -6206,7 +6225,7 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
             Paragraph("Parcours et profil", section_style),
             route_map_drawing(elevation_profile), Spacer(1, 5),
             elevation_drawing(elevation_profile, "Profil global - couleurs selon la pente", fueling_windows=plan.get("fueling_windows") or []),
-            Paragraph("Bleu : descente - vert : plat - jaune/orange/rouge : montée de plus en plus raide. Points jaunes/bleus : repères nutrition terrain.", small_style),
+            Paragraph("Bleu : descente - jaune pâle : terrain roulant - jaune, orange et corail : montée de plus en plus raide. Points jaunes/bleus : repères nutrition terrain.", small_style),
         ])
 
     pacing = plan.get("pacing") if isinstance(plan.get("pacing"), list) else []
@@ -6223,8 +6242,8 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
                 ])
         pacing_table = Table(pacing_rows, colWidths=[55 * mm, 62 * mm, 48 * mm], hAlign="LEFT", repeatRows=1)
         pacing_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#102a43")), ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#eefbf8")]),
-            ("GRID", (0, 0), (-1, -1), .25, colors.HexColor("#cbd5e1")), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("BACKGROUND", (0, 0), (-1, 0), ink), ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, ivory]),
+            ("GRID", (0, 0), (-1, -1), .3, border), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
         ]))
         story.append(pacing_table)
@@ -6256,9 +6275,9 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
     ]
     nutrition_totals_table = Table(nutrition_totals, colWidths=[72 * mm, 93 * mm], hAlign="LEFT")
     nutrition_totals_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#fff7d6")), ("GRID", (0, 0), (-1, -1), .35, colors.HexColor("#facc15")),
+        ("BACKGROUND", (0, 0), (0, -1), soft_ink), ("GRID", (0, 0), (-1, -1), .4, border),
         ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 8.5),
-        ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 6), ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
     ]))
     story.extend([Spacer(1, 6), nutrition_totals_table])
 
@@ -6279,8 +6298,8 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
                 ])
         nutrition_table = Table(nutrition_rows, colWidths=[38 * mm, 34 * mm, 21 * mm, 22 * mm, 22 * mm, 20 * mm, 22 * mm], repeatRows=1)
         nutrition_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#102a43")), ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#fffdf0")]),
-            ("GRID", (0, 0), (-1, -1), .25, colors.HexColor("#d6d3d1")), ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("BACKGROUND", (0, 0), (-1, 0), ink), ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, ivory]),
+            ("GRID", (0, 0), (-1, -1), .3, border), ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
         ]))
         story.append(nutrition_table)
@@ -6318,9 +6337,9 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
             ])
         schedule_table = Table(schedule_rows, colWidths=[26 * mm, 24 * mm, 30 * mm, 22 * mm, 63 * mm], repeatRows=1)
         schedule_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#102a43")),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
-            ("GRID", (0, 0), (-1, -1), .25, colors.HexColor("#cbd5e1")), ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("BACKGROUND", (0, 0), (-1, 0), ink),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, ivory]),
+            ("GRID", (0, 0), (-1, -1), .3, border), ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
         ]))
         story.append(schedule_table)
@@ -6349,12 +6368,12 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
             ])
         roadbook_table = Table(rows, colWidths=[16 * mm, 31 * mm, 12 * mm, 18 * mm, 13 * mm, 22 * mm, 18 * mm, 35 * mm], repeatRows=1)
         roadbook_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#102a43")),
+            ("BACKGROUND", (0, 0), (-1, 0), ink),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#f8fafc")),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.HexColor("#f8fafc"), colors.HexColor("#eefbf8")]),
-            ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#cbd5e1")),
+            ("BACKGROUND", (0, 1), (-1, -1), colors.white),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, ivory]),
+            ("GRID", (0, 0), (-1, -1), 0.3, border),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("TOPPADDING", (0, 0), (-1, -1), 4),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
@@ -6385,10 +6404,10 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
 
     def add_footer(canvas, _doc):
         canvas.saveState()
-        canvas.setStrokeColor(colors.HexColor("#b8e6df"))
+        canvas.setStrokeColor(border)
         canvas.line(15 * mm, 10 * mm, 195 * mm, 10 * mm)
         canvas.setFont("Helvetica", 7)
-        canvas.setFillColor(colors.HexColor("#52616b"))
+        canvas.setFillColor(muted)
         canvas.drawString(15 * mm, 6 * mm, "Running Data Plan - plan de course indicatif")
         canvas.drawRightString(195 * mm, 6 * mm, f"Page {canvas.getPageNumber()}")
         canvas.restoreState()

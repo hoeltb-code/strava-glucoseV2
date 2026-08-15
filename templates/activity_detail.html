@@ -4,15 +4,15 @@
 {% block extra_head %}
 <style>
   .activity-page {
-    --activity-surface: rgba(16, 33, 58, 0.52);
-    --activity-surface-strong: rgba(24, 48, 81, 0.9);
-    --activity-surface-soft: rgba(77, 226, 255, 0.08);
-    --activity-border: rgba(148, 174, 214, 0.28);
-    --activity-border-strong: rgba(77, 226, 255, 0.24);
+    --activity-surface: #ffffff;
+    --activity-surface-strong: #ffffff;
+    --activity-surface-soft: #fff3ef;
+    --activity-border: #dfdad0;
+    --activity-border-strong: #f0c9bc;
     --activity-text: var(--text-main);
     --activity-text-muted: var(--text-muted);
     --activity-text-dim: var(--text-dim);
-    --activity-row-hover: rgba(77, 226, 255, 0.08);
+    --activity-row-hover: #fff7f3;
   }
   .activity-header-actions {
     display:flex;
@@ -23,14 +23,11 @@
     grid-template-columns:repeat(6,1fr);
     gap:12px;
   }
-  .activity-stats-grid > div { padding:11px; border-radius:12px; border:1px solid rgba(77,226,255,.18); background:rgba(8,17,31,.32); position:relative; overflow:hidden; }
-  .activity-stats-grid > div::after { content:""; position:absolute; left:0; right:0; bottom:0; height:3px; background:#4de2ff; }
-  .activity-stats-grid > div:nth-child(2)::after { background:#f97316; }
-  .activity-stats-grid > div:nth-child(3)::after { background:#b8ff45; }
-  .activity-stats-grid > div:nth-child(4)::after { background:#a78bfa; }
-  .activity-stats-grid > div:nth-child(5)::after { background:#ef4444; }
-  .tile-k { color:#d7e8ff; font-size:.7rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
-  .tile-v { margin-top:3px; color:#fff; font-family:"Orbitron",sans-serif; font-size:1.05rem; font-weight:700; text-shadow:0 0 14px rgba(77,226,255,.18); }
+  .activity-stats-grid > div { padding:11px; border-radius:12px; border:1px solid var(--activity-border); background:#fff; position:relative; overflow:hidden; }
+  .activity-stats-grid > div::after { content:""; position:absolute; left:0; bottom:0; width:4px; height:100%; background:var(--accent); }
+  .activity-stats-grid > div:nth-child(n)::after { background:var(--accent); }
+  .tile-k { color:var(--text-muted); font-family:"DM Mono",monospace; font-size:.66rem; font-weight:700; letter-spacing:.10em; text-transform:uppercase; }
+  .tile-v { margin-top:3px; color:var(--text-main); font-family:"DM Mono",monospace; font-size:1.05rem; font-weight:700; text-shadow:none; }
   .activity-layout {
     display:grid;
     grid-template-columns:210px minmax(0,1fr);
@@ -92,8 +89,8 @@
   .terrain-summary-card[data-terrain="climb"] { border-color:rgba(251,146,60,.58); }
   .terrain-summary-card h4 { margin:0; font-size:.86rem; }
   .terrain-summary-card p { margin:6px 0 0; color:var(--activity-text-muted); font-size:.74rem; line-height:1.45; }
-  .activity-slope-profile-card { position:relative; overflow:hidden; border-color:rgba(77,226,255,.34) !important; background:linear-gradient(145deg, rgba(16,33,58,.92), rgba(8,17,31,.78)) !important; }
-  .activity-slope-profile-card::before { content:""; position:absolute; inset:0 0 auto; height:4px; background:linear-gradient(90deg, #2563eb, #60a5fa 22%, #4de2ff 42%, #fbbf24 58%, #f97316 78%, #ef4444); }
+  .activity-slope-profile-card { position:relative; overflow:hidden; border-color:var(--activity-border) !important; background:#fff !important; }
+  .activity-slope-profile-card::before { content:""; position:absolute; inset:0 18px auto; height:3px; background:linear-gradient(90deg, transparent, var(--accent), transparent); }
   .activity-slope-profile-card h3 { padding-top:5px; }
   .slope-profile-legend { display:flex; flex-wrap:wrap; gap:9px; margin:0 0 10px; color:var(--activity-text-muted); font-size:.72rem; }
   .slope-profile-legend span { display:inline-flex; align-items:center; gap:4px; }
@@ -109,11 +106,11 @@
     line-height:1.15;
     min-height:48px;
     border-radius:12px;
-    border:1px solid rgba(255, 122, 89, 0.32);
-    background:linear-gradient(135deg, rgba(255, 122, 89, 0.9), rgba(220, 38, 38, 0.9));
+    border:1px solid #d84d58;
+    background:#d84d58;
     color:#fff;
     text-decoration:none;
-    box-shadow:0 10px 24px rgba(127, 29, 29, 0.28);
+    box-shadow:none;
     transition:filter .15s ease, transform .06s ease;
     cursor:pointer;
   }
@@ -132,16 +129,16 @@
     text-align:center;
     min-height:48px;
     border-radius:12px;
-    border:1px solid rgba(77, 226, 255, 0.34);
-    background:linear-gradient(135deg, rgba(77, 226, 255, 0.18), rgba(28, 140, 255, 0.24));
-    color:var(--activity-text);
-    box-shadow:0 12px 28px rgba(10, 25, 47, 0.28), inset 0 1px 0 rgba(255,255,255,0.08);
+    border:1px solid var(--accent);
+    background:var(--grad-accent);
+    color:#fff;
+    box-shadow:none;
     transition:filter .15s ease, transform .06s ease, border-color .15s ease;
     cursor:pointer;
   }
   .activity-story-button:hover:not(:disabled) {
     filter:brightness(1.08);
-    border-color:rgba(77, 226, 255, 0.5);
+    border-color:var(--accent-dark);
   }
   .activity-story-button:disabled {
     opacity:0.5;
@@ -160,16 +157,16 @@
   }
   .activity-tab-link:hover {
     color:var(--activity-text);
-    background:rgba(77, 226, 255, 0.06);
+    background:#fff7f3;
     border-color:var(--activity-border-strong);
     transform:translateY(-1px);
   }
   .activity-tab-link.is-active {
     color:var(--activity-text);
-    background:linear-gradient(135deg, rgba(77, 226, 255, 0.16), rgba(28, 140, 255, 0.12));
+    background:#fff0eb;
     border-color:var(--activity-border-strong);
     font-weight:700;
-    box-shadow:inset 0 0 0 1px rgba(77, 226, 255, 0.08);
+    box-shadow:inset 3px 0 var(--accent);
   }
   .activity-select {
     padding:4px 8px;
@@ -180,7 +177,7 @@
     color:var(--activity-text);
   }
   .activity-select option {
-    background:#183154;
+    background:#fff;
     color:var(--activity-text);
   }
   .activity-section-panel {
@@ -189,7 +186,7 @@
     border:1px solid var(--activity-border);
     border-radius:14px;
     background:var(--activity-surface);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,0.03);
+    box-shadow:none;
   }
   .activity-inline-panel {
     border:1px solid var(--activity-border);
@@ -200,23 +197,23 @@
     margin-top:16px;
   }
   .activity-progress-track {
-    background:rgba(255,255,255,0.08);
+    background:#ebe7df;
     border-radius:999px;
     overflow:hidden;
     height:14px;
-    box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04);
+    box-shadow:none;
   }
   .activity-progress-fill-vam {
-    background:linear-gradient(90deg, #4de2ff, #1c8cff);
+    background:var(--accent);
   }
   .activity-progress-fill-low {
-    background:linear-gradient(90deg, #f97316, #ef4444);
+    background:#d84d58;
   }
   .activity-progress-fill-mid {
-    background:linear-gradient(90deg, #4de2ff, #22c55e);
+    background:#2e7065;
   }
   .activity-progress-fill-high {
-    background:linear-gradient(90deg, #facc15, #f97316);
+    background:#c97b2a;
   }
   .activity-legend-note {
     margin-top:10px;
@@ -242,7 +239,7 @@
     border-color:var(--activity-border) !important;
   }
   .activity-page [style*="background:#f9fafb"] {
-    background:rgba(255,255,255,0.04) !important;
+    background:#faf8f4 !important;
   }
   .activity-page [style*="background:#e5e7eb"] {
     background:var(--activity-border) !important;
@@ -605,7 +602,7 @@
           La couleur du tracé reflète la pente lissée. Survole le profil pour lire l’effort et les données physiologiques au même endroit.
         </p>
         <div class="slope-profile-legend" aria-label="Légende des pentes">
-          <span><i style="background:#2563eb"></i>&lt; −15 %</span><span><i style="background:#60a5fa"></i>−15 à −5 %</span><span><i style="background:#4de2ff"></i>−5 à 5 %</span><span><i style="background:#fbbf24"></i>5 à 15 %</span><span><i style="background:#f97316"></i>15 à 30 %</span><span><i style="background:#ef4444"></i>&gt; 30 %</span>
+          <span><i style="background:#419fce"></i>&lt; −15 %</span><span><i style="background:#83cceb"></i>−15 à −5 %</span><span><i style="background:#dfe68d"></i>−5 à 5 %</span><span><i style="background:#f4c446"></i>5 à 15 %</span><span><i style="background:#f38b2d"></i>15 à 30 %</span><span><i style="background:#e94c34"></i>&gt; 30 %</span>
         </div>
         <div style="height:260px;">
           <canvas id="overviewAltitudeChart" height="240"></canvas>
@@ -621,34 +618,33 @@
 
           const ctx = canvas.getContext('2d');
           const slopeColor = (grade) => {
-            if (grade <= -15) return '#2563eb';
-            if (grade <= -5) return '#60a5fa';
-            if (grade < 5) return '#4de2ff';
-            if (grade < 15) return '#fbbf24';
-            if (grade < 30) return '#f97316';
-            return '#ef4444';
+            if (grade <= -15) return '#419fce';
+            if (grade <= -5) return '#83cceb';
+            if (grade < 5) return '#dfe68d';
+            if (grade < 15) return '#f4c446';
+            if (grade < 30) return '#f38b2d';
+            return '#e94c34';
           };
-          const slopeFillColor = (grade) => {
-            if (grade <= -15) return 'rgba(37, 99, 235, .33)';
-            if (grade <= -5) return 'rgba(96, 165, 250, .30)';
-            if (grade < 5) return 'rgba(77, 226, 255, .24)';
-            if (grade < 15) return 'rgba(251, 191, 36, .30)';
-            if (grade < 30) return 'rgba(249, 115, 22, .32)';
-            return 'rgba(239, 68, 68, .34)';
-          };
-          const slopeTerrainPlugin = {
-            id: 'slopeTerrain',
-            beforeDatasetDraw(chart) {
-              const { ctx, chartArea } = chart;
+          const slopeAreaPlugin = {
+            id: 'slopeArea',
+            beforeDatasetsDraw(chart) {
+              const { ctx, scales } = chart;
               const points = chart.getDatasetMeta(0).data;
               if (!points || points.length < 2) return;
+              const baseY = scales.y.getPixelForValue(scales.y.min);
               ctx.save();
               for (let index = 0; index < points.length - 1; index += 1) {
-                const raw = rawAltData[index];
+                const raw = rawAltData[index + 1];
+                const point = points[index];
                 const next = points[index + 1];
-                const width = Math.max(1, next.x - points[index].x + 1);
-                ctx.fillStyle = slopeFillColor(raw.grade || 0);
-                ctx.fillRect(points[index].x, chartArea.top, width, chartArea.bottom - chartArea.top);
+                ctx.fillStyle = slopeColor(raw.grade || 0);
+                ctx.beginPath();
+                ctx.moveTo(point.x, baseY);
+                ctx.lineTo(point.x, point.y);
+                ctx.lineTo(next.x, next.y);
+                ctx.lineTo(next.x, baseY);
+                ctx.closePath();
+                ctx.fill();
               }
               ctx.restore();
             }
@@ -660,13 +656,12 @@
               datasets: [{
                 label: 'Altitude',
                 data: rawAltData,
-                borderColor: '#4de2ff',
-                backgroundColor: 'rgba(77, 226, 255, 0.08)',
-                borderWidth: 2,
+                borderColor: 'rgba(69, 67, 63, .48)',
+                backgroundColor: 'transparent',
+                borderWidth: 1.25,
                 pointRadius: 0,
-                fill: true,
-                tension: 0.2,
-                segment: { borderColor: context => slopeColor(context.p0.raw.grade) },
+                fill: false,
+                tension: 0.12,
               }]
             },
             options: {
@@ -698,16 +693,18 @@
               scales: {
                 x: {
                   type: 'linear',
-                  title: { display: true, text: 'Distance (km)' },
-                  grid: { color: 'rgba(148, 163, 184, 0.2)' }
+                  title: { display: true, text: 'Distance (km)', color: '#5f5b54' },
+                  ticks: { color: '#6f6b64' },
+                  grid: { color: 'rgba(173, 166, 154, 0.25)' }
                 },
                 y: {
-                  title: { display: true, text: 'Altitude (m)' },
-                  grid: { color: 'rgba(148, 163, 184, 0.2)' }
+                  title: { display: true, text: 'Altitude (m)', color: '#5f5b54' },
+                  ticks: { color: '#6f6b64' },
+                  grid: { color: 'rgba(173, 166, 154, 0.25)' }
                 }
               }
             },
-            plugins: [slopeTerrainPlugin]
+            plugins: [slopeAreaPlugin]
           });
         })();
       </script>

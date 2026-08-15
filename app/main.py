@@ -1722,6 +1722,7 @@ def _collect_admin_user_rows(
         row = {
             "id": u.id,
             "email": u.email,
+            "created_at": u.created_at,
             "has_strava": bool(u.strava_tokens),
             "libre_email": u.libre_credentials.email if u.libre_credentials else None,
             "has_dexcom": has_dexcom_share_credentials(u.dexcom_tokens),
@@ -3781,6 +3782,8 @@ def ui_home(request: Request):
     activity_pagination = {}
     course_plan_usage = {"total": 0, "last_30_days": 0, "unique_users": 0}
     course_plan_downloads = []
+    signup_trend = []
+    signup_trend_max = 1
     admin_status = request.query_params.get("admin_status")
     admin_message = request.query_params.get("admin_msg")
 
@@ -3807,6 +3810,16 @@ def ui_home(request: Request):
             .limit(50)
             .all()
         )
+        signup_start = dt.datetime.utcnow().date() - dt.timedelta(days=29)
+        signup_counts = {signup_start + dt.timedelta(days=offset): 0 for offset in range(30)}
+        for (created_at,) in db.query(User.created_at).filter(User.created_at >= dt.datetime.combine(signup_start, dt.time.min)).all():
+            if created_at and created_at.date() in signup_counts:
+                signup_counts[created_at.date()] += 1
+        signup_trend = [
+            {"label": day.strftime("%d/%m"), "count": count}
+            for day, count in signup_counts.items()
+        ]
+        signup_trend_max = max((point["count"] for point in signup_trend), default=1) or 1
 
         total_filtered_users = len(filtered_users)
         user_total_pages = max(1, math.ceil(total_filtered_users / user_page_size))
@@ -3914,6 +3927,8 @@ def ui_home(request: Request):
             "admin_message": admin_message,
             "course_plan_usage": course_plan_usage,
             "course_plan_downloads": course_plan_downloads,
+            "signup_trend": signup_trend,
+            "signup_trend_max": signup_trend_max,
         },
     )
 

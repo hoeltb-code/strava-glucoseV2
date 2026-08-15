@@ -37,6 +37,8 @@
   .admin-page .admin-table-wrap {
     overflow-x: auto;
   }
+  .admin-signup-chart { margin-top:12px; padding:8px 4px 0; border-radius:10px; background:rgba(255,255,255,.03); overflow-x:auto; }
+  .admin-signup-chart svg { display:block; width:100%; min-width:560px; height:auto; }
 </style>
 {% endblock %}
 
@@ -50,6 +52,8 @@
   {% set admin_message = admin_message|default(None) %}
   {% set course_plan_usage = course_plan_usage|default({'total': 0, 'last_30_days': 0, 'unique_users': 0}) %}
   {% set course_plan_downloads = course_plan_downloads|default([]) %}
+  {% set signup_trend = signup_trend|default([]) %}
+  {% set signup_trend_max = signup_trend_max|default(1) %}
   <div class="card">
     <h2>👥 Utilisateurs</h2>
     <p style="color: var(--text-muted); margin-top: -4px;">
@@ -77,6 +81,24 @@
         {{ admin_message }}
       </div>
     {% endif %}
+
+    <section class="card admin-subcard" style="margin-top:14px; padding:14px;">
+      <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px; flex-wrap:wrap;">
+        <div><h3 style="margin:0; font-size:1rem;">Inscriptions · 30 derniers jours</h3><p style="margin:4px 0 0; color:var(--text-muted); font-size:.8rem;">Nouveaux comptes créés par jour.</p></div>
+        <strong style="font-size:1.25rem; color:var(--accent);">{{ signup_trend|sum(attribute='count') }}</strong>
+      </div>
+      <div class="admin-signup-chart" aria-label="Graphique des inscriptions par jour sur les 30 derniers jours">
+        <svg viewBox="0 0 720 180" role="img" aria-label="Nombre d'inscriptions quotidiennes">
+          <line x1="28" y1="145" x2="704" y2="145" stroke="rgba(148,174,214,.28)" stroke-width="1"/>
+          {% for point in signup_trend %}
+            {% set bar_height = (point.count / signup_trend_max * 112) if signup_trend_max else 0 %}
+            {% set x = 30 + loop.index0 * (668 / (signup_trend|length or 1)) %}
+            <rect x="{{ x }}" y="{{ 145 - bar_height }}" width="{{ 668 / (signup_trend|length or 1) - 3 }}" height="{{ bar_height }}" rx="3" fill="var(--accent)"><title>{{ point.label }} · {{ point.count }} inscription{{ 's' if point.count != 1 else '' }}</title></rect>
+            {% if loop.index0 % 5 == 0 or loop.last %}<text x="{{ x + 6 }}" y="162" text-anchor="middle" fill="var(--text-muted)" font-size="9">{{ point.label }}</text>{% endif %}
+          {% endfor %}
+        </svg>
+      </div>
+    </section>
 
     <section class="card admin-subcard" style="margin-top:14px; padding:14px; background:#f8fafc;">
       <h3 style="margin:0 0 5px; font-size:1rem;">📄 Utilisation des plans de course</h3>
@@ -247,6 +269,7 @@
               </th>
               <th style="text-align:left; padding: 6px;">ID</th>
               <th style="text-align:left; padding: 6px;">Utilisateur</th>
+              <th style="text-align:left; padding: 6px;">Inscription</th>
               <th style="text-align:left; padding: 6px;">Strava</th>
               <th style="text-align:left; padding: 6px;">LibreLinkUp</th>
               <th style="text-align:left; padding: 6px;">Dexcom</th>
@@ -264,6 +287,7 @@
                 </td>
                 <td style="padding: 6px;">#{{ u.id }}</td>
                 <td style="padding: 6px;">{{ u.email }}</td>
+                <td style="padding: 6px; white-space:nowrap;">{{ u.created_at.strftime('%d/%m/%Y') if u.created_at else '—' }}</td>
                 <td style="padding: 6px;">
                   {% if u.has_strava %}
                     <span style="color: #4ade80;">Connecté</span>

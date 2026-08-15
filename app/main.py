@@ -189,6 +189,7 @@ from app.models import (
     ActivityVamPeak,
     ActivityZoneSlopeAgg,
     CoursePlanDownload,
+    UserLoginEvent,
 )
 from app.secrets import encrypt_secret
 
@@ -3784,6 +3785,10 @@ def ui_home(request: Request):
     course_plan_downloads = []
     signup_trend = []
     signup_trend_max = 1
+    plan_download_trend = []
+    plan_download_trend_max = 1
+    login_trend = []
+    login_trend_max = 1
     admin_status = request.query_params.get("admin_status")
     admin_message = request.query_params.get("admin_msg")
 
@@ -3811,15 +3816,41 @@ def ui_home(request: Request):
             .all()
         )
         signup_start = dt.datetime.utcnow().date() - dt.timedelta(days=29)
-        signup_counts = {signup_start + dt.timedelta(days=offset): 0 for offset in range(30)}
-        for (created_at,) in db.query(User.created_at).filter(User.created_at >= dt.datetime.combine(signup_start, dt.time.min)).all():
-            if created_at and created_at.date() in signup_counts:
-                signup_counts[created_at.date()] += 1
-        signup_trend = [
-            {"label": day.strftime("%d/%m"), "count": count}
-            for day, count in signup_counts.items()
-        ]
+        trend_start_at = dt.datetime.combine(signup_start, dt.time.min)
+
+        def _daily_count_trend(rows, *, unique_users: bool = False):
+            counts = {signup_start + dt.timedelta(days=offset): set() if unique_users else 0 for offset in range(30)}
+            for row in rows:
+                occurred_at = row[0]
+                if not occurred_at or occurred_at.date() not in counts:
+                    continue
+                if unique_users:
+                    counts[occurred_at.date()].add(row[1])
+                else:
+                    counts[occurred_at.date()] += 1
+            return [
+                {"label": day.strftime("%d/%m"), "count": len(count) if unique_users else count}
+                for day, count in counts.items()
+            ]
+
+        signup_trend = _daily_count_trend(
+            db.query(User.created_at).filter(User.created_at >= trend_start_at).all()
+        )
         signup_trend_max = max((point["count"] for point in signup_trend), default=1) or 1
+        plan_download_trend = _daily_count_trend(
+            db.query(CoursePlanDownload.downloaded_at, CoursePlanDownload.user_id)
+            .filter(CoursePlanDownload.downloaded_at >= trend_start_at)
+            .all(),
+            unique_users=True,
+        )
+        plan_download_trend_max = max((point["count"] for point in plan_download_trend), default=1) or 1
+        login_trend = _daily_count_trend(
+            db.query(UserLoginEvent.logged_at, UserLoginEvent.user_id)
+            .filter(UserLoginEvent.logged_at >= trend_start_at)
+            .all(),
+            unique_users=True,
+        )
+        login_trend_max = max((point["count"] for point in login_trend), default=1) or 1
 
         total_filtered_users = len(filtered_users)
         user_total_pages = max(1, math.ceil(total_filtered_users / user_page_size))
@@ -3929,6 +3960,10 @@ def ui_home(request: Request):
             "course_plan_downloads": course_plan_downloads,
             "signup_trend": signup_trend,
             "signup_trend_max": signup_trend_max,
+            "plan_download_trend": plan_download_trend,
+            "plan_download_trend_max": plan_download_trend_max,
+            "login_trend": login_trend,
+            "login_trend_max": login_trend_max,
         },
     )
 
@@ -6605,6 +6640,7 @@ def _delete_user_account_data(db: Session, user: User) -> None:
     db.query(CareLinkCredential).filter(CareLinkCredential.user_id == user.id).delete()
     db.query(NightscoutCredential).filter(NightscoutCredential.user_id == user.id).delete()
     db.query(CoursePlanDownload).filter(CoursePlanDownload.user_id == user.id).delete()
+    db.query(UserLoginEvent).filter(UserLoginEvent.user_id == user.id).delete()
     db.query(GlucosePoint).filter(GlucosePoint.user_id == user.id).delete()
     db.query(UserSettings).filter(UserSettings.user_id == user.id).delete()
     db.query(models.UserVamPR).filter(models.UserVamPR.user_id == user.id).delete()
@@ -6686,6 +6722,15 @@ def ui_login(
         )
 
     request.session["user_id"] = int(user.id)
+    try:
+        login_db = SessionLocal()
+        login_db.add(UserLoginEvent(user_id=user.id))
+        login_db.commit()
+    except Exception:
+        logger.exception("[AUTH] Impossible d'enregistrer la connexion de l'utilisateur %s", user.id)
+    finally:
+        if 'login_db' in locals():
+            login_db.close()
     return RedirectResponse(url=next_path or f"/ui/user/{user.id}", status_code=302)
 
 

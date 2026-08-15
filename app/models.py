@@ -592,3 +592,15 @@ class CoursePlanDownload(Base):
     downloaded_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
 
     user = relationship("User")
+
+
+class UserLoginEvent(Base):
+    """Minimal audit trail used to count unique authenticated users per day."""
+
+    __tablename__ = "user_login_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    logged_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+    user = relationship("User")

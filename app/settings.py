@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     SMTP_PASS: str | None = Field(default=None)
     SMTP_FROM_NAME: str | None = Field(default=None)
     SMTP_FROM_EMAIL: str | None = Field(default=None)
+    # Boîte qui reçoit les demandes envoyées depuis le formulaire d'assistance.
+    # Si elle est absente, l'application utilise l'adresse d'envoi SMTP.
+    SUPPORT_EMAIL: str | None = Field(default=None)
     APP_BASE_URL: str | None = Field(default=None)
 
     # Lecture automatique du fichier .env

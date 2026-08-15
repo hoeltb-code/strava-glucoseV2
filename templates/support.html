@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Assistance · Running Data Plan{% endblock %}
+
+{% block content %}
+<main class="info-page">
+  <section class="info-hero">
+    <p class="info-eyebrow">Assistance</p>
+    <h1>Comment pouvons-nous vous aider&nbsp;?</h1>
+    <p>Décrivez votre situation avec le plus de précision possible. Nous utiliserons l’adresse e-mail liée à votre compte uniquement pour répondre à votre demande.</p>
+  </section>
+
+  {% if support_status == "sent" %}
+  <div class="info-notice" role="status"><strong>Votre message a bien été envoyé.</strong> Nous revenons vers vous à l’adresse indiquée dès que possible.</div>
+  {% elif support_status == "invalid" %}
+  <div class="info-notice" role="alert"><strong>Quelques informations manquent.</strong> Vérifiez l’adresse e-mail, l’objet et un message d’au moins quelques mots.</div>
+  {% elif support_status == "unavailable" %}
+  <div class="info-notice" role="alert"><strong>Le formulaire est temporairement indisponible.</strong> Réessayez un peu plus tard ou contactez l’éditeur à l’adresse indiquée dans les conditions d’utilisation.</div>
+  {% endif %}
+
+  <section class="info-card" style="margin-top:14px;">
+    <form class="support-form" action="/assistance" method="post">
+      <div class="support-honeypot" aria-hidden="true">
+        <label>Ne pas remplir ce champ<input type="text" name="website" tabindex="-1" autocomplete="off"></label>
+      </div>
+      <div class="form-row">
+        <label>Nom <span style="font-weight:500; color:var(--text-muted);">(facultatif)</span>
+          <input name="name" type="text" maxlength="120" autocomplete="name" placeholder="Votre prénom et nom">
+        </label>
+        <label>Adresse e-mail du compte
+          <input name="email" type="email" maxlength="254" autocomplete="email" required readonly value="{{ prefill_email }}">
+        </label>
+      </div>
+      <div class="form-row">
+        <label>Votre demande concerne
+          <select name="category" required>
+            <option value="compte">Mon compte</option>
+            <option value="strava">La connexion Strava</option>
+            <option value="course">Une course ou un parcours</option>
+            <option value="plan">Un plan ou un export PDF</option>
+            <option value="donnees">Mes données personnelles</option>
+            <option value="autre">Autre demande</option>
+          </select>
+        </label>
+        <label>Objet
+          <input name="subject" type="text" minlength="3" maxlength="180" required placeholder="Ex. Mon export PDF ne se télécharge pas">
+        </label>
+      </div>
+      <label>Votre message
+        <textarea name="message" minlength="10" maxlength="6000" required placeholder="Décrivez ce que vous avez fait, ce que vous observez et le résultat attendu."></textarea>
+      </label>
+      <p style="margin:0; color:var(--text-muted); font-size:.84rem; line-height:1.55;">N’ajoutez pas de mot de passe, de donnée bancaire ou d’information médicale sensible. Consultez les <a href="/conditions-utilisation">conditions d’utilisation</a> pour en savoir plus sur le traitement de votre demande.</p>
+      <button type="submit">Envoyer ma demande</button>
+    </form>
+  </section>
+</main>
+{% endblock %}

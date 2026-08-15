@@ -301,7 +301,7 @@
       background: var(--grad-accent);
       color: #fff;
       border: 1px solid rgba(255, 255, 255, 0.20);
-      box-shadow: 0 8px 20px rgba(217, 70, 42, 0.20);
+      box-shadow: none;
     }
     .button-primary:hover { filter: brightness(1.04); transform: translateY(-1px); }
     .button-secondary {
@@ -441,7 +441,7 @@
       text-transform: uppercase;
       letter-spacing: 0.05em;
       transition: transform .06s ease, filter .15s ease, box-shadow .15s ease;
-      box-shadow: 0 8px 20px rgba(217, 70, 42, 0.18);
+      box-shadow: none;
     }
     button:hover { filter: brightness(1.03); transform: translateY(-1px); }
     button:active { transform: translateY(1px); }
@@ -456,6 +456,68 @@
       display:flex; align-items:center; gap:8px;
       font-size:0.85rem; color:var(--text-muted);
       margin-top:6px;
+    }
+
+    /* ===== Pied de page et pages d'information ===== */
+    .site-footer {
+      width: min(1080px, 100%);
+      margin: 10px auto 0;
+      padding: 18px 16px 30px;
+      color: var(--text-muted);
+      font-size: .82rem;
+    }
+    .site-footer-inner {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      padding-top:18px;
+      border-top:1px solid var(--border-soft);
+    }
+    .site-footer-brand { color:var(--text-main); font-weight:700; }
+    .site-footer-links { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px 18px; }
+    .site-footer-links a { color:var(--text-muted); font-weight:600; }
+    .site-footer-links a:hover { color:var(--accent-dark); }
+
+    .info-page { max-width: 920px; margin: 8px auto 20px; }
+    .info-hero { padding: 18px 2px 22px; }
+    .info-eyebrow { margin:0 0 8px; color:var(--accent-dark); font:700 .74rem/1.35 "DM Mono", monospace; letter-spacing:.1em; text-transform:uppercase; }
+    .info-hero h1 { margin:0; font-size:clamp(2rem, 5vw, 3.2rem); line-height:1.08; }
+    .info-hero p:last-child { max-width:720px; margin:14px 0 0; color:var(--text-muted); font-size:1rem; line-height:1.7; }
+    .info-card { background:var(--bg-card); border:1px solid var(--border-soft); border-radius:18px; padding:24px; margin-bottom:14px; }
+    .info-card h2 { margin:0 0 12px; font-size:1.2rem; }
+    .info-card h3 { margin:20px 0 8px; font-size:1rem; }
+    .info-card p, .info-card li { color:var(--text-muted); line-height:1.7; }
+    .info-card p:last-child { margin-bottom:0; }
+    .info-card ul { margin:10px 0 0; padding-left:20px; }
+    .info-card li + li { margin-top:7px; }
+    .info-notice { padding:15px 17px; border-radius:14px; border:1px solid #efc8ba; background:#fff5f1; color:#733522; line-height:1.55; }
+    .info-notice strong { color:#733522; }
+    .info-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; }
+    .info-grid .info-card { margin:0; }
+    .help-step { display:flex; align-items:flex-start; gap:13px; }
+    .help-step + .help-step { margin-top:18px; }
+    .help-step-index { flex:0 0 29px; height:29px; display:grid; place-items:center; border-radius:50%; background:#fff0ea; color:var(--accent-dark); font:700 .76rem "DM Mono", monospace; }
+    .help-step p { margin:2px 0 0; }
+    .faq details { border-top:1px solid var(--border-soft); padding:2px 0; }
+    .faq details:last-child { border-bottom:1px solid var(--border-soft); }
+    .faq summary { padding:15px 0; cursor:pointer; color:var(--text-main); font-weight:700; }
+    .faq details p { margin:0 0 15px; }
+    .support-form { display:grid; gap:14px; }
+    .support-form label { display:grid; gap:7px; color:var(--text-main); font-size:.88rem; font-weight:700; }
+    .support-form input, .support-form select, .support-form textarea { width:100%; }
+    .support-form textarea { min-height:155px; resize:vertical; }
+    .support-form .form-row { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; }
+    .support-form button { justify-self:start; }
+    .support-honeypot { position:absolute; left:-10000px; width:1px; height:1px; overflow:hidden; }
+
+    @media (max-width: 640px) {
+      .site-footer { padding-bottom:22px; }
+      .site-footer-inner { align-items:flex-start; flex-direction:column; }
+      .site-footer-links { justify-content:flex-start; gap:9px 16px; }
+      .info-card { padding:19px; border-radius:15px; }
+      .info-grid, .support-form .form-row { grid-template-columns:1fr; }
+      .support-form button { width:100%; }
     }
 
     /* Petits badges/info chips (optionnel) */
@@ -576,6 +638,17 @@
   <div class="container">
     {% block content %}{% endblock %}
   </div>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <span><span class="site-footer-brand">Running Data Plan</span> · Mieux préparer, en restant maître de ses données.</span>
+      <nav class="site-footer-links" aria-label="Liens d'information">
+        <a href="/conditions-utilisation">Conditions d’utilisation</a>
+        <a href="/aide">Aide</a>
+        <a href="/assistance">Assistance</a>
+      </nav>
+    </div>
+  </footer>
 
   {% if session_user_id %}
   <nav class="mobile-bottom-nav" aria-label="Navigation principale mobile">

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Aide · Running Data Plan{% endblock %}
+
+{% block content %}
+<main class="info-page">
+  <section class="info-hero">
+    <p class="info-eyebrow">Centre d’aide</p>
+    <h1>Préparer une course, simplement.</h1>
+    <p>Voici le chemin le plus rapide pour exploiter vos données, créer une projection cohérente et vérifier ce qui compte avant le départ.</p>
+  </section>
+
+  <section class="info-card">
+    <h2>Démarrer en 5 étapes</h2>
+    <div class="help-step"><span class="help-step-index">01</span><div><strong>Créez votre compte puis connectez Strava.</strong><p>Autorisez Running Data Plan à lire les activités nécessaires à l’analyse. Vos sorties apparaissent après la synchronisation.</p></div></div>
+    <div class="help-step"><span class="help-step-index">02</span><div><strong>Vérifiez votre profil coureur.</strong><p>Plus l’historique contient des sorties variées — plat, montées, descentes et différentes intensités — plus les estimations seront utiles.</p></div></div>
+    <div class="help-step"><span class="help-step-index">03</span><div><strong>Choisissez une course ou importez un GPX.</strong><p>Contrôlez toujours la distance, le dénivelé et les informations officielles de l’organisateur.</p></div></div>
+    <div class="help-step"><span class="help-step-index">04</span><div><strong>Choisissez votre intensité.</strong><p>Utilisez votre historique ou ajustez manuellement les allures si vous connaissez mieux votre objectif du jour.</p></div></div>
+    <div class="help-step"><span class="help-step-index">05</span><div><strong>Relisez le plan de course avant de l’exporter.</strong><p>Ajoutez vos temps d’arrêt aux ravitos, vérifiez les barrières horaires, puis adaptez le plan nutrition à votre expérience personnelle.</p></div></div>
+  </section>
+
+  <section class="info-grid">
+    <article class="info-card">
+      <h2>Les projections</h2>
+      <p>Un temps prévisionnel n’est pas une promesse. Il reflète les données disponibles, la pente, le profil du parcours et vos réglages. Fatigue, météo, terrain, sommeil et stratégie de course peuvent changer fortement le résultat.</p>
+    </article>
+    <article class="info-card">
+      <h2>La nutrition</h2>
+      <p>Les apports proposés sont des repères de préparation. Testez-les à l’entraînement et adaptez-les à votre tolérance. Pour un besoin médical ou spécifique, demandez conseil à un professionnel de santé.</p>
+    </article>
+  </section>
+
+  <section class="info-card faq">
+    <h2>Questions fréquentes</h2>
+    <details>
+      <summary>Pourquoi ne vois-je pas encore mes activités Strava ?</summary>
+      <p>Après la connexion, la synchronisation peut prendre quelques instants. Vérifiez que vous avez autorisé la connexion Strava et rechargez la page. Si cela persiste, déconnectez puis reconnectez Strava depuis votre profil.</p>
+    </details>
+    <details>
+      <summary>Comment améliorer la précision de mon profil coureur ?</summary>
+      <p>Conservez plusieurs sorties représentatives : endurance, sorties longues, terrains vallonnés et intensités différentes. Les données trop anciennes, très courtes ou incomplètes sont moins pertinentes pour préparer un ultra.</p>
+    </details>
+    <details>
+      <summary>À quoi sert le réglage manuel des allures ?</summary>
+      <p>Il permet de créer un profil de départ ou de corriger une projection quand votre historique ne représente pas votre niveau actuel, votre objectif ou le terrain de la course. Ajustez-le progressivement et comparez le résultat au plan.</p>
+    </details>
+    <details>
+      <summary>Un parcours ou un ravito semble incorrect : que faire ?</summary>
+      <p>Le règlement de course fait toujours foi. Signalez le point concerné depuis l’assistance en indiquant le nom de la course, le point de passage et, si possible, le lien officiel ou le GPX à jour.</p>
+    </details>
+    <details>
+      <summary>Les données de glycémie ou de fréquence cardiaque sont-elles médicales ?</summary>
+      <p>Non. Elles sont affichées à titre informatif pour enrichir votre lecture de l’effort. Ne modifiez jamais un traitement ou une stratégie de santé sur la seule base de l’application.</p>
+    </details>
+    <details>
+      <summary>Mon export PDF ne correspond pas à ce que je vois.</summary>
+      <p>Enregistrez d’abord vos derniers réglages, puis relancez l’export. Si le problème continue, indiquez dans votre demande le navigateur, l’appareil et les étapes qui permettent de le reproduire.</p>
+    </details>
+  </section>
+
+  <section class="info-card">
+    <h2>Besoin d’un coup de main ?</h2>
+    <p>Notre formulaire permet de transmettre un problème de compte, de connexion Strava, de course, de plan ou de données personnelles. Décrivez ce que vous voyez et ce que vous attendiez : c’est la façon la plus rapide de vous aider.</p>
+    <a class="chip" href="/assistance">Contacter l’assistance →</a>
+  </section>
+</main>
+{% endblock %}

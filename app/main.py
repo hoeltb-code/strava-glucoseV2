@@ -4816,6 +4816,118 @@ def home_redirect(request: Request):
     return _render_login_page(request)
 
 
+def _support_form_context(request: Request) -> dict:
+    """Préremplit l'adresse de contact du compte connecté."""
+    prefill_email = ""
+    user_id = request.session.get("user_id")
+    if user_id:
+        db = SessionLocal()
+        try:
+            user = db.get(User, int(user_id))
+            if user:
+                prefill_email = user.email or ""
+        finally:
+            db.close()
+    return {
+        "request": request,
+        "support_status": request.query_params.get("status", ""),
+        "prefill_email": prefill_email,
+    }
+
+
+@app.get("/conditions-utilisation", response_class=HTMLResponse)
+def ui_terms_of_use(request: Request):
+    return templates.TemplateResponse("terms.html", {"request": request})
+
+
+@app.get("/aide", response_class=HTMLResponse)
+def ui_help(request: Request):
+    return templates.TemplateResponse("help.html", {"request": request})
+
+
+@app.get("/assistance", response_class=HTMLResponse)
+def ui_support_form(request: Request):
+    guard = _guard_user_route(request)
+    if guard:
+        return guard
+    return templates.TemplateResponse("support.html", _support_form_context(request))
+
+
+@app.post("/assistance", response_class=HTMLResponse)
+def ui_support_submit(
+    request: Request,
+    email: str = Form(""),
+    category: str = Form(""),
+    subject: str = Form(""),
+    message: str = Form(""),
+    name: str = Form(""),
+    website: str = Form(""),
+):
+    """Transmet une demande d'assistance à la boîte configurée de l'équipe."""
+    guard = _guard_user_route(request)
+    if guard:
+        return guard
+
+    user_id = _get_session_user_id(request)
+    db = SessionLocal()
+    try:
+        user = db.get(User, user_id)
+        account_email = (user.email if user else "").strip().lower()
+    finally:
+        db.close()
+    if not account_email:
+        request.session.clear()
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    # Champ invisible : les robots le renseignent souvent, les utilisateurs non.
+    if website.strip():
+        return RedirectResponse(url="/assistance?status=sent", status_code=303)
+
+    # L'adresse de réponse est celle du compte authentifié, pas une valeur libre du formulaire.
+    clean_email = account_email
+    clean_name = re.sub(r"\s+", " ", name.strip())[:120]
+    clean_category = category.strip().lower()
+    clean_subject = re.sub(r"[\r\n]+", " ", subject.strip())[:180]
+    clean_message = message.strip()[:6000]
+    allowed_categories = {"compte", "strava", "course", "plan", "donnees", "autre"}
+
+    if (
+        not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", clean_email)
+        or clean_category not in allowed_categories
+        or len(clean_subject) < 3
+        or len(clean_message) < 10
+    ):
+        return RedirectResponse(url="/assistance?status=invalid", status_code=303)
+
+    support_recipient = settings.SUPPORT_EMAIL or settings.SMTP_FROM_EMAIL or settings.SMTP_USER
+    if not support_recipient:
+        logger.error("[SUPPORT] SUPPORT_EMAIL / SMTP_FROM_EMAIL non configuré")
+        return RedirectResponse(url="/assistance?status=unavailable", status_code=303)
+
+    page = request.headers.get("referer", "")[:500]
+    body = (
+        "Nouvelle demande d'assistance — Running Data Plan\n\n"
+        f"Catégorie : {clean_category}\n"
+        f"Nom : {clean_name or 'Non renseigné'}\n"
+        f"Email de réponse : {clean_email}\n"
+        f"Page d'origine : {page or 'Non renseignée'}\n\n"
+        "Message :\n"
+        f"{clean_message}\n"
+    )
+    try:
+        _send_plain_email(
+            recipients=[support_recipient],
+            subject=f"[Assistance] {clean_category} — {clean_subject}",
+            body=body,
+            include_login_footer=False,
+        )
+    except Exception:
+        logger.exception("[SUPPORT] Impossible d'envoyer la demande d'assistance")
+        return RedirectResponse(url="/assistance?status=unavailable", status_code=303)
+
+    return RedirectResponse(url="/assistance?status=sent", status_code=303)
+
+
 @app.get("/logout")
 def ui_logout(request: Request):
     """
@@ -6053,7 +6165,13 @@ def _send_reset_email(*, to_email: str, reset_url: str) -> None:
         server.send_message(msg)
 
 
-def _send_plain_email(*, recipients: list[str], subject: str, body: str) -> int:
+def _send_plain_email(
+    *,
+    recipients: list[str],
+    subject: str,
+    body: str,
+    include_login_footer: bool = True,
+) -> int:
     if not settings.SMTP_HOST or not settings.SMTP_PORT:
         raise RuntimeError("SMTP settings missing (host/port).")
     if not settings.SMTP_USER or not settings.SMTP_PASS:
@@ -6075,7 +6193,7 @@ def _send_plain_email(*, recipients: list[str], subject: str, body: str) -> int:
             msg["Subject"] = subject
             msg["From"] = f"{from_name} <{from_email}>"
             msg["To"] = to_email
-            msg.set_content(_append_login_link_footer(body))
+            msg.set_content(_append_login_link_footer(body) if include_login_footer else body)
             server.send_message(msg)
             sent_count += 1
     return sent_count

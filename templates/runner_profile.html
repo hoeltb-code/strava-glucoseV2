@@ -282,6 +282,19 @@
     .runner-table-scroll table {
       min-width:520px;
     }
+    .runner-table-scroll .runner-two-column-table {
+      min-width:0;
+      width:100%;
+      table-layout:fixed;
+    }
+    .runner-table-scroll .runner-two-column-table th,
+    .runner-table-scroll .runner-two-column-table td {
+      padding:6px 7px !important;
+    }
+    .runner-table-scroll .runner-two-column-table th:first-child,
+    .runner-table-scroll .runner-two-column-table td:first-child {
+      width:42%;
+    }
     .series-pace {
       font-weight:500 !important;
       font-size:0.72rem !important;
@@ -630,7 +643,7 @@
           </article>
 
           <div class="runner-table-scroll">
-            <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+            <table class="runner-two-column-table" style="width:100%; border-collapse:collapse; font-size:0.8rem;">
               <thead>
               <tr style="border-bottom:1px solid #e5e7eb;">
                 <th style="text-align:left; padding:4px 2px;">Pente</th>
@@ -854,7 +867,7 @@
           </article>
 
           <div class="runner-table-scroll">
-            <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+            <table class="runner-two-column-table" style="width:100%; border-collapse:collapse; font-size:0.8rem;">
             <thead><tr style="border-bottom:1px solid #e5e7eb;"><th style="text-align:left; padding:4px 2px;">Pente</th><th id="paceZoneTableTitle" style="text-align:right; padding:4px 2px;">Zone 2 · allure (min/km)</th></tr></thead>
             <tbody id="paceZoneTable"></tbody>
           </table>

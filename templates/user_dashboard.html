@@ -165,11 +165,12 @@
   .pace-setup-title p { margin:4px 0 0; color:var(--text-muted); font-size:.78rem; line-height:1.4; }
   .profile-history-choice,
   .manual-profile-choice { padding:15px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
-  .pace-choice-title { display:block; margin-bottom:8px; color:var(--text-main); font-size:1.04rem; font-weight:800; letter-spacing:-.02em; }
-  .pace-choice-kicker { display:block; margin-bottom:7px; color:var(--text-muted); font-family:"DM Mono",monospace; font-size:.68rem; font-weight:700; letter-spacing:.10em; text-transform:uppercase; }
+  .pace-choice-title { display:block; margin:0 0 9px; color:var(--text-main); font-family:"Manrope",system-ui,sans-serif; font-size:1.08rem; font-weight:700; line-height:1.25; letter-spacing:-.02em; }
+  .pace-choice-kicker, .manual-profile-toggle, .profile-pacing-heading h3 { display:block; margin:0 0 6px; color:var(--text-main); font-family:"Manrope",system-ui,sans-serif; font-size:.9rem; font-weight:700; line-height:1.35; letter-spacing:-.01em; text-transform:none; }
+  .pace-choice-field-label { margin:0 0 6px; color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.78rem; font-weight:500; line-height:1.4; letter-spacing:0; text-transform:none; }
   .manual-profile-choice { margin-top:12px; }
   .manual-profile-choice .profile-pacing-note { display:block; margin:5px 0 0; }
-  .manual-profile-toggle { display:flex; align-items:center; gap:8px; margin:0; color:var(--text-main); font-size:.88rem; text-transform:none; letter-spacing:0; cursor:pointer; font-weight:700; }
+  .manual-profile-toggle { display:flex; align-items:center; gap:8px; cursor:pointer; }
   .manual-controls { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px; margin-top:14px; }
   .manual-controls[hidden] { display:none; }
   .manual-control label { display:flex; justify-content:space-between; gap:8px; text-transform:none; letter-spacing:0; font-size:.8rem; }
@@ -189,7 +190,7 @@
   .profile-projection-zone p { margin:9px 0 0; color:var(--text-muted); font-size:.78rem; line-height:1.45; }
   .profile-projection-zone.profile-history-choice { margin-bottom:0; padding:15px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
   .profile-pacing-heading { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:8px; }
-  .profile-pacing-heading strong { font-size:.9rem; }
+  .profile-pacing-heading h3 { margin:0; }
   .profile-pacing-note { color:var(--text-muted); font-size:.76rem; }
   .profile-live-total { display:grid; gap:2px; margin-left:auto; color:var(--accent-2); font-family:"Orbitron", sans-serif; font-size:.84rem; text-align:right; white-space:nowrap; }
   .profile-live-total > strong { display:block; color:var(--accent) !important; font-size:1.3rem !important; line-height:1.1; letter-spacing:.01em; text-shadow:none; }
@@ -224,7 +225,7 @@
   .nutrition-energy-balance input { width:auto; min-height:0; margin:2px 0 0; accent-color:var(--accent); }
   .profile-calculate { width:100%; margin-top:14px; }
   .projection-status { min-height:20px; margin:12px 0 0; color:var(--text-muted); font-size:.88rem; }
-  .projection-result { display:none; margin-top:14px; padding:15px; border-radius:14px; background:rgba(77,226,255,.08); border:1px solid rgba(77,226,255,.25); }
+  .projection-result { display:none; margin-top:14px; padding:15px; border-radius:14px; background:#fbfaf7; border:1px solid rgba(255,90,54,.28); }
   .projection-result.is-visible { display:block; }
   .projection-time { margin:4px 0 3px; font-family:"Orbitron", sans-serif; font-size:1.7rem; color:var(--accent-2); }
   .projection-detail { color:var(--text-muted); font-size:.85rem; }
@@ -573,10 +574,10 @@
     <div class="manual-profile">
       <div class="pace-setup-title"><h3>Choisir mes allures pour la course</h3><p>Définis l’intensité cible à partir de ton historique, ou corrige les allures manuellement pour cette simulation.</p></div>
       <div class="profile-projection-zone profile-history-choice">
-        <span class="pace-choice-title">Mon intensité</span>
+        <h3 class="pace-choice-title">Mon intensité</h3>
         <div>
-          <span class="pace-choice-kicker">Sur base de mon historique de sorties</span>
-          <label for="home-projection-zone">Intensité visée pour la course</label>
+          <h4 class="pace-choice-kicker">Sur base de mon historique de sorties</h4>
+          <label class="pace-choice-field-label" for="home-projection-zone">Intensité visée pour la course</label>
           <select id="home-projection-zone">
             {% for zone in dashboard_hr_zones %}
             <option value="{{ zone }}" {% if zone == 'Zone 2' %}selected{% endif %}>{{ zone }}</option>
@@ -586,7 +587,7 @@
         <p id="home-profile-zone-note">Les allures et la VAM enregistrées dans cette zone cardiaque servent de référence à la projection.</p>
       </div>
       <div class="manual-profile-choice">
-        <span class="pace-choice-title">Modifications manuelles</span>
+        <h3 class="pace-choice-title">Modifications manuelles</h3>
         <label class="manual-profile-toggle" for="home-manual-mode">
           <input id="home-manual-mode" type="checkbox" {% if not runner_profile_overview or not runner_profile_overview.zones %}checked{% endif %}>
           Utiliser mes propres allures pour cette course
@@ -618,7 +619,7 @@
       </div>
       <div class="profile-pacing-preview" aria-live="polite">
         <div class="profile-pacing-heading">
-          <strong id="home-profile-table-title">Profil utilisé par pente</strong>
+          <h3 id="home-profile-table-title">Profil utilisé par pente</h3>
           <span class="profile-pacing-note" id="home-profile-table-note"></span>
           <span class="profile-live-total"><strong id="home-profile-live-total">Sélectionne un parcours</strong><small id="home-profile-live-stop-detail">Arrêts ravito · 0 min</small></span>
         </div>

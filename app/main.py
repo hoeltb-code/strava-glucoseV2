@@ -6087,6 +6087,10 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
     table_header_style = ParagraphStyle(
         "CoursePlanTableHeader", parent=small_style, fontName="Helvetica-Bold", textColor=colors.white,
     )
+    table_header_light_style = ParagraphStyle(
+        "CoursePlanTableHeaderLight", parent=small_style, fontName="Helvetica-Bold", textColor=muted,
+        fontSize=6.6, leading=8, spaceAfter=0,
+    )
     table_label_style = ParagraphStyle(
         "CoursePlanTableLabel", parent=small_style, fontName="Helvetica-Bold", textColor=muted,
         fontSize=6.6, leading=8, spaceAfter=2,
@@ -6095,6 +6099,24 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
         "CoursePlanTableValue", parent=body_style, fontName="Helvetica-Bold", textColor=ink,
         fontSize=11, leading=13,
     )
+
+    def metric_card(label: str, value: str, width: float) -> Table:
+        card = Table([[
+            Paragraph(str(label).upper(), table_label_style),
+        ], [
+            Paragraph(str(value), table_value_style),
+        ]], colWidths=[width])
+        card.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), colors.white),
+            ("BOX", (0, 0), (-1, -1), .5, border),
+            ("TOPPADDING", (0, 0), (-1, 0), 8),
+            ("BOTTOMPADDING", (0, 0), (-1, 0), 1),
+            ("TOPPADDING", (0, 1), (-1, 1), 0),
+            ("BOTTOMPADDING", (0, 1), (-1, 1), 8),
+            ("LEFTPADDING", (0, 0), (-1, -1), 9),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 9),
+        ]))
+        return card
 
     def clean_profile(raw_points) -> list[dict]:
         return [
@@ -6204,18 +6226,14 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
         ["Intensité visée", _course_plan_pdf_value(plan.get("zone"))],
         ["Départ", _course_plan_pdf_value(plan.get("departure_time"))],
     ]
-    overview_cards = []
-    for label, value in overview:
-        overview_cards.append(Paragraph(f"<font size='6.5' color='#6f6b64'><b>{label.upper()}</b></font><br/><font size='11' color='#121316'><b>{value}</b></font>", body_style))
+    overview_cards = [metric_card(label, value, 49 * mm) for label, value in overview]
     overview_table = Table([overview_cards[:3], overview_cards[3:]], colWidths=[55 * mm, 55 * mm, 55 * mm], hAlign="LEFT")
     overview_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), colors.white),
-        ("GRID", (0, 0), (-1, -1), 0.5, border),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 9),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 9),
-        ("LEFTPADDING", (0, 0), (-1, -1), 9),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 9),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
     ]))
     story.extend([Paragraph("Synthèse de la projection", section_style), overview_table])
 
@@ -6232,7 +6250,7 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
     if pacing:
         story.append(PageBreak())
         story.append(Paragraph("Allures prises en compte pour le calcul", section_style))
-        pacing_rows = [[Paragraph("Pente", table_header_style), Paragraph("Allure projetée", table_header_style), Paragraph("VAM", table_header_style)]]
+        pacing_rows = [[Paragraph("Pente", table_header_light_style), Paragraph("Allure projetée", table_header_light_style), Paragraph("VAM", table_header_light_style)]]
         for row in pacing[:20]:
             if isinstance(row, dict):
                 pacing_rows.append([
@@ -6242,9 +6260,10 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
                 ])
         pacing_table = Table(pacing_rows, colWidths=[55 * mm, 62 * mm, 48 * mm], hAlign="LEFT", repeatRows=1)
         pacing_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), ink), ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, ivory]),
-            ("GRID", (0, 0), (-1, -1), .3, border), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("BACKGROUND", (0, 0), (-1, 0), soft_ink), ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#fcfbf8")]),
+            ("LINEBELOW", (0, 0), (-1, -1), .35, border), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, 0), 7), ("BOTTOMPADDING", (0, 0), (-1, 0), 7),
+            ("TOPPADDING", (0, 1), (-1, -1), 7), ("BOTTOMPADDING", (0, 1), (-1, -1), 7),
         ]))
         story.append(pacing_table)
 
@@ -6273,11 +6292,11 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
         ["Lipides à prévoir", _course_plan_pdf_value(nutrition.get("total_fats"))],
         ["Apports énergétiques planifiés", _course_plan_pdf_value(nutrition.get("total_calories"))],
     ]
-    nutrition_totals_table = Table(nutrition_totals, colWidths=[72 * mm, 93 * mm], hAlign="LEFT")
+    nutrition_cards = [metric_card(label, value, 78 * mm) for label, value in nutrition_totals]
+    nutrition_totals_table = Table([nutrition_cards[:2], nutrition_cards[2:]], colWidths=[82.5 * mm, 82.5 * mm], hAlign="LEFT")
     nutrition_totals_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (0, -1), soft_ink), ("GRID", (0, 0), (-1, -1), .4, border),
-        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 8.5),
-        ("TOPPADDING", (0, 0), (-1, -1), 6), ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 4.5),
     ]))
     story.extend([Spacer(1, 6), nutrition_totals_table])
 
@@ -6285,8 +6304,8 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
     if nutrition_stops:
         story.append(Paragraph("Préparation nutritionnelle par ravito", section_style))
         nutrition_rows = [[
-            Paragraph("À préparer à", table_header_style), Paragraph("Jusqu'à", table_header_style), Paragraph("Durée", table_header_style),
-            Paragraph("Glucides", table_header_style), Paragraph("Protéines", table_header_style), Paragraph("Lipides", table_header_style), Paragraph("Kcal", table_header_style),
+            Paragraph("À préparer à", table_header_light_style), Paragraph("Jusqu'à", table_header_light_style), Paragraph("Durée", table_header_light_style),
+            Paragraph("Glucides", table_header_light_style), Paragraph("Protéines", table_header_light_style), Paragraph("Lipides", table_header_light_style), Paragraph("Kcal", table_header_light_style),
         ]]
         for stop in nutrition_stops[:80]:
             if isinstance(stop, dict):
@@ -6298,9 +6317,10 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
                 ])
         nutrition_table = Table(nutrition_rows, colWidths=[38 * mm, 34 * mm, 21 * mm, 22 * mm, 22 * mm, 20 * mm, 22 * mm], repeatRows=1)
         nutrition_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), ink), ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, ivory]),
-            ("GRID", (0, 0), (-1, -1), .3, border), ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("BACKGROUND", (0, 0), (-1, 0), soft_ink), ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#fcfbf8")]),
+            ("LINEBELOW", (0, 0), (-1, -1), .35, border), ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, 0), 7), ("BOTTOMPADDING", (0, 0), (-1, 0), 7),
+            ("TOPPADDING", (0, 1), (-1, -1), 7), ("BOTTOMPADDING", (0, 1), (-1, -1), 7),
         ]))
         story.append(nutrition_table)
         terrain_advice = [
@@ -6322,8 +6342,8 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
             Spacer(1, 6),
         ])
         schedule_rows = [[
-            Paragraph("Moment", table_header_style), Paragraph("Position", table_header_style), Paragraph("Relief à venir", table_header_style),
-            Paragraph("Glucides", table_header_style), Paragraph("Conseil", table_header_style),
+            Paragraph("Moment", table_header_light_style), Paragraph("Position", table_header_light_style), Paragraph("Relief à venir", table_header_light_style),
+            Paragraph("Glucides", table_header_light_style), Paragraph("Conseil", table_header_light_style),
         ]]
         for intake in fueling_schedule[:160]:
             if not isinstance(intake, dict):
@@ -6337,10 +6357,11 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
             ])
         schedule_table = Table(schedule_rows, colWidths=[26 * mm, 24 * mm, 30 * mm, 22 * mm, 63 * mm], repeatRows=1)
         schedule_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), ink),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, ivory]),
-            ("GRID", (0, 0), (-1, -1), .3, border), ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("BACKGROUND", (0, 0), (-1, 0), soft_ink),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#fcfbf8")]),
+            ("LINEBELOW", (0, 0), (-1, -1), .35, border), ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, 0), 7), ("BOTTOMPADDING", (0, 0), (-1, 0), 7),
+            ("TOPPADDING", (0, 1), (-1, -1), 7), ("BOTTOMPADDING", (0, 1), (-1, -1), 7),
         ]))
         story.append(schedule_table)
 
@@ -6350,9 +6371,9 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
         story.append(Paragraph("Feuille de route", section_style))
         story.append(Paragraph("Tes passages estimés et les principales barrières horaires. Les informations nutritionnelles et le détail des tronçons sont présentés dans les sections dédiées.", subtitle_style))
         rows = [[
-            Paragraph("Point", table_header_style), Paragraph("Km", table_header_style), Paragraph("Alt.", table_header_style),
-            Paragraph("D+ cum.", table_header_style), Paragraph("Type", table_header_style), Paragraph("Passage prévu", table_header_style),
-            Paragraph("Barrière", table_header_style),
+            Paragraph("Point", table_header_light_style), Paragraph("Km", table_header_light_style), Paragraph("Alt.", table_header_light_style),
+            Paragraph("D+ cum.", table_header_light_style), Paragraph("Type", table_header_light_style), Paragraph("Passage prévu", table_header_light_style),
+            Paragraph("Barrière", table_header_light_style),
         ]]
         for point in roadbook[:120]:
             if not isinstance(point, dict):

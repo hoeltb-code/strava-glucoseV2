@@ -8623,7 +8623,7 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
         MIN_DPLUS_M = 100.0
         MAX_DMINUS_RATIO = 0.05
         MIN_DIST_M = 300.0
-        MIN_PENTE_PCT = 10.0
+        MIN_PENTE_PCT = 7.0
         MERGE_GAP_KM = 0.100
 
         climbs = []

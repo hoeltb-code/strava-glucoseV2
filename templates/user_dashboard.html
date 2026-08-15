@@ -997,10 +997,10 @@
         const pace = paceWithCourseDifficulty(Number((communityZone[slopeId] || {})[key]));
         return Number.isFinite(pace) && pace > 0 ? { x:slopeCenters[slopeId], pace } : null;
       }).filter(Boolean).sort((a, b) => a.x - b.x);
-      const p20Points = communityPoints('p20');
-      const p80Points = communityPoints('p80');
-      const referenceRange = p20Points.map((fastPoint) => {
-        const prudentPoint = p80Points.find((point) => Math.abs(point.x - fastPoint.x) < .001);
+      const p10Points = communityPoints('p10');
+      const p90Points = communityPoints('p90');
+      const referenceRange = p10Points.map((fastPoint) => {
+        const prudentPoint = p90Points.find((point) => Math.abs(point.x - fastPoint.x) < .001);
         return prudentPoint ? { fastPoint, prudentPoint } : null;
       }).filter(Boolean);
       const rangePath = referenceRange.length > 1
@@ -1008,7 +1008,7 @@
         : '';
       const hasCommunityRange = Boolean(rangePath);
       const communityPaths = hasCommunityRange
-        ? `<path class="cohort-band" d="${rangePath}"/><text class="cohort-legend" x="${width - 14}" y="${pad.top + 12}" text-anchor="end">Plage de référence · 20 % rapides à 20 % prudents</text>`
+        ? `<path class="cohort-band" d="${rangePath}"/><text class="cohort-legend" x="${width - 14}" y="${pad.top + 12}" text-anchor="end">Plage de référence · 10 % rapides à 10 % prudents</text>`
         : '';
       if (hasCommunityRange) {
         profileTableNote.textContent += ` · Repères anonymisés (minimum ${communityPaceCurves.minimum_runners || 8} coureurs par pente).`;

@@ -527,9 +527,11 @@ def _build_anonymized_pace_benchmarks(
             continue
         values.sort()
         zones.setdefault(zone, {})[slope_band] = {
+            "p10": _percentile_from_sorted(values, 0.10),
             "p20": _percentile_from_sorted(values, 0.20),
             "p50": _percentile_from_sorted(values, 0.50),
             "p80": _percentile_from_sorted(values, 0.80),
+            "p90": _percentile_from_sorted(values, 0.90),
             "count": len(values),
         }
 

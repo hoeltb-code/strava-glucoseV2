@@ -1,6 +1,6 @@
 # app/dexcom_client.py
 # -----------------------------------------------------------------------------
-# Client Dexcom Share pour l'application "Strava x Glucose".
+# Client Dexcom Share pour l'application "D+ Glucose".
 #
 # Rôles :
 #   - Vérifier des identifiants Dexcom Share par utilisateur.

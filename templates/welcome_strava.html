@@ -26,7 +26,7 @@
         margin-right: 8px;
       }
       .btn-primary {
-        background: #0d6efd; /* couleur Strava-ish */
+        background: #0d6efd;
         color: white;
       }
       .btn-secondary {
@@ -54,9 +54,8 @@
       {% else %}
         <p>Souhaites-tu connecter Strava maintenant ?</p>
         <p>
-          <!-- Connexion Strava -->
-          <a href="/auth/strava?user_id={{ user.id }}&next=/ui/user/{{ user.id }}/profile" class="btn btn-primary">
-            Me connecter à Strava
+          <a href="/auth/strava?user_id={{ user.id }}&next=/ui/user/{{ user.id }}/profile" aria-label="Connect with Strava">
+            <img src="{{ url_for('static', path='strava/btn_strava_connect_with_orange.svg') }}" width="237" height="48" alt="Connect with Strava">
           </a>
 
           <!-- Ignorer pour l'instant -->

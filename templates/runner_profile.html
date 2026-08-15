@@ -396,6 +396,7 @@
   }
   .pace-curve-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; margin:14px 0 16px; }
   .pace-curve-card { padding:13px; border:1px solid rgba(184,255,69,.26); border-radius:16px; background:linear-gradient(145deg, rgba(77,121,42,.18), rgba(12,30,48,.72)); }
+  .pace-curve-card-wide { margin:14px 0 16px; }
   .pace-curve-card[data-curve="descent"] { border-color:rgba(96,165,250,.35); background:linear-gradient(145deg, rgba(37,99,235,.2), rgba(12,30,48,.72)); }
   .pace-curve-card h4 { margin:0 0 3px; color:#fff !important; font-size:.84rem; }
   .pace-curve-card p { margin:0 0 8px; color:var(--text-muted) !important; font-size:.72rem !important; }
@@ -614,7 +615,7 @@
           </h3>
           <p class="muted" style="margin:0 0 10px 0; font-size:0.8rem;">
             Compare la réponse verticale par zone cardio, aussi bien en montée qu’en descente.
-            En descente, le signe ≈ indique une VAM reconstituée depuis l’allure et la pente lorsque l’archive ne contient pas la mesure native.
+            En descente, le signe ≈ indique une VAM reconstituée depuis l’allure et la pente lorsque la mesure native est absente ou trop courte.
           </p>
           <label class="pace-zone-select" style="display:inline-flex; align-items:center; gap:8px; margin-bottom:2px;">
             Zone cardio affichée
@@ -622,18 +623,11 @@
           </label>
           <p id="vamZoneHeartRate" class="muted" style="margin:2px 0 8px; font-size:.75rem;"></p>
 
-          <div class="pace-curve-grid">
-            <article class="pace-curve-card" data-curve="climb">
-              <div class="pace-curve-head"><h4>Courbes VAM en montée</h4></div>
-              <p>Vitesse ascensionnelle selon la pente positive.</p>
-              <div class="pace-curve-canvas"><canvas id="vamClimbChart"></canvas></div>
-            </article>
-            <article class="pace-curve-card" data-curve="descent">
-              <div class="pace-curve-head"><h4>Courbes VAM en descente</h4></div>
-              <p>Vitesse verticale négative selon la pente descendante.</p>
-              <div class="pace-curve-canvas"><canvas id="vamDescentChart"></canvas></div>
-            </article>
-          </div>
+          <article class="pace-curve-card pace-curve-card-wide">
+            <div class="pace-curve-head"><h4>Courbe VAM par pente</h4></div>
+            <p>Une lecture continue, des descentes aux montées.</p>
+            <div class="pace-curve-canvas"><canvas id="vamSlopeChart"></canvas></div>
+          </article>
 
           <div class="runner-table-scroll">
             <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
@@ -717,20 +711,19 @@
                   return { x, y:Math.max(2, Math.min(60, y)) };
                 });
               };
-              const datasetsFor = (direction) => zones.flatMap((zone, index) => {
+              const datasetsFor = () => zones.flatMap((zone, index) => {
                 const raw = Object.entries((profileData.zones || {})[zone] || {})
                   .map(([slopeId, cell]) => ({ x:slopeCenters[slopeId], y:Number(cell.avg_pace_s_per_km) / 60, duration:Number(cell.pace_duration_sec || cell.duration_sec || 0) }))
                   .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y) && point.y > 0 && point.duration >= 60)
-                  .filter((point) => direction === 'climb' ? point.x >= 0 : point.x <= 0)
                   .sort((a, b) => a.x - b.x);
                 if (!raw.length) return [];
                 return [{ label:zone, data:curveData(raw), borderColor:colors[index], backgroundColor:colors[index], borderWidth:2.5, pointRadius:0, tension:.35, fill:false }, { label:`_${zone}`, data:raw, borderColor:colors[index], backgroundColor:colors[index], pointRadius:3, pointHoverRadius:5, showLine:false }];
               });
-              const renderPaceCurve = (canvasId, direction, selectId) => {
+              const renderPaceCurve = (canvasId, selectId) => {
                 const canvas = document.getElementById(canvasId);
                 const select = document.getElementById(selectId);
                 if (!canvas || !select) return;
-                const datasets = datasetsFor(direction);
+                const datasets = datasetsFor();
                 const chart = new Chart(canvas.getContext('2d'), {
                   type:'line', data:{ datasets },
                   options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'x', intersect:false, axis:'x' }, plugins:{ legend:coloredTextLegend, tooltip:{ filter:item => { const selected = select.value; return selected ? item.dataset.label === selected : !item.dataset.label.startsWith('_'); }, callbacks:{ label:item => { const pace = Math.round(item.parsed.y * 60); return `${item.dataset.label.replace('_','')} · ${Math.floor(pace / 60)}:${String(pace % 60).padStart(2,'0')}/km`; } } } }, scales:{ x:{ type:'linear', title:{ display:true, text:'Pente (%)', color:'#d6e4f8' }, ticks:{ color:'#d6e4f8' }, grid:{ color:'rgba(148,174,214,.16)' } }, y:{ reverse:true, title:{ display:true, text:'Allure (min/km) · haut = plus rapide', color:'#d6e4f8' }, ticks:{ color:'#d6e4f8', callback:value => { const pace = Math.round(value * 60); return `${Math.floor(pace / 60)}:${String(pace % 60).padStart(2,'0')}`; } }, grid:{ color:'rgba(148,174,214,.16)' } } } }
@@ -753,15 +746,13 @@
                 select.addEventListener('change', applyZoneFocus);
                 applyZoneFocus();
               };
-              renderPaceCurve('paceClimbChart', 'climb', 'paceZone');
-              renderPaceCurve('paceDescentChart', 'descent', 'paceZone');
-              const datasetsForVam = (direction) => zones.flatMap((zone, index) => {
+              renderPaceCurve('paceSlopeChart', 'paceZone');
+              const datasetsForVam = () => zones.flatMap((zone, index) => {
                 const raw = Object.entries((profileData.zones || {})[zone] || {})
-                  .map(([slopeId, cell]) => ({ x:slopeCenters[slopeId], y:Number(cell.avg_vam_m_per_h) }))
+                  .map(([slopeId, cell]) => ({ x:slopeCenters[slopeId], y:Number(cell.avg_vam_m_per_h), estimated:Boolean(cell.vam_is_estimated) }))
                   // Même règle que le tableau : toute VAM calculée doit être visible,
                   // y compris les données très spécifiques d'une zone 5.
                   .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y) && point.y !== 0)
-                  .filter((point) => direction === 'climb' ? point.x >= 0 : point.x <= 0)
                   .sort((a, b) => a.x - b.x);
                 if (!raw.length) return [];
                 const coefficients = solveQuadratic(raw);
@@ -771,11 +762,11 @@
                 }) : raw;
                 return [{ label:zone, data:curve, borderColor:colors[index], backgroundColor:colors[index], borderWidth:2.5, pointRadius:0, tension:.35, fill:false }, { label:`_${zone}`, data:raw, borderColor:colors[index], backgroundColor:colors[index], pointRadius:2, pointHoverRadius:3.5, showLine:false }];
               });
-              const renderVamCurve = (canvasId, direction, selectId) => {
+              const renderVamCurve = (canvasId, selectId) => {
                 const canvas = document.getElementById(canvasId);
                 const select = document.getElementById(selectId);
                 if (!canvas || !select) return;
-                const datasets = datasetsForVam(direction);
+                const datasets = datasetsForVam();
                 const chart = new Chart(canvas.getContext('2d'), {
                   type:'line', data:{ datasets },
                   options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'x', intersect:false, axis:'x' }, plugins:{ legend:coloredTextLegend, tooltip:{ filter:item => { const selected = select.value; return selected ? item.dataset.label === selected : !item.dataset.label.startsWith('_'); }, callbacks:{ label:item => `${item.dataset.label.replace('_','')} · ${item.parsed.y >= 0 ? '+' : ''}${Math.round(item.parsed.y)} m/h` } } }, scales:{ x:{ type:'linear', title:{ display:true, text:'Pente (%)', color:'#d6e4f8' }, ticks:{ color:'#d6e4f8' }, grid:{ color:'rgba(148,174,214,.16)' } }, y:{ title:{ display:true, text:'VAM (m/h)', color:'#d6e4f8' }, ticks:{ color:'#d6e4f8', callback:value => `${value >= 0 ? '+' : ''}${value}` }, grid:{ color:'rgba(148,174,214,.16)' } } } }
@@ -798,8 +789,7 @@
                 select.addEventListener('change', applyZoneFocus);
                 applyZoneFocus();
               };
-              renderVamCurve('vamClimbChart', 'climb', 'vamZone');
-              renderVamCurve('vamDescentChart', 'descent', 'vamZone');
+              renderVamCurve('vamSlopeChart', 'vamZone');
               const renderSelectedZoneTable = (selectId, tableId, titleId, heartRateId, metric) => {
                 const select = document.getElementById(selectId);
                 const table = document.getElementById(tableId);
@@ -848,7 +838,7 @@
             Allure moyenne (min/km) par % de pente et zone cardio
           </h3>
           <p class="muted" style="margin:0 0 10px 0; font-size:0.8rem;">
-            Deux courbes lissées pour visualiser ton allure en montée et en descente.
+            Une courbe lissée pour visualiser ton allure, de la descente à la montée.
             Sélectionne une zone cardio pour la mettre en avant.
           </p>
           <label class="pace-zone-select" style="display:inline-flex; align-items:center; gap:8px; margin-bottom:2px;">
@@ -857,18 +847,11 @@
           </label>
           <p id="paceZoneHeartRate" class="muted" style="margin:2px 0 8px; font-size:.75rem;"></p>
 
-          <div class="pace-curve-grid">
-            <article class="pace-curve-card" data-curve="climb">
-              <div class="pace-curve-head"><h4>Courbes d’allure en montée</h4></div>
-              <p>Une courbe par zone cardio · pente positive en abscisse.</p>
-              <div class="pace-curve-canvas"><canvas id="paceClimbChart"></canvas></div>
-            </article>
-            <article class="pace-curve-card" data-curve="descent">
-              <div class="pace-curve-head"><h4>Courbes d’allure en descente</h4></div>
-              <p>Lecture dédiée aux pentes négatives et à la VAM négative.</p>
-              <div class="pace-curve-canvas"><canvas id="paceDescentChart"></canvas></div>
-            </article>
-          </div>
+          <article class="pace-curve-card pace-curve-card-wide">
+            <div class="pace-curve-head"><h4>Courbe d’allure par pente</h4></div>
+            <p>Une lecture continue, des descentes aux montées.</p>
+            <div class="pace-curve-canvas"><canvas id="paceSlopeChart"></canvas></div>
+          </article>
 
           <div class="runner-table-scroll">
             <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">

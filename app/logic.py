@@ -1941,7 +1941,13 @@ def build_runner_profile(
         avg_pace = _safe_avg(a["sum_pace_x_dur"], a["dur_for_pace"])
         avg_vam = _safe_avg(a["sum_vam_x_dur"], a["dur_for_vam"])
         estimated_negative_vam = False
-        if avg_vam is None:
+        # Une VAM native très courte en descente est trop instable pour la
+        # courbe. On emploie le même seuil que l'allure affichée (60 s), puis
+        # la reconstitue depuis l'allure moyenne de la bande.
+        native_descent_vam_is_insufficient = (
+            str(slope_band).startswith("Sneg") and a["dur_for_vam"] < 60
+        )
+        if avg_vam is None or native_descent_vam_is_insufficient:
             estimated_vam = estimate_negative_vam_from_pace(slope_band, avg_pace)
             if estimated_vam is not None:
                 avg_vam = estimated_vam
@@ -2618,7 +2624,13 @@ def get_cached_runner_profile(
         avg_pace = _safe_avg(vals["sum_pace_x_dur"], vals["dur_for_pace"])
         avg_vam = _safe_avg(vals["sum_vam_x_dur"], vals["dur_for_vam"])
         estimated_negative_vam = False
-        if avg_vam is None:
+        # Même règle que pour le calcul à la volée : en descente, une VAM
+        # native de moins d'une minute est remplacée par l'estimation basée
+        # sur l'allure afin de garder une courbe exploitable.
+        native_descent_vam_is_insufficient = (
+            str(slope_band).startswith("Sneg") and vals["dur_for_vam"] < 60
+        )
+        if avg_vam is None or native_descent_vam_is_insufficient:
             estimated_vam = estimate_negative_vam_from_pace(slope_band, avg_pace)
             if estimated_vam is not None:
                 avg_vam = estimated_vam

@@ -446,6 +446,7 @@
   <h2 style="margin:0 0 8px 0; font-size:1.1rem; font-weight:600;">
     {{ activity.name or "Activité sans nom" }}
   </h2>
+  <a href="https://www.strava.com/activities/{{ activity.strava_activity_id }}" target="_blank" rel="noopener noreferrer" style="display:inline-block; margin:0 0 12px; color:#FC5200; font-weight:700; text-decoration:underline;">View on Strava</a>
 
   <div class="activity-stats-grid">
     <div><div class="tile-k">Distance</div><div class="tile-v">{{ dist_km }} km</div></div>

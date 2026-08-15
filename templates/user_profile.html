@@ -329,7 +329,7 @@
       <div class="card" style="margin-top:20px; padding:14px 16px;">
         <h3 style="font-size:1rem; font-weight:600; margin:0 0 6px;">📤 Importer des activités passées</h3>
         <p class="muted" style="margin:0 0 10px; font-size:0.85rem;">
-          Strava ne renvoie que les activités créées après ton inscription sur Strava Glucose. Pour compléter ton historique,
+          Strava ne renvoie que les activités créées après ton inscription sur D+ Glucose. Pour compléter ton historique,
           exporte un fichier GPX ou FIT depuis Strava, puis dépose-le ici pour lancer l’orchestrateur.
         </p>
 
@@ -386,8 +386,8 @@
                 </button>
               </form>
             {% else %}
-              <a href="/auth/strava?user_id={{ user.id }}" style="padding:4px 10px;font-size:0.8rem;border-radius:4px;border:1px solid transparent;background:#0d6efd;color:#fff;text-decoration:none;">
-                Connecter Strava
+              <a href="/auth/strava?user_id={{ user.id }}" aria-label="Connect with Strava" style="display:inline-flex;">
+                <img src="{{ url_for('static', path='strava/btn_strava_connect_with_orange.svg') }}" width="237" height="48" alt="Connect with Strava">
               </a>
             {% endif %}
           </div>

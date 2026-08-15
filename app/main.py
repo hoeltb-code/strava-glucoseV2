@@ -5759,6 +5759,17 @@ def ui_runner_profile(
     )
     distance_projections = compute_distance_projections(series_matrix, distance_efforts)
 
+    # Le profil est aussi injecté dans un graphique JavaScript avec `tojson`.
+    # Les filtres de période ajoutent des datetime Python dans `profile.period`,
+    # qui ne sont pas sérialisables directement par Jinja.
+    profile_for_template = dict(profile or {})
+    profile_period = dict(profile_for_template.get("period") or {})
+    for key in ("from", "to"):
+        value = profile_period.get(key)
+        if isinstance(value, (dt.datetime, dt.date)):
+            profile_period[key] = value.isoformat()
+    profile_for_template["period"] = profile_period
+
     return templates.TemplateResponse(
         "runner_profile.html",
         {
@@ -5766,7 +5777,7 @@ def ui_runner_profile(
             "user": user,
             "hr_zones": hr_zone_names,
             "slopes_order": slopes_order,
-            "profile": profile,
+            "profile": profile_for_template,
             "pace_lookup_by_slope": pace_lookup_by_slope,
             "sport": sport,
             "period": period,
@@ -5959,7 +5970,7 @@ def _append_login_link_footer(body: str) -> str:
     clean_body = (body or "").rstrip()
     return (
         f"{clean_body}\n\n"
-        "Se connecter à Strava Glucose :\n"
+        "Se connecter à D+ Glucose :\n"
         f"{login_url}\n"
     )
 
@@ -5970,7 +5981,7 @@ def _send_reset_email(*, to_email: str, reset_url: str) -> None:
     if not settings.SMTP_USER or not settings.SMTP_PASS:
         raise RuntimeError("SMTP settings missing (user/pass).")
 
-    from_name = settings.SMTP_FROM_NAME or "Strava Glucose"
+    from_name = settings.SMTP_FROM_NAME or "D+ Glucose"
     from_email = settings.SMTP_FROM_EMAIL or settings.SMTP_USER
 
     msg = EmailMessage()
@@ -6000,7 +6011,7 @@ def _send_plain_email(*, recipients: list[str], subject: str, body: str) -> int:
     if not clean_recipients:
         return 0
 
-    from_name = settings.SMTP_FROM_NAME or "Strava Glucose"
+    from_name = settings.SMTP_FROM_NAME or "D+ Glucose"
     from_email = settings.SMTP_FROM_EMAIL or settings.SMTP_USER
 
     sent_count = 0
@@ -6043,7 +6054,7 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
         topMargin=14 * mm,
         bottomMargin=15 * mm,
         title="Plan de course",
-        author="D+ x Strava x Glucose",
+        author="D+ Glucose",
     )
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
@@ -6158,7 +6169,7 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
     course_name = _course_plan_pdf_value(plan.get("course_name"), "Course simulée")
     generated_at = dt.datetime.now().strftime("%d/%m/%Y à %H:%M")
     story = [
-        Paragraph("D+ x Strava x Glucose", subtitle_style),
+        Paragraph("D+ Glucose", subtitle_style),
         Paragraph(f"Plan de course - {course_name}", title_style),
         Paragraph(
             f"Préparé pour <b>{_course_plan_pdf_value(runner_name)}</b> - simulation générée le {generated_at}.",
@@ -6378,7 +6389,7 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
         canvas.line(15 * mm, 10 * mm, 195 * mm, 10 * mm)
         canvas.setFont("Helvetica", 7)
         canvas.setFillColor(colors.HexColor("#52616b"))
-        canvas.drawString(15 * mm, 6 * mm, "D+ x Strava x Glucose - plan de course indicatif")
+        canvas.drawString(15 * mm, 6 * mm, "D+ Glucose - plan de course indicatif")
         canvas.drawRightString(195 * mm, 6 * mm, f"Page {canvas.getPageNumber()}")
         canvas.restoreState()
 
@@ -6458,7 +6469,7 @@ def _build_course_plan_roadbook_png(*, plan: dict) -> bytes:
         y += row_height
 
     draw.rectangle((0, height - footer_height, width, height), fill="#102b46")
-    draw.text((margin, height - 47), "D+ × Strava × Glucose · Feuille de route indicative", font=detail_font, fill="#b9d5ea")
+    draw.text((margin, height - 47), "D+ Glucose · Feuille de route indicative", font=detail_font, fill="#b9d5ea")
     draw.text((width - margin - 214, height - 47), "À enregistrer sur ton téléphone", font=detail_font, fill="#b8ff45")
     png_buffer = BytesIO()
     image.save(png_buffer, format="PNG", optimize=True)
@@ -6476,7 +6487,7 @@ def _send_course_plan_email(
 ) -> None:
     if not settings.SMTP_HOST or not settings.SMTP_PORT or not settings.SMTP_USER or not settings.SMTP_PASS:
         raise RuntimeError("La configuration SMTP est incomplète.")
-    from_name = settings.SMTP_FROM_NAME or "D+ x Strava x Glucose"
+    from_name = settings.SMTP_FROM_NAME or "D+ Glucose"
     from_email = settings.SMTP_FROM_EMAIL or settings.SMTP_USER
     first_name = (recipient_name or "").strip()
     greeting = f"Bonjour {first_name}," if first_name else "Bonjour,"
@@ -6510,7 +6521,7 @@ def _send_course_plan_email(
         "plus les allures utilisées deviennent personnalisées. Pense à tester la nutrition et les temps d’arrêt à l’entraînement : "
         "ce document est une base de préparation, à adapter à ton expérience, ta tolérance digestive et, si nécessaire, avec un professionnel.\n\n"
         "Bonne préparation pour ta course,\n"
-        "Toute l'équipe D+ × Strava × Glucose\n"
+        "Toute l'équipe D+ Glucose\n"
     ))
     msg.add_attachment(pdf_data, maintype="application", subtype="pdf", filename=f"{safe_filename}-plan-de-course.pdf")
     msg.add_attachment(roadbook_png, maintype="image", subtype="png", filename=f"{safe_filename}-feuille-de-route.png")
@@ -6559,7 +6570,7 @@ def _render_login_page(request: Request):
         },
     ]
     onboarding_steps = [
-        "Se connecter ou créer un compte Strava Glucose",
+        "Se connecter ou créer un compte D+ Glucose",
         "Lier Strava (et optionnellement ton capteur Dexcom / Libre)",
         "Laisser l’appli enrichir automatiquement chaque activité",
     ]

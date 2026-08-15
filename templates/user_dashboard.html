@@ -170,6 +170,8 @@
   .pace-choice-title { display:block; margin:0 0 9px; color:var(--text-main); font-family:"Manrope",system-ui,sans-serif; font-size:1.08rem; font-weight:700; line-height:1.25; letter-spacing:-.02em; }
   .pace-choice-kicker, .manual-profile-toggle, .profile-pacing-heading h3 { display:block; margin:0 0 6px; color:var(--text-main); font-family:"Manrope",system-ui,sans-serif; font-size:.9rem; font-weight:700; line-height:1.35; letter-spacing:-.01em; text-transform:none; }
   .pace-choice-field-label { margin:0 0 6px; color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.78rem; font-weight:500; line-height:1.4; letter-spacing:0; text-transform:none; }
+  .profile-cardio-note { margin:10px 0 0; padding:9px 10px; border-left:3px solid var(--accent); border-radius:0 9px 9px 0; background:#fff7f3; color:var(--text-muted); font-size:.76rem; line-height:1.45; }
+  .profile-cardio-note a { font-weight:700; }
   .manual-profile-choice { margin-top:12px; }
   .manual-profile-choice .profile-pacing-note { display:block; margin:5px 0 0; }
   .manual-profile-toggle { display:flex; align-items:center; gap:8px; cursor:pointer; }
@@ -596,6 +598,7 @@
           </select>
         </div>
         <p id="home-profile-zone-note">Les allures et la VAM enregistrées dans cette zone cardiaque servent de référence à la projection.</p>
+        <p class="profile-cardio-note"><strong>Important :</strong> renseigne bien ta fréquence cardiaque maximale dans tes réglages. Elle permet de calculer des zones cardio cohérentes et donc de choisir la bonne intensité pour cette projection. <a href="/ui/user/{{ user.id }}/profile">Vérifier mes réglages →</a></p>
       </div>
       <div class="manual-profile-choice">
         <h3 class="pace-choice-title">Modifications manuelles</h3>

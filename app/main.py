@@ -6130,12 +6130,11 @@ def _get_login_url() -> str:
 
 
 def _append_login_link_footer(body: str) -> str:
-    login_url = _get_login_url()
     clean_body = (body or "").rstrip()
     return (
         f"{clean_body}\n\n"
-        "Se connecter à Running Data Plan :\n"
-        f"{login_url}\n"
+        "Retrouver Running Data Plan :\n"
+        "https://www.runningdataplan.com/\n"
     )
 
 
@@ -6438,6 +6437,12 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
     runner_name = first_name or user.email
     course_name = _course_plan_pdf_value(plan.get("course_name"), "Course simulée")
     generated_at = dt.datetime.now().strftime("%d/%m/%Y à %H:%M")
+    departure_date_value = str(plan.get("departure_date") or "").strip()
+    try:
+        departure_date_label = dt.date.fromisoformat(departure_date_value).strftime("%d/%m/%Y")
+    except ValueError:
+        departure_date_label = ""
+    departure_label = " · ".join(part for part in (departure_date_label, _course_plan_pdf_value(plan.get("departure_time"), "")) if part) or "-"
     hero = Table([[
         Paragraph("RUNNING DATA PLAN · RACE PACK PERSONNALISÉ", eyebrow_style),
     ], [
@@ -6473,7 +6478,7 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
         ["Parcours", _course_plan_pdf_value(plan.get("distance"))],
         ["Dénivelé", _course_plan_pdf_value(plan.get("elevation"))],
         ["Intensité visée", _course_plan_pdf_value(plan.get("zone"))],
-        ["Départ", _course_plan_pdf_value(plan.get("departure_time"))],
+        ["Départ", departure_label],
     ]
     overview_cards = [metric_card(label, value, 49 * mm) for label, value in overview]
     overview_table = Table([overview_cards[:3], overview_cards[3:]], colWidths=[55 * mm, 55 * mm, 55 * mm], hAlign="LEFT")
@@ -6701,7 +6706,12 @@ def _build_course_plan_roadbook_png(*, plan: dict) -> bytes:
     course_name = _short(plan.get("course_name") or "Plan de course", 44)
     draw.text((margin, 32), "RUNNING DATA PLAN · FEUILLE DE ROUTE", font=type_font, fill="#d9462a")
     draw.text((margin, 67), course_name, font=title_font, fill="#1d1d1b")
-    overview = " · ".join(part for part in [str(plan.get("distance") or "").strip(), str(plan.get("total_time") or "").strip()] if part)
+    departure_date = str(plan.get("departure_date") or "").strip()
+    try:
+        departure_date = dt.date.fromisoformat(departure_date).strftime("%d/%m/%Y")
+    except ValueError:
+        departure_date = ""
+    overview = " · ".join(part for part in [departure_date, str(plan.get("distance") or "").strip(), str(plan.get("total_time") or "").strip()] if part)
     draw.text((margin, 123), overview or "Feuille de route", font=subtitle_font, fill="#6f6b64")
     draw.text((margin, 164), "PASSAGES ESTIMÉS · ARRÊTS · RAVITOS · ASSISTANCES · CONTRÔLES", font=type_font, fill="#6f6b64")
 
@@ -6767,7 +6777,7 @@ def _send_course_plan_email(
     overview_lines = [
         f"- Temps total estimé : {str(plan.get('total_time') or '-').strip()}",
         f"- Parcours : {str(plan.get('distance') or '-').strip()} · {str(plan.get('elevation') or '-').strip()}",
-        f"- Intensité : {str(plan.get('zone') or '-').strip()} · départ {str(plan.get('departure_time') or '-').strip()}",
+        f"- Intensité : {str(plan.get('zone') or '-').strip()} · départ {' '.join(part for part in [str(plan.get('departure_date') or '').strip(), str(plan.get('departure_time') or '-').strip()] if part)}",
         f"- Repère nutrition : {str(nutrition.get('carbs_rate') or '-').strip()} de glucides/h · {str(nutrition.get('calories_rate') or '-').strip()} d'apports/h",
     ]
     overview_summary = "\n".join(overview_lines)

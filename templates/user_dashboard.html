@@ -332,8 +332,10 @@
   .nutrition-chip { padding:3px 7px; border-radius:999px; background:#f3eee6; color:var(--text-main); font-size:.72rem; font-weight:700; }
   .timeline-stop-control { display:inline-flex; align-items:center; gap:6px; margin-top:8px; padding:5px 7px; border:1px solid #edc8bd; border-radius:9px; background:#fff; color:var(--text-muted); font-size:.72rem; font-weight:700; }
   .timeline-stop-control input { width:58px; min-height:30px; margin:0; padding:3px 5px; text-align:center; font-weight:800; }
-  .timeline-start-control { display:inline-flex; align-items:center; gap:7px; margin-top:8px; color:var(--text-main); font-size:.74rem; font-weight:700; }
+  .timeline-start-control { display:flex; flex-wrap:wrap; align-items:end; gap:8px 12px; margin-top:8px; color:var(--text-main); font-size:.74rem; font-weight:700; }
+  .timeline-start-control label { display:flex; align-items:center; gap:5px; margin:0; color:inherit; font:inherit; text-transform:none; letter-spacing:0; }
   .timeline-start-control input { width:48px; min-height:32px; margin:0; padding:4px 3px; text-align:center; }
+  .timeline-start-control .timeline-departure-date { width:138px; text-align:left; }
   .aid-stations { margin-top:14px; padding:16px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:14px; background:#fff; }
   .aid-stations .projection-section-title { margin:0 0 12px; }
   .aid-stations-header { display:flex; align-items:end; gap:10px; }
@@ -1515,13 +1517,20 @@
       });
     }
 
-    function buildProjectionTimeline(rows, splitSize, aidStations, nutrition, departureTime, elevationProfile) {
+    function buildProjectionTimeline(rows, splitSize, aidStations, nutrition, departureTime, departureDate, elevationProfile) {
       const finishKm = rows.length ? rows[rows.length - 1].cumulativeKm : 0;
       const departureMatch = /^(\d{2}):(\d{2})$/.exec(departureTime || '');
       const departureMinutes = departureMatch ? Number(departureMatch[1]) * 60 + Number(departureMatch[2]) : null;
       const departureHour = departureMatch ? Number(departureMatch[1]) : 7;
       const departureMinute = departureMatch ? Number(departureMatch[2]) : 0;
+      const departureDateTime = /^\d{4}-\d{2}-\d{2}$/.test(departureDate || '')
+        ? new Date(`${departureDate}T${departureTime || '07:00'}:00`)
+        : null;
+      const dateFormatter = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
       const formatPassageTime = (elapsedSeconds) => {
+        if (departureDateTime && !Number.isNaN(departureDateTime.getTime())) {
+          return dateFormatter.format(new Date(departureDateTime.getTime() + Math.round(elapsedSeconds) * 1000)).replace(',', ' ·');
+        }
         if (departureMinutes === null) return '—';
         const absoluteMinutes = departureMinutes + Math.round(elapsedSeconds / 60);
         const dayOffset = Math.floor(absoluteMinutes / 1440);
@@ -1648,7 +1657,7 @@
       events.push({
         type: 'start',
         position: 0,
-        html: `<article class="timeline-row timeline-start"><div><div class="timeline-race-time"><small>TEMPS DE COURSE</small>0 min</div><div class="timeline-km">DÉPART<br>KM 0</div></div><div><div class="timeline-title">Départ</div><label class="timeline-start-control">Heure de départ <input class="timeline-departure-input" data-departure-part="hour" type="number" min="0" max="23" step="1" value="${departureHour}" aria-label="Heure de départ"><span>:</span><input class="timeline-departure-input" data-departure-part="minute" type="number" min="0" max="59" step="1" value="${departureMinute}" aria-label="Minutes de départ"></label><div class="timeline-detail-actions"><button type="button" class="timeline-panel-toggle" data-timeline-panel="profile" aria-expanded="false">Détail profil</button><button type="button" class="timeline-panel-toggle" data-timeline-panel="nutrition" aria-expanded="false">Détail nutrition</button></div><div class="timeline-details timeline-panel" data-timeline-panel-content="profile"><div class="timeline-detail-heading">Profil jusqu’au premier point</div>${firstLegProfile}${firstLegKmBreakdown}</div><div class="timeline-details timeline-panel" data-timeline-panel-content="nutrition"><div class="timeline-detail-heading">Premier ravito</div><p class="timeline-nutrition-intro">À prévoir ${firstDestination} · ${formatDuration(firstLegSeconds)} de course prévue.</p><div class="nutrition-chips"><span class="nutrition-chip">Apports : ${firstLegCalories} kcal</span><span class="nutrition-chip">Dépense : ~${firstLegEnergySpent} kcal</span><span class="nutrition-chip">Déficit : ~${firstLegDeficit} kcal</span><span class="nutrition-chip">${firstLegCarbs} g glucides</span>${firstLegProteins ? `<span class="nutrition-chip">${firstLegProteins} g protéines</span>` : ''}${firstLegFats ? `<span class="nutrition-chip">${firstLegFats} g lipides</span>` : ''}</div><p class="timeline-nutrition-advice">Pars avec ces apports déjà accessibles et répartis-les avant le premier ravito ; le déficit est attendu et ne doit pas être compensé d’un coup.</p></div></div><div class="timeline-time">${timelineTime(0)}</div></article>`,
+        html: `<article class="timeline-row timeline-start"><div><div class="timeline-race-time"><small>TEMPS DE COURSE</small>0 min</div><div class="timeline-km">DÉPART<br>KM 0</div></div><div><div class="timeline-title">Départ</div><div class="timeline-start-control"><label>Date de départ <input class="timeline-departure-date" type="date" value="${departureDate || ''}" aria-label="Date de départ"></label><label>Heure <input class="timeline-departure-input" data-departure-part="hour" type="number" min="0" max="23" step="1" value="${departureHour}" aria-label="Heure de départ"><span>:</span><input class="timeline-departure-input" data-departure-part="minute" type="number" min="0" max="59" step="1" value="${departureMinute}" aria-label="Minutes de départ"></label></div><div class="timeline-detail-actions"><button type="button" class="timeline-panel-toggle" data-timeline-panel="profile" aria-expanded="false">Détail profil</button><button type="button" class="timeline-panel-toggle" data-timeline-panel="nutrition" aria-expanded="false">Détail nutrition</button></div><div class="timeline-details timeline-panel" data-timeline-panel-content="profile"><div class="timeline-detail-heading">Profil jusqu’au premier point</div>${firstLegProfile}${firstLegKmBreakdown}</div><div class="timeline-details timeline-panel" data-timeline-panel-content="nutrition"><div class="timeline-detail-heading">Premier ravito</div><p class="timeline-nutrition-intro">À prévoir ${firstDestination} · ${formatDuration(firstLegSeconds)} de course prévue.</p><div class="nutrition-chips"><span class="nutrition-chip">Apports : ${firstLegCalories} kcal</span><span class="nutrition-chip">Dépense : ~${firstLegEnergySpent} kcal</span><span class="nutrition-chip">Déficit : ~${firstLegDeficit} kcal</span><span class="nutrition-chip">${firstLegCarbs} g glucides</span>${firstLegProteins ? `<span class="nutrition-chip">${firstLegProteins} g protéines</span>` : ''}${firstLegFats ? `<span class="nutrition-chip">${firstLegFats} g lipides</span>` : ''}</div><p class="timeline-nutrition-advice">Pars avec ces apports déjà accessibles et répartis-les avant le premier ravito ; le déficit est attendu et ne doit pas être compensé d’un coup.</p></div></div><div class="timeline-time">${timelineTime(0)}</div></article>`,
       });
       aidStations.forEach((point, index) => {
         const incomingSegment = segmentTimeAtPoint(point.km);
@@ -1852,6 +1861,7 @@
         const distanceDetailOutput = result.querySelector('#home-projection-distance-detail');
         const nutritionDetailOutput = result.querySelector('#home-projection-nutrition-detail');
         let departureTime = '07:00';
+        let departureDate = new Date().toISOString().slice(0, 10);
         const refreshProjectionSummary = () => {
           const currentStopSeconds = aidStations.reduce((sum, point) => sum + point.stopSeconds, 0);
           const currentStopDetail = currentStopSeconds ? ` · ${formatDuration(currentStopSeconds)} de ravito` : '';
@@ -1872,7 +1882,7 @@
           });
         };
         const renderTimeline = () => {
-          timelineHost.innerHTML = buildProjectionTimeline(projectedRows, 0, aidStations, nutrition, departureTime, data.elevation_profile);
+          timelineHost.innerHTML = buildProjectionTimeline(projectedRows, 0, aidStations, nutrition, departureTime, departureDate, data.elevation_profile);
           timelineHost.querySelectorAll('[data-timeline-panel-content="nutrition"]').forEach((panel, index) => {
             const terrainAdvice = terrainNutritionWindows[index]?.advice;
             if (terrainAdvice) {
@@ -1926,6 +1936,14 @@
         };
         const projectedPassage = (targetKm) => {
           const elapsed = projectedTimeAtKm(targetKm) + aidStations.filter((point) => point.km < targetKm).reduce((sum, point) => sum + point.stopSeconds, 0);
+          if (/^\d{4}-\d{2}-\d{2}$/.test(departureDate || '')) {
+            const start = new Date(`${departureDate}T${departureTime}:00`);
+            if (!Number.isNaN(start.getTime())) {
+              return new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+                .format(new Date(start.getTime() + Math.round(elapsed) * 1000))
+                .replace(',', ' ·');
+            }
+          }
           const [hours, minutes] = departureTime.split(':').map(Number);
           const absoluteMinutes = hours * 60 + minutes + Math.round(elapsed / 60);
           const day = Math.floor(absoluteMinutes / 1440);
@@ -2009,6 +2027,7 @@
             distance: `${finishKm.toFixed(1)} km`, elevation: `D+ ${Math.round(gain)} m · D- ${Math.round(loss)} m`,
             zone: manualMode.checked ? 'Réglages manuels' : zoneInput.value,
             departure_time: departureTime,
+            departure_date: departureDate,
             nutrition: { carbs_rate: `${Math.round(nutrition.carbRate)} g`, protein_rate: `${Math.round(nutrition.proteinRate)} g`, fat_rate: `${Math.round(nutrition.fatRate)} g`, calories_rate: `${Math.round(plannedRate)} kcal`, expenditure_rate: `~${Math.round(nutrition.expenditureRate)} kcal`, total_carbs: `${Math.round(nutrition.carbRate * movingSeconds / 3600)} g`, total_proteins: `${Math.round(nutrition.proteinRate * movingSeconds / 3600)} g`, total_fats: `${Math.round(nutrition.fatRate * movingSeconds / 3600)} g`, total_calories: `${Math.round(plannedRate * movingSeconds / 3600)} kcal` },
             roadbook, pacing, nutrition_stops: nutritionStops, fueling_schedule: buildPdfFuelingSchedule(), legs, elevation_profile: data.elevation_profile || [], fueling_windows: terrainNutritionWindows,
           };
@@ -2098,8 +2117,15 @@
           if (refreshedInput) refreshedInput.focus();
         });
         const updateDeparturePassages = (event) => {
-          const input = event.target.closest('.timeline-departure-input');
+          const input = event.target.closest('.timeline-departure-input, .timeline-departure-date');
           if (!input) return;
+          if (input.classList.contains('timeline-departure-date')) {
+            if (/^\d{4}-\d{2}-\d{2}$/.test(input.value || '')) departureDate = input.value;
+            renderTimeline();
+            const refreshedDate = timelineHost.querySelector('.timeline-departure-date');
+            if (refreshedDate) refreshedDate.focus();
+            return;
+          }
           const hourInput = timelineHost.querySelector('[data-departure-part="hour"]');
           const minuteInput = timelineHost.querySelector('[data-departure-part="minute"]');
           const hours = Math.max(0, Math.min(23, Number(hourInput?.value) || 0));

@@ -612,11 +612,11 @@
         </a>
         <a class="nav-link" href="/ui/user/{{ session_user_id }}/profile">
           <img class="icon-img" src="{{ url_for('static', path='icons/profile.svg') }}" alt="Profil">
-          <span class="nav-label">Réglages</span>
+          <span class="nav-label">Profil</span>
         </a>
         <a class="nav-link" href="/ui/user/{{ session_user_id }}/runner-profile">
-          <img class="icon-img" src="{{ url_for('static', path='icons/stat.svg') }}" alt="Profil coureur">
-          <span class="nav-label">Profil coureur</span>
+          <img class="icon-img" src="{{ url_for('static', path='icons/stat.svg') }}" alt="Performance">
+          <span class="nav-label">Performance</span>
         </a>
         {% if session_user_id == 1 %}
         <a class="nav-link" href="/ui">
@@ -665,8 +665,8 @@
       <span class="label">Profil</span>
     </a>
     <a href="/ui/user/{{ session_user_id }}/runner-profile" aria-label="Profil coureur">
-      <img class="icon-img" src="{{ url_for('static', path='icons/stat.svg') }}" alt="Profil coureur">
-      <span class="label">Profil coureur</span>
+      <img class="icon-img" src="{{ url_for('static', path='icons/stat.svg') }}" alt="Performance">
+      <span class="label">Performance</span>
     </a>
     {% if session_user_id == 1 %}
     <a href="/ui" aria-label="Admin">

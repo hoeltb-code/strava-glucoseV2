@@ -104,7 +104,8 @@
     gap:16px;
     margin-bottom:20px;
   }
-  .projection-panel { padding:22px; margin:0; }
+  .projection-panel { padding:22px; margin:0; background:#fff !important; }
+  .projection-panel::before, .projection-panel::after { display:none; }
   .projection-panel h2 { margin:0 0 8px; font-size:1.42rem; }
   .projection-panel p { color:var(--text-muted); margin:0 0 18px; line-height:1.45; }
   .simulation-explainer { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; margin:14px 0 18px; }
@@ -155,6 +156,9 @@
   .course-picker-card.is-custom small { color:#665c57; }.course-picker-card.is-custom .course-picker-action { color:#d9462a; }
   .custom-simulator-back { display:inline-flex; margin-top:10px; color:var(--accent-2); font-size:.82rem; font-weight:700; text-decoration:none; }
   .gpx-source-fields { display:grid; grid-template-columns:minmax(160px, .7fr) minmax(0, 1.3fr); gap:10px; }
+  .gpx-upload-card { padding:16px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:14px; background:#fff; }
+  .gpx-upload-card .projection-section-title { margin:0 0 5px; }
+  .gpx-upload-card > p { margin:0 0 12px; color:var(--text-muted); font-size:.78rem; line-height:1.45; }
   .projection-form input[type="file"] { width:100%; min-height:44px; padding:8px; border:1px dashed var(--border); border-radius:12px; color:var(--text-muted); background:#fff; }
   .course-profile-preview { margin-top:14px; padding:13px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
   .course-profile-preview .projection-profile { margin:0; }
@@ -330,7 +334,8 @@
   .timeline-stop-control input { width:58px; min-height:30px; margin:0; padding:3px 5px; text-align:center; font-weight:800; }
   .timeline-start-control { display:inline-flex; align-items:center; gap:7px; margin-top:8px; color:var(--text-main); font-size:.74rem; font-weight:700; }
   .timeline-start-control input { width:48px; min-height:32px; margin:0; padding:4px 3px; text-align:center; }
-  .aid-stations { margin-top:14px; padding:13px; border-radius:14px; background:#fff; border:1px solid #dfdad0; }
+  .aid-stations { margin-top:14px; padding:16px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:14px; background:#fff; }
+  .aid-stations .projection-section-title { margin:0 0 12px; }
   .aid-stations-header { display:flex; align-items:end; gap:10px; }
   .aid-stations-header > div { max-width:180px; }
   .aid-point-adder { display:flex; gap:8px; width:min(100%, 560px); margin-top:7px; }
@@ -583,7 +588,9 @@
           </a>
         </div>
       </div>
-      <div id="home-gpx-source" {% if not custom_course_mode %}hidden aria-hidden="true"{% endif %}>
+      <div id="home-gpx-source" class="gpx-upload-card" {% if not custom_course_mode %}hidden aria-hidden="true"{% endif %}>
+        <h3 class="projection-section-title">Télécharge le GPX</h3>
+        <p>Donne un nom à ta course puis importe la trace qui servira à calculer le profil, les tronçons et ta projection.</p>
         <div class="gpx-source-fields">
           <div>
             <label for="home-manual-course-name">Nom de ma course</label>
@@ -670,7 +677,7 @@
         <input id="home-runner-weight" type="number" min="35" max="150" step="0.5" value="{{ user.weight_kg or '' }}" placeholder="kg">
     </div>
     <div class="aid-stations" id="home-course-points">
-      <div style="font-weight:700; margin-bottom:8px;" id="home-point-settings-title">Points de ma trace</div>
+      <h3 class="projection-section-title" id="home-point-settings-title">Points de ma trace</h3>
       <div class="aid-stations-header">
         <div id="home-aid-count-control">
           <label for="home-point-type">Ajouter un point de course</label>
@@ -685,6 +692,7 @@
         </div>
       </div>
       <div class="aid-station-list" id="home-aid-station-list"></div>
+      <div id="home-custom-segment-explorer" hidden></div>
       <div class="official-point-settings" id="home-official-point-settings" hidden>Renseigne ci-dessous le temps d’arrêt prévu à chaque ravito et ravito avec assistance.</div>
       <p class="weight-note">Les quantités alimentaires sont des repères de planification à tester à l’entraînement et à adapter avec un professionnel de santé si nécessaire.</p>
     </div>
@@ -720,6 +728,7 @@
     const status = document.getElementById('home-projection-status');
     const result = document.getElementById('home-projection-result');
     const courseProfilePreview = document.getElementById('home-course-profile-preview');
+    const customSegmentExplorerHost = document.getElementById('home-custom-segment-explorer');
     const customCourseMode = {{ custom_course_mode | default(false) | tojson }};
     const runnerProfileData = {{ runner_profile_overview | default({}) | tojson | safe }};
     const communityPaceCurves = {{ dashboard_cohort_curves | default({}) | tojson | safe }};
@@ -1119,6 +1128,10 @@
       fileInput.required = useCustomTrace;
       fileInput.disabled = !useCustomTrace;
       customCoursePoints.hidden = !useCustomTrace;
+      if (!useCustomTrace && customSegmentExplorerHost) {
+        customSegmentExplorerHost.hidden = true;
+        customSegmentExplorerHost.innerHTML = '';
+      }
       aidCountControl.hidden = !useCustomTrace;
       officialPointSettings.hidden = !official;
       if (official) {
@@ -1684,6 +1697,10 @@
       result.innerHTML = '';
       courseProfilePreview.hidden = true;
       courseProfilePreview.innerHTML = '';
+      if (customSegmentExplorerHost) {
+        customSegmentExplorerHost.hidden = true;
+        customSegmentExplorerHost.innerHTML = '';
+      }
       const file = fileInput.files && fileInput.files[0];
       const courseId = officialCourseInput.value;
       if (!courseId && !file) {
@@ -1782,12 +1799,19 @@
           });
           return metrics;
         };
-        const segmentExplorer = buildCourseSegmentExplorer(data.elevation_profile, aidStations, data.total_distance_km, projectedRows, courseName);
-        courseProfilePreview.innerHTML = `<div id="home-course-profile-svg">${elevationProfileSvg(data.elevation_profile, [], courseName)}</div>${segmentExplorer.html}`;
+        const isCustomCourse = !data.official_course;
+        const segmentExplorer = isCustomCourse
+          ? buildCourseSegmentExplorer(data.elevation_profile, aidStations, data.total_distance_km, projectedRows, courseName)
+          : { html: '', segments: [] };
+        courseProfilePreview.innerHTML = `<div id="home-course-profile-svg">${elevationProfileSvg(data.elevation_profile, [], courseName)}</div>`;
         courseProfilePreview.hidden = false;
         const courseProfileSvgHost = courseProfilePreview.querySelector('#home-course-profile-svg');
-        const segmentPicker = courseProfilePreview.querySelector('#home-segment-picker');
-        const segmentDetailHost = courseProfilePreview.querySelector('#home-segment-detail');
+        if (customSegmentExplorerHost) {
+          customSegmentExplorerHost.innerHTML = segmentExplorer.html;
+          customSegmentExplorerHost.hidden = !segmentExplorer.html;
+        }
+        const segmentPicker = customSegmentExplorerHost?.querySelector('#home-segment-picker');
+        const segmentDetailHost = customSegmentExplorerHost?.querySelector('#home-segment-detail');
         const renderSelectedCourseSegment = () => {
           if (!courseProfileSvgHost || !segmentPicker || !segmentDetailHost) return;
           if (segmentPicker.value === '') {

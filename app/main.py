@@ -6269,6 +6269,21 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
         "CoursePlanTableValue", parent=body_style, fontName="Helvetica-Bold", textColor=ink,
         fontSize=11, leading=13,
     )
+    eyebrow_style = ParagraphStyle(
+        "CoursePlanEyebrow", parent=small_style, fontName="Helvetica-Bold", textColor=coral,
+        fontSize=6.8, leading=9, spaceAfter=3,
+    )
+    card_title_style = ParagraphStyle(
+        "CoursePlanCardTitle", parent=body_style, fontName="Helvetica-Bold", textColor=ink,
+        fontSize=11.5, leading=14, spaceAfter=3,
+    )
+    card_text_style = ParagraphStyle(
+        "CoursePlanCardText", parent=small_style, textColor=muted, fontSize=7.5, leading=10,
+    )
+    hero_time_style = ParagraphStyle(
+        "CoursePlanHeroTime", parent=title_style, fontName="Helvetica-Bold", textColor=ink,
+        fontSize=28, leading=32, spaceAfter=4,
+    )
 
     def metric_card(label: str, value: str, width: float) -> Table:
         card = Table([[
@@ -6287,6 +6302,50 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
             ("RIGHTPADDING", (0, 0), (-1, -1), 9),
         ]))
         return card
+
+    def info_card(label: str, title: str, detail: str, width: float, *, accent: bool = False) -> Table:
+        """Small, scannable PDF card used instead of dense data tables."""
+        card = Table([[
+            Paragraph(str(label).upper(), eyebrow_style),
+        ], [
+            Paragraph(str(title), card_title_style),
+        ], [
+            Paragraph(str(detail), card_text_style),
+        ]], colWidths=[width])
+        style = [
+            ("BACKGROUND", (0, 0), (-1, -1), colors.white),
+            ("BOX", (0, 0), (-1, -1), .55, border),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, 0), 9),
+            ("BOTTOMPADDING", (0, 0), (-1, 0), 0),
+            ("TOPPADDING", (0, 1), (-1, 1), 1),
+            ("BOTTOMPADDING", (0, 1), (-1, 1), 2),
+            ("TOPPADDING", (0, 2), (-1, 2), 0),
+            ("BOTTOMPADDING", (0, 2), (-1, 2), 9),
+            ("LEFTPADDING", (0, 0), (-1, -1), 10),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+        ]
+        if accent:
+            style.append(("LINEBEFORE", (0, 0), (0, -1), 3, coral))
+        card.setStyle(TableStyle(style))
+        return card
+
+    def card_grid(cards: list, columns: int, card_width: float) -> Table:
+        rows = []
+        for start in range(0, len(cards), columns):
+            row = cards[start:start + columns]
+            if len(row) < columns:
+                row.extend([""] * (columns - len(row)))
+            rows.append(row)
+        grid = Table(rows, colWidths=[card_width] * columns, hAlign="LEFT")
+        grid.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        return grid
 
     def clean_profile(raw_points) -> list[dict]:
         return [
@@ -6379,14 +6438,34 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
     runner_name = first_name or user.email
     course_name = _course_plan_pdf_value(plan.get("course_name"), "Course simulée")
     generated_at = dt.datetime.now().strftime("%d/%m/%Y à %H:%M")
-    story = [
-        Paragraph("RUNNING DATA PLAN · PLAN PERSONNALISÉ", ParagraphStyle("CoursePlanKicker", parent=subtitle_style, fontName="Helvetica-Bold", fontSize=7, leading=10, textColor=coral, spaceAfter=5)),
+    hero = Table([[
+        Paragraph("RUNNING DATA PLAN · RACE PACK PERSONNALISÉ", eyebrow_style),
+    ], [
         Paragraph(f"Plan de course - {course_name}", title_style),
+    ], [
+        Paragraph(_course_plan_pdf_value(plan.get("total_time")), hero_time_style),
+    ], [
         Paragraph(
-            f"Préparé pour <b>{_course_plan_pdf_value(runner_name)}</b> - simulation générée le {generated_at}.",
-            subtitle_style,
+            f"Temps total estimé · préparé pour <b>{_course_plan_pdf_value(runner_name)}</b> · généré le {generated_at}",
+            card_text_style,
         ),
-    ]
+    ]], colWidths=[180 * mm], hAlign="LEFT")
+    hero.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.white),
+        ("BOX", (0, 0), (-1, -1), .7, border),
+        ("LINEBEFORE", (0, 0), (0, -1), 4, coral),
+        ("TOPPADDING", (0, 0), (-1, 0), 13),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 0),
+        ("TOPPADDING", (0, 1), (-1, 1), 1),
+        ("BOTTOMPADDING", (0, 1), (-1, 1), 0),
+        ("TOPPADDING", (0, 2), (-1, 2), 2),
+        ("BOTTOMPADDING", (0, 2), (-1, 2), 0),
+        ("TOPPADDING", (0, 3), (-1, 3), 0),
+        ("BOTTOMPADDING", (0, 3), (-1, 3), 13),
+        ("LEFTPADDING", (0, 0), (-1, -1), 14),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 14),
+    ]))
+    story = [hero]
 
     overview = [
         ["Temps total estimé", _course_plan_pdf_value(plan.get("total_time"))],
@@ -6411,31 +6490,32 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
     if elevation_profile:
         story.extend([
             Paragraph("Parcours et profil", section_style),
-            route_map_drawing(elevation_profile), Spacer(1, 5),
             elevation_drawing(elevation_profile, "Profil global - couleurs selon la pente", fueling_windows=plan.get("fueling_windows") or []),
-            Paragraph("Bleu : descente - jaune pâle : terrain roulant - jaune, orange et corail : montée de plus en plus raide. Points jaunes/bleus : repères nutrition terrain.", small_style),
+            Paragraph("Le relief est rempli selon la pente : bleu pour les descentes, jaune pour le roulant, orange et corail pour les montées. Les pastilles signalent les repères nutrition terrain.", small_style),
         ])
 
     pacing = plan.get("pacing") if isinstance(plan.get("pacing"), list) else []
     if pacing:
         story.append(PageBreak())
-        story.append(Paragraph("Allures prises en compte pour le calcul", section_style))
-        pacing_rows = [[Paragraph("Pente", table_header_light_style), Paragraph("Allure projetée", table_header_light_style), Paragraph("VAM", table_header_light_style)]]
-        for row in pacing[:20]:
+        story.extend([
+            Paragraph("Stratégie d'allure", section_style),
+            Paragraph("Les allures ci-dessous sont celles utilisées pour la projection. Elles restent des repères à adapter au terrain, à la météo et à tes sensations.", body_style),
+            Spacer(1, 7),
+        ])
+        pacing_cards = []
+        for row in pacing[:12]:
             if isinstance(row, dict):
-                pacing_rows.append([
-                    Paragraph(_course_plan_pdf_value(row.get("slope")), small_style),
-                    Paragraph(_course_plan_pdf_value(row.get("pace")), small_style),
-                    Paragraph(_course_plan_pdf_value(row.get("vam")), small_style),
-                ])
-        pacing_table = Table(pacing_rows, colWidths=[55 * mm, 62 * mm, 48 * mm], hAlign="LEFT", repeatRows=1)
-        pacing_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), soft_ink), ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#fcfbf8")]),
-            ("LINEBELOW", (0, 0), (-1, -1), .35, border), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("TOPPADDING", (0, 0), (-1, 0), 7), ("BOTTOMPADDING", (0, 0), (-1, 0), 7),
-            ("TOPPADDING", (0, 1), (-1, -1), 7), ("BOTTOMPADDING", (0, 1), (-1, -1), 7),
-        ]))
-        story.append(pacing_table)
+                pace = _course_plan_pdf_value(row.get("pace"))
+                vam = _course_plan_pdf_value(row.get("vam"))
+                pacing_cards.append(info_card(
+                    _course_plan_pdf_value(row.get("slope")),
+                    pace,
+                    f"VAM de référence : {vam}",
+                    84 * mm,
+                    accent=True,
+                ))
+        if pacing_cards:
+            story.append(card_grid(pacing_cards, 2, 84 * mm))
 
     nutrition = plan.get("nutrition") if isinstance(plan.get("nutrition"), dict) else {}
     story.append(PageBreak())
@@ -6472,116 +6552,79 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
 
     nutrition_stops = plan.get("nutrition_stops") if isinstance(plan.get("nutrition_stops"), list) else []
     if nutrition_stops:
-        story.append(Paragraph("Préparation nutritionnelle par ravito", section_style))
-        nutrition_rows = [[
-            Paragraph("À préparer à", table_header_light_style), Paragraph("Jusqu'à", table_header_light_style), Paragraph("Durée", table_header_light_style),
-            Paragraph("Glucides", table_header_light_style), Paragraph("Protéines", table_header_light_style), Paragraph("Lipides", table_header_light_style), Paragraph("Kcal", table_header_light_style),
-        ]]
+        story.extend([
+            Paragraph("Préparer chaque ravito", section_style),
+            Paragraph("Lis chaque carte comme une consigne : ce que tu peux prendre sur place, ce qu'il faut emporter et la durée jusqu'au prochain point.", body_style),
+            Spacer(1, 7),
+        ])
+        nutrition_cards = []
         for stop in nutrition_stops[:80]:
-            if isinstance(stop, dict):
-                nutrition_rows.append([
-                    Paragraph(f"{_course_plan_pdf_value(stop.get('point'))}<br/>{_course_plan_pdf_value(stop.get('km'))}", small_style),
-                    Paragraph(_course_plan_pdf_value(stop.get("destination")), small_style), Paragraph(_course_plan_pdf_value(stop.get("duration")), small_style),
-                    Paragraph(f"{_course_plan_pdf_value(stop.get('carbs'))}<br/><b>Sur place :</b> {_course_plan_pdf_value(stop.get('at_aid'))}<br/><b>Emporter :</b> {_course_plan_pdf_value(stop.get('to_carry'))}", small_style), Paragraph(_course_plan_pdf_value(stop.get("proteins")), small_style),
-                    Paragraph(_course_plan_pdf_value(stop.get("fats")), small_style), Paragraph(_course_plan_pdf_value(stop.get("calories")), small_style),
-                ])
-        nutrition_table = Table(nutrition_rows, colWidths=[38 * mm, 34 * mm, 21 * mm, 22 * mm, 22 * mm, 20 * mm, 22 * mm], repeatRows=1)
-        nutrition_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), soft_ink), ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#fcfbf8")]),
-            ("LINEBELOW", (0, 0), (-1, -1), .35, border), ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("TOPPADDING", (0, 0), (-1, 0), 7), ("BOTTOMPADDING", (0, 0), (-1, 0), 7),
-            ("TOPPADDING", (0, 1), (-1, -1), 7), ("BOTTOMPADDING", (0, 1), (-1, -1), 7),
-        ]))
-        story.append(nutrition_table)
-        terrain_advice = [
-            f"<b>{_course_plan_pdf_value(stop.get('point'))}</b> : {_course_plan_pdf_value(stop.get('advice'))}"
-            for stop in nutrition_stops if isinstance(stop, dict) and stop.get("advice")
-        ]
-        if terrain_advice:
-            story.extend([
-                Spacer(1, 7), Paragraph("Quand s'alimenter selon le terrain", section_style),
-                *[Paragraph(advice, small_style) for advice in terrain_advice],
-            ])
+            if not isinstance(stop, dict):
+                continue
+            point = _course_plan_pdf_value(stop.get("point"))
+            km = _course_plan_pdf_value(stop.get("km"))
+            detail = (
+                f"Jusqu'à {_course_plan_pdf_value(stop.get('destination'))} · {_course_plan_pdf_value(stop.get('duration'))}<br/>"
+                f"<b>Sur place</b> {_course_plan_pdf_value(stop.get('at_aid'))} · "
+                f"<b>À emporter</b> {_course_plan_pdf_value(stop.get('to_carry'))}<br/>"
+                f"{_course_plan_pdf_value(stop.get('proteins'))} protéines · {_course_plan_pdf_value(stop.get('fats'))} lipides · {_course_plan_pdf_value(stop.get('calories'))}"
+            )
+            if stop.get("advice"):
+                detail += f"<br/><font color=\"#6f6b64\">{_course_plan_pdf_value(stop.get('advice'))}</font>"
+            nutrition_cards.append(info_card(f"RAVITO · {km}", point, detail, 84 * mm, accent=True))
+        if nutrition_cards:
+            story.append(card_grid(nutrition_cards, 2, 84 * mm))
 
     fueling_schedule = plan.get("fueling_schedule") if isinstance(plan.get("fueling_schedule"), list) else []
     if fueling_schedule:
         story.append(PageBreak())
         story.extend([
-            Paragraph("Plan de prises de glucides toutes les 20 minutes", section_style),
-            Paragraph("Les horaires incluent les arrêts ravito. Cette grille positionne les prises selon le relief à venir ; les quantités de ravito restent la référence à préparer.", body_style),
+            Paragraph("Rythme des prises de glucides", section_style),
+            Paragraph("Une prise toutes les 20 minutes. Les cartes donnent le moment, la position et le terrain à venir ; les quantités de ravito restent la référence à préparer.", body_style),
             Spacer(1, 6),
         ])
-        schedule_rows = [[
-            Paragraph("Moment", table_header_light_style), Paragraph("Position", table_header_light_style), Paragraph("Relief à venir", table_header_light_style),
-            Paragraph("Glucides", table_header_light_style), Paragraph("Conseil", table_header_light_style),
-        ]]
+        schedule_cards = []
         for intake in fueling_schedule[:160]:
             if not isinstance(intake, dict):
                 continue
-            schedule_rows.append([
-                Paragraph(_course_plan_pdf_value(intake.get("moment")), small_style),
-                Paragraph(_course_plan_pdf_value(intake.get("km")), small_style),
-                Paragraph(f"{_course_plan_pdf_value(intake.get('gain'))}<br/>{_course_plan_pdf_value(intake.get('loss'))}", small_style),
-                Paragraph(_course_plan_pdf_value(intake.get("carbs")), small_style),
-                Paragraph(_course_plan_pdf_value(intake.get("advice")), small_style),
-            ])
-        schedule_table = Table(schedule_rows, colWidths=[26 * mm, 24 * mm, 30 * mm, 22 * mm, 63 * mm], repeatRows=1)
-        schedule_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), soft_ink),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#fcfbf8")]),
-            ("LINEBELOW", (0, 0), (-1, -1), .35, border), ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("TOPPADDING", (0, 0), (-1, 0), 7), ("BOTTOMPADDING", (0, 0), (-1, 0), 7),
-            ("TOPPADDING", (0, 1), (-1, -1), 7), ("BOTTOMPADDING", (0, 1), (-1, -1), 7),
-        ]))
-        story.append(schedule_table)
+            schedule_cards.append(info_card(
+                f"{_course_plan_pdf_value(intake.get('moment'))} · {_course_plan_pdf_value(intake.get('km'))}",
+                _course_plan_pdf_value(intake.get("carbs")),
+                f"À venir : {_course_plan_pdf_value(intake.get('gain'))} · {_course_plan_pdf_value(intake.get('loss'))}<br/>{_course_plan_pdf_value(intake.get('advice'))}",
+                56 * mm,
+            ))
+        if schedule_cards:
+            story.append(card_grid(schedule_cards, 3, 56 * mm))
 
     roadbook = plan.get("roadbook") if isinstance(plan.get("roadbook"), list) else []
     if roadbook:
         story.append(PageBreak())
         story.append(Paragraph("Feuille de route", section_style))
-        story.append(Paragraph("Tes passages estimés et les principales barrières horaires. Les informations nutritionnelles et le détail des tronçons sont présentés dans les sections dédiées.", subtitle_style))
-        rows = [[
-            Paragraph("Point", table_header_light_style), Paragraph("Km", table_header_light_style), Paragraph("Alt.", table_header_light_style),
-            Paragraph("D+ cum.", table_header_light_style), Paragraph("Type", table_header_light_style), Paragraph("Passage prévu", table_header_light_style),
-            Paragraph("Barrière", table_header_light_style),
-        ]]
+        story.append(Paragraph("Tes passages estimés et les barrières importantes. Garde cette page accessible le jour de la course.", subtitle_style))
+        roadbook_cards = []
         for point in roadbook[:120]:
             if not isinstance(point, dict):
                 continue
-            rows.append([
-                Paragraph(_course_plan_pdf_value(point.get("name")), small_style),
-                Paragraph(_course_plan_pdf_value(point.get("km")), small_style),
-                Paragraph(_course_plan_pdf_value(point.get("altitude")), small_style),
-                Paragraph(_course_plan_pdf_value(point.get("cumulative_gain")), small_style),
-                Paragraph(_course_plan_pdf_value(point.get("type")), small_style),
-                Paragraph(_course_plan_pdf_value(point.get("passage")), small_style),
-                Paragraph(_course_plan_pdf_value(point.get("cutoff")), small_style),
-            ])
-        roadbook_table = Table(rows, colWidths=[45 * mm, 16 * mm, 20 * mm, 22 * mm, 23 * mm, 27 * mm, 27 * mm], repeatRows=1)
-        roadbook_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), soft_ink),
-            ("TEXTCOLOR", (0, 0), (-1, 0), muted),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("BACKGROUND", (0, 1), (-1, -1), colors.white),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#fcfbf8")]),
-            ("LINEBELOW", (0, 0), (-1, -1), 0.35, border),
-            ("LINEABOVE", (0, 0), (-1, 0), 0.5, border),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("TOPPADDING", (0, 0), (-1, 0), 7),
-            ("BOTTOMPADDING", (0, 0), (-1, 0), 7),
-            ("TOPPADDING", (0, 1), (-1, -1), 8),
-            ("BOTTOMPADDING", (0, 1), (-1, -1), 8),
-            ("LEFTPADDING", (0, 0), (-1, -1), 5),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 5),
-            ("TEXTCOLOR", (6, 1), (6, -1), coral),
-        ]))
-        story.append(roadbook_table)
+            point_type = _course_plan_pdf_value(point.get("type"))
+            detail = (
+                f"KM {_course_plan_pdf_value(point.get('km'))} · {_course_plan_pdf_value(point.get('altitude'))} · "
+                f"D+ cum. {_course_plan_pdf_value(point.get('cumulative_gain'))}<br/>"
+                f"<b>Passage prévu { _course_plan_pdf_value(point.get('passage')) }</b>"
+            )
+            cutoff = _course_plan_pdf_value(point.get("cutoff"))
+            if cutoff != "-":
+                detail += f" · <font color=\"#d9462a\"><b>barrière {cutoff}</b></font>"
+            if point.get("stop") and str(point.get("stop")) not in {"-", "0", "0 min"}:
+                detail += f"<br/>Arrêt prévu : {_course_plan_pdf_value(point.get('stop'))}"
+            roadbook_cards.append(info_card(point_type, _course_plan_pdf_value(point.get("name")), detail, 168 * mm, accent=point_type.lower() in {"ravito", "assistance", "arrivée"}))
+        for card in roadbook_cards:
+            story.extend([KeepTogether([card, Spacer(1, 5)])])
 
     legs = plan.get("legs") if isinstance(plan.get("legs"), list) else []
     if legs and elevation_profile:
         story.append(PageBreak())
-        story.append(Paragraph("Détail visuel des tronçons", title_style))
-        story.append(Paragraph("Chaque profil est extrait de la trace GPX utilisée pour cette simulation.", subtitle_style))
+        story.append(Paragraph("Tes tronçons, un par un", title_style))
+        story.append(Paragraph("Chaque profil est extrait de la trace GPX. Utilise ces blocs pour préparer l'effort et les apports jusqu'au prochain point.", subtitle_style))
         for index, leg in enumerate(legs[:80], start=1):
             if not isinstance(leg, dict):
                 continue
@@ -6590,13 +6633,16 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
             except (TypeError, ValueError):
                 continue
             leg_profile = [point for point in elevation_profile if from_km - .02 <= float(point["distance_km"]) <= to_km + .02]
-            heading = f"{index}. {_course_plan_pdf_value(leg.get('from_name'))} - {_course_plan_pdf_value(leg.get('to_name'))}"
-            detail = f"{_course_plan_pdf_value(leg.get('distance'))} - {_course_plan_pdf_value(leg.get('gain'))} - {_course_plan_pdf_value(leg.get('loss'))} - {_course_plan_pdf_value(leg.get('duration'))} - allure {_course_plan_pdf_value(leg.get('pace'))}"
+            heading = f"{_course_plan_pdf_value(leg.get('from_name'))} - {_course_plan_pdf_value(leg.get('to_name'))}"
+            detail = (
+                f"{_course_plan_pdf_value(leg.get('distance'))} · {_course_plan_pdf_value(leg.get('gain'))} · "
+                f"{_course_plan_pdf_value(leg.get('loss'))} · {_course_plan_pdf_value(leg.get('duration'))} · "
+                f"allure prévue {_course_plan_pdf_value(leg.get('pace'))}"
+            )
             story.extend([
-                Paragraph(heading, section_style),
-                Paragraph(detail, small_style), Spacer(1, 3),
+                info_card(f"TRONÇON {index:02d}", heading, detail, 168 * mm, accent=True), Spacer(1, 4),
                 elevation_drawing(leg_profile, f"Profil du tronçon - km {from_km:.1f} à {to_km:.1f}", height=42 * mm),
-                Spacer(1, 6),
+                Spacer(1, 9),
             ])
 
     def add_footer(canvas, _doc):

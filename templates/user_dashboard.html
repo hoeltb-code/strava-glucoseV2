@@ -1800,18 +1800,17 @@
           return metrics;
         };
         const isCustomCourse = !data.official_course;
-        const segmentExplorer = isCustomCourse
-          ? buildCourseSegmentExplorer(data.elevation_profile, aidStations, data.total_distance_km, projectedRows, courseName)
-          : { html: '', segments: [] };
-        courseProfilePreview.innerHTML = `<div id="home-course-profile-svg">${elevationProfileSvg(data.elevation_profile, [], courseName)}</div>`;
+        const segmentExplorer = buildCourseSegmentExplorer(data.elevation_profile, aidStations, data.total_distance_km, projectedRows, courseName);
+        courseProfilePreview.innerHTML = `<div id="home-course-profile-svg">${elevationProfileSvg(data.elevation_profile, [], courseName)}</div>${isCustomCourse ? '' : segmentExplorer.html}`;
         courseProfilePreview.hidden = false;
         const courseProfileSvgHost = courseProfilePreview.querySelector('#home-course-profile-svg');
         if (customSegmentExplorerHost) {
-          customSegmentExplorerHost.innerHTML = segmentExplorer.html;
-          customSegmentExplorerHost.hidden = !segmentExplorer.html;
+          customSegmentExplorerHost.innerHTML = isCustomCourse ? segmentExplorer.html : '';
+          customSegmentExplorerHost.hidden = !isCustomCourse || !segmentExplorer.html;
         }
-        const segmentPicker = customSegmentExplorerHost?.querySelector('#home-segment-picker');
-        const segmentDetailHost = customSegmentExplorerHost?.querySelector('#home-segment-detail');
+        const segmentExplorerRoot = isCustomCourse ? customSegmentExplorerHost : courseProfilePreview;
+        const segmentPicker = segmentExplorerRoot?.querySelector('#home-segment-picker');
+        const segmentDetailHost = segmentExplorerRoot?.querySelector('#home-segment-detail');
         const renderSelectedCourseSegment = () => {
           if (!courseProfileSvgHost || !segmentPicker || !segmentDetailHost) return;
           if (segmentPicker.value === '') {

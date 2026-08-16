@@ -6690,49 +6690,54 @@ def _build_course_plan_roadbook_png(*, plan: dict) -> bytes:
     width, margin = 1080, 54
     header_height, row_height, footer_height = 210, 76, 70
     height = header_height + len(roadbook) * row_height + footer_height
-    image = Image.new("RGB", (width, height), "#071525")
+    # Version claire, pensée pour être enregistrée sur le téléphone et partagée.
+    image = Image.new("RGB", (width, height), "#f8f5ef")
     draw = ImageDraw.Draw(image)
     title_font, subtitle_font = _font(40, bold=True), _font(22)
     type_font, name_font, detail_font = _font(18, bold=True), _font(25, bold=True), _font(20)
-    draw.rounded_rectangle((0, 0, width, header_height), radius=0, fill="#12304d")
-    draw.rectangle((0, header_height - 8, width, header_height), fill="#4de2ff")
+    draw.rectangle((0, 0, width, header_height), fill="#ffffff")
+    draw.rectangle((0, 0, 10, header_height), fill="#ff5a36")
+    draw.rectangle((0, header_height - 7, width, header_height), fill="#ff5a36")
     course_name = _short(plan.get("course_name") or "Plan de course", 44)
-    draw.text((margin, 42), course_name, font=title_font, fill="#ffffff")
+    draw.text((margin, 32), "RUNNING DATA PLAN · FEUILLE DE ROUTE", font=type_font, fill="#d9462a")
+    draw.text((margin, 67), course_name, font=title_font, fill="#1d1d1b")
     overview = " · ".join(part for part in [str(plan.get("distance") or "").strip(), str(plan.get("total_time") or "").strip()] if part)
-    draw.text((margin, 96), overview or "Feuille de route", font=subtitle_font, fill="#b9d5ea")
-    draw.text((margin, 142), "PASSAGES ESTIMÉS · ARRÊTS · RAVITOS · ASSISTANCES · CONTRÔLES", font=type_font, fill="#b8ff45")
+    draw.text((margin, 123), overview or "Feuille de route", font=subtitle_font, fill="#6f6b64")
+    draw.text((margin, 164), "PASSAGES ESTIMÉS · ARRÊTS · RAVITOS · ASSISTANCES · CONTRÔLES", font=type_font, fill="#6f6b64")
 
-    colors = {
-        "départ": (77, 226, 255),
-        "ravito": (250, 204, 21),
-        "assistance": (249, 115, 22),
-        "contrôle": (167, 139, 250),
-        "arrivée": (184, 255, 69),
+    point_styles = {
+        "départ": {"accent": "#57a8ca", "chip": "#eaf5f9", "text": "#2d7494"},
+        "ravito": {"accent": "#d9a12e", "chip": "#fff4d9", "text": "#966b14"},
+        "assistance": {"accent": "#e58345", "chip": "#fff0e6", "text": "#b65422"},
+        "contrôle": {"accent": "#9884c4", "chip": "#f1edfb", "text": "#68528e"},
+        "arrivée": {"accent": "#e55b40", "chip": "#fff0eb", "text": "#b63e28"},
     }
     y = header_height
     for index, row in enumerate(roadbook):
         row_type = _short(row.get("type") or "Point", 16)
-        color = colors.get(row_type.lower(), (148, 174, 214))
-        row_fill = "#0c2036" if index % 2 == 0 else "#0a1b2e"
+        style = point_styles.get(row_type.lower(), {"accent": "#9a958d", "chip": "#f0ede7", "text": "#625e58"})
+        row_fill = "#ffffff" if index % 2 == 0 else "#fcfbf8"
         draw.rectangle((0, y, width, y + row_height), fill=row_fill)
-        draw.rectangle((0, y, 10, y + row_height), fill=color)
+        draw.rectangle((0, y, 8, y + row_height), fill=style["accent"])
+        draw.line((margin, y + row_height, width - margin, y + row_height), fill="#e2ddd4", width=1)
         pill_right = margin + 164
-        draw.rounded_rectangle((margin, y + 19, pill_right, y + 55), radius=18, fill=color)
+        draw.rounded_rectangle((margin, y + 19, pill_right, y + 55), radius=18, fill=style["chip"], outline=style["accent"], width=1)
         type_bbox = draw.textbbox((0, 0), row_type.upper(), font=type_font)
         type_width = type_bbox[2] - type_bbox[0]
-        draw.text((margin + (164 - type_width) / 2, y + 27), row_type.upper(), font=type_font, fill="#0a1b2e")
-        draw.text((pill_right + 22, y + 16), _short(row.get("name"), 33), font=name_font, fill="#ffffff")
+        draw.text((margin + (164 - type_width) / 2, y + 27), row_type.upper(), font=type_font, fill=style["text"])
+        draw.text((pill_right + 22, y + 16), _short(row.get("name"), 33), font=name_font, fill="#1d1d1b")
         stop = str(row.get("stop") or "").strip()
         stop_detail = f"   ·   arrêt {stop}" if stop and stop not in {"-", "0 min", "0"} else ""
-        draw.text((pill_right + 22, y + 45), _short(f"{_short(row.get('km'), 16)}{stop_detail}", 38), font=detail_font, fill="#a8c2d8")
+        draw.text((pill_right + 22, y + 45), _short(f"{_short(row.get('km'), 16)}{stop_detail}", 38), font=detail_font, fill="#6f6b64")
         passage = re.sub(r"^(J\+\d+)\s*", r"\1   -   ", _short(row.get("passage"), 22))
         passage_bbox = draw.textbbox((0, 0), passage, font=name_font)
-        draw.text((width - margin - (passage_bbox[2] - passage_bbox[0]), y + 23), passage, font=name_font, fill="#ffffff")
+        draw.text((width - margin - (passage_bbox[2] - passage_bbox[0]), y + 23), passage, font=name_font, fill="#1d1d1b")
         y += row_height
 
-    draw.rectangle((0, height - footer_height, width, height), fill="#102b46")
-    draw.text((margin, height - 47), "Running Data Plan · Feuille de route indicative", font=detail_font, fill="#b9d5ea")
-    draw.text((width - margin - 214, height - 47), "À enregistrer sur ton téléphone", font=detail_font, fill="#b8ff45")
+    draw.rectangle((0, height - footer_height, width, height), fill="#ffffff")
+    draw.rectangle((0, height - footer_height, width, height - footer_height + 4), fill="#ff5a36")
+    draw.text((margin, height - 47), "Running Data Plan · Feuille de route indicative", font=detail_font, fill="#6f6b64")
+    draw.text((width - margin - 250, height - 47), "À enregistrer sur ton téléphone", font=detail_font, fill="#d9462a")
     png_buffer = BytesIO()
     image.save(png_buffer, format="PNG", optimize=True)
     return png_buffer.getvalue()

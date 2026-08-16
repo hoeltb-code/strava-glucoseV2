@@ -108,8 +108,9 @@
   .projection-panel h2 { margin:0 0 8px; font-size:1.42rem; }
   .projection-panel p { color:var(--text-muted); margin:0 0 18px; line-height:1.45; }
   .simulation-explainer { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; margin:14px 0 18px; }
-  .simulation-explainer-card { padding:12px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:14px; background:#fff; }
+  .simulation-explainer-card { display:flex; align-items:flex-start; gap:11px; padding:12px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:14px; background:#fff; }
   .simulation-explainer-card:nth-child(1), .simulation-explainer-card:nth-child(2), .simulation-explainer-card:nth-child(3) { border-color:#dfdad0; border-left-color:var(--accent); background:#fff; }
+  .simulation-step-index { flex:0 0 29px; height:29px; display:grid; place-items:center; border-radius:50%; background:#fff0ea; color:var(--accent-dark); font:700 .76rem "DM Mono", monospace; }
   .simulation-explainer-card strong { display:block; color:var(--text-main); font-size:.9rem; }
   .simulation-explainer-card p { margin:6px 0 0; font-size:.82rem; line-height:1.45; }
   .projection-form { display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:12px; align-items:end; }
@@ -228,7 +229,7 @@
   .nutrition-rate-control label { display:flex; justify-content:space-between; gap:6px; margin:0; color:var(--text-main); font-family:"Manrope", sans-serif; font-size:.76rem; font-weight:700; letter-spacing:0; text-transform:none; }
   .nutrition-rate-control output { color:var(--accent-2); font-weight:800; }
   .nutrition-rate-control input { width:100%; margin-top:5px; accent-color:var(--accent); }
-  .nutrition-energy-balance { display:flex; align-items:flex-start; gap:7px; margin:11px 0 0; color:var(--text-muted); font-size:.72rem; line-height:1.35; cursor:pointer; }
+  .nutrition-energy-balance { display:flex; align-items:flex-start; gap:7px; margin:11px 0 0; color:var(--text-muted); font-family:"Manrope", system-ui, sans-serif; font-size:.76rem; font-weight:400; line-height:1.4; letter-spacing:0; text-transform:none; cursor:pointer; }
   .nutrition-energy-balance input { width:auto; min-height:0; margin:2px 0 0; accent-color:var(--accent); }
   .profile-calculate { width:100%; margin-top:14px; }
   .projection-status { min-height:20px; margin:12px 0 0; color:var(--text-muted); font-size:.88rem; }
@@ -521,16 +522,19 @@
     <h2>{% if custom_course_mode %}Simuler ma propre trace GPX{% else %}Simuler une course{% endif %}</h2>
     <div class="simulation-explainer">
       <article class="simulation-explainer-card">
-        <strong>🗺️ {% if custom_course_mode %}Importe ta trace{% else %}Choisis ton parcours{% endif %}</strong>
-        <p>{% if custom_course_mode %}Donne un nom à ta course, ajoute son GPX puis place tes ravitos, assistances et contrôles.{% else %}Sélectionne une course enregistrée, puis l’intensité cardiaque à laquelle tu souhaites la courir.{% endif %}</p>
+        <span class="simulation-step-index">01</span>
+        <div><strong>{% if custom_course_mode %}Importe ta trace{% else %}Choisis ton parcours{% endif %}</strong>
+        <p>{% if custom_course_mode %}Donne un nom à ta course, ajoute son GPX puis place tes ravitos, assistances et contrôles.{% else %}Sélectionne une course enregistrée, puis l’intensité cardiaque à laquelle tu souhaites la courir.{% endif %}</p></div>
       </article>
       <article class="simulation-explainer-card">
-        <strong>📈 Ton historique affine le chrono</strong>
-        <p>La projection personnalisée devient fiable après avoir enregistré de nombreuses sorties, à différentes intensités et sur des profils de pente variés. Plus ton historique est riche, plus les vitesses utilisées sont précises.</p>
+        <span class="simulation-step-index">02</span>
+        <div><strong>Ton historique affine le chrono</strong>
+        <p>La projection personnalisée devient fiable après avoir enregistré de nombreuses sorties, à différentes intensités et sur des profils de pente variés. Plus ton historique est riche, plus les vitesses utilisées sont précises.</p></div>
       </article>
       <article class="simulation-explainer-card">
-        <strong>🎚️ Ajuste si nécessaire</strong>
-        <p>Si tu viens de t’inscrire ou que ton historique est encore limité, l’ajustement manuel est recommandé : il crée un profil de départ représentatif, que tu peux affiner à tout moment.</p>
+        <span class="simulation-step-index">03</span>
+        <div><strong>Ajuste si nécessaire</strong>
+        <p>Si tu viens de t’inscrire ou que ton historique est encore limité, l’ajustement manuel est recommandé : il crée un profil de départ représentatif, que tu peux affiner à tout moment.</p></div>
       </article>
     </div>
     <form class="projection-form" id="home-projection-form">
@@ -1701,10 +1705,9 @@
         const stopDetail = stopSeconds ? ` · ${formatDuration(stopSeconds)} de ravito` : '';
         const manualCourseName = manualCourseNameInput.value.trim() || 'Ma trace GPX';
         const courseDetail = data.official_course ? ` · ${data.official_course.name}` : ` · ${manualCourseName}`;
-        const coefficientDetail = simulationCoefficientPercent !== 100 ? ` · coefficient ${simulationCoefficientPercent}% (${courseTimeAdjustmentLabel(simulationCoefficientPercent)})` : '';
         result.innerHTML = `
           <h3 class="projection-planning-title">Planifier mon temps d’arrêts aux ravitos</h3>
-          <div class="home-summary-label">Temps total estimé · ${manualMode.checked ? 'réglages manuels' : zone}${courseDetail}${coefficientDetail}</div>
+          <div class="home-summary-label">Temps total estimé · ${manualMode.checked ? 'réglages manuels' : zone}${courseDetail}</div>
           <div class="projection-time" id="home-projection-total">${formatDuration(totalSeconds)}</div>
           <div class="projection-detail" id="home-projection-distance-detail">${Number(data.total_distance_km || 0).toFixed(1)} km · D+ ${Math.round(gain)} m · D− ${Math.round(loss)} m · ${formatDuration(movingSeconds)} en mouvement${stopDetail}</div>
           ${manualMode.checked ? '<div class="projection-detail" style="margin-top:8px;">Projection calculée avec tes réglages manuels. Ils ne sont pas encore sauvegardés.</div>' : ''}

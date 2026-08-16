@@ -1035,126 +1035,108 @@
             {% endif %}
           </p>
 
-          <div style="margin-top:8px; height:220px; width:100%; max-width:100%; overflow:hidden;">
-            <canvas id="altitudeChart" height="220" style="width:100%; height:100%; display:block;"></canvas>
+          <div class="card activity-slope-profile-card" style="margin:14px 0 0; padding:14px;">
+            <p class="muted" style="margin:0 0 10px; font-size:.78rem;">Profil de la montée · le dénivelé est rempli et coloré selon la pente lissée.</p>
+            <div class="slope-profile-legend" aria-label="Légende des pentes de la montée">
+              <span><i style="background:#419fce"></i>&lt; −15 %</span><span><i style="background:#83cceb"></i>−15 à −5 %</span><span><i style="background:#dfe68d"></i>−5 à 5 %</span><span><i style="background:#f4c446"></i>5 à 15 %</span><span><i style="background:#f38b2d"></i>15 à 30 %</span><span><i style="background:#e94c34"></i>&gt; 30 %</span>
+            </div>
+            <div style="height:230px; width:100%; max-width:100%; overflow:hidden;">
+              <canvas id="climbProfileChart" height="230" style="width:100%; height:100%; display:block;"></canvas>
+            </div>
           </div>
         </div>
 
-        <!-- Script du profil altitude "style Strava" -->
+        <!-- Script du profil coloré de la montée sélectionnée -->
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <script>
           (function() {
-            const rawAltData = {{ alt_profile_js | safe }};
-            if (!rawAltData || rawAltData.length === 0) return;
-
+            const rawProfileData = {{ profile_chart_points_js | safe }};
+            const canvas = document.getElementById('climbProfileChart');
+            if (!canvas || !rawProfileData || rawProfileData.length < 2 || typeof Chart === 'undefined') return;
             const kmDebut = {{ selected_climb.km_debut }};
             const kmFin   = {{ selected_climb.km_fin }};
+            const climbData = rawProfileData
+              .filter(point => Number(point.x) >= kmDebut && Number(point.x) <= kmFin)
+              .map(point => ({
+                x: Number(point.x), y: Number(point.y), grade: Number(point.grade || 0),
+                vam: point.vam, hr: point.hr, glucose: point.glucose, pace: point.pace,
+              }));
+            if (climbData.length < 2) return;
 
-            // Profil complet {x: km, y: alt}
-            const altData = rawAltData.map(pt => ({ x: pt[0], y: pt[1] }));
+            const slopeColor = (grade) => {
+              if (grade <= -15) return '#419fce';
+              if (grade <= -5) return '#83cceb';
+              if (grade < 5) return '#dfe68d';
+              if (grade < 15) return '#f4c446';
+              if (grade < 30) return '#f38b2d';
+              return '#e94c34';
+            };
+            const slopeAreaPlugin = {
+              id: 'climbSlopeArea',
+              beforeDatasetsDraw(chart) {
+                const { ctx, scales } = chart;
+                const points = chart.getDatasetMeta(0).data;
+                if (!points || points.length < 2) return;
+                const baseY = scales.y.getPixelForValue(scales.y.min);
+                ctx.save();
+                for (let index = 0; index < points.length - 1; index += 1) {
+                  const point = points[index];
+                  const next = points[index + 1];
+                  ctx.fillStyle = slopeColor(climbData[index + 1].grade || 0);
+                  ctx.beginPath();
+                  ctx.moveTo(point.x, baseY);
+                  ctx.lineTo(point.x, point.y);
+                  ctx.lineTo(next.x, next.y);
+                  ctx.lineTo(next.x, baseY);
+                  ctx.closePath();
+                  ctx.fill();
+                }
+                ctx.restore();
+              }
+            };
 
-            // Montée sélectionnée (pour les points de début / fin)
-            const climbPoints = altData.filter(pt => pt.x >= kmDebut && pt.x <= kmFin);
-            const startPoint  = climbPoints.length > 0 ? [climbPoints[0]] : [];
-            const endPoint    = climbPoints.length > 1 ? [climbPoints[climbPoints.length - 1]] : [];
-
-            // Dataset spécial : même profil, mais avec des valeurs null en dehors de la montée
-            const highlightedClimbData = altData.map(pt =>
-              (pt.x >= kmDebut && pt.x <= kmFin)
-                ? { x: pt.x, y: pt.y }
-                : { x: pt.x, y: null }
-            );
-
-            const ctx = document.getElementById('altitudeChart').getContext('2d');
-
-            new Chart(ctx, {
+            new Chart(canvas.getContext('2d'), {
               type: 'line',
               data: {
-                datasets: [
-                  {
-                    label: 'Profil altitude',
-                    data: altData,
-                    borderColor: '#4de2ff',
-                    borderWidth: 1,
-                    pointRadius: 0,
-                    tension: 0.25,
-                    fill: true,
-                    backgroundColor: 'rgba(148, 163, 184, 0.15)',
-                    order: 1
-                  },
-                  {
-                    label: 'Montée sélectionnée',
-                    data: highlightedClimbData,
-                    borderColor: '#b8ff45',
-                    borderWidth: 1,
-                    pointRadius: 2,
-                    tension: 0.25,
-                    fill: false,
-                    order: 2
-                  },
-                  {
-                    type: 'scatter',
-                    label: 'Début montée',
-                    data: startPoint,
-                    backgroundColor: '#4de2ff',
-                    borderColor: '#4de2ff',
-                    pointRadius: 5,
-                    pointHoverRadius: 7,
-                    showLine: false,
-                    order: 3
-                  },
-                  {
-                    type: 'scatter',
-                    label: 'Fin montée',
-                    data: endPoint,
-                    backgroundColor: '#b8ff45',
-                    borderColor: '#b8ff45',
-                    pointRadius: 5,
-                    pointHoverRadius: 7,
-                    showLine: false,
-                    order: 3
-                  }
-                ]
+                datasets: [{
+                  label: 'Altitude', data: climbData, borderColor: 'rgba(69, 67, 63, .50)',
+                  backgroundColor: 'transparent', borderWidth: 1.25, pointRadius: 0, fill: false, tension: 0.12,
+                }]
               },
               options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 animation: false,
+                interaction: { mode: 'index', intersect: false },
                 plugins: {
-                  legend: {
-                    display: false
-                  },
+                  legend: { display: false },
                   tooltip: {
-                    intersect: false,
-                    mode: 'index',
                     callbacks: {
-                      label: function(context) {
-                        const x = context.parsed.x;
-                        const y = context.parsed.y;
-                        if (x == null || y == null) return '';
-                        const inClimb = (x >= kmDebut && x <= kmFin);
-                        const base = `${x.toFixed(1)} km – ${Math.round(y)} m`;
-                        return inClimb ? `${base} (montée)` : base;
-                      }
+                      title: items => `km ${items[0].raw.x.toFixed(2)} · ${Math.round(items[0].raw.y)} m`,
+                      label: item => `Pente ${item.raw.grade >= 0 ? '+' : ''}${item.raw.grade.toFixed(1)} %`,
+                      afterLabel: item => {
+                        const details = [];
+                        if (item.raw.vam !== null && item.raw.vam !== undefined) details.push(`VAM ${item.raw.vam >= 0 ? '+' : ''}${item.raw.vam} m/h`);
+                        if (item.raw.hr !== null && item.raw.hr !== undefined) details.push(`FC ${item.raw.hr} bpm`);
+                        if (item.raw.glucose !== null && item.raw.glucose !== undefined) details.push(`Glycémie ${item.raw.glucose} mg/dL`);
+                        return details;
+                      },
                     }
                   }
                 },
                 scales: {
                   x: {
                     type: 'linear',
-                    title: { display: true, text: 'Distance (km)' },
-                    ticks: { stepSize: 1 },
-                    grid: { color: 'rgba(148, 163, 184, 0.2)' }
+                    title: { display: true, text: 'Distance dans l’activité (km)', color: '#5f5b54' },
+                    ticks: { color: '#6f6b64' }, grid: { color: 'rgba(173, 166, 154, 0.25)' }
                   },
                   y: {
-                    title: { display: true, text: 'Altitude (m)' },
-                    grid: { color: 'rgba(148, 163, 184, 0.2)' }
+                    title: { display: true, text: 'Altitude (m)', color: '#5f5b54' },
+                    ticks: { color: '#6f6b64' }, grid: { color: 'rgba(173, 166, 154, 0.25)' }
                   }
-                },
-                elements: {
-                  line: { tension: 0.25 }
                 }
-              }
+              },
+              plugins: [slopeAreaPlugin]
             });
           })();
         </script>

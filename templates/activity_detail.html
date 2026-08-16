@@ -95,6 +95,8 @@
   .slope-profile-legend { display:flex; flex-wrap:wrap; gap:9px; margin:0 0 10px; color:var(--activity-text-muted); font-size:.72rem; }
   .slope-profile-legend span { display:inline-flex; align-items:center; gap:4px; }
   .slope-profile-legend i { width:9px; height:9px; border-radius:50%; display:inline-block; }
+  .climb-route-locator { margin-top:14px; padding:13px; border:1px solid var(--activity-border); border-radius:13px; background:#fbfaf7; }
+  .climb-route-locator p { margin:0 0 8px; font-size:.76rem !important; }
   .activity-delete-button {
     display:inline-flex;
     align-items:center;
@@ -1035,6 +1037,13 @@
             {% endif %}
           </p>
 
+          <div class="climb-route-locator">
+            <p>Repère dans le profil complet · la partie colorée correspond à la montée sélectionnée.</p>
+            <div style="height:118px; width:100%; max-width:100%; overflow:hidden;">
+              <canvas id="climbLocatorChart" height="118" style="width:100%; height:100%; display:block;"></canvas>
+            </div>
+          </div>
+
           <div class="card activity-slope-profile-card" style="margin:14px 0 0; padding:14px;">
             <p class="muted" style="margin:0 0 10px; font-size:.78rem;">Profil de la montée · le dénivelé est rempli et coloré selon la pente lissée.</p>
             <div class="slope-profile-legend" aria-label="Légende des pentes de la montée">
@@ -1052,6 +1061,7 @@
           (function() {
             const rawProfileData = {{ profile_chart_points_js | safe }};
             const canvas = document.getElementById('climbProfileChart');
+            const locatorCanvas = document.getElementById('climbLocatorChart');
             if (!canvas || !rawProfileData || rawProfileData.length < 2 || typeof Chart === 'undefined') return;
             const kmDebut = {{ selected_climb.km_debut }};
             const kmFin   = {{ selected_climb.km_fin }};
@@ -1094,6 +1104,57 @@
                 ctx.restore();
               }
             };
+
+            if (locatorCanvas) {
+              const locatorData = rawProfileData.map(point => ({
+                x: Number(point.x), y: Number(point.y), grade: Number(point.grade || 0),
+              }));
+              const routeLocatorPlugin = {
+                id: 'routeLocatorArea',
+                beforeDatasetsDraw(chart) {
+                  const { ctx, scales } = chart;
+                  const points = chart.getDatasetMeta(0).data;
+                  if (!points || points.length < 2) return;
+                  const baseY = scales.y.getPixelForValue(scales.y.min);
+                  ctx.save();
+                  for (let index = 0; index < points.length - 1; index += 1) {
+                    const point = points[index];
+                    const next = points[index + 1];
+                    const raw = locatorData[index + 1];
+                    const selected = raw.x >= kmDebut && raw.x <= kmFin;
+                    ctx.fillStyle = selected ? slopeColor(raw.grade || 0) : '#e5e1d9';
+                    ctx.beginPath();
+                    ctx.moveTo(point.x, baseY);
+                    ctx.lineTo(point.x, point.y);
+                    ctx.lineTo(next.x, next.y);
+                    ctx.lineTo(next.x, baseY);
+                    ctx.closePath();
+                    ctx.fill();
+                  }
+                  ctx.restore();
+                }
+              };
+              new Chart(locatorCanvas.getContext('2d'), {
+                type: 'line',
+                data: { datasets: [{
+                  label: 'Profil de la sortie', data: locatorData, borderColor: 'rgba(69, 67, 63, .42)',
+                  backgroundColor: 'transparent', borderWidth: 1.1, pointRadius: 0, fill: false, tension: 0.12,
+                }] },
+                options: {
+                  responsive: true, maintainAspectRatio: false, animation: false,
+                  interaction: { mode: 'index', intersect: false },
+                  plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { title: items => `km ${items[0].raw.x.toFixed(2)} · ${Math.round(items[0].raw.y)} m` } },
+                  },
+                  scales: {
+                    x: { type: 'linear', ticks: { color: '#77746d', maxTicksLimit: 6 }, grid: { display: false } },
+                    y: { display: false, grace: '4%' },
+                  },
+                },
+                plugins: [routeLocatorPlugin],
+              });
+            }
 
             new Chart(canvas.getContext('2d'), {
               type: 'line',

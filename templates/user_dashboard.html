@@ -120,7 +120,7 @@
   .custom-course-link { display:inline-flex; align-items:center; justify-content:center; min-height:43px; margin-top:8px; padding:9px 12px; border:1px solid #cbd8c3; border-radius:11px; background:#f3f8ef; color:#40523e; font-size:.78rem; font-weight:800; text-decoration:none; }
   .custom-course-link:hover { background:#e6f0df; color:#243322; }
   .projection-form > div.course-selection-showcase { grid-column:1 / -1; }
-  .course-selection-showcase { padding:16px; border:1px solid #dfdad0; border-radius:18px; background:#f8f5ef; box-shadow:none; }
+  .course-selection-showcase { padding:16px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:18px; background:#fff; box-shadow:none; }
   /* Titres principaux du parcours : une seule hiérarchie, quel que soit le composant. */
   .course-selection-showcase > label,
   .course-profile-title,
@@ -162,7 +162,7 @@
   .course-profile-title small { color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.76rem; font-weight:600; letter-spacing:0; }
   .course-profile-title, .projection-planning-title, .projection-section-title { margin:16px 0 9px; }
   .course-profile-preview .course-profile-title { margin:0 0 10px; }
-  .manual-profile { margin-top:14px; padding:13px; border-radius:14px; background:#fbfaf7; border:1px solid #dfdad0; }
+  .manual-profile { margin-top:14px; padding:13px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:14px; background:#fff; }
   .pace-setup-title { margin-bottom:13px; }
   .pace-setup-title h3 { margin:0; }
   .pace-setup-title p { margin:4px 0 0; color:var(--text-muted); font-size:.78rem; line-height:1.4; }
@@ -222,9 +222,9 @@
   .profile-pacing-live-table th, .profile-pacing-live-table td { padding:5px 4px; border-bottom:1px solid rgba(148,174,214,.14); text-align:left; color:var(--text-main); }
   .profile-pacing-live-table th { color:var(--text-muted); font-size:.66rem; letter-spacing:.08em; text-transform:uppercase; font-family:"DM Mono",monospace; }
   .profile-pacing-live-table td:first-child { font-weight:700; color:var(--text-main); }
-  .profile-nutrition-control { margin-top:12px; padding:13px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
-  .profile-nutrition-control > strong { display:block; font-size:.96rem; }
-  .profile-nutrition-control > p { margin:4px 0 11px; color:var(--text-muted); font-size:.76rem; line-height:1.4; }
+  .nutrition-plan-settings { margin-top:14px; padding:16px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:14px; background:#fff; }
+  .nutrition-plan-settings .projection-section-title { margin:0 0 4px; }
+  .nutrition-plan-settings > p { margin:0 0 13px; color:var(--text-muted); font-size:.76rem; line-height:1.4; }
   .nutrition-rate-controls { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; }
   .nutrition-rate-control label { display:flex; justify-content:space-between; gap:6px; margin:0; color:var(--text-main); font-family:"Manrope", sans-serif; font-size:.76rem; font-weight:700; letter-spacing:0; text-transform:none; }
   .nutrition-rate-control output { color:var(--accent-2); font-weight:800; }
@@ -248,6 +248,15 @@
   .slope-legend { display:flex; flex-wrap:wrap; gap:10px; margin:8px 0 0; color:var(--text-muted); font-size:.72rem; }
   .slope-legend span { display:inline-flex; align-items:center; gap:4px; }
   .slope-legend i { width:9px; height:9px; border-radius:50%; display:inline-block; }
+  .segment-explorer { margin-top:14px; padding:14px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
+  .segment-explorer h3 { margin:0; font-size:1rem; }
+  .segment-explorer > p { margin:4px 0 10px; color:var(--text-muted); font-size:.76rem; line-height:1.4; }
+  .segment-explorer label { display:block; margin:0 0 6px; color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.76rem; font-weight:600; letter-spacing:0; text-transform:none; }
+  .segment-explorer select { width:100%; min-height:42px; }
+  .segment-detail-profile { margin-top:13px; padding-top:13px; border-top:1px solid #e5e0d7; }
+  .segment-detail-profile h4 { margin:0 0 4px; font-size:.9rem; }
+  .segment-detail-profile p { margin:0 0 9px; color:var(--text-muted); font-size:.75rem; line-height:1.4; }
+  .segment-detail-profile svg { display:block; width:100%; height:185px; border-radius:12px; background:#fbfaf7; }
   .projection-splits { width:100%; min-width:0; margin-top:16px; font-size:.84rem; }
   .projection-splits th, .projection-splits td { padding:8px 6px; }
   .projection-timeline { display:grid; gap:0; margin-top:16px; overflow:hidden; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
@@ -647,8 +656,9 @@
           <tbody id="home-profile-live-data"></tbody>
         </table>
       </div>
-      <div class="profile-nutrition-control">
-        <strong>Réglages nutrition du plan</strong>
+    </div>
+    <div class="nutrition-plan-settings">
+        <h3 class="projection-section-title">Réglages nutrition du plan</h3>
         <p>La base est adaptée au temps et au terrain. Tu peux l’ajuster selon tes habitudes ; le plan se recalcule immédiatement.</p>
         <div class="nutrition-rate-controls">
           <div class="nutrition-rate-control"><label for="home-carb-rate">Glucides <output id="home-carb-rate-output">— g/h</output></label><input id="home-carb-rate" type="range" min="30" max="120" step="1" value="65"></div>
@@ -658,7 +668,6 @@
         <label class="nutrition-energy-balance" for="home-nutrition-energy-balance"><input id="home-nutrition-energy-balance" type="checkbox" checked> Préserver l’apport énergétique de référence en complétant avec les lipides si je baisse les glucides.</label>
         <label for="home-runner-weight" style="margin-top:12px;">Poids pour les recommandations nutritionnelles</label>
         <input id="home-runner-weight" type="number" min="35" max="150" step="0.5" value="{{ user.weight_kg or '' }}" placeholder="kg">
-      </div>
     </div>
     <div class="aid-stations" id="home-course-points">
       <div style="font-weight:700; margin-bottom:8px;" id="home-point-settings-title">Points de ma trace</div>
@@ -1200,7 +1209,7 @@
       return String(value || '').replace(/[&<>'"]/g, (character) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[character]));
     }
 
-    function elevationProfileSvg(rawPoints, nutritionWindows = [], courseName = '') {
+    function elevationProfileSvg(rawPoints, nutritionWindows = [], courseName = '', selectedSegment = null) {
       const points = (rawPoints || []).filter((point) => Number.isFinite(Number(point.distance_km)) && Number.isFinite(Number(point.elevation_m)));
       if (points.length < 2) return '';
       const width = 680;
@@ -1226,11 +1235,22 @@
         return '#e94c34';
       };
       const baseY = height - padding;
+      const selectedFromKm = Number(selectedSegment?.fromKm);
+      const selectedToKm = Number(selectedSegment?.toKm);
+      const hasSelectedSegment = Number.isFinite(selectedFromKm) && Number.isFinite(selectedToKm) && selectedToKm > selectedFromKm;
       const filledSegments = coordinates.slice(1).map((point, index) => {
         const previous = coordinates[index];
-        return `<path d="M ${previous.x.toFixed(1)} ${baseY} L ${previous.x.toFixed(1)} ${previous.y.toFixed(1)} L ${point.x.toFixed(1)} ${point.y.toFixed(1)} L ${point.x.toFixed(1)} ${baseY} Z" fill="${colorForGrade(point.grade)}"/>`;
+        const fromKm = Number(points[index].distance_km);
+        const toKm = Number(points[index + 1].distance_km);
+        const isSelected = !hasSelectedSegment || (toKm >= selectedFromKm && fromKm <= selectedToKm);
+        return `<path d="M ${previous.x.toFixed(1)} ${baseY} L ${previous.x.toFixed(1)} ${previous.y.toFixed(1)} L ${point.x.toFixed(1)} ${point.y.toFixed(1)} L ${point.x.toFixed(1)} ${baseY} Z" fill="${isSelected ? colorForGrade(point.grade) : '#e5e1d9'}"/>`;
       }).join('');
       const profileOutline = `<path d="M ${coordinates.map((point) => `${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' L ')}" fill="none" stroke="#45433f" stroke-opacity=".42" stroke-width="1.25" stroke-linejoin="round"/>`;
+      const segmentMarkers = hasSelectedSegment ? [selectedFromKm, selectedToKm].map((km) => {
+        const nearestIndex = points.reduce((best, point, index) => Math.abs(Number(point.distance_km) - km) < Math.abs(Number(points[best].distance_km) - km) ? index : best, 0);
+        const point = coordinates[nearestIndex];
+        return `<line x1="${point.x.toFixed(1)}" x2="${point.x.toFixed(1)}" y1="${padding}" y2="${baseY}" stroke="#ff5a36" stroke-width="1.2" stroke-dasharray="3 3"/><circle cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="4" fill="#ff5a36" stroke="#fff" stroke-width="1.5"/>`;
+      }).join('') : '';
       const fuelingMarkers = nutritionWindows.filter((window) => window.terrain !== 'steady').map((window) => {
         const nearest = points.reduce((best, point) => Math.abs(Number(point.distance_km) - window.fromKm) < Math.abs(Number(best.distance_km) - window.fromKm) ? point : best, points[0]);
         const x = padding + (Number(nearest.distance_km) / maxDistance) * (width - padding * 2);
@@ -1241,7 +1261,51 @@
       }).join('');
       const nutritionLegend = nutritionWindows.length ? '<span><i style="background:#f4c446"></i>prise à anticiper avant montée</span><span><i style="background:#5bb9e6"></i>prise facilitée en descente</span>' : '';
       const courseNameLabel = courseName ? `<small>· ${escapeHtml(courseName)}</small>` : '';
-      return `<div class="projection-profile"><h3 class="course-profile-title">Profil de la course${courseNameLabel}</h3><div class="home-summary-label">${Math.round(minElevation)}–${Math.round(maxElevation)} m</div><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Profil d'altitude du parcours, coloré selon la pente">${filledSegments}${profileOutline}${fuelingMarkers}<line x1="${padding}" y1="${baseY}" x2="${width - padding}" y2="${baseY}" stroke="#cfc9bf"/><text x="${padding}" y="${height - 1}" fill="#77746d" font-size="11">0 km</text><text x="${width - padding - 45}" y="${height - 1}" fill="#77746d" font-size="11">${maxDistance.toFixed(1)} km</text></svg><div class="slope-legend"><span><i style="background:#5bb9e6"></i>descente &lt; −8 %</span><span><i style="background:#dfe68d"></i>plat −2 à 5 %</span><span><i style="background:#f4c446"></i>montée 5–12 %</span><span><i style="background:#e94c34"></i>montée &gt; 20 %</span>${nutritionLegend}</div></div>`;
+      const selectedLegend = hasSelectedSegment ? '<span><i style="background:#ff5a36"></i>tronçon sélectionné</span>' : '';
+      return `<div class="projection-profile"><h3 class="course-profile-title">Profil de la course${courseNameLabel}</h3><div class="home-summary-label">${Math.round(minElevation)}–${Math.round(maxElevation)} m</div><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Profil d'altitude du parcours, coloré selon la pente">${filledSegments}${profileOutline}${segmentMarkers}${fuelingMarkers}<line x1="${padding}" y1="${baseY}" x2="${width - padding}" y2="${baseY}" stroke="#cfc9bf"/><text x="${padding}" y="${height - 1}" fill="#77746d" font-size="11">0 km</text><text x="${width - padding - 45}" y="${height - 1}" fill="#77746d" font-size="11">${maxDistance.toFixed(1)} km</text></svg><div class="slope-legend"><span><i style="background:#5bb9e6"></i>descente &lt; −8 %</span><span><i style="background:#dfe68d"></i>plat −2 à 5 %</span><span><i style="background:#f4c446"></i>montée 5–12 %</span><span><i style="background:#e94c34"></i>montée &gt; 20 %</span>${selectedLegend}${nutritionLegend}</div></div>`;
+    }
+
+    function segmentElevationProfileSvg(rawPoints, segment, metrics) {
+      const allPoints = (rawPoints || []).filter((point) => Number.isFinite(Number(point.distance_km)) && Number.isFinite(Number(point.elevation_m)));
+      if (allPoints.length < 2) return '';
+      const { fromKm, toKm, fromLabel, toLabel } = segment;
+      const points = allPoints.filter((point) => Number(point.distance_km) >= fromKm - .001 && Number(point.distance_km) <= toKm + .001);
+      if (points.length < 2 || toKm <= fromKm) return '';
+      const width = 680; const height = 185; const padding = 12;
+      const elevations = points.map((point) => Number(point.elevation_m));
+      const minElevation = Math.min(...elevations); const maxElevation = Math.max(...elevations);
+      const elevationRange = Math.max(1, maxElevation - minElevation);
+      const colorForGrade = (grade) => grade <= -8 ? '#5bb9e6' : grade < -2 ? '#83cceb' : grade < 5 ? '#dfe68d' : grade < 12 ? '#f4c446' : grade < 20 ? '#f38b2d' : '#e94c34';
+      const coordinates = points.map((point) => ({
+        x: padding + ((Number(point.distance_km) - fromKm) / Math.max(.01, toKm - fromKm)) * (width - padding * 2),
+        y: height - padding - ((Number(point.elevation_m) - minElevation) / elevationRange * (height - padding * 2)),
+        grade: Number(point.grade_percent || 0),
+      }));
+      const baseY = height - padding;
+      const areas = coordinates.slice(1).map((point, index) => {
+        const previous = coordinates[index];
+        return `<path d="M ${previous.x.toFixed(1)} ${baseY} L ${previous.x.toFixed(1)} ${previous.y.toFixed(1)} L ${point.x.toFixed(1)} ${point.y.toFixed(1)} L ${point.x.toFixed(1)} ${baseY} Z" fill="${colorForGrade(point.grade)}"/>`;
+      }).join('');
+      const outline = `<path d="M ${coordinates.map((point) => `${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' L ')}" fill="none" stroke="#45433f" stroke-opacity=".42" stroke-width="1.25" stroke-linejoin="round"/>`;
+      const pace = metrics.distance > 0 ? formatPace(metrics.seconds / metrics.distance) : '—';
+      return `<div class="segment-detail-profile"><h4>${escapeHtml(fromLabel)} → ${escapeHtml(toLabel)}</h4><p>${(toKm - fromKm).toFixed(1)} km · D+ ${Math.round(metrics.gain)} m · D− ${Math.round(metrics.loss)} m · allure prévue ${pace}</p><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Profil du tronçon entre ${escapeHtml(fromLabel)} et ${escapeHtml(toLabel)}, coloré selon la pente">${areas}${outline}<line x1="${padding}" y1="${baseY}" x2="${width - padding}" y2="${baseY}" stroke="#cfc9bf"/><text x="${padding}" y="${height - 1}" fill="#77746d" font-size="11">${fromKm.toFixed(1)} km</text><text x="${width - padding - 48}" y="${height - 1}" fill="#77746d" font-size="11">${toKm.toFixed(1)} km</text></svg><div class="slope-legend"><span><i style="background:#5bb9e6"></i>descente</span><span><i style="background:#dfe68d"></i>plat</span><span><i style="background:#f4c446"></i>montée</span><span><i style="background:#e94c34"></i>très raide</span></div></div>`;
+    }
+
+    function buildCourseSegmentExplorer(rawPoints, coursePoints, totalDistanceKm, projectedRows, courseName) {
+      const finishKm = Number(totalDistanceKm || 0);
+      if (!(finishKm > 0)) return { html: '', segments: [] };
+      const boundaries = [{ label: 'Départ', km: 0 }];
+      (coursePoints || []).filter((point) => ['aid', 'aid_assistance'].includes(point.type) && Number(point.km) > .001 && Number(point.km) < finishKm - .001).forEach((point) => {
+        if (!boundaries.some((existing) => Math.abs(existing.km - Number(point.km)) < .001)) boundaries.push({ label: point.label || 'Point de course', km: Number(point.km) });
+      });
+      boundaries.push({ label: 'Arrivée', km: finishKm });
+      if (boundaries.length < 2) return { html: '', segments: [] };
+      const segments = boundaries.slice(1).map((to, index) => ({ fromKm: boundaries[index].km, toKm: to.km, fromLabel: boundaries[index].label, toLabel: to.label }));
+      const options = `<option value="">Afficher un tronçon…</option>${segments.map((segment, index) => `<option value="${index}">${String(index + 1).padStart(2, '0')} · ${escapeHtml(segment.fromLabel)} → ${escapeHtml(segment.toLabel)} · km ${segment.fromKm.toFixed(1)}–${segment.toKm.toFixed(1)}</option>`).join('')}`;
+      return {
+        html: `<section class="segment-explorer" id="home-segment-explorer"><h3>Explorer les tronçons</h3><p>Choisis un tronçon entre deux points de course pour le repérer sur le profil et voir son relief détaillé.</p><label for="home-segment-picker">Tronçon</label><select id="home-segment-picker">${options}</select><div id="home-segment-detail"></div></section>`,
+        segments,
+      };
     }
 
     function buildTwentyMinuteFuelingSchedule(rawPoints, rows, nutritionWindows, aidStations = []) {
@@ -1699,8 +1763,47 @@
           ];
           return tags.filter(Boolean).join('');
         };
-        courseProfilePreview.innerHTML = elevationProfileSvg(data.elevation_profile, [], data.official_course?.name || manualCourseNameInput.value.trim());
+        const courseName = data.official_course?.name || manualCourseNameInput.value.trim();
+        const metricsBetween = (fromKm, toKm) => {
+          let previousKm = 0;
+          const metrics = { distance: 0, seconds: 0, gain: 0, loss: 0 };
+          projectedRows.forEach((row) => {
+            const rowStart = previousKm;
+            const rowEnd = row.cumulativeKm;
+            previousKm = rowEnd;
+            const overlap = Math.max(0, Math.min(toKm, rowEnd) - Math.max(fromKm, rowStart));
+            const rowDistance = Math.max(.001, rowEnd - rowStart);
+            if (overlap <= 0) return;
+            const ratio = overlap / rowDistance;
+            metrics.distance += overlap;
+            metrics.seconds += row.seconds * ratio;
+            metrics.gain += row.gain * ratio;
+            metrics.loss += row.loss * ratio;
+          });
+          return metrics;
+        };
+        const segmentExplorer = buildCourseSegmentExplorer(data.elevation_profile, aidStations, data.total_distance_km, projectedRows, courseName);
+        courseProfilePreview.innerHTML = `<div id="home-course-profile-svg">${elevationProfileSvg(data.elevation_profile, [], courseName)}</div>${segmentExplorer.html}`;
         courseProfilePreview.hidden = false;
+        const courseProfileSvgHost = courseProfilePreview.querySelector('#home-course-profile-svg');
+        const segmentPicker = courseProfilePreview.querySelector('#home-segment-picker');
+        const segmentDetailHost = courseProfilePreview.querySelector('#home-segment-detail');
+        const renderSelectedCourseSegment = () => {
+          if (!courseProfileSvgHost || !segmentPicker || !segmentDetailHost) return;
+          if (segmentPicker.value === '') {
+            courseProfileSvgHost.innerHTML = elevationProfileSvg(data.elevation_profile, [], courseName);
+            segmentDetailHost.innerHTML = '';
+            return;
+          }
+          const segment = segmentExplorer.segments[Number(segmentPicker.value)];
+          if (!segment) return;
+          courseProfileSvgHost.innerHTML = elevationProfileSvg(data.elevation_profile, [], courseName, segment);
+          segmentDetailHost.innerHTML = segmentElevationProfileSvg(data.elevation_profile, segment, metricsBetween(segment.fromKm, segment.toKm));
+        };
+        if (segmentPicker) {
+          segmentPicker.addEventListener('change', renderSelectedCourseSegment);
+          renderSelectedCourseSegment();
+        }
         const totalSeconds = movingSeconds + stopSeconds;
         const stopDetail = stopSeconds ? ` · ${formatDuration(stopSeconds)} de ravito` : '';
         const manualCourseName = manualCourseNameInput.value.trim() || 'Ma trace GPX';

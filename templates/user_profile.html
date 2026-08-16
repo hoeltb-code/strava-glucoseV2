@@ -10,9 +10,48 @@
 
   .profile-layout {
     display:grid;
-    grid-template-columns:minmax(0,2fr) minmax(0,1.4fr);
+    grid-template-columns:minmax(0,1fr);
     gap:16px;
   }
+  .settings-shell {
+    display:grid;
+    grid-template-columns:205px minmax(0, 1fr);
+    gap:16px;
+    align-items:start;
+  }
+  .settings-nav {
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    position:sticky;
+    top:82px;
+    padding:10px;
+    border:1px solid var(--profile-panel-border);
+    border-radius:14px;
+    background:#fff;
+    min-width:0;
+    box-sizing:border-box;
+  }
+  .settings-nav-title { margin:3px 8px 9px; color:var(--text-muted); font:700 .68rem "DM Mono", monospace; letter-spacing:.1em; text-transform:uppercase; }
+  .settings-nav a {
+    display:flex;
+    align-items:center;
+    gap:9px;
+    padding:9px 8px;
+    border-radius:9px;
+    color:var(--text-muted);
+    font-size:.82rem;
+    font-weight:700;
+  }
+  .settings-nav a:hover { color:var(--text-main); background:#fff3ef; }
+  .settings-nav a.is-active { color:var(--text-main); background:#fff0eb; box-shadow:inset 3px 0 var(--accent); }
+  .settings-nav-index { color:var(--accent-dark); font:700 .68rem "DM Mono", monospace; }
+  .settings-target { scroll-margin-top:88px; }
+  .settings-panel[hidden] { display:none !important; }
+  .settings-panel .card { margin:0; }
+  .settings-panel-title { margin:0 0 4px; font-size:1.12rem; }
+  .settings-panel-intro { margin:0 0 16px; color:var(--text-muted); font-size:.84rem; line-height:1.5; }
+  .settings-panel-actions { display:flex; justify-content:flex-end; margin-top:16px; }
 
   .profile-page .card {
     border-color: var(--profile-panel-border);
@@ -160,6 +199,11 @@
   }
 
   @media (max-width: 820px) {
+    .settings-shell { grid-template-columns:1fr; }
+    .settings-nav { position:static; display:flex; flex-direction:row; align-items:center; gap:5px; overflow-x:auto; padding:8px; }
+    .settings-nav-title { display:none; }
+    .settings-nav a { flex:0 0 auto; padding:8px 9px; border:1px solid #e3ded5; background:#fbfaf7; font-size:.74rem; }
+    .settings-nav-index { display:none; }
     .profile-layout {
       grid-template-columns:1fr;
     }
@@ -202,22 +246,32 @@
 
 
 <!-- ========================================================= -->
-<!-- Layout à deux colonnes : gauche = profil, droite = connexions -->
+<!-- Navigation des réglages + contenu -->
 <!-- ========================================================= -->
-<div class="profile-layout">
-  <!-- ================== COLONNE GAUCHE : Profil ================== -->
-  <div>
-    <div class="card" style="padding:16px 18px;">
-      <h2 style="font-size:1rem; font-weight:600; margin-bottom:4px;">Informations de profil</h2>
-      <p class="muted" style="margin-top:0; font-size:0.85rem; color:#6b7280;">Modifie les informations de base et les données physiologiques.</p>
+<div class="settings-shell">
+  <nav class="settings-nav" aria-label="Sections des réglages">
+    <p class="settings-nav-title">Réglages</p>
+    <a href="#settings-general" data-settings-link="general"><span class="settings-nav-index">01</span>Informations générales</a>
+    <a href="#settings-strava" data-settings-link="strava"><span class="settings-nav-index">02</span>Strava</a>
+    <a href="#settings-cgm" data-settings-link="cgm"><span class="settings-nav-index">03</span>Connexion CGM</a>
+    <a href="#settings-club" data-settings-link="club"><span class="settings-nav-index">04</span>Club</a>
+    <a href="#settings-enrich" data-settings-link="enrich"><span class="settings-nav-index">05</span>Enrichir Strava</a>
+  </nav>
 
-      <form method="post" action="/ui/user/{{ user.id }}/profile" enctype="multipart/form-data" style="margin-top: 10px;">
+  <div class="profile-layout">
+    <section id="settings-general" class="settings-panel" data-settings-panel="general">
+      <div class="card" style="padding:18px;">
+      <h2 class="settings-panel-title">Informations générales</h2>
+      <p class="settings-panel-intro">Tes informations personnelles et les données utilisées pour personnaliser les analyses.</p>
+
+      <form method="post" action="/ui/user/{{ user.id }}/profile" enctype="multipart/form-data">
 
         <!-- Bloc identité -->
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;">
           <div><label>Prénom</label><input type="text" name="first_name" value="{{ user.first_name or '' }}"></div>
           <div><label>Nom</label><input type="text" name="last_name" value="{{ user.last_name or '' }}"></div>
           <div><label>Localisation</label><input type="text" name="location" value="{{ user.location or '' }}" placeholder="Ex: Aix-les-Bains"></div>
+          <div><label>Adresse e-mail</label><input type="email" value="{{ user.email }}" readonly aria-label="Adresse e-mail du compte" style="background:#fbfaf7; color:var(--text-muted); cursor:not-allowed;"></div>
         </div>
 
         <hr style="margin:16px 0; border:none; border-top:1px solid #e5e7eb;">
@@ -257,82 +311,48 @@
           </label>
         </div>
 
-        <div class="card" style="margin-top:16px; padding:12px 14px;">
-          <h3 style="font-size:0.95rem; font-weight:600; margin:0 0 6px;">Club</h3>
-          <p class="muted" style="margin:0 0 10px; font-size:0.85rem; color:#6b7280;">
-            Le choix est limité aux clubs présents dans le fichier partagé. Le logo du club peut ensuite être ajouté sur les PNG d’activité.
-          </p>
-          <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px;">
-            <div>
-              <label style="display:block; font-size:0.8rem; color:#4b5563; margin-bottom:2px;">Club</label>
-              <select name="club_slug">
-                <option value="">Aucun club</option>
-                {% if selected_club and selected_club.missing %}
-                  <option value="{{ selected_club.slug }}" selected>{{ selected_club.name }} (indisponible)</option>
-                {% endif %}
-                {% for club in club_options %}
-                  <option value="{{ club.slug }}" {% if selected_club and selected_club.slug == club.slug %}selected{% endif %}>
-                    {{ club.name }}
-                  </option>
-                {% endfor %}
-              </select>
-            </div>
-            <div style="display:flex; align-items:flex-end;">
-              <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; color:#374151;">
-                <input type="checkbox" name="share_show_club_logo" value="1" {% if share_show_club_logo %}checked{% endif %}>
-                Afficher le logo du club dans mes partages PNG
-              </label>
-            </div>
-          </div>
-          {% if selected_club and selected_club.missing %}
-            <div style="margin-top:10px; font-size:0.8rem; color:#f59e0b;">
-              Le club actuellement enregistré n’est plus présent dans le fichier `clubs.json`. Enregistre un nouveau choix pour le remplacer.
-            </div>
-          {% elif selected_club %}
-            <div style="margin-top:10px; font-size:0.8rem; color:var(--text-muted);">
-              Club actuel : <strong>{{ selected_club.name }}</strong>
-            </div>
-          {% endif %}
-          <div style="margin-top:12px; display:flex; justify-content:flex-end;">
-            <button type="submit" class="btn-primary">
-              Enregistrer le club
-            </button>
-          </div>
-        </div>
-
-        <!-- ========================================================= -->
-        <!-- Préférences d’enrichissement Strava (dans le MÊME form) -->
-        <!-- ========================================================= -->
-        <div class="card" style="margin-top:16px; padding:12px 14px;">
-          <h3 style="font-size:0.95rem; font-weight:600; margin:0 0 6px;">Description Strava automatique</h3>
-          <p class="muted" style="margin:0 0 10px; font-size:0.85rem; color:#6b7280;">
-            Active l’enrichissement automatique des activités Strava : glycémie, VAM, allure ou cadence seront ajoutées
-            selon le type de sortie.
-          </p>
-
-          <label style="display:flex; align-items:center; gap:8px;">
-            <input type="checkbox" name="desc_enable_auto_block"
-                   {% if auto_block_enabled %}checked{% endif %}>
-            Publier automatiquement les stats Strava
-          </label>
-        </div>
-
-        <div class="card" style="margin-top:16px; padding:12px 14px;">
-          <h3 style="font-size:0.95rem; font-weight:600; margin:0 0 6px;">Source glycémie</h3>
-          <p class="muted" style="margin:0; font-size:0.85rem; color:#6b7280;">
-            La source active se gère dans la colonne de droite. Une seule source glycémie peut être active à la fois.
-          </p>
-        </div>
-
-        <div style="margin-top:16px; display:flex; justify-content:flex-end;">
-          <button type="submit" style="padding:6px 16px;font-size:0.9rem;border-radius:4px;border:1px solid transparent;background:#0d6efd;color:#fff;">
-            Enregistrer les modifications
-          </button>
+        <div class="settings-panel-actions">
+          <input type="hidden" name="club_slug" value="{{ selected_club.slug if selected_club else '' }}">
+          {% if share_show_club_logo %}<input type="hidden" name="share_show_club_logo" value="1">{% endif %}
+          {% if auto_block_enabled %}<input type="hidden" name="desc_enable_auto_block" value="1">{% endif %}
+          <button type="submit" class="btn-primary">Enregistrer mes informations</button>
         </div>
       </form>
+      </div>
+    </section>
 
-      <div class="card" style="margin-top:20px; padding:14px 16px;">
-        <h3 style="font-size:1rem; font-weight:600; margin:0 0 6px;">📤 Importer des activités passées</h3>
+    <section id="settings-club" class="settings-panel" data-settings-panel="club" hidden>
+      <div class="card" style="padding:18px;">
+        <h2 class="settings-panel-title">Club</h2>
+        <p class="settings-panel-intro">Choisis ton club et l’affichage éventuel de son logo sur tes partages PNG.</p>
+        <form method="post" action="/ui/user/{{ user.id }}/profile">
+          {% include "_profile_hidden_fields.html" ignore missing %}
+          {% if auto_block_enabled %}<input type="hidden" name="desc_enable_auto_block" value="1">{% endif %}
+          <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px;">
+            <div><label>Club</label><select name="club_slug"><option value="">Aucun club</option>{% if selected_club and selected_club.missing %}<option value="{{ selected_club.slug }}" selected>{{ selected_club.name }} (indisponible)</option>{% endif %}{% for club in club_options %}<option value="{{ club.slug }}" {% if selected_club and selected_club.slug == club.slug %}selected{% endif %}>{{ club.name }}</option>{% endfor %}</select></div>
+            <label style="display:flex; align-items:flex-end; gap:8px; font-size:.85rem;"><input type="checkbox" name="share_show_club_logo" value="1" {% if share_show_club_logo %}checked{% endif %}> Afficher le logo dans mes PNG</label>
+          </div>
+          {% if selected_club %}<p class="muted" style="font-size:.82rem;">Club actuel : <strong>{{ selected_club.name }}</strong></p>{% endif %}
+          <div class="settings-panel-actions"><button type="submit" class="btn-primary">Enregistrer le club</button></div>
+        </form>
+      </div>
+    </section>
+
+    <section id="settings-enrich" class="settings-panel" data-settings-panel="enrich" hidden>
+      <div class="card" style="padding:18px;">
+        <h2 class="settings-panel-title">Enrichir Strava</h2>
+        <p class="settings-panel-intro">Choisis si Running Data Plan complète automatiquement la description de tes nouvelles activités Strava.</p>
+        <form method="post" action="/ui/user/{{ user.id }}/profile">
+          {% include "_profile_hidden_fields.html" ignore missing %}
+          <input type="hidden" name="club_slug" value="{{ selected_club.slug if selected_club else '' }}">
+          {% if share_show_club_logo %}<input type="hidden" name="share_show_club_logo" value="1">{% endif %}
+          <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" name="desc_enable_auto_block" {% if auto_block_enabled %}checked{% endif %}> Publier automatiquement les statistiques dans la description Strava</label>
+          <div class="settings-panel-actions"><button type="submit" class="btn-primary">Enregistrer cette préférence</button></div>
+        </form>
+      </div>
+
+      <div class="card" style="margin-top:16px; padding:18px;">
+        <h3 class="settings-panel-title">Importer des activités passées</h3>
         <p class="muted" style="margin:0 0 10px; font-size:0.85rem;">
           Strava ne renvoie que les activités créées après ton inscription sur Running Data Plan. Pour compléter ton historique,
           exporte un fichier GPX ou FIT depuis Strava, puis dépose-le ici pour lancer l’orchestrateur.
@@ -353,24 +373,18 @@
         <p id="profile-selected-file" style="font-size:0.85rem; color:#444; margin-top:10px; min-height:18px;"></p>
 
         <div style="margin-top:12px; text-align:right;">
-          <button type="button" onclick="startProfileImport({{ user.id }})"
-            style="padding:10px 16px;background:var(--grad-accent);color:white;border:none;border-radius:4px;font-weight:600;box-shadow:0 6px 16px rgba(37,99,235,.25);cursor:pointer;">
+          <button type="button" onclick="startProfileImport({{ user.id }})" class="btn-primary">
             ⚙️ Lancer l'orchestrateur
           </button>
         </div>
       </div>
-    </div>
-  </div>
+    </section>
 
-  <!-- ================== COLONNE DROITE : Connexions ================== -->
-  <div>
-    <div class="card" style="padding:16px 18px;">
-      <h2 style="font-size:1rem; font-weight:600; margin-bottom:4px;">Connexions</h2>
-      <p class="muted" style="margin-top:0; font-size:0.85rem; color:#6b7280;">Comptes reliés à cet utilisateur.</p>
-
-      <div style="display:flex; flex-direction:column; gap:16px; margin-top:10px;">
-        <!-- ================= STRAVA ================= -->
-        <div style="border:1px solid #e5e7eb; border-radius:4px; padding:10px 12px;">
+    <section id="settings-strava" class="settings-panel" data-settings-panel="strava" hidden>
+      <div class="card" style="padding:18px;">
+        <h2 class="settings-panel-title">Strava</h2>
+        <p class="settings-panel-intro">Connecte ton compte pour synchroniser tes activités et construire ton profil de performance.</p>
+        <div style="border:1px solid #e5e7eb; border-radius:10px; padding:14px;">
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <div>
               <div style="font-size:0.95rem; font-weight:600; color:#111827;">Strava</div>
@@ -397,8 +411,13 @@
             {% endif %}
           </div>
         </div>
+      </div>
+    </section>
 
-        <div style="border-top:1px dashed #e5e7eb; margin-top:4px;"></div>
+    <section id="settings-cgm" class="settings-panel" data-settings-panel="cgm" hidden>
+      <div class="card" style="padding:18px;">
+        <h2 class="settings-panel-title">Connexion CGM</h2>
+        <p class="settings-panel-intro">Connecte ton capteur de glucose. Une seule source est active à la fois pour l’enrichissement des activités.</p>
         <div>
           <div style="font-size:0.95rem; font-weight:600; color:#111827; margin-bottom:8px;">Connexion glycémie</div>
           <div class="cgm-source-pill">
@@ -636,8 +655,9 @@
         </details>
 
       </div>
-    </div>
-  </div>
+    </section>
+</div>
+
 </div>
 
 <div class="card danger-card">
@@ -685,6 +705,40 @@
         alert("Erreur lors de l'import.");
       });
   }
+
+  (function setupSettingsPanels() {
+    const panels = Array.from(document.querySelectorAll('[data-settings-panel]'));
+    const links = Array.from(document.querySelectorAll('[data-settings-link]'));
+    if (!panels.length || !links.length) return;
+
+    const knownPanels = new Set(links.map((link) => link.dataset.settingsLink));
+    const cgmAnchors = new Set(['#libre', '#dexcom', '#carelink', '#nightscout']);
+
+    function keyFromHash() {
+      const hash = window.location.hash;
+      if (cgmAnchors.has(hash)) return 'cgm';
+      if (hash.startsWith('#settings-')) return hash.slice('#settings-'.length);
+      return 'general';
+    }
+
+    function activate(key, updateUrl) {
+      const selected = knownPanels.has(key) ? key : 'general';
+      panels.forEach((panel) => {
+        panel.hidden = panel.dataset.settingsPanel !== selected;
+      });
+      links.forEach((link) => {
+        link.classList.toggle('is-active', link.dataset.settingsLink === selected);
+      });
+      if (updateUrl) history.replaceState(null, '', `#settings-${selected}`);
+    }
+
+    links.forEach((link) => link.addEventListener('click', (event) => {
+      event.preventDefault();
+      activate(link.dataset.settingsLink, true);
+    }));
+    window.addEventListener('hashchange', () => activate(keyFromHash(), false));
+    activate(keyFromHash(), false);
+  })();
 </script>
 
 </div>

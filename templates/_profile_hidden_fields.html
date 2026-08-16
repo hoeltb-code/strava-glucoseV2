@@ -1,0 +1,9 @@
+<input type="hidden" name="first_name" value="{{ user.first_name or '' }}">
+<input type="hidden" name="last_name" value="{{ user.last_name or '' }}">
+<input type="hidden" name="location" value="{{ user.location or '' }}">
+<input type="hidden" name="birthdate" value="{{ user.birthdate if user.birthdate is not none else '' }}">
+<input type="hidden" name="sex" value="{{ user.sex or '' }}">
+<input type="hidden" name="max_heartrate" value="{{ user.max_heartrate or '' }}">
+<input type="hidden" name="height_cm" value="{{ user.height_cm or '' }}">
+<input type="hidden" name="weight_kg" value="{{ user.weight_kg or '' }}">
+{% if user.is_pro %}<input type="hidden" name="is_pro" value="1">{% endif %}

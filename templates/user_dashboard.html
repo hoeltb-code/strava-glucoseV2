@@ -227,10 +227,13 @@
   .cohort-reference-legend { display:flex; align-items:flex-start; gap:7px; margin:0 10px 10px; color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.7rem; line-height:1.4; }
   .cohort-reference-legend i { display:inline-block; flex:0 0 auto; width:18px; height:9px; margin-top:4px; border:1px dashed #718092; border-radius:2px; background:rgba(78,91,108,.18); }
   .cohort-reference-legend b { color:#5e6874; font-weight:700; }
-  .profile-pacing-live-table { width:100%; margin-top:10px; border-collapse:collapse; font-size:.76rem; }
-  .profile-pacing-live-table th, .profile-pacing-live-table td { padding:5px 4px; border-bottom:1px solid rgba(148,174,214,.14); text-align:left; color:var(--text-main); }
-  .profile-pacing-live-table th { color:var(--text-muted); font-size:.66rem; letter-spacing:.08em; text-transform:uppercase; font-family:"DM Mono",monospace; }
-  .profile-pacing-live-table td:first-child { font-weight:700; color:var(--text-main); }
+  .profile-pacing-live-grid { display:grid; width:100%; max-width:100%; margin-top:10px; font-size:.76rem; }
+  .profile-pacing-live-head,
+  .profile-pacing-live-row { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); }
+  .profile-pacing-live-head { color:var(--text-muted); font:700 .66rem "DM Mono", monospace; letter-spacing:.08em; text-transform:uppercase; }
+  .profile-pacing-live-head span,
+  .profile-pacing-live-cell { min-width:0; padding:5px 4px; border-bottom:1px solid rgba(148,174,214,.14); overflow-wrap:anywhere; color:var(--text-main); }
+  .profile-pacing-live-cell:first-child { font-weight:700; }
   .nutrition-plan-settings { margin-top:14px; padding:16px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:14px; background:#fff; }
   .nutrition-plan-settings .projection-section-title { margin:0 0 4px; }
   .nutrition-plan-settings > p { margin:0 0 13px; color:var(--text-muted); font-size:.76rem; line-height:1.4; }
@@ -511,12 +514,11 @@
     .gpx-source-fields { grid-template-columns:1fr; }
     .manual-controls { grid-template-columns:1fr; }
     .manual-advanced-fields { grid-template-columns:1fr; }
-    /* Le tableau devient une grille de lecture à trois cellules sur mobile.
-       Les lignes restent compactes sans imposer de largeur minimale native. */
-    .profile-pacing-live-table { display:block; width:100%; max-width:100%; margin-top:10px; }
-    .profile-pacing-live-table thead { display:none; }
-    .profile-pacing-live-table tbody { display:grid; gap:7px; }
-    .profile-pacing-live-table tr {
+    /* Grille native, plutôt qu'un tableau : Safari mobile respecte ainsi les
+       trois colonnes sans appliquer de largeur minimale interne. */
+    .profile-pacing-live-head { display:none; }
+    #home-profile-live-data { display:grid; gap:7px; }
+    .profile-pacing-live-row {
       display:grid;
       grid-template-columns:repeat(3, minmax(0, 1fr));
       border:1px solid #dfdad0;
@@ -524,7 +526,7 @@
       background:#fbfaf7;
       overflow:hidden;
     }
-    .profile-pacing-live-table td {
+    .profile-pacing-live-cell {
       display:flex;
       min-width:0;
       flex-direction:column;
@@ -537,17 +539,15 @@
       font-size:.72rem;
       line-height:1.25;
     }
-    .profile-pacing-live-table td:last-child { border-right:0; }
-    .profile-pacing-live-table td::before {
+    .profile-pacing-live-cell:last-child { border-right:0; }
+    .profile-pacing-live-cell::before {
+      content:attr(data-label);
       color:var(--text-muted);
       font-family:"DM Mono", monospace;
       font-size:.56rem;
       letter-spacing:.05em;
       text-transform:uppercase;
     }
-    .profile-pacing-live-table td:nth-child(1)::before { content:"Pente"; }
-    .profile-pacing-live-table td:nth-child(2)::before { content:"Allure"; }
-    .profile-pacing-live-table td:nth-child(3)::before { content:"VAM"; }
     .aid-stations-header { align-items:stretch; flex-direction:column; }
     .aid-point-adder { flex-direction:column; }
     .aid-station-row { grid-template-columns:1fr 1fr; }
@@ -742,10 +742,10 @@
           <span class="profile-live-total"><strong id="home-profile-live-total">Sélectionne un parcours</strong><small id="home-profile-live-stop-detail">Arrêts ravito · 0 min</small></span>
         </div>
         <div class="profile-pacing-curve" id="home-profile-curve" role="img" aria-label="Courbe d’allure utilisée pour la projection selon la pente"></div>
-        <table class="profile-pacing-live-table" aria-live="polite">
-          <thead><tr><th>Pente</th><th>Allure</th><th>VAM</th></tr></thead>
-          <tbody id="home-profile-live-data"></tbody>
-        </table>
+        <div class="profile-pacing-live-grid" aria-live="polite">
+          <div class="profile-pacing-live-head"><span>Pente</span><span>Allure</span><span>VAM</span></div>
+          <div id="home-profile-live-data"></div>
+        </div>
       </div>
     </div>
     <div class="nutrition-plan-settings">
@@ -1148,7 +1148,7 @@
       if (profileLiveData) {
         profileLiveData.innerHTML = points.map((point) => {
           const vam = Math.round((3600 / point.pace) * 10 * point.x);
-          return `<tr><td>${slopeLabels[point.slopeId]}</td><td>${formatPace(point.pace)}</td><td>${vam ? `${vam > 0 ? '+' : '−'}${Math.abs(vam)} m/h` : '—'}</td></tr>`;
+          return `<div class="profile-pacing-live-row"><span class="profile-pacing-live-cell" data-label="Pente">${slopeLabels[point.slopeId]}</span><span class="profile-pacing-live-cell" data-label="Allure">${formatPace(point.pace)}</span><span class="profile-pacing-live-cell" data-label="VAM">${vam ? `${vam > 0 ? '+' : '−'}${Math.abs(vam)} m/h` : '—'}</span></div>`;
         }).join('');
       }
     }

@@ -53,6 +53,17 @@
   .settings-panel-title { margin:0 0 4px; font-size:1.12rem; }
   .settings-panel-intro { margin:0 0 16px; color:var(--text-muted); font-size:.84rem; line-height:1.5; }
   .settings-panel-actions { display:flex; justify-content:flex-end; margin-top:16px; }
+  .plan-credits-card {
+    margin-top:16px;
+    padding:18px;
+    border:1px solid var(--profile-panel-border);
+    border-left:4px solid var(--accent);
+    border-radius:14px;
+    background:#fff;
+  }
+  .plan-credits-balance { margin:8px 0 5px; font-size:1.55rem; font-weight:800; color:var(--text-main); }
+  .plan-credits-card p { margin:0; color:var(--text-muted); font-size:.84rem; line-height:1.5; }
+  .plan-credits-card .btn-secondary { margin-top:14px; }
 
   .profile-page .card {
     border-color: var(--profile-panel-border);
@@ -331,6 +342,15 @@
         </div>
       </form>
       </div>
+
+      {% if plan_payment_enabled %}
+      <section class="plan-credits-card" aria-labelledby="plan-credits-title">
+        <h2 id="plan-credits-title" class="settings-panel-title">Ton abonnement</h2>
+        <div class="plan-credits-balance">{{ plan_credits }} crédit{% if plan_credits != 1 %}s{% endif %} disponible{% if plan_credits != 1 %}s{% endif %}</div>
+        <p>Un crédit permet de télécharger un plan de course en PDF et de le recevoir par e-mail. Tes crédits restent disponibles jusqu’à leur utilisation.</p>
+        <button type="button" class="btn-secondary" id="profile-buy-credit-pack">Recharger 3 crédits · 30 €</button>
+      </section>
+      {% endif %}
     </section>
 
     <section id="settings-club" class="settings-panel" data-settings-panel="club" hidden>
@@ -669,6 +689,33 @@
       </div>
     </section>
 </div>
+
+{% if plan_payment_enabled %}
+<script>
+  (function () {
+    const button = document.getElementById('profile-buy-credit-pack');
+    if (!button) return;
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      button.textContent = 'Ouverture de Stripe…';
+      try {
+        const response = await fetch('/ui/user/{{ user.id }}/course-plan/checkout?product=credit_pack', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.checkout_url) throw new Error(data.detail || 'Impossible d’ouvrir Stripe.');
+        window.location.assign(data.checkout_url);
+      } catch (error) {
+        button.disabled = false;
+        button.textContent = 'Recharger 3 crédits · 30 €';
+        window.alert(error.message || 'Le paiement n’a pas pu être lancé.');
+      }
+    });
+  }());
+</script>
+{% endif %}
 
 </div>
 

@@ -38,6 +38,7 @@
     overflow:hidden;
   }
   .dashboard-hero::after { content:""; position:absolute; left:24px; right:24px; bottom:0; height:3px; background:linear-gradient(90deg,transparent,#ff5a36,transparent); opacity:.75; }
+  .payment-confirmation { margin:0 0 16px; padding:12px 14px; border:1px solid #d7e5cf; border-left:3px solid #6d8d57; border-radius:12px; background:#f5faef; color:#40523e; font-size:.86rem; line-height:1.45; }
   .dashboard-eyebrow {
     margin:0 0 6px;
     color:var(--accent-2);
@@ -300,9 +301,11 @@
   .timeline-km-row { display:grid; grid-template-columns:minmax(0, 1fr) auto auto; gap:8px; align-items:center; padding:6px 8px; border-radius:7px; background:#f7f4ee; color:var(--text-muted); font-size:.72rem; }
   .timeline-km-row strong { color:var(--text-main); }
   .timeline-km-row span { white-space:nowrap; }
-  .course-plan-email { display:flex; justify-content:center; margin:18px 0 2px; }
+  .course-plan-email { display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:8px; margin:18px 0 2px; }
   .course-plan-email button { padding:10px 15px; border-radius:10px; border:1px solid transparent; background:var(--grad-accent); color:#fff; font-weight:800; box-shadow:none; }
   .course-plan-email button:disabled { cursor:wait; opacity:.68; }
+  .course-plan-email .course-plan-credit-pack { background:#fff; border-color:#dfdad0; color:var(--text-main); }
+  .course-plan-credit-note { width:100%; margin:0; text-align:center; color:var(--text-muted); font-size:.78rem; }
   .fueling-schedule { margin-top:18px; padding:14px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
   .fueling-schedule h3 { margin:0; color:var(--text-main); font-size:1.18rem; }
   .fueling-schedule > p { margin:5px 0 10px; color:var(--text-muted); font-size:.78rem; line-height:1.45; }
@@ -511,6 +514,9 @@
 <div class="dashboard-page">
 
 {% set runner_name = user.first_name or user.email.split('@')[0] %}
+{% if request.query_params.get('payment_plan') == 'processing' %}
+<div class="payment-confirmation" role="status">Paiement confirmé. Ton plan est en cours de préparation et d’envoi par e-mail, ou tes crédits viennent d’être ajoutés à ton compte.</div>
+{% endif %}
 <section class="dashboard-hero" aria-labelledby="home-title">
   <div>
     {% if custom_course_mode %}
@@ -733,6 +739,7 @@
     const customSegmentExplorerHost = document.getElementById('home-custom-segment-explorer');
     const customCourseMode = {{ custom_course_mode | default(false) | tojson }};
     const planPaymentPilotEnabled = {{ plan_payment_test_enabled | default(false) | tojson }};
+    const planCredits = Number({{ plan_credits | default(0) | tojson }});
     const runnerProfileData = {{ runner_profile_overview | default({}) | tojson | safe }};
     const communityPaceCurves = {{ dashboard_cohort_curves | default({}) | tojson | safe }};
     const officialCourses = {{ official_courses | default([]) | tojson | safe }};
@@ -1853,7 +1860,10 @@
           <p class="projection-disclaimer">Ce plan est une estimation générique basée sur ton poids, le parcours et l’intensité choisie. Pour une stratégie précise et adaptée à ta santé, à ta tolérance digestive ou à un suivi glycémique, fais valider et personnaliser l’analyse par un professionnel de la nutrition.</p>
           <div id="home-projection-timeline"></div>
           <div id="home-fueling-schedule"></div>
-          <div class="course-plan-email"><button type="button" id="home-plan-email-btn">✉ Envoyer et télécharger le plan PDF</button>${planPaymentPilotEnabled ? '<button type="button" id="home-plan-stripe-test-btn" class="btn-secondary" style="margin-left:8px;">Tester Stripe · pilote</button>' : ''}</div>
+          <div class="course-plan-email">
+            <button type="button" id="home-plan-email-btn">${planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : 'Acheter ce plan · 14,90 €') : '✉ Envoyer et télécharger le plan PDF'}</button>
+            ${planPaymentPilotEnabled ? '<button type="button" id="home-plan-credit-pack-btn" class="course-plan-credit-pack">Recharger 3 crédits · 30 €</button><p class="course-plan-credit-note">' + planCredits + ' crédit' + (planCredits === 1 ? '' : 's') + ' disponible' + (planCredits === 1 ? '' : 's') + '</p>' : ''}
+          </div>
         `;
         result.classList.add('is-visible');
         const timelineHost = result.querySelector('#home-projection-timeline');
@@ -1913,8 +1923,18 @@
         renderTimeline();
         renderFuelingSchedule();
         const emailPlanButton = result.querySelector('#home-plan-email-btn');
-        const stripeTestButton = result.querySelector('#home-plan-stripe-test-btn');
-        let latestPlanPayload = null;
+        const creditPackButton = result.querySelector('#home-plan-credit-pack-btn');
+        const downloadPlanLabel = planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : 'Acheter ce plan · 14,90 €') : '✉ Envoyer et télécharger le plan PDF';
+        const startPaymentCheckout = async (product, planPayload) => {
+          const response = await fetch(`/ui/user/{{ user.id }}/course-plan/checkout?product=${encodeURIComponent(product)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(planPayload || {}),
+          });
+          const responseData = await response.json().catch(() => ({}));
+          if (!response.ok || !responseData.checkout_url) throw new Error(responseData.detail || 'Impossible d’ouvrir Stripe.');
+          window.location.assign(responseData.checkout_url);
+        };
         const buildPdfFuelingSchedule = () => buildTwentyMinuteFuelingSchedule(data.elevation_profile, projectedRows, terrainNutritionWindows, aidStations).intakes.map((intake) => ({
           moment: intake.seconds ? `H+${formatDuration(intake.courseSeconds)}` : 'Départ',
           km: `km ${intake.km.toFixed(1)}`,
@@ -2034,10 +2054,13 @@
             nutrition: { carbs_rate: `${Math.round(nutrition.carbRate)} g`, protein_rate: `${Math.round(nutrition.proteinRate)} g`, fat_rate: `${Math.round(nutrition.fatRate)} g`, calories_rate: `${Math.round(plannedRate)} kcal`, expenditure_rate: `~${Math.round(nutrition.expenditureRate)} kcal`, total_carbs: `${Math.round(nutrition.carbRate * movingSeconds / 3600)} g`, total_proteins: `${Math.round(nutrition.proteinRate * movingSeconds / 3600)} g`, total_fats: `${Math.round(nutrition.fatRate * movingSeconds / 3600)} g`, total_calories: `${Math.round(plannedRate * movingSeconds / 3600)} kcal` },
             roadbook, pacing, nutrition_stops: nutritionStops, fueling_schedule: buildPdfFuelingSchedule(), legs, elevation_profile: data.elevation_profile || [], fueling_windows: terrainNutritionWindows,
           };
-          latestPlanPayload = plan;
           emailPlanButton.disabled = true;
-          emailPlanButton.textContent = 'Préparation du PDF…';
+          emailPlanButton.textContent = planPaymentPilotEnabled && planCredits < 1 ? 'Ouverture de Stripe…' : 'Préparation du PDF…';
           try {
+            if (planPaymentPilotEnabled && planCredits < 1) {
+              await startPaymentCheckout('single_plan', plan);
+              return;
+            }
             const response = await fetch('/ui/user/{{ user.id }}/course-plan/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(plan) });
             if (!response.ok) {
               const responseData = await response.json().catch(() => ({}));
@@ -2059,30 +2082,19 @@
             status.textContent = response.headers.get('X-Course-Plan-Message') || 'Le plan a été envoyé par e-mail et téléchargé sur cet appareil.';
           } catch (error) {
             emailPlanButton.disabled = false;
-            emailPlanButton.textContent = '✉ Envoyer et télécharger le plan PDF';
+            emailPlanButton.textContent = downloadPlanLabel;
             status.textContent = error.message || 'L’envoi du plan a échoué.';
           }
         });
-        if (stripeTestButton) stripeTestButton.addEventListener('click', async () => {
-          if (!latestPlanPayload) {
-            status.textContent = 'Prépare d’abord le PDF gratuit : le même snapshot servira au test Stripe.';
-            return;
-          }
-          stripeTestButton.disabled = true;
-          stripeTestButton.textContent = 'Ouverture de Stripe…';
+        if (creditPackButton) creditPackButton.addEventListener('click', async () => {
+          creditPackButton.disabled = true;
+          creditPackButton.textContent = 'Ouverture de Stripe…';
           try {
-            const response = await fetch('/ui/user/{{ user.id }}/course-plan/payment-test', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(latestPlanPayload),
-            });
-            const responseData = await response.json().catch(() => ({}));
-            if (!response.ok || !responseData.checkout_url) throw new Error(responseData.detail || 'Impossible d’ouvrir Stripe.');
-            window.location.assign(responseData.checkout_url);
+            await startPaymentCheckout('credit_pack', {});
           } catch (error) {
-            stripeTestButton.disabled = false;
-            stripeTestButton.textContent = 'Tester Stripe · pilote';
-            status.textContent = error.message || 'Le test Stripe a échoué.';
+            creditPackButton.disabled = false;
+            creditPackButton.textContent = 'Recharger 3 crédits · 30 €';
+            status.textContent = error.message || 'Le paiement n’a pas pu être lancé.';
           }
         });
         refreshProjectionSummary();

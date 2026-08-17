@@ -2143,6 +2143,7 @@ def startup_event():
     # 1) Créer les tables si elles n'existent pas (dont glucose_points)
     init_db()
     print("[DB] Tables vérifiées/créées.")
+    _ensure_existing_users_have_plan_credit()
 
     # 2) Démarrer le polling CGM dans un thread séparé
     t = threading.Thread(target=run_polling_loop, daemon=True)
@@ -5193,6 +5194,9 @@ def ui_user_profile(user_id: int, request: Request):
             if status_flag:
                 dexcom_status, dexcom_status_message = status_flag
 
+        plan_payment_enabled = _payment_pilot_allowed(user_id)
+        plan_credits = _get_plan_credit_wallet(db, user_id).credits if plan_payment_enabled else 0
+
         # On rend la page en passant des primitives (pas d’accès lazy après fermeture)
         ctx = {
             "request": request,
@@ -5226,6 +5230,8 @@ def ui_user_profile(user_id: int, request: Request):
             "carelink_status_message": carelink_status_message,
             "nightscout_status": nightscout_status,
             "nightscout_status_message": nightscout_status_message,
+            "plan_payment_enabled": plan_payment_enabled,
+            "plan_credits": plan_credits,
         }
         return templates.TemplateResponse("user_profile.html", ctx)
 
@@ -6065,9 +6071,36 @@ async def ui_send_course_plan_email(
         raise HTTPException(status_code=422, detail="Le plan contient trop de points pour être envoyé.")
 
     course_name = str(plan.get("course_name") or "Course simulée").strip()[:120]
+    payment_active = _payment_pilot_allowed(user_id)
+    wallet = _get_plan_credit_wallet(db, user_id) if payment_active else None
+    if wallet is not None and wallet.credits < 1:
+        raise HTTPException(status_code=402, detail="Aucun crédit disponible. Achète ce plan ou recharge 3 crédits.")
+    delivery_attempt = None
+    if payment_active:
+        delivery_attempt = PlanPaymentAttempt(
+            user_id=user.id,
+            user_email=user.email,
+            course_name=course_name,
+            plan_payload=json.dumps({"product": "credit_delivery", "plan": plan}, ensure_ascii=False, separators=(",", ":")),
+            amount_cents=0,
+            currency="eur",
+            status="credit_delivery_processing",
+        )
+        db.add(delivery_attempt)
+        db.commit()
+        db.refresh(delivery_attempt)
     try:
         pdf_data = _build_course_plan_pdf(user=user, plan=plan)
         roadbook_png = _build_course_plan_roadbook_png(plan=plan)
+        if delivery_attempt is not None:
+            _send_course_plan_admin_copy(
+                attempt=delivery_attempt,
+                user=user,
+                pdf_data=pdf_data,
+                roadbook_png=roadbook_png,
+            )
+            delivery_attempt.admin_sent_at = dt.datetime.utcnow()
+            db.commit()
         _send_course_plan_email(
             to_email=user.email,
             recipient_name=user.first_name,
@@ -6076,6 +6109,12 @@ async def ui_send_course_plan_email(
             roadbook_png=roadbook_png,
             plan=plan,
         )
+        if wallet is not None:
+            wallet.credits -= 1
+        if delivery_attempt is not None:
+            delivery_attempt.customer_sent_at = dt.datetime.utcnow()
+            delivery_attempt.status = "delivered"
+            delivery_attempt.last_error = None
         db.add(CoursePlanDownload(
             user_id=user.id,
             user_email=user.email,
@@ -6085,9 +6124,17 @@ async def ui_send_course_plan_email(
         ))
         db.commit()
     except RuntimeError as exc:
+        if delivery_attempt is not None:
+            delivery_attempt.status = "delivery_failed"
+            delivery_attempt.last_error = str(exc)[:2000]
+            db.commit()
         logger.warning("[COURSE PLAN] Envoi PDF indisponible pour user=%s : %s", user_id, exc)
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception:
+        if delivery_attempt is not None:
+            delivery_attempt.status = "delivery_failed"
+            delivery_attempt.last_error = "Échec de génération ou d'envoi du plan."
+            db.commit()
         logger.exception("[COURSE PLAN] Impossible d'envoyer le PDF à l'utilisateur %s", user_id)
         raise HTTPException(status_code=500, detail="Impossible de préparer ou d'envoyer le PDF.")
     safe_filename = re.sub(r"[^a-z0-9-]+", "-", course_name.lower()).strip("-") or "plan-course"
@@ -6101,33 +6148,39 @@ async def ui_send_course_plan_email(
     )
 
 
-@app.post("/ui/user/{user_id}/course-plan/payment-test", response_class=JSONResponse)
-async def ui_create_course_plan_payment_test(
+@app.post("/ui/user/{user_id}/course-plan/checkout", response_class=JSONResponse)
+async def ui_create_course_plan_checkout(
     request: Request,
     user_id: int,
     plan: dict = Body(...),
+    product: str = Query("single_plan"),
     db: Session = Depends(get_db),
 ):
-    """Stripe pilot checkout, deliberately restricted to the configured test user."""
+    """Create a Stripe Checkout session for one plan or a pack of plan credits."""
     guard = _guard_user_route(request, user_id)
     if guard:
         return guard
     if not _payment_pilot_allowed(user_id):
-        raise HTTPException(status_code=404, detail="Pilote de paiement indisponible.")
-    if not isinstance(plan, dict) or not isinstance(plan.get("roadbook"), list) or not plan.get("roadbook"):
+        raise HTTPException(status_code=404, detail="Paiement indisponible pour ce compte.")
+    product = (product or "").strip().lower()
+    if product not in {"single_plan", "credit_pack"}:
+        raise HTTPException(status_code=422, detail="Produit de plan invalide.")
+    if product == "single_plan" and (not isinstance(plan, dict) or not isinstance(plan.get("roadbook"), list) or not plan.get("roadbook")):
         raise HTTPException(status_code=422, detail="Calcule une projection avant de tester le paiement.")
     if not (settings.PLAN_ADMIN_EMAIL or "").strip():
-        raise HTTPException(status_code=503, detail="PLAN_ADMIN_EMAIL doit être configuré avant le test.")
+        raise HTTPException(status_code=503, detail="La boîte d’archivage des plans doit être configurée avant les paiements.")
     user = db.query(User).filter(User.id == user_id).one_or_none()
     if not user or not user.email:
         raise HTTPException(status_code=404, detail="Utilisateur introuvable.")
-    course_name = str(plan.get("course_name") or "Course simulée").strip()[:160]
+    course_name = str(plan.get("course_name") or ("Pack de 3 crédits" if product == "credit_pack" else "Course simulée")).strip()[:160]
+    credit_quantity = 3 if product == "credit_pack" else 0
+    amount_cents = 3000 if product == "credit_pack" else 1490
     attempt = PlanPaymentAttempt(
         user_id=user.id,
         user_email=user.email,
         course_name=course_name,
-        plan_payload=json.dumps(plan, ensure_ascii=False, separators=(",", ":")),
-        amount_cents=990,
+        plan_payload=json.dumps({"product": product, "credits": credit_quantity, "plan": plan if product == "single_plan" else {}}, ensure_ascii=False, separators=(",", ":")),
+        amount_cents=amount_cents,
         currency="eur",
         status="creating_checkout",
     )
@@ -6137,14 +6190,15 @@ async def ui_create_course_plan_payment_test(
     try:
         stripe = _stripe_module()
         base_url = _get_app_base_url()
+        price_id = settings.STRIPE_PRICE_THREE_PLANS_ID if product == "credit_pack" else settings.STRIPE_PRICE_ONE_PLAN_ID
         line_item = (
-            {"price": settings.STRIPE_PRICE_ONE_PLAN_ID, "quantity": 1}
-            if settings.STRIPE_PRICE_ONE_PLAN_ID
+            {"price": price_id, "quantity": 1}
+            if price_id
             else {
                 "price_data": {
                     "currency": "eur",
-                    "product_data": {"name": "Plan de course - pilote"},
-                    "unit_amount": 990,
+                    "product_data": {"name": "Pack de 3 crédits Running Data Plan" if product == "credit_pack" else "Plan de course Running Data Plan"},
+                    "unit_amount": amount_cents,
                 },
                 "quantity": 1,
             }
@@ -6153,7 +6207,7 @@ async def ui_create_course_plan_payment_test(
             mode="payment",
             customer_email=user.email,
             line_items=[line_item],
-            metadata={"plan_payment_attempt_id": str(attempt.id), "user_id": str(user.id)},
+            metadata={"plan_payment_attempt_id": str(attempt.id), "user_id": str(user.id), "product": product},
             success_url=f"{base_url}/ui/user/{user.id}/course-plan/payment-success?session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{base_url}/ui/user/{user.id}",
         )
@@ -6165,7 +6219,7 @@ async def ui_create_course_plan_payment_test(
         attempt.status = "checkout_failed"
         attempt.last_error = str(exc)[:2000]
         db.commit()
-        logger.exception("[PAYMENT PILOT] Échec création Checkout user=%s attempt=%s", user_id, attempt.id)
+        logger.exception("[PAYMENT] Échec création Checkout user=%s attempt=%s", user_id, attempt.id)
         raise HTTPException(status_code=503, detail="Impossible de créer la session Stripe.") from exc
 
 
@@ -6189,15 +6243,15 @@ def ui_course_plan_payment_success(
     try:
         _fulfill_paid_plan_attempt(db, session_id)
     except RuntimeError as exc:
-        logger.info("[PAYMENT PILOT] Retour Checkout en attente session=%s : %s", session_id, exc)
+        logger.info("[PAYMENT] Retour Checkout en attente session=%s : %s", session_id, exc)
     except Exception:
-        logger.exception("[PAYMENT PILOT] Livraison différée session=%s", session_id)
+        logger.exception("[PAYMENT] Livraison différée session=%s", session_id)
     return RedirectResponse(url=f"/ui/user/{user_id}?payment_plan=processing", status_code=303)
 
 
 @app.post("/webhooks/stripe", response_class=JSONResponse)
 async def stripe_payment_webhook(request: Request, db: Session = Depends(get_db)):
-    """Verified Stripe webhook for the pilot. Safe to receive the same event more than once."""
+    """Verified Stripe webhook. Safe to receive the same event more than once."""
     if not settings.STRIPE_WEBHOOK_SECRET:
         raise HTTPException(status_code=503, detail="Webhook Stripe non configuré.")
     payload = await request.body()
@@ -6206,7 +6260,7 @@ async def stripe_payment_webhook(request: Request, db: Session = Depends(get_db)
         stripe = _stripe_module()
         event = stripe.Webhook.construct_event(payload, signature, settings.STRIPE_WEBHOOK_SECRET)
     except Exception as exc:
-        logger.warning("[PAYMENT PILOT] Signature webhook Stripe invalide : %s", exc)
+        logger.warning("[PAYMENT] Signature webhook Stripe invalide : %s", exc)
         raise HTTPException(status_code=400, detail="Webhook Stripe invalide.") from exc
     if event.get("type") in {"checkout.session.completed", "checkout.session.async_payment_succeeded"}:
         session_id = str(event["data"]["object"].get("id") or "")
@@ -6214,9 +6268,9 @@ async def stripe_payment_webhook(request: Request, db: Session = Depends(get_db)
             try:
                 _fulfill_paid_plan_attempt(db, session_id)
             except RuntimeError as exc:
-                logger.info("[PAYMENT PILOT] Session Stripe non livrable pour l'instant %s : %s", session_id, exc)
+                logger.info("[PAYMENT] Session Stripe non livrable pour l'instant %s : %s", session_id, exc)
             except Exception:
-                logger.exception("[PAYMENT PILOT] Échec de livraison session=%s", session_id)
+                logger.exception("[PAYMENT] Échec de livraison session=%s", session_id)
                 # Stripe doit recevoir 200 : l'état delivery_failed est tracé et peut être renvoyé manuellement.
     return {"received": True}
 
@@ -6937,24 +6991,24 @@ def _send_course_plan_admin_copy(
     pdf_data: bytes,
     roadbook_png: bytes,
 ) -> None:
-    """Send the paid-plan copy to the administrator before customer delivery."""
+    """Archive a deliverable plan with the administrator before customer delivery."""
     recipient = (settings.PLAN_ADMIN_EMAIL or "").strip()
     if not recipient:
-        raise RuntimeError("PLAN_ADMIN_EMAIL est requis pour le pilote de paiement.")
+        raise RuntimeError("PLAN_ADMIN_EMAIL est requis pour archiver les plans.")
     if not settings.SMTP_HOST or not settings.SMTP_PORT or not settings.SMTP_USER or not settings.SMTP_PASS:
         raise RuntimeError("La configuration SMTP est incomplète.")
     safe_filename = re.sub(r"[^a-z0-9-]+", "-", attempt.course_name.lower()).strip("-") or "plan-course"
     from_name = settings.SMTP_FROM_NAME or "Running Data Plan"
     from_email = settings.SMTP_FROM_EMAIL or settings.SMTP_USER
     msg = EmailMessage()
-    msg["Subject"] = f"[Pilote paiement] Plan #{attempt.id} - {attempt.course_name}"
+    msg["Subject"] = f"[Running Data Plan] Copie du plan #{attempt.id} - {attempt.course_name}"
     msg["From"] = f"{from_name} <{from_email}>"
     msg["To"] = recipient
     msg.set_content(
-        "Copie d'archive d'un plan payé.\n\n"
+        "Copie d'archive d'un plan à conserver.\n\n"
         f"Utilisateur : {user.email} (id={user.id})\n"
         f"Course : {attempt.course_name}\n"
-        f"Paiement Stripe : {attempt.stripe_checkout_session_id or '-'}\n"
+        f"Référence Stripe : {attempt.stripe_checkout_session_id or 'crédit disponible'}\n"
         f"Demande : #{attempt.id}\n\n"
         "Le PDF et la feuille de route PNG sont joints. Conserve cet e-mail pour pouvoir renvoyer le plan si nécessaire.\n"
     )
@@ -6969,18 +7023,51 @@ def _send_course_plan_admin_copy(
 def _payment_pilot_allowed(user_id: int) -> bool:
     return bool(
         settings.PLAN_PAYMENTS_ENABLED
-        and (settings.PLAN_PAYMENT_TEST_USER_ID is None or settings.PLAN_PAYMENT_TEST_USER_ID == user_id)
+        and (
+            settings.PLAN_PAYMENT_TEST_USER_ID is None
+            or settings.PLAN_PAYMENT_TEST_USER_ID <= 0
+            or settings.PLAN_PAYMENT_TEST_USER_ID == user_id
+        )
     )
 
 
 def _get_plan_credit_wallet(db: Session, user_id: int) -> PlanCreditWallet:
     wallet = db.query(PlanCreditWallet).filter(PlanCreditWallet.user_id == user_id).one_or_none()
     if wallet is None:
-        wallet = PlanCreditWallet(user_id=user_id, credits=3)
+        wallet = PlanCreditWallet(user_id=user_id, credits=1)
         db.add(wallet)
         db.commit()
         db.refresh(wallet)
     return wallet
+
+
+def _ensure_existing_users_have_plan_credit() -> None:
+    """Give the welcome credit to every existing account that has no wallet yet.
+
+    Existing wallets are deliberately untouched so a purchase or a consumed credit can
+    never be overwritten when the application restarts.
+    """
+    db = SessionLocal()
+    try:
+        missing_user_ids = [
+            user_id
+            for (user_id,) in (
+                db.query(User.id)
+                .outerjoin(PlanCreditWallet, PlanCreditWallet.user_id == User.id)
+                .filter(PlanCreditWallet.id.is_(None))
+                .all()
+            )
+        ]
+        if not missing_user_ids:
+            return
+        db.add_all(PlanCreditWallet(user_id=user_id, credits=1) for user_id in missing_user_ids)
+        db.commit()
+        logger.info("[PAYMENT] Crédit de bienvenue ajouté à %s compte(s).", len(missing_user_ids))
+    except Exception:
+        db.rollback()
+        logger.exception("[PAYMENT] Impossible d'initialiser les crédits de bienvenue.")
+    finally:
+        db.close()
 
 
 def _stripe_module():
@@ -7005,15 +7092,32 @@ def _fulfill_paid_plan_attempt(db: Session, checkout_session_id: str) -> PlanPay
     ).one_or_none()
     if attempt is None:
         raise RuntimeError("Demande de plan introuvable pour cette session Stripe.")
-    if attempt.customer_sent_at:
-        return attempt
     user = db.query(User).filter(User.id == attempt.user_id).one_or_none()
     if not user:
         raise RuntimeError("Utilisateur introuvable pour cette demande de plan.")
     try:
-        plan = json.loads(attempt.plan_payload)
+        payload = json.loads(attempt.plan_payload)
     except (TypeError, ValueError) as exc:
         raise RuntimeError("Snapshot du plan invalide.") from exc
+
+    product = payload.get("product") if isinstance(payload, dict) else None
+    if product == "credit_pack":
+        if attempt.status == "credited":
+            return attempt
+        credits = max(1, int(payload.get("credits") or 3))
+        wallet = _get_plan_credit_wallet(db, user.id)
+        wallet.credits += credits
+        attempt.stripe_payment_intent_id = str(checkout.payment_intent or "") or None
+        attempt.status = "credited"
+        attempt.last_error = None
+        db.commit()
+        return attempt
+
+    plan = payload.get("plan") if isinstance(payload, dict) and "plan" in payload else payload
+    if not isinstance(plan, dict):
+        raise RuntimeError("Plan de course introuvable dans le snapshot.")
+    if attempt.customer_sent_at:
+        return attempt
 
     attempt.stripe_payment_intent_id = str(checkout.payment_intent or "") or None
     attempt.status = "paid_processing"
@@ -7069,6 +7173,7 @@ def _delete_user_account_data(db: Session, user: User) -> None:
     db.query(NightscoutCredential).filter(NightscoutCredential.user_id == user.id).delete()
     db.query(CoursePlanDownload).filter(CoursePlanDownload.user_id == user.id).delete()
     db.query(PlanPaymentAttempt).filter(PlanPaymentAttempt.user_id == user.id).delete()
+    db.query(PlanCreditWallet).filter(PlanCreditWallet.user_id == user.id).delete()
     db.query(UserLoginEvent).filter(UserLoginEvent.user_id == user.id).delete()
     db.query(GlucosePoint).filter(GlucosePoint.user_id == user.id).delete()
     db.query(UserSettings).filter(UserSettings.user_id == user.id).delete()
@@ -7335,6 +7440,7 @@ def ui_user_dashboard(user_id: int, request: Request):
     show_daily_glucose = False
     dashboard_warning = None
     debug_js = "{}"
+    plan_credits = 0
 
     try:
         user = db.query(User).get(user_id)
@@ -7352,6 +7458,8 @@ def ui_user_dashboard(user_id: int, request: Request):
                 """,
                 status_code=404,
             )
+        if _payment_pilot_allowed(user_id):
+            plan_credits = _get_plan_credit_wallet(db, user_id).credits
 
         _maybe_refresh_glucose_for_page_view(db, user, page_name="dashboard")
 
@@ -7938,10 +8046,8 @@ def ui_user_dashboard(user_id: int, request: Request):
             "show_daily_glucose": show_daily_glucose,
             "dashboard_warning": dashboard_warning,
             "custom_course_mode": custom_course_mode,
-            "plan_payment_test_enabled": bool(
-                settings.PLAN_PAYMENTS_ENABLED
-                and settings.PLAN_PAYMENT_TEST_USER_ID == user_id
-            ),
+            "plan_payment_test_enabled": _payment_pilot_allowed(user_id),
+            "plan_credits": plan_credits,
             "debug_js": debug_js,
         },
     )

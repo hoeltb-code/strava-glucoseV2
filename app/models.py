@@ -611,6 +611,7 @@ class PlanPaymentAttempt(Base):
     stripe_payment_intent_id = Column(String(255), nullable=True, index=True)
     admin_sent_at = Column(DateTime, nullable=True)
     customer_sent_at = Column(DateTime, nullable=True)
+    payment_confirmation_sent_at = Column(DateTime, nullable=True)
     last_error = Column(Text, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)

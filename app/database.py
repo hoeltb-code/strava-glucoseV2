@@ -31,6 +31,7 @@ def _run_local_schema_fixes():
     _ensure_column("users", "glucose_provider", "glucose_provider VARCHAR(32)")
     _ensure_column("users", "glucose_source_active", "glucose_source_active VARCHAR(32)")
     _ensure_column("users", "club_slug", "club_slug VARCHAR(128)")
+    _ensure_column("plan_payment_attempts", "payment_confirmation_sent_at", f"payment_confirmation_sent_at {carelink_datetime_type}")
     _ensure_column("dexcom_tokens", "share_username", "share_username TEXT")
     _ensure_column("dexcom_tokens", "share_password", "share_password TEXT")
     _ensure_column("dexcom_tokens", "share_region", "share_region VARCHAR(16)")

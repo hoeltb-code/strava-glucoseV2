@@ -6207,6 +6207,13 @@ async def ui_create_course_plan_checkout(
             mode="payment",
             customer_email=user.email,
             line_items=[line_item],
+            invoice_creation={
+                "enabled": True,
+                "invoice_data": {
+                    "description": "Pack de 3 crédits Running Data Plan" if product == "credit_pack" else "Plan de course Running Data Plan",
+                    "metadata": {"plan_payment_attempt_id": str(attempt.id), "product": product},
+                },
+            },
             metadata={"plan_payment_attempt_id": str(attempt.id), "user_id": str(user.id), "product": product},
             success_url=f"{base_url}/ui/user/{user.id}/course-plan/payment-success?session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{base_url}/ui/user/{user.id}",
@@ -6840,7 +6847,9 @@ def _build_course_plan_pdf(*, user: User, plan: dict) -> bytes:
         canvas.line(15 * mm, 10 * mm, 195 * mm, 10 * mm)
         canvas.setFont("Helvetica", 7)
         canvas.setFillColor(muted)
-        canvas.drawString(15 * mm, 6 * mm, "Running Data Plan - plan de course indicatif")
+        canvas.drawString(15 * mm, 7.5 * mm, "Running Data Plan - plan de course indicatif")
+        canvas.setFont("Helvetica", 6.4)
+        canvas.drawString(15 * mm, 4.3 * mm, "La trace GPX peut évoluer : vérifie toujours le parcours et les informations officielles de l’organisateur avant le départ.")
         canvas.drawRightString(195 * mm, 6 * mm, f"Page {canvas.getPageNumber()}")
         canvas.restoreState()
 
@@ -6969,7 +6978,7 @@ def _send_course_plan_email(
         f"{greeting}\n\n"
         f"Ton plan de course pour {course_name or 'ta simulation'} est prêt.\n\n"
         "Tu trouveras le PDF et une feuille de route PNG en pièces jointes. Le PNG, compact et lisible sur téléphone, "
-        "reprend les passages, ravitos, assistances, contrôles et l’arrivée. Le PDF est aussi proposé au téléchargement sur ton appareil après cet envoi. "
+        "reprend les passages, ravitos, assistances, contrôles et l’arrivée. Le GPX de la course est aussi joint lorsqu’une trace est disponible dans notre catalogue. Le PDF est aussi proposé au téléchargement sur ton appareil après cet envoi. "
         "Il rassemble les éléments utiles pour préparer ta course :\n\n"
         "• ton temps estimé et l’intensité retenue ;\n"
         "• les allures et VAM utilisées selon les pentes ;\n"
@@ -6986,10 +6995,76 @@ def _send_course_plan_email(
     ))
     msg.add_attachment(pdf_data, maintype="application", subtype="pdf", filename=f"{safe_filename}-plan-de-course.pdf")
     msg.add_attachment(roadbook_png, maintype="image", subtype="png", filename=f"{safe_filename}-feuille-de-route.png")
+    gpx_attachment = _get_plan_gpx_attachment(plan)
+    if gpx_attachment:
+        gpx_data, gpx_filename = gpx_attachment
+        msg.add_attachment(gpx_data, maintype="application", subtype="gpx+xml", filename=gpx_filename)
     with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
         server.starttls()
         server.login(settings.SMTP_USER, settings.SMTP_PASS)
         server.send_message(msg)
+
+
+def _send_payment_confirmation_email(*, attempt: PlanPaymentAttempt, user: User, product: str, credits_added: int = 0) -> None:
+    """Send the application-level purchase confirmation; Stripe remains the payment receipt issuer."""
+    if not settings.SMTP_HOST or not settings.SMTP_PORT or not settings.SMTP_USER or not settings.SMTP_PASS:
+        raise RuntimeError("La configuration SMTP est incomplète.")
+    from_name = settings.SMTP_FROM_NAME or "Running Data Plan"
+    from_email = settings.SMTP_FROM_EMAIL or settings.SMTP_USER
+    amount = f"{attempt.amount_cents / 100:.2f}".replace(".", ",")
+    first_name = (user.first_name or "").strip()
+    greeting = f"Bonjour {first_name}," if first_name else "Bonjour,"
+    if product == "credit_pack":
+        delivery = f"{credits_added or 3} crédits ont été ajoutés à ton compte. Tu peux les retrouver dans Profil → Ton abonnement et les utiliser quand tu le souhaites."
+        purchase = "Pack de 3 crédits"
+    else:
+        delivery = "Ton plan de course a été préparé et envoyé par e-mail avec son PDF, sa feuille de route PNG et, lorsqu’il est disponible, le GPX de la course."
+        purchase = "Plan de course"
+    msg = EmailMessage()
+    msg["Subject"] = f"Confirmation de paiement · {purchase}"
+    msg["From"] = f"{from_name} <{from_email}>"
+    msg["To"] = user.email
+    msg.set_content(_append_login_link_footer(
+        f"{greeting}\n\n"
+        "Nous confirmons la réception de ton paiement.\n\n"
+        f"Achat : {purchase}\n"
+        f"Montant : {amount} €\n"
+        f"Référence : #{attempt.id}\n\n"
+        f"{delivery}\n\n"
+        "Stripe t’adresse également le justificatif de paiement et la facture associée. Pense à vérifier les dossiers Spam, Indésirables ou Promotions si tu ne les vois pas.\n\n"
+        "Une question sur cet achat ? Utilise le formulaire d’assistance depuis Running Data Plan.\n\n"
+        "L’équipe Running Data Plan\n"
+    ))
+    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+        server.starttls()
+        server.login(settings.SMTP_USER, settings.SMTP_PASS)
+        server.send_message(msg)
+
+
+def _send_payment_confirmation_if_needed(db: Session, *, attempt: PlanPaymentAttempt, user: User, product: str, credits_added: int = 0) -> None:
+    if attempt.payment_confirmation_sent_at:
+        return
+    try:
+        _send_payment_confirmation_email(attempt=attempt, user=user, product=product, credits_added=credits_added)
+        attempt.payment_confirmation_sent_at = dt.datetime.utcnow()
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("[PAYMENT] Confirmation e-mail impossible pour la demande %s", attempt.id)
+
+
+def _get_plan_gpx_attachment(plan: dict) -> tuple[bytes, str] | None:
+    """Return the official GPX when it is available locally for the selected course."""
+    course_id = str(plan.get("official_course_id") or "").strip()
+    loaded = _load_official_course(course_id)
+    if not loaded:
+        return None
+    try:
+        with open(loaded["route_path"], "rb") as handle:
+            return handle.read(), os.path.basename(loaded["route_path"])
+    except OSError:
+        logger.warning("[COURSE PLAN] GPX officiel indisponible pour %s", course_id)
+        return None
 
 
 def _send_course_plan_admin_copy(
@@ -7111,6 +7186,7 @@ def _fulfill_paid_plan_attempt(db: Session, checkout_session_id: str) -> PlanPay
     product = payload.get("product") if isinstance(payload, dict) else None
     if product == "credit_pack":
         if attempt.status == "credited":
+            _send_payment_confirmation_if_needed(db, attempt=attempt, user=user, product=product, credits_added=int(payload.get("credits") or 3))
             return attempt
         credits = max(1, int(payload.get("credits") or 3))
         wallet = _get_plan_credit_wallet(db, user.id)
@@ -7119,12 +7195,14 @@ def _fulfill_paid_plan_attempt(db: Session, checkout_session_id: str) -> PlanPay
         attempt.status = "credited"
         attempt.last_error = None
         db.commit()
+        _send_payment_confirmation_if_needed(db, attempt=attempt, user=user, product=product, credits_added=credits)
         return attempt
 
     plan = payload.get("plan") if isinstance(payload, dict) and "plan" in payload else payload
     if not isinstance(plan, dict):
         raise RuntimeError("Plan de course introuvable dans le snapshot.")
     if attempt.customer_sent_at:
+        _send_payment_confirmation_if_needed(db, attempt=attempt, user=user, product="single_plan")
         return attempt
 
     attempt.stripe_payment_intent_id = str(checkout.payment_intent or "") or None
@@ -7161,6 +7239,7 @@ def _fulfill_paid_plan_attempt(db: Session, checkout_session_id: str) -> PlanPay
             course_name=attempt.course_name,
         ))
         db.commit()
+        _send_payment_confirmation_if_needed(db, attempt=attempt, user=user, product="single_plan")
     except Exception as exc:
         attempt.status = "delivery_failed"
         attempt.last_error = str(exc)[:2000]

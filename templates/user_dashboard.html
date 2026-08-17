@@ -515,9 +515,9 @@
 
 {% set runner_name = user.first_name or user.email.split('@')[0] %}
 {% if request.query_params.get('payment_plan') == 'credits' %}
-<div class="payment-confirmation" role="status">Paiement confirmé : 3 crédits viennent d’être ajoutés à ton compte. Tu peux maintenant les utiliser pour télécharger tes plans.</div>
+<div class="payment-confirmation" role="status">Paiement confirmé : 3 crédits viennent d’être ajoutés à ton compte. Tu recevras aussi la confirmation et la facture Stripe par e-mail.</div>
 {% elif request.query_params.get('payment_plan') == 'plan_sent' %}
-<div class="payment-confirmation" role="status">Paiement confirmé : ton plan est prêt et vient d’être envoyé par e-mail.</div>
+<div class="payment-confirmation" role="status">Paiement confirmé : ton plan est prêt et vient d’être envoyé par e-mail. La confirmation et la facture Stripe suivent également par e-mail.</div>
 {% elif request.query_params.get('payment_plan') == 'processing' %}
 <div class="payment-confirmation" role="status">Paiement confirmé. La confirmation est en cours de finalisation ; actualise cette page dans quelques instants.</div>
 {% endif %}
@@ -1864,9 +1864,10 @@
           <p class="projection-disclaimer">Ce plan est une estimation générique basée sur ton poids, le parcours et l’intensité choisie. Pour une stratégie précise et adaptée à ta santé, à ta tolérance digestive ou à un suivi glycémique, fais valider et personnaliser l’analyse par un professionnel de la nutrition.</p>
           <div id="home-projection-timeline"></div>
           <div id="home-fueling-schedule"></div>
+          <p class="course-plan-credit-note">Tu recevras un PDF détaillé (projection, profils, tronçons, passages, ravitos et nutrition), une feuille de route PNG à partager et, pour les courses dont nous disposons de la trace, le GPX associé. Vérifie toujours les informations officielles de l’organisateur avant le départ.</p>
           <div class="course-plan-email">
             <button type="button" id="home-plan-email-btn">${planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : 'Acheter ce plan · 14,90 €') : '✉ Envoyer et télécharger le plan PDF'}</button>
-            ${planPaymentPilotEnabled ? '<button type="button" id="home-plan-credit-pack-btn" class="course-plan-credit-pack">Recharger 3 crédits · 30 €</button><p class="course-plan-credit-note">' + planCredits + ' crédit' + (planCredits === 1 ? '' : 's') + ' disponible' + (planCredits === 1 ? '' : 's') + '</p>' : ''}
+            ${planPaymentPilotEnabled ? '<button type="button" id="home-plan-credit-pack-btn" class="course-plan-credit-pack">Recharger 3 crédits · 30 €</button><p class="course-plan-credit-note">' + planCredits + ' crédit' + (planCredits === 1 ? '' : 's') + ' disponible' + (planCredits === 1 ? '' : 's') + ' · 1 crédit = 1 plan</p>' : ''}
           </div>
         `;
         result.classList.add('is-visible');
@@ -2049,6 +2050,7 @@
           });
           const plan = {
             course_name: data.official_course?.name || manualCourseName,
+            official_course_id: data.official_course?.id || '',
             total_time: totalProjectionOutput.textContent,
             moving_time: formatDuration(movingSeconds),
             distance: `${finishKm.toFixed(1)} km`, elevation: `D+ ${Math.round(gain)} m · D- ${Math.round(loss)} m`,

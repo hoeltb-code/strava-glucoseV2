@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "id": "grp-tour-de-la-gela-2026",
+  "name": "Tour de la Gela GRP 2026",
+  "short_name": "Tour de la Gela",
+  "edition_year": 2026,
+  "sport": "trail",
+  "route_file": "grp-tour-de-la-gela-2026.gpx",
+  "distance_km": 41.6,
+  "elevation_gain_m": 3427,
+  "course_coefficient_percent": 96,
+  "course_pace_category": "rolling",
+  "start_location": "Piau",
+  "finish_location": "Piau",
+  "timezone": "Europe/Paris",
+  "points": [
+    {"order": 1, "km": 0.0, "segment_km": 0.0, "name": "Piau", "altitude_m": 1859, "elevation_gain_m": 0, "type": "start", "services_count": 3},
+    {"order": 2, "km": 5.5, "segment_km": 5.5, "name": "Haut Piau", "altitude_m": 2524, "elevation_gain_m": 779, "type": "checkpoint"},
+    {"order": 3, "km": 8.5, "segment_km": 3.0, "name": "Piau", "altitude_m": 1859, "elevation_gain_m": 779, "type": "aid_station", "cutoff_label": "10:40"},
+    {"order": 4, "km": 12.3, "segment_km": 3.8, "name": "Chapelle des Templiers", "altitude_m": 1345, "elevation_gain_m": 779, "type": "checkpoint"},
+    {"order": 5, "km": 20.8, "segment_km": 8.5, "name": "Port Vieux", "altitude_m": 2384, "elevation_gain_m": 1853, "type": "checkpoint"},
+    {"order": 6, "km": 21.4, "segment_km": 0.6, "name": "Pic de l'Aiguillette", "altitude_m": 2470, "elevation_gain_m": 1939, "type": "checkpoint"},
+    {"order": 7, "km": 23.7, "segment_km": 2.3, "name": "Tunnel de Bielsa", "altitude_m": 1821, "elevation_gain_m": 1939, "type": "aid_station", "cutoff_label": "14:30"},
+    {"order": 8, "km": 26.1, "segment_km": 2.4, "name": "Port de Bielsa", "altitude_m": 2429, "elevation_gain_m": 2547, "type": "checkpoint"},
+    {"order": 9, "km": 28.9, "segment_km": 2.8, "name": "Port Vieux retour", "altitude_m": 2384, "elevation_gain_m": 2771, "type": "checkpoint", "cutoff_label": "16:50"},
+    {"order": 10, "km": 30.4, "segment_km": 1.5, "name": "Pic de Port Vieux", "altitude_m": 2723, "elevation_gain_m": 3110, "type": "checkpoint"},
+    {"order": 11, "km": 31.8, "segment_km": 1.4, "name": "Port de Barroude", "altitude_m": 2534, "elevation_gain_m": 3159, "type": "checkpoint"},
+    {"order": 12, "km": 33.6, "segment_km": 1.8, "name": "Refuge de Barroude", "altitude_m": 2380, "elevation_gain_m": 3159, "type": "checkpoint"},
+    {"order": 13, "km": 36.9, "segment_km": 3.3, "name": "Hourquette de Chermentas", "altitude_m": 2439, "elevation_gain_m": 3355, "type": "checkpoint"},
+    {"order": 14, "km": 41.6, "segment_km": 4.7, "name": "Piau", "altitude_m": 1859, "elevation_gain_m": 3427, "type": "finish", "cutoff_label": "21:00", "services_count": 4}
+  ]
+}

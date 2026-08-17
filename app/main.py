@@ -243,6 +243,7 @@ def _load_official_course_catalog() -> list[dict]:
                 {
                     "id": course_id,
                     "name": course.get("name") or course_id,
+                    "short_name": course.get("short_name") or course.get("name") or course_id,
                     "distance_km": course.get("distance_km"),
                     "elevation_gain_m": course.get("elevation_gain_m"),
                     "elevation_loss_m": course.get("elevation_loss_m"),

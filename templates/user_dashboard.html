@@ -573,7 +573,9 @@
         </select>
         <div class="course-picker" role="list" aria-label="Courses à planifier">
           {% set utmb_course_ids = ['utmb-2026', 'ccc-2026', 'tds-2026', 'occ-2026', 'mcc-2026', 'etc-2026'] %}
+          {% set grp_course_ids = ['grp-ultra-tour-2026', 'grp-tour-des-cirques-2026', 'grp-tour-des-lacs-2026', 'grp-tour-du-moudang-2026', 'grp-tour-du-bastan-2026', 'grp-tour-de-la-gela-2026', 'grp-tour-du-neouvielle-2026'] %}
           {% set utmb_courses = official_courses | selectattr('id', 'in', utmb_course_ids) | list %}
+          {% set grp_courses = official_courses | selectattr('id', 'in', grp_course_ids) | list %}
           {% if utmb_courses %}
           <details class="course-picker-card course-picker-event" data-utmb-event-card role="listitem" open>
             <summary class="course-picker-card-head"><span><strong>🏔️ UTMB Mont-Blanc 2026</strong><span class="course-picker-event-list">{% for course in utmb_courses %}{{ course.short_name or course.name }}{% if not loop.last %} · {% endif %}{% endfor %}</span></span><span class="course-picker-arrow">⌄</span></summary>
@@ -584,8 +586,18 @@
             </select>
           </details>
           {% endif %}
+          {% if grp_courses %}
+          <details class="course-picker-card course-picker-event" data-grp-event-card role="listitem" open>
+            <summary class="course-picker-card-head"><span><strong>🏔️ Grand Raid des Pyrénées 2026</strong><span class="course-picker-event-list">{% for course in grp_courses %}{{ course.short_name or course.name }}{% if not loop.last %} · {% endif %}{% endfor %}</span></span><span class="course-picker-arrow">⌄</span></summary>
+            <label class="sr-only" for="home-grp-course">Choisir une course du Grand Raid des Pyrénées</label>
+            <select id="home-grp-course" data-grp-course-picker>
+              <option value="">Choisir une course GRP</option>
+              {% for course in grp_courses %}<option value="{{ course.id }}">{{ course.name }} · {{ course.distance_km }} km</option>{% endfor %}
+            </select>
+          </details>
+          {% endif %}
           {% for course in official_courses %}
-          {% if course.id not in utmb_course_ids %}
+          {% if course.id not in utmb_course_ids and course.id not in grp_course_ids %}
           <button class="course-picker-card" type="button" data-course-picker="{{ course.id }}" {% if not course.route_available %}disabled{% endif %} role="listitem">
             <span class="course-picker-card-head"><strong>🏔️ {{ course.name }}</strong><span class="course-picker-arrow">→</span></span>
             <small>{% if course.distance_km %}{{ course.distance_km }} km{% endif %}{% if course.elevation_gain_m %} · D+ {{ course.elevation_gain_m|round|int }} m{% endif %}{% if course.elevation_loss_m %} · D− {{ course.elevation_loss_m|round|int }} m{% endif %}{% if not course.route_available %}<br>GPX manquant{% endif %}</small>
@@ -748,8 +760,11 @@
     const communityPaceCurves = {{ dashboard_cohort_curves | default({}) | tojson | safe }};
     const officialCourses = {{ official_courses | default([]) | tojson | safe }};
     const utmbCourseIds = new Set(['utmb-2026', 'ccc-2026', 'tds-2026', 'occ-2026', 'mcc-2026', 'etc-2026']);
+    const grpCourseIds = new Set(['grp-ultra-tour-2026', 'grp-tour-des-cirques-2026', 'grp-tour-des-lacs-2026', 'grp-tour-du-moudang-2026', 'grp-tour-du-bastan-2026', 'grp-tour-de-la-gela-2026', 'grp-tour-du-neouvielle-2026']);
     const utmbCoursePicker = document.querySelector('[data-utmb-course-picker]');
     const utmbEventCard = document.querySelector('[data-utmb-event-card]');
+    const grpCoursePicker = document.querySelector('[data-grp-course-picker]');
+    const grpEventCard = document.querySelector('[data-grp-event-card]');
     const manualMode = document.getElementById('home-manual-mode');
     const manualControls = document.getElementById('home-manual-controls');
     const flatSpeed = document.getElementById('home-flat-speed');
@@ -1159,6 +1174,8 @@
       document.querySelectorAll('[data-course-picker]').forEach((card) => card.classList.toggle('is-selected', card.dataset.coursePicker === officialCourseInput.value));
       if (utmbCoursePicker) utmbCoursePicker.value = utmbCourseIds.has(officialCourseInput.value) ? officialCourseInput.value : '';
       if (utmbEventCard) utmbEventCard.classList.toggle('is-selected', utmbCourseIds.has(officialCourseInput.value));
+      if (grpCoursePicker) grpCoursePicker.value = grpCourseIds.has(officialCourseInput.value) ? officialCourseInput.value : '';
+      if (grpEventCard) grpEventCard.classList.toggle('is-selected', grpCourseIds.has(officialCourseInput.value));
       renderProfilePacingTable();
     }
 
@@ -1209,6 +1226,11 @@
     if (utmbCoursePicker) utmbCoursePicker.addEventListener('change', () => {
       if (!utmbCoursePicker.value) return;
       officialCourseInput.value = utmbCoursePicker.value;
+      officialCourseInput.dispatchEvent(new Event('change'));
+    });
+    if (grpCoursePicker) grpCoursePicker.addEventListener('change', () => {
+      if (!grpCoursePicker.value) return;
+      officialCourseInput.value = grpCoursePicker.value;
       officialCourseInput.dispatchEvent(new Event('change'));
     });
     fileInput.addEventListener('change', () => {

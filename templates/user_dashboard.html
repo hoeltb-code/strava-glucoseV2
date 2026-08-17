@@ -105,8 +105,9 @@
     gap:16px;
     margin-bottom:20px;
   }
-  .projection-panel { padding:22px; margin:0; background:#fff !important; }
-  .projection-panel::before, .projection-panel::after { display:none; }
+  /* Le simulateur n'est plus enfermé dans une carte parent : ses modules
+     utilisent directement la largeur disponible du tableau de bord. */
+  .projection-panel { margin:0; }
   .projection-panel h2 { margin:0 0 8px; font-size:1.42rem; }
   .projection-panel p { color:var(--text-muted); margin:0 0 18px; line-height:1.45; }
   .simulation-explainer { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; margin:14px 0 18px; }
@@ -563,7 +564,7 @@
 {% set climb_profile = profile_zone.get('S10_15') or profile_zone.get('S15_20') %}
 {% set descent_profile = profile_zone.get('Sneg10_15') or profile_zone.get('Sneg5_10') %}
 <section class="projection-workbench" aria-label="Simulation de course">
-  <div class="card projection-panel" id="simulation">
+  <div class="projection-panel" id="simulation">
     <h2>{% if custom_course_mode %}Simuler ma propre trace GPX{% else %}Simuler une course{% endif %}</h2>
     <div class="simulation-explainer">
       <article class="simulation-explainer-card">

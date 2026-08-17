@@ -12,6 +12,7 @@ aiosqlite
 sqlalchemy>=2.0.0
 jinja2
 python-multipart
+fitparse
 reportlab
 pillow
 passlib[bcrypt]==1.7.4

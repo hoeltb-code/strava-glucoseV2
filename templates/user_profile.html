@@ -780,13 +780,20 @@
       method: "POST",
       body: formData,
     })
-      .then((r) => r.json())
-      .then(() => {
-        alert("Import lancé ! L'orchestrateur va traiter l'activité.");
+      .then(async (r) => {
+        const payload = await r.json();
+        if (!r.ok) throw new Error(payload.detail || "Erreur lors de l'import.");
+        return payload;
+      })
+      .then((payload) => {
+        alert("Activité importée dans ton historique.");
+        if (payload.activity_id) {
+          window.location.assign(`/ui/user/${userId}/activity/${payload.activity_id}`);
+        }
       })
       .catch((err) => {
         console.error(err);
-        alert("Erreur lors de l'import.");
+        alert(err.message || "Erreur lors de l'import.");
       });
   }
 

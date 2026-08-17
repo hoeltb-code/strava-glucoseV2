@@ -91,6 +91,7 @@ import threading
 import shutil
 import logging
 import time
+import tempfile
 from datetime import datetime, timedelta
 from collections import Counter, defaultdict, deque
 import re
@@ -98,6 +99,11 @@ from urllib.parse import quote_plus, urlencode, urlsplit
 from bisect import bisect_left
 from sqlalchemy import desc, func, and_
 from sqlalchemy.orm import Session, selectinload
+
+try:
+    from fitparse import FitFile
+except ImportError:  # pragma: no cover - couvert par les dépendances de production
+    FitFile = None
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -2947,6 +2953,7 @@ async def process_activity_core(
         return {
             "status": "ok",
             "activity_id": activity_id,
+            "stored_activity_id": activity_obj.id,
             "user_id": user_id,
             "needs_live_fetch": needs_live_fetch,
             "live_fetch_reason": live_fetch_reason,
@@ -3374,13 +3381,144 @@ def parse_gpx_to_act_and_streams(filepath: str, user_id: int = 1) -> tuple[dict,
 async def enrich_activity_from_gpx(filepath: str, user_id: int = 1):
     act, streams = parse_gpx_to_act_and_streams(filepath, user_id=user_id)
 
-    await process_activity_core(
+    return await process_activity_core(
         act=act,
         streams=streams,
         user_id=user_id,
         activity_id=None,                  # pas d'ID Strava
         cli=None,                          # pas de client Strava
         update_strava_description=False,   # on ne met pas à jour une activité Strava
+    )
+
+
+def _fit_record_value(record, field_name: str):
+    """Lit un champ FIT, quel que soit le format renvoyé par fitparse."""
+    value = record.get_value(field_name)
+    return value.value if hasattr(value, "value") else value
+
+
+def parse_fit_to_act_and_streams(filepath: str, user_id: int = 1) -> tuple[dict, dict]:
+    """Transforme un export FIT en activité et streams compatibles Strava."""
+    if FitFile is None:
+        raise ValueError("La lecture des fichiers FIT n'est pas disponible sur ce serveur.")
+
+    fit = FitFile(filepath)
+    session = {}
+    points = []
+    for message in fit.get_messages():
+        if message.name == "session" and not session:
+            session = {field.name: field.value for field in message}
+        elif message.name == "record":
+            timestamp = _fit_record_value(message, "timestamp")
+            if isinstance(timestamp, dt.datetime):
+                points.append({
+                    "timestamp": timestamp,
+                    "lat": _fit_record_value(message, "position_lat"),
+                    "lon": _fit_record_value(message, "position_long"),
+                    "altitude": _fit_record_value(message, "enhanced_altitude") or _fit_record_value(message, "altitude"),
+                    "distance": _fit_record_value(message, "distance"),
+                    "heartrate": _fit_record_value(message, "heart_rate"),
+                    "cadence": _fit_record_value(message, "cadence"),
+                    "speed": _fit_record_value(message, "enhanced_speed") or _fit_record_value(message, "speed"),
+                })
+
+    if not points:
+        raise ValueError("Fichier FIT vide ou sans enregistrements horodatés.")
+
+    points.sort(key=lambda point: point["timestamp"])
+    start_ts = points[0]["timestamp"]
+    if start_ts.tzinfo is None:
+        start_ts = start_ts.replace(tzinfo=dt.timezone.utc)
+    else:
+        start_ts = start_ts.astimezone(dt.timezone.utc)
+
+    time_stream, latlng, altitude, distance, heartrate, cadence, speed = [], [], [], [], [], [], []
+    cumulative_distance = 0.0
+    total_gain = 0.0
+    previous_altitude = None
+    previous_latlng = None
+    for point in points:
+        timestamp = point["timestamp"]
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=dt.timezone.utc)
+        else:
+            timestamp = timestamp.astimezone(dt.timezone.utc)
+        time_stream.append(max(0, int((timestamp - start_ts).total_seconds())))
+
+        lat = point["lat"]
+        lon = point["lon"]
+        current_latlng = None
+        if lat is not None and lon is not None:
+            # Les coordonnées FIT sont exprimées en semicircles.
+            current_latlng = [float(lat) * 180.0 / (2 ** 31), float(lon) * 180.0 / (2 ** 31)]
+        latlng.append(current_latlng)
+
+        point_distance = point["distance"]
+        if point_distance is not None:
+            cumulative_distance = float(point_distance)
+        elif previous_latlng and current_latlng:
+            cumulative_distance += _haversine_m(*previous_latlng, *current_latlng)
+        distance.append(cumulative_distance)
+        previous_latlng = current_latlng or previous_latlng
+
+        current_altitude = float(point["altitude"]) if point["altitude"] is not None else None
+        altitude.append(current_altitude)
+        if current_altitude is not None and previous_altitude is not None:
+            total_gain += max(0.0, current_altitude - previous_altitude)
+        if current_altitude is not None:
+            previous_altitude = current_altitude
+
+        heartrate.append(float(point["heartrate"]) if point["heartrate"] is not None else None)
+        cadence.append(float(point["cadence"]) if point["cadence"] is not None else None)
+        speed.append(float(point["speed"]) if point["speed"] is not None else None)
+
+    elapsed = int(session.get("total_elapsed_time") or time_stream[-1])
+    average_heartrate = session.get("avg_heart_rate")
+    if average_heartrate is None:
+        values = [value for value in heartrate if value is not None]
+        average_heartrate = sum(values) / len(values) if values else None
+    with open(filepath, "rb") as fit_source:
+        imported_id = int(hashlib.sha256(fit_source.read()).hexdigest()[:15], 16)
+    base_name = os.path.splitext(os.path.basename(filepath))[0]
+    sport = session.get("sport") or "running"
+
+    act = {
+        "id": imported_id,
+        "name": f"{start_ts.date()} – {base_name}",
+        "start_date": start_ts.isoformat().replace("+00:00", "Z"),
+        "elapsed_time": elapsed,
+        "moving_time": int(session.get("total_timer_time") or elapsed),
+        "distance": float(session.get("total_distance") or cumulative_distance),
+        "total_elevation_gain": float(session.get("total_ascent") or total_gain),
+        "average_heartrate": float(average_heartrate) if average_heartrate is not None else None,
+        "type": str(sport),
+        "sport_type": str(sport),
+        "athlete": {"id": user_id},
+        "description": "",
+    }
+    streams = {
+        "time": {"data": time_stream},
+        "latlng": {"data": latlng},
+        "altitude": {"data": altitude},
+        "distance": {"data": distance},
+        "velocity_smooth": {"data": speed},
+    }
+    if any(value is not None for value in heartrate):
+        streams["heartrate"] = {"data": heartrate}
+    if any(value is not None for value in cadence):
+        streams["cadence"] = {"data": cadence}
+    return act, streams
+
+
+async def enrich_activity_from_fit(filepath: str, user_id: int = 1):
+    act, streams = parse_fit_to_act_and_streams(filepath, user_id=user_id)
+    return await process_activity_core(
+        act=act,
+        streams=streams,
+        user_id=user_id,
+        activity_id=None,
+        cli=None,
+        update_strava_description=False,
     )
 
 
@@ -10283,26 +10421,31 @@ def ui_user_delete_account(request: Request, user_id: int):
 #-------------------------------------------------------------------------------
 @app.post("/api/users/{user_id}/import-activity")
 async def import_activity(user_id: int, file: UploadFile = File(...)):
-    # 1) Sauvegarder le fichier dans /tmp
-    temp_dir = "/tmp"
-    os.makedirs(temp_dir, exist_ok=True)
-    filepath = os.path.join(temp_dir, file.filename)
+    filename = file.filename or ""
+    suffix = os.path.splitext(filename)[1].lower()
+    if suffix not in {".gpx", ".fit"}:
+        raise HTTPException(status_code=400, detail="Format non supporté : utilise un fichier GPX ou FIT.")
 
-    with open(filepath, "wb") as f:
-        f.write(await file.read())
+    # Le nom fourni par le navigateur ne doit jamais servir de chemin temporaire.
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix, dir="/tmp") as temp_file:
+        filepath = temp_file.name
+        temp_file.write(await file.read())
 
-    # 2) Pour l'instant : on gère uniquement les fichiers .gpx
-    if file.filename.lower().endswith(".gpx"):
+    try:
+        if suffix == ".gpx":
+            result = await enrich_activity_from_gpx(filepath, user_id=user_id)
+        else:
+            result = await enrich_activity_from_fit(filepath, user_id=user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
         try:
-            await enrich_activity_from_gpx(filepath, user_id=user_id)
-        except ValueError as e:
-            # Erreurs type "GPX sans <time>" etc.
-            raise HTTPException(status_code=400, detail=str(e))
-    else:
-        raise HTTPException(
-            status_code=400,
-            detail="Format non supporté : utilise un fichier .gpx",
-        )
+            os.unlink(filepath)
+        except FileNotFoundError:
+            pass
 
-    # 3) Réponse simple au frontend
-    return {"status": "ok", "message": "Import lancé"}
+    return {
+        "status": "ok",
+        "message": "Activité importée",
+        "activity_id": result.get("stored_activity_id") if result else None,
+    }

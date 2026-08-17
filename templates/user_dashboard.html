@@ -511,14 +511,43 @@
     .gpx-source-fields { grid-template-columns:1fr; }
     .manual-controls { grid-template-columns:1fr; }
     .manual-advanced-fields { grid-template-columns:1fr; }
-    .profile-pacing-live-table { width:100%; max-width:100%; table-layout:fixed; font-size:.68rem; }
-    .profile-pacing-live-table th,
+    /* Le tableau devient une grille de lecture à trois cellules sur mobile.
+       Les lignes restent compactes sans imposer de largeur minimale native. */
+    .profile-pacing-live-table { display:block; width:100%; max-width:100%; margin-top:10px; }
+    .profile-pacing-live-table thead { display:none; }
+    .profile-pacing-live-table tbody { display:grid; gap:7px; }
+    .profile-pacing-live-table tr {
+      display:grid;
+      grid-template-columns:repeat(3, minmax(0, 1fr));
+      border:1px solid #dfdad0;
+      border-radius:10px;
+      background:#fbfaf7;
+      overflow:hidden;
+    }
     .profile-pacing-live-table td {
-      width:33.333%;
-      padding:5px 3px;
+      display:flex;
+      min-width:0;
+      flex-direction:column;
+      gap:2px;
+      padding:7px 5px;
+      border:0;
+      border-right:1px solid #e6e1d8;
       overflow-wrap:anywhere;
       word-break:break-word;
+      font-size:.72rem;
+      line-height:1.25;
     }
+    .profile-pacing-live-table td:last-child { border-right:0; }
+    .profile-pacing-live-table td::before {
+      color:var(--text-muted);
+      font-family:"DM Mono", monospace;
+      font-size:.56rem;
+      letter-spacing:.05em;
+      text-transform:uppercase;
+    }
+    .profile-pacing-live-table td:nth-child(1)::before { content:"Pente"; }
+    .profile-pacing-live-table td:nth-child(2)::before { content:"Allure"; }
+    .profile-pacing-live-table td:nth-child(3)::before { content:"VAM"; }
     .aid-stations-header { align-items:stretch; flex-direction:column; }
     .aid-point-adder { flex-direction:column; }
     .aid-station-row { grid-template-columns:1fr 1fr; }

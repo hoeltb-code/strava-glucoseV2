@@ -3332,7 +3332,9 @@ def parse_gpx_to_act_and_streams(filepath: str, user_id: int = 1) -> tuple[dict,
     avg_hr = sum(hr_values) / len(hr_values) if hr_values else None
 
     # ---------- ID factice + nom lisible ----------
-    fake_id = int(start_ts.timestamp()) * 100 + int(user_id)
+    # Les imports locaux utilisent un identifiant négatif, réservé aux activités
+    # qui ne viennent pas de Strava. Leur rétention est calculée depuis l'import.
+    fake_id = -(int(start_ts.timestamp()) * 100 + int(user_id))
 
     filename = os.path.basename(filepath)
     base_name = os.path.splitext(filename)[0]
@@ -3478,7 +3480,7 @@ def parse_fit_to_act_and_streams(filepath: str, user_id: int = 1) -> tuple[dict,
         values = [value for value in heartrate if value is not None]
         average_heartrate = sum(values) / len(values) if values else None
     with open(filepath, "rb") as fit_source:
-        imported_id = int(hashlib.sha256(fit_source.read()).hexdigest()[:15], 16)
+        imported_id = -int(hashlib.sha256(fit_source.read()).hexdigest()[:15], 16)
     base_name = os.path.splitext(os.path.basename(filepath))[0]
     sport = session.get("sport") or "running"
 

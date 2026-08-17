@@ -33,7 +33,7 @@ import itertools
 import logging
 from typing import Optional, List
 
-from sqlalchemy import func
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 from app import models
 
@@ -4493,8 +4493,22 @@ def purge_old_user_activities(
         db.query(models.Activity)
         .filter(
             models.Activity.user_id == user_id,
-            models.Activity.start_date.isnot(None),
-            models.Activity.start_date < cutoff,
+            or_(
+                # Activités synchronisées depuis Strava : rétention relative à
+                # la date de l'activité, comme historiquement.
+                and_(
+                    models.Activity.strava_activity_id > 0,
+                    models.Activity.start_date.isnot(None),
+                    models.Activity.start_date < cutoff,
+                ),
+                # Imports GPX/FIT : assez longtemps pour alimenter les calculs
+                # du profil, puis suppression 14 jours après leur import.
+                and_(
+                    models.Activity.strava_activity_id < 0,
+                    models.Activity.created_at.isnot(None),
+                    models.Activity.created_at < cutoff,
+                ),
+            ),
         )
         .order_by(models.Activity.start_date.asc())
         .all()

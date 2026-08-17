@@ -71,6 +71,7 @@ class FitImportTests(unittest.TestCase):
             activity, streams = parse_fit_to_act_and_streams("activity.fit", user_id=7)
 
         self.assertEqual(activity["athlete"]["id"], 7)
+        self.assertLess(activity["id"], 0)
         self.assertEqual(activity["elapsed_time"], 60)
         self.assertEqual(activity["distance"], 150.0)
         self.assertEqual(activity["total_elevation_gain"], 10.0)

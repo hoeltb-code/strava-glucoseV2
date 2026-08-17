@@ -496,6 +496,8 @@
     border:1px solid rgba(255,255,255,0.18);
   }
   @media (max-width: 640px) {
+    /* Conserve un retrait de lecture après la suppression de la carte parent. */
+    .projection-panel { padding:0 12px; }
     .dashboard-hero { grid-template-columns:1fr auto; padding:19px; gap:14px; }
     .profile-orb { width:52px; height:52px; font-size:1.05rem; }
     .quick-actions { grid-template-columns:repeat(2, minmax(0, 1fr)); gap:9px; }

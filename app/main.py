@@ -6262,8 +6262,10 @@ async def stripe_payment_webhook(request: Request, db: Session = Depends(get_db)
     except Exception as exc:
         logger.warning("[PAYMENT] Signature webhook Stripe invalide : %s", exc)
         raise HTTPException(status_code=400, detail="Webhook Stripe invalide.") from exc
-    if event.get("type") in {"checkout.session.completed", "checkout.session.async_payment_succeeded"}:
-        session_id = str(event["data"]["object"].get("id") or "")
+    event_type = str(event["type"] or "")
+    if event_type in {"checkout.session.completed", "checkout.session.async_payment_succeeded"}:
+        checkout_session = event["data"]["object"]
+        session_id = str(checkout_session["id"] or "")
         if session_id:
             try:
                 _fulfill_paid_plan_attempt(db, session_id)

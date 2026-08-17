@@ -5254,6 +5254,13 @@ def ui_user_profile(user_id: int, request: Request):
 
         plan_payment_enabled = _payment_pilot_allowed(user_id)
         plan_credits = _get_plan_credit_wallet(db, user_id).credits if plan_payment_enabled else 0
+        recent_plan_downloads = (
+            db.query(CoursePlanDownload)
+            .filter(CoursePlanDownload.user_id == user_id)
+            .order_by(CoursePlanDownload.downloaded_at.desc(), CoursePlanDownload.id.desc())
+            .limit(4)
+            .all()
+        ) if plan_payment_enabled else []
 
         # On rend la page en passant des primitives (pas d’accès lazy après fermeture)
         ctx = {
@@ -5290,6 +5297,7 @@ def ui_user_profile(user_id: int, request: Request):
             "nightscout_status_message": nightscout_status_message,
             "plan_payment_enabled": plan_payment_enabled,
             "plan_credits": plan_credits,
+            "recent_plan_downloads": recent_plan_downloads,
         }
         return templates.TemplateResponse("user_profile.html", ctx)
 

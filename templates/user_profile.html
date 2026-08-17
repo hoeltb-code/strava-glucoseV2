@@ -345,6 +345,19 @@
       </form>
       </div>
 
+      <div class="card danger-card">
+        <h3 style="margin-top:0; color:#b91c1c;">Supprimer mon compte</h3>
+        <p style="margin:0 0 12px 0; font-size:0.9rem; color:#4b5563;">
+          Cette action efface définitivement ton profil, tes activités, tokens, crédits et données de glycémie. Impossible de revenir en arrière.
+        </p>
+        <form method="post" action="/ui/user/{{ user.id }}/delete-account"
+              onsubmit="return confirm('Supprimer définitivement ton compte et toutes les données associées ?');">
+          <button type="submit" style="background:#0d6efd; color:#fff; border:1px solid transparent; padding:8px 16px; border-radius:4px;">
+            Supprimer mon compte
+          </button>
+        </form>
+      </div>
+
     </section>
 
     {% if plan_payment_enabled %}
@@ -357,6 +370,21 @@
           <div class="plan-credits-balance">{{ plan_credits }} crédit{% if plan_credits != 1 %}s{% endif %} disponible{% if plan_credits != 1 %}s{% endif %}</div>
           <p>Un crédit permet de télécharger un plan de course en PDF et de le recevoir par e-mail. Tes crédits restent disponibles jusqu’à leur utilisation.</p>
           <button type="button" class="btn-secondary" id="profile-buy-credit-pack">Recharger 3 crédits · 30 €</button>
+        </section>
+        <section class="plan-credits-card" style="margin-top:14px;" aria-labelledby="recent-plans-title">
+          <h3 id="recent-plans-title" class="settings-panel-title">Mes 4 derniers plans</h3>
+          {% if recent_plan_downloads %}
+            <div style="display:grid; gap:8px; margin-top:10px;">
+              {% for download in recent_plan_downloads %}
+                <div style="display:flex; justify-content:space-between; gap:12px; align-items:baseline; padding:9px 0; border-bottom:1px solid #ebe6de;">
+                  <strong style="font-size:.86rem;">{{ download.course_name }}</strong>
+                  <span style="white-space:nowrap; color:var(--text-muted); font-size:.78rem;">{{ download.downloaded_at.strftime('%d/%m/%Y · %H:%M') if download.downloaded_at else '—' }}</span>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p style="margin-top:10px;">Aucun plan téléchargé pour le moment.</p>
+          {% endif %}
         </section>
       </div>
     </section>
@@ -378,18 +406,6 @@
       </form>
       </div>
 
-      <div class="card danger-card">
-        <h3 style="margin-top:0; color:#b91c1c;">Supprimer mon compte</h3>
-        <p style="margin:0 0 12px 0; font-size:0.9rem; color:#4b5563;">
-          Cette action efface définitivement ton profil, tes activités, tokens, crédits et données de glycémie. Impossible de revenir en arrière.
-        </p>
-        <form method="post" action="/ui/user/{{ user.id }}/delete-account"
-              onsubmit="return confirm('Supprimer définitivement ton compte et toutes les données associées ?');">
-          <button type="submit" style="background:#0d6efd; color:#fff; border:1px solid transparent; padding:8px 16px; border-radius:4px;">
-            Supprimer mon compte
-          </button>
-        </form>
-      </div>
     </section>
 
     <section id="settings-enrich" class="settings-panel" data-settings-panel="enrich" hidden>

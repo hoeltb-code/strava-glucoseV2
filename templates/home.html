@@ -286,6 +286,7 @@
               <th style="text-align:left; padding: 6px;">CareLink</th>
               <th style="text-align:left; padding: 6px;">Nightscout</th>
               <th style="text-align:left; padding: 6px;">Provider</th>
+              <th style="text-align:left; padding: 6px;">Crédits plans</th>
               <th style="text-align:right; padding: 6px;">Actions</th>
             </tr>
           </thead>
@@ -352,6 +353,14 @@
                   {% endif %}
                 </td>
                 <td style="padding: 6px;">{{ u.glucose_provider or u.cgm_source or "AUTO" }}</td>
+                <td style="padding: 6px; min-width:170px;">
+                  <strong>{{ u.plan_credits }}</strong> crédit{% if u.plan_credits != 1 %}s{% endif %}
+                  <form method="post" action="/admin/users/{{ u.id }}/plan-credits" style="display:flex; gap:4px; margin-top:5px;">
+                    <input type="hidden" name="return_to" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+                    <input type="number" name="credits" value="1" min="1" max="100" aria-label="Crédits à ajouter pour {{ u.email }}" style="width:52px; padding:4px;">
+                    <button type="submit" style="padding:4px 7px; white-space:nowrap;">Ajouter</button>
+                  </form>
+                </td>
                 <td style="text-align:right; padding: 6px;">
                   <form method="post" action="/ui/enrich-last" style="display:inline;">
                     <input type="hidden" name="user_id" value="{{ u.id }}">

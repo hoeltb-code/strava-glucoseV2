@@ -1708,6 +1708,10 @@ def _collect_admin_user_rows(
     carelink_filter: str = "all",
     nightscout_filter: str = "all",
 ) -> list[dict]:
+    credit_balances = {
+        user_id: int(credits or 0)
+        for user_id, credits in db.query(PlanCreditWallet.user_id, PlanCreditWallet.credits).all()
+    }
     users = (
         db.query(User)
         .options(
@@ -1738,6 +1742,8 @@ def _collect_admin_user_rows(
             "carelink_error_message": carelink.error_message if carelink else None,
             "glucose_provider": (u.glucose_provider or "").upper() if u.glucose_provider else None,
             "cgm_source": (u.cgm_source or "").upper() if u.cgm_source else None,
+            # A wallet is created lazily; every account nevertheless has its one welcome credit.
+            "plan_credits": credit_balances.get(u.id, 1),
         }
         has_libre = bool(row["libre_email"])
         if not _matches_connection_filter(row["has_strava"], strava_filter):
@@ -4139,6 +4145,58 @@ def admin_send_email(
             "&admin_status=ok&admin_msg="
             + quote_plus(f"Email envoyé à {sent_count} utilisateur(s).")
         ),
+        status_code=303,
+    )
+
+
+@app.post("/admin/users/{user_id}/plan-credits")
+def admin_add_plan_credits(
+    request: Request,
+    user_id: int,
+    credits: int = Form(...),
+    return_to: str = Form("/ui"),
+):
+    """Add complementary plan credits to one account and retain an admin audit record."""
+    guard = _guard_admin(request)
+    if guard:
+        return guard
+    safe_return_to = return_to if (return_to or "").startswith("/ui") else "/ui"
+    separator = "&" if "?" in safe_return_to else "?"
+    if credits < 1 or credits > 100:
+        return RedirectResponse(
+            url=safe_return_to + separator + "admin_status=error&admin_msg=" + quote_plus("Le nombre de crédits doit être compris entre 1 et 100."),
+            status_code=303,
+        )
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == user_id).one_or_none()
+        if not user:
+            message = "Utilisateur introuvable."
+            status = "error"
+        else:
+            wallet = _get_plan_credit_wallet(db, user.id)
+            wallet.credits += credits
+            db.add(PlanPaymentAttempt(
+                user_id=user.id,
+                user_email=user.email,
+                course_name="Crédits ajoutés par l’administrateur",
+                plan_payload=json.dumps({"product": "admin_credit", "credits": credits}, ensure_ascii=False),
+                amount_cents=0,
+                currency="eur",
+                status="admin_credit",
+            ))
+            db.commit()
+            message = f"{credits} crédit(s) ajouté(s) à {user.email}. Nouveau solde : {wallet.credits}."
+            status = "ok"
+    except Exception:
+        db.rollback()
+        logger.exception("[PAYMENT] Ajout manuel de crédits impossible user=%s", user_id)
+        message = "Impossible d’ajouter les crédits."
+        status = "error"
+    finally:
+        db.close()
+    return RedirectResponse(
+        url=safe_return_to + separator + f"admin_status={status}&admin_msg=" + quote_plus(message),
         status_code=303,
     )
 

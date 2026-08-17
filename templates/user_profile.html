@@ -186,6 +186,9 @@
     background:var(--grad-accent);
     color:#fff;
   }
+  .profile-physiology-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; }
+  .profile-physiology-grid > div { min-width:0; }
+  .profile-physiology-grid input[type="date"] { box-sizing:border-box; min-width:0; max-width:100%; }
   .profile-page .status-box {
     margin:10px 0;
     padding:8px 10px;
@@ -220,6 +223,7 @@
     .profile-layout {
       grid-template-columns:1fr;
     }
+    .profile-physiology-grid { grid-template-columns:minmax(0,1fr); }
   }
 </style>
 {% endblock %}
@@ -302,7 +306,7 @@
         <hr style="margin:16px 0; border:none; border-top:1px solid #e5e7eb;">
 
         <!-- Bloc physiologie -->
-        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px;">
+        <div class="profile-physiology-grid">
           <div>
             <label style="display:block; font-size:0.8rem; color:#4b5563; margin-bottom:2px;">Date de naissance</label>
             <input type="date" name="birthdate" value="{{ user.birthdate if user.birthdate is not none }}">

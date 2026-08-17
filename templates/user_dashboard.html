@@ -301,13 +301,13 @@
   .timeline-km-row { display:grid; grid-template-columns:minmax(0, 1fr) auto auto; gap:8px; align-items:center; padding:6px 8px; border-radius:7px; background:#f7f4ee; color:var(--text-muted); font-size:.72rem; }
   .timeline-km-row strong { color:var(--text-main); }
   .timeline-km-row span { white-space:nowrap; }
-  .distance-split-planner { margin-top:18px; overflow:hidden; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
-  .distance-split-planner summary { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:13px 14px; color:var(--text-main); font-size:.88rem; font-weight:800; cursor:pointer; list-style:none; }
+  .distance-split-planner { margin-top:20px; overflow:hidden; border:1px solid rgba(255,90,54,.42); border-left:4px solid var(--accent); border-radius:15px; background:#fff; box-shadow:0 8px 22px rgba(255,90,54,.08); }
+  .distance-split-planner summary { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:15px 15px 14px; color:var(--accent); font-family:"DM Mono",monospace; font-size:1rem; font-weight:800; letter-spacing:.045em; cursor:pointer; list-style:none; }
   .distance-split-planner summary::-webkit-details-marker { display:none; }
   .distance-split-planner summary::after { content:'⌄'; color:var(--accent); font-size:1rem; transition:transform .16s ease; }
   .distance-split-planner[open] summary::after { transform:rotate(180deg); }
-  .distance-split-planner summary small { display:block; margin-top:3px; color:var(--text-muted); font-size:.71rem; font-weight:600; }
-  .distance-split-controls { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:0 14px 12px; border-bottom:1px solid #e5e0d8; }
+  .distance-split-planner summary small { display:block; margin-top:5px; color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.71rem; font-weight:600; letter-spacing:0; }
+  .distance-split-controls { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:0 14px 12px; border-bottom:1px solid #e5e0d8; background:#fffaf7; }
   .distance-split-controls label { color:var(--text-muted); font-size:.73rem; font-weight:700; }
   .distance-split-controls select { width:auto; min-height:35px; padding:5px 26px 5px 8px; font-size:.76rem; }
   .distance-split-table-wrap { overflow-x:auto; }

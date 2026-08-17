@@ -301,6 +301,25 @@
   .timeline-km-row { display:grid; grid-template-columns:minmax(0, 1fr) auto auto; gap:8px; align-items:center; padding:6px 8px; border-radius:7px; background:#f7f4ee; color:var(--text-muted); font-size:.72rem; }
   .timeline-km-row strong { color:var(--text-main); }
   .timeline-km-row span { white-space:nowrap; }
+  .distance-split-planner { margin-top:18px; overflow:hidden; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
+  .distance-split-planner summary { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:13px 14px; color:var(--text-main); font-size:.88rem; font-weight:800; cursor:pointer; list-style:none; }
+  .distance-split-planner summary::-webkit-details-marker { display:none; }
+  .distance-split-planner summary::after { content:'⌄'; color:var(--accent); font-size:1rem; transition:transform .16s ease; }
+  .distance-split-planner[open] summary::after { transform:rotate(180deg); }
+  .distance-split-planner summary small { display:block; margin-top:3px; color:var(--text-muted); font-size:.71rem; font-weight:600; }
+  .distance-split-controls { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:0 14px 12px; border-bottom:1px solid #e5e0d8; }
+  .distance-split-controls label { color:var(--text-muted); font-size:.73rem; font-weight:700; }
+  .distance-split-controls select { width:auto; min-height:35px; padding:5px 26px 5px 8px; font-size:.76rem; }
+  .distance-split-table-wrap { overflow-x:auto; }
+  .distance-split-table { width:100%; min-width:620px; border-collapse:collapse; font-size:.76rem; }
+  .distance-split-table th, .distance-split-table td { padding:9px 10px; border-bottom:1px solid #eee9e1; text-align:left; vertical-align:middle; }
+  .distance-split-table tr:last-child td { border-bottom:0; }
+  .distance-split-table th { color:var(--text-muted); background:#fbfaf7; font-family:"DM Mono",monospace; font-size:.62rem; letter-spacing:.08em; text-transform:uppercase; }
+  .distance-split-table td:nth-child(2), .distance-split-table td:nth-child(3), .distance-split-table td:nth-child(4), .distance-split-table td:nth-child(5) { white-space:nowrap; }
+  .distance-split-table td:first-child { color:var(--text-main); font-family:"DM Mono",monospace; font-weight:800; }
+  .distance-split-table td:nth-child(5) { color:var(--accent-2); font-weight:800; }
+  .distance-split-stop { display:inline-flex; align-items:center; max-width:250px; padding:4px 7px; border-radius:999px; background:#fff0eb; color:#a93622; font-size:.69rem; font-weight:800; line-height:1.25; }
+  .distance-split-empty { padding:14px; color:var(--text-muted); font-size:.78rem; }
   .course-plan-email { display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:8px; margin:18px 0 2px; }
   .course-plan-email button { padding:10px 15px; border-radius:10px; border:1px solid transparent; background:var(--grad-accent); color:#fff; font-weight:800; box-shadow:none; }
   .course-plan-email button:disabled { cursor:wait; opacity:.68; }
@@ -1551,6 +1570,59 @@
       });
     }
 
+    function renderDistanceSplitPlanner(host, rows, coursePoints) {
+      if (!host) return;
+      const finishKm = Number(rows?.[rows.length - 1]?.cumulativeKm || 0);
+      if (!(finishKm > 0)) {
+        host.innerHTML = '';
+        return;
+      }
+      const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
+      const metricsBetween = (fromKm, toKm) => {
+        let previousKm = 0;
+        const metrics = { distance: 0, seconds: 0, gain: 0, loss: 0 };
+        rows.forEach((row) => {
+          const rowEnd = Number(row.cumulativeKm || 0);
+          const rowDistance = Math.max(.001, rowEnd - previousKm);
+          const overlap = Math.max(0, Math.min(toKm, rowEnd) - Math.max(fromKm, previousKm));
+          if (overlap > 0) {
+            const ratio = overlap / rowDistance;
+            metrics.distance += overlap;
+            metrics.seconds += Number(row.seconds || 0) * ratio;
+            metrics.gain += Number(row.gain || 0) * ratio;
+            metrics.loss += Number(row.loss || 0) * ratio;
+          }
+          previousKm = rowEnd;
+        });
+        return metrics;
+      };
+      const labelForRange = (fromKm, toKm) => `KM ${fromKm.toFixed(1)}–${toKm.toFixed(1)}`;
+      host.innerHTML = `
+        <details class="distance-split-planner">
+          <summary><span>Plan détaillé par distance<small>Dénivelé, allure estimée et ravitos sur chaque section</small></span></summary>
+          <div class="distance-split-controls"><label for="home-distance-split-size">Découpage</label><select id="home-distance-split-size"><option value="0.5">500 m</option><option value="1" selected>1 km</option><option value="5">5 km</option><option value="10">10 km</option></select></div>
+          <div class="distance-split-table-wrap"><table class="distance-split-table"><thead><tr><th>Section</th><th>D+</th><th>D−</th><th>Temps</th><th>Allure</th><th>Ravito sur la section</th></tr></thead><tbody id="home-distance-split-rows"></tbody></table></div>
+        </details>`;
+      const sizeInput = host.querySelector('#home-distance-split-size');
+      const tableBody = host.querySelector('#home-distance-split-rows');
+      const draw = () => {
+        const size = Number(sizeInput?.value || 1);
+        if (!(size > 0) || !tableBody) return;
+        const items = [];
+        for (let fromKm = 0; fromKm < finishKm - .001;) {
+          const toKm = Math.min(finishKm, Math.round((fromKm + size) * 1000) / 1000);
+          const metrics = metricsBetween(fromKm, toKm);
+          const stops = (coursePoints || []).filter((point) => ['aid', 'aid_assistance'].includes(point.type) && Number(point.km) > fromKm + .001 && Number(point.km) <= toKm + .001)
+            .map((point) => `${point.type === 'aid_assistance' ? 'Assistance' : 'Ravito'} · ${escapeHtml(point.label)} (km ${Number(point.km).toFixed(1)})`);
+          items.push(`<tr><td>${labelForRange(fromKm, toKm)}</td><td>+${Math.round(metrics.gain)} m</td><td>−${Math.round(metrics.loss)} m</td><td>${formatDuration(metrics.seconds)}</td><td>${metrics.distance ? formatPace(metrics.seconds / metrics.distance) : '—'}</td><td>${stops.length ? `<span class="distance-split-stop">${stops.join(' · ')}</span>` : '—'}</td></tr>`);
+          fromKm = toKm;
+        }
+        tableBody.innerHTML = items.length ? items.join('') : '<tr><td class="distance-split-empty" colspan="6">Aucune section disponible.</td></tr>';
+      };
+      sizeInput?.addEventListener('change', draw);
+      draw();
+    }
+
     function buildProjectionTimeline(rows, splitSize, aidStations, nutrition, departureTime, departureDate, elevationProfile) {
       const finishKm = rows.length ? rows[rows.length - 1].cumulativeKm : 0;
       const departureMatch = /^(\d{2}):(\d{2})$/.exec(departureTime || '');
@@ -1886,6 +1958,7 @@
           <p class="projection-disclaimer">Ce plan est une estimation générique basée sur ton poids, le parcours et l’intensité choisie. Pour une stratégie précise et adaptée à ta santé, à ta tolérance digestive ou à un suivi glycémique, fais valider et personnaliser l’analyse par un professionnel de la nutrition.</p>
           <div id="home-projection-timeline"></div>
           <div id="home-fueling-schedule"></div>
+          <div id="home-distance-split-planner"></div>
           <p class="course-plan-credit-note">Tu recevras un PDF détaillé (projection, profils, tronçons, passages, ravitos et nutrition), une feuille de route PNG à partager et, pour les courses dont nous disposons de la trace, le GPX associé. Vérifie toujours les informations officielles de l’organisateur avant le départ.</p>
           <div class="course-plan-email">
             <button type="button" id="home-plan-email-btn">${planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : 'Acheter ce plan · 14,90 €') : '✉ Envoyer et télécharger le plan PDF'}</button>
@@ -1895,6 +1968,7 @@
         result.classList.add('is-visible');
         const timelineHost = result.querySelector('#home-projection-timeline');
         const fuelingScheduleHost = result.querySelector('#home-fueling-schedule');
+        const distanceSplitPlannerHost = result.querySelector('#home-distance-split-planner');
         const totalProjectionOutput = result.querySelector('#home-projection-total');
         const distanceDetailOutput = result.querySelector('#home-projection-distance-detail');
         const nutritionDetailOutput = result.querySelector('#home-projection-nutrition-detail');
@@ -1949,6 +2023,7 @@
         };
         renderTimeline();
         renderFuelingSchedule();
+        renderDistanceSplitPlanner(distanceSplitPlannerHost, projectedRows, aidStations);
         const emailPlanButton = result.querySelector('#home-plan-email-btn');
         const creditPackButton = result.querySelector('#home-plan-credit-pack-btn');
         const downloadPlanLabel = planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : 'Acheter ce plan · 14,90 €') : '✉ Envoyer et télécharger le plan PDF';

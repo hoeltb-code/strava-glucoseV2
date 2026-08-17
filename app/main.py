@@ -189,6 +189,8 @@ from app.models import (
     ActivityVamPeak,
     ActivityZoneSlopeAgg,
     CoursePlanDownload,
+    PlanPaymentAttempt,
+    PlanCreditWallet,
     UserLoginEvent,
 )
 from app.secrets import encrypt_secret
@@ -6099,6 +6101,126 @@ async def ui_send_course_plan_email(
     )
 
 
+@app.post("/ui/user/{user_id}/course-plan/payment-test", response_class=JSONResponse)
+async def ui_create_course_plan_payment_test(
+    request: Request,
+    user_id: int,
+    plan: dict = Body(...),
+    db: Session = Depends(get_db),
+):
+    """Stripe pilot checkout, deliberately restricted to the configured test user."""
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+    if not _payment_pilot_allowed(user_id):
+        raise HTTPException(status_code=404, detail="Pilote de paiement indisponible.")
+    if not isinstance(plan, dict) or not isinstance(plan.get("roadbook"), list) or not plan.get("roadbook"):
+        raise HTTPException(status_code=422, detail="Calcule une projection avant de tester le paiement.")
+    if not (settings.PLAN_ADMIN_EMAIL or "").strip():
+        raise HTTPException(status_code=503, detail="PLAN_ADMIN_EMAIL doit être configuré avant le test.")
+    user = db.query(User).filter(User.id == user_id).one_or_none()
+    if not user or not user.email:
+        raise HTTPException(status_code=404, detail="Utilisateur introuvable.")
+    course_name = str(plan.get("course_name") or "Course simulée").strip()[:160]
+    attempt = PlanPaymentAttempt(
+        user_id=user.id,
+        user_email=user.email,
+        course_name=course_name,
+        plan_payload=json.dumps(plan, ensure_ascii=False, separators=(",", ":")),
+        amount_cents=990,
+        currency="eur",
+        status="creating_checkout",
+    )
+    db.add(attempt)
+    db.commit()
+    db.refresh(attempt)
+    try:
+        stripe = _stripe_module()
+        base_url = _get_app_base_url()
+        line_item = (
+            {"price": settings.STRIPE_PRICE_ONE_PLAN_ID, "quantity": 1}
+            if settings.STRIPE_PRICE_ONE_PLAN_ID
+            else {
+                "price_data": {
+                    "currency": "eur",
+                    "product_data": {"name": "Plan de course - pilote"},
+                    "unit_amount": 990,
+                },
+                "quantity": 1,
+            }
+        )
+        checkout = stripe.checkout.Session.create(
+            mode="payment",
+            customer_email=user.email,
+            line_items=[line_item],
+            metadata={"plan_payment_attempt_id": str(attempt.id), "user_id": str(user.id)},
+            success_url=f"{base_url}/ui/user/{user.id}/course-plan/payment-success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{base_url}/ui/user/{user.id}",
+        )
+        attempt.stripe_checkout_session_id = checkout.id
+        attempt.status = "pending_payment"
+        db.commit()
+        return {"checkout_url": checkout.url, "attempt_id": attempt.id}
+    except Exception as exc:
+        attempt.status = "checkout_failed"
+        attempt.last_error = str(exc)[:2000]
+        db.commit()
+        logger.exception("[PAYMENT PILOT] Échec création Checkout user=%s attempt=%s", user_id, attempt.id)
+        raise HTTPException(status_code=503, detail="Impossible de créer la session Stripe.") from exc
+
+
+@app.get("/ui/user/{user_id}/course-plan/payment-success")
+def ui_course_plan_payment_success(
+    request: Request,
+    user_id: int,
+    session_id: str = Query(...),
+    db: Session = Depends(get_db),
+):
+    """Fast path after Checkout; the webhook remains the authoritative delivery trigger."""
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+    attempt = db.query(PlanPaymentAttempt).filter(
+        PlanPaymentAttempt.stripe_checkout_session_id == session_id,
+        PlanPaymentAttempt.user_id == user_id,
+    ).one_or_none()
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Session de paiement introuvable.")
+    try:
+        _fulfill_paid_plan_attempt(db, session_id)
+    except RuntimeError as exc:
+        logger.info("[PAYMENT PILOT] Retour Checkout en attente session=%s : %s", session_id, exc)
+    except Exception:
+        logger.exception("[PAYMENT PILOT] Livraison différée session=%s", session_id)
+    return RedirectResponse(url=f"/ui/user/{user_id}?payment_plan=processing", status_code=303)
+
+
+@app.post("/webhooks/stripe", response_class=JSONResponse)
+async def stripe_payment_webhook(request: Request, db: Session = Depends(get_db)):
+    """Verified Stripe webhook for the pilot. Safe to receive the same event more than once."""
+    if not settings.STRIPE_WEBHOOK_SECRET:
+        raise HTTPException(status_code=503, detail="Webhook Stripe non configuré.")
+    payload = await request.body()
+    signature = request.headers.get("Stripe-Signature", "")
+    try:
+        stripe = _stripe_module()
+        event = stripe.Webhook.construct_event(payload, signature, settings.STRIPE_WEBHOOK_SECRET)
+    except Exception as exc:
+        logger.warning("[PAYMENT PILOT] Signature webhook Stripe invalide : %s", exc)
+        raise HTTPException(status_code=400, detail="Webhook Stripe invalide.") from exc
+    if event.get("type") in {"checkout.session.completed", "checkout.session.async_payment_succeeded"}:
+        session_id = str(event["data"]["object"].get("id") or "")
+        if session_id:
+            try:
+                _fulfill_paid_plan_attempt(db, session_id)
+            except RuntimeError as exc:
+                logger.info("[PAYMENT PILOT] Session Stripe non livrable pour l'instant %s : %s", session_id, exc)
+            except Exception:
+                logger.exception("[PAYMENT PILOT] Échec de livraison session=%s", session_id)
+                # Stripe doit recevoir 200 : l'état delivery_failed est tracé et peut être renvoyé manuellement.
+    return {"received": True}
+
+
 
 # -----------------------------------------------------------------------------
 # UI : Login
@@ -6808,6 +6930,133 @@ def _send_course_plan_email(
         server.send_message(msg)
 
 
+def _send_course_plan_admin_copy(
+    *,
+    attempt: PlanPaymentAttempt,
+    user: User,
+    pdf_data: bytes,
+    roadbook_png: bytes,
+) -> None:
+    """Send the paid-plan copy to the administrator before customer delivery."""
+    recipient = (settings.PLAN_ADMIN_EMAIL or "").strip()
+    if not recipient:
+        raise RuntimeError("PLAN_ADMIN_EMAIL est requis pour le pilote de paiement.")
+    if not settings.SMTP_HOST or not settings.SMTP_PORT or not settings.SMTP_USER or not settings.SMTP_PASS:
+        raise RuntimeError("La configuration SMTP est incomplète.")
+    safe_filename = re.sub(r"[^a-z0-9-]+", "-", attempt.course_name.lower()).strip("-") or "plan-course"
+    from_name = settings.SMTP_FROM_NAME or "Running Data Plan"
+    from_email = settings.SMTP_FROM_EMAIL or settings.SMTP_USER
+    msg = EmailMessage()
+    msg["Subject"] = f"[Pilote paiement] Plan #{attempt.id} - {attempt.course_name}"
+    msg["From"] = f"{from_name} <{from_email}>"
+    msg["To"] = recipient
+    msg.set_content(
+        "Copie d'archive d'un plan payé.\n\n"
+        f"Utilisateur : {user.email} (id={user.id})\n"
+        f"Course : {attempt.course_name}\n"
+        f"Paiement Stripe : {attempt.stripe_checkout_session_id or '-'}\n"
+        f"Demande : #{attempt.id}\n\n"
+        "Le PDF et la feuille de route PNG sont joints. Conserve cet e-mail pour pouvoir renvoyer le plan si nécessaire.\n"
+    )
+    msg.add_attachment(pdf_data, maintype="application", subtype="pdf", filename=f"{safe_filename}-plan-de-course.pdf")
+    msg.add_attachment(roadbook_png, maintype="image", subtype="png", filename=f"{safe_filename}-feuille-de-route.png")
+    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+        server.starttls()
+        server.login(settings.SMTP_USER, settings.SMTP_PASS)
+        server.send_message(msg)
+
+
+def _payment_pilot_allowed(user_id: int) -> bool:
+    return bool(
+        settings.PLAN_PAYMENTS_ENABLED
+        and (settings.PLAN_PAYMENT_TEST_USER_ID is None or settings.PLAN_PAYMENT_TEST_USER_ID == user_id)
+    )
+
+
+def _get_plan_credit_wallet(db: Session, user_id: int) -> PlanCreditWallet:
+    wallet = db.query(PlanCreditWallet).filter(PlanCreditWallet.user_id == user_id).one_or_none()
+    if wallet is None:
+        wallet = PlanCreditWallet(user_id=user_id, credits=3)
+        db.add(wallet)
+        db.commit()
+        db.refresh(wallet)
+    return wallet
+
+
+def _stripe_module():
+    if not settings.STRIPE_SECRET_KEY:
+        raise RuntimeError("STRIPE_SECRET_KEY est manquant.")
+    try:
+        import stripe
+    except ImportError as exc:
+        raise RuntimeError("Le module Stripe n'est pas installé. Redéploie après mise à jour des dépendances.") from exc
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    return stripe
+
+
+def _fulfill_paid_plan_attempt(db: Session, checkout_session_id: str) -> PlanPaymentAttempt:
+    """Idempotent paid-plan delivery: archive first, then send the customer copy."""
+    stripe = _stripe_module()
+    checkout = stripe.checkout.Session.retrieve(checkout_session_id)
+    if checkout.payment_status != "paid":
+        raise RuntimeError("Le paiement Stripe n'est pas encore confirmé.")
+    attempt = db.query(PlanPaymentAttempt).filter(
+        PlanPaymentAttempt.stripe_checkout_session_id == checkout_session_id
+    ).one_or_none()
+    if attempt is None:
+        raise RuntimeError("Demande de plan introuvable pour cette session Stripe.")
+    if attempt.customer_sent_at:
+        return attempt
+    user = db.query(User).filter(User.id == attempt.user_id).one_or_none()
+    if not user:
+        raise RuntimeError("Utilisateur introuvable pour cette demande de plan.")
+    try:
+        plan = json.loads(attempt.plan_payload)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError("Snapshot du plan invalide.") from exc
+
+    attempt.stripe_payment_intent_id = str(checkout.payment_intent or "") or None
+    attempt.status = "paid_processing"
+    db.commit()
+    try:
+        pdf_data = _build_course_plan_pdf(user=user, plan=plan)
+        roadbook_png = _build_course_plan_roadbook_png(plan=plan)
+        if not attempt.admin_sent_at:
+            _send_course_plan_admin_copy(
+                attempt=attempt,
+                user=user,
+                pdf_data=pdf_data,
+                roadbook_png=roadbook_png,
+            )
+            attempt.admin_sent_at = dt.datetime.utcnow()
+            db.commit()
+        _send_course_plan_email(
+            to_email=user.email,
+            recipient_name=user.first_name,
+            course_name=attempt.course_name,
+            pdf_data=pdf_data,
+            roadbook_png=roadbook_png,
+            plan=plan,
+        )
+        attempt.customer_sent_at = dt.datetime.utcnow()
+        attempt.status = "delivered"
+        attempt.last_error = None
+        db.add(CoursePlanDownload(
+            user_id=user.id,
+            user_email=user.email,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            course_name=attempt.course_name,
+        ))
+        db.commit()
+    except Exception as exc:
+        attempt.status = "delivery_failed"
+        attempt.last_error = str(exc)[:2000]
+        db.commit()
+        raise
+    return attempt
+
+
 def _delete_user_account_data(db: Session, user: User) -> None:
     activities = db.query(Activity).filter(Activity.user_id == user.id).all()
     for activity in activities:
@@ -6819,6 +7068,7 @@ def _delete_user_account_data(db: Session, user: User) -> None:
     db.query(CareLinkCredential).filter(CareLinkCredential.user_id == user.id).delete()
     db.query(NightscoutCredential).filter(NightscoutCredential.user_id == user.id).delete()
     db.query(CoursePlanDownload).filter(CoursePlanDownload.user_id == user.id).delete()
+    db.query(PlanPaymentAttempt).filter(PlanPaymentAttempt.user_id == user.id).delete()
     db.query(UserLoginEvent).filter(UserLoginEvent.user_id == user.id).delete()
     db.query(GlucosePoint).filter(GlucosePoint.user_id == user.id).delete()
     db.query(UserSettings).filter(UserSettings.user_id == user.id).delete()
@@ -7688,6 +7938,10 @@ def ui_user_dashboard(user_id: int, request: Request):
             "show_daily_glucose": show_daily_glucose,
             "dashboard_warning": dashboard_warning,
             "custom_course_mode": custom_course_mode,
+            "plan_payment_test_enabled": bool(
+                settings.PLAN_PAYMENTS_ENABLED
+                and settings.PLAN_PAYMENT_TEST_USER_ID == user_id
+            ),
             "debug_js": debug_js,
         },
     )

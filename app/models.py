@@ -594,6 +594,44 @@ class CoursePlanDownload(Base):
     user = relationship("User")
 
 
+class PlanPaymentAttempt(Base):
+    """Immutable plan snapshot and delivery trail for a paid race-plan request."""
+
+    __tablename__ = "plan_payment_attempts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_email = Column(String, nullable=False)
+    course_name = Column(String(160), nullable=False)
+    plan_payload = Column(Text, nullable=False)
+    amount_cents = Column(Integer, nullable=False)
+    currency = Column(String(3), nullable=False, default="eur")
+    status = Column(String(32), nullable=False, default="pending_payment", index=True)
+    stripe_checkout_session_id = Column(String(255), nullable=True, unique=True, index=True)
+    stripe_payment_intent_id = Column(String(255), nullable=True, index=True)
+    admin_sent_at = Column(DateTime, nullable=True)
+    customer_sent_at = Column(DateTime, nullable=True)
+    last_error = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User")
+
+
+class PlanCreditWallet(Base):
+    """Credit balance for downloadable race plans. New users receive three launch credits."""
+
+    __tablename__ = "plan_credit_wallets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True, index=True)
+    credits = Column(Integer, nullable=False, default=3)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User")
+
+
 class UserLoginEvent(Base):
     """Minimal audit trail used to count unique authenticated users per day."""
 

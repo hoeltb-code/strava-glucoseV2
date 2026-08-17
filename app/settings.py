@@ -57,6 +57,15 @@ class Settings(BaseSettings):
     SUPPORT_EMAIL: str | None = Field(default=None)
     APP_BASE_URL: str | None = Field(default=None)
 
+    # === PAIEMENTS STRIPE (désactivés par défaut) ===
+    STRIPE_SECRET_KEY: str | None = Field(default=None)
+    STRIPE_WEBHOOK_SECRET: str | None = Field(default=None)
+    PLAN_PAYMENTS_ENABLED: bool = Field(default=False)
+    PLAN_PAYMENT_TEST_USER_ID: int | None = Field(default=None)
+    PLAN_ADMIN_EMAIL: str | None = Field(default=None)
+    STRIPE_PRICE_ONE_PLAN_ID: str | None = Field(default=None)
+    STRIPE_PRICE_THREE_PLANS_ID: str | None = Field(default=None)
+
     # Lecture automatique du fichier .env
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

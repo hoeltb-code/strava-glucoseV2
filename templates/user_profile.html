@@ -441,9 +441,10 @@
           onchange="document.getElementById('profile-selected-file').textContent = this.files[0].name;">
 
         <p id="profile-selected-file" style="font-size:0.85rem; color:#444; margin-top:10px; min-height:18px;"></p>
+        <p id="profile-import-status" role="status" aria-live="polite" style="font-size:0.85rem; color:var(--text-muted); margin:6px 0 0; min-height:18px;"></p>
 
         <div style="margin-top:12px; text-align:right;">
-          <button type="button" onclick="startProfileImport({{ user.id }}, this)" class="btn-primary">
+          <button id="profile-import-button" type="button" class="btn-primary">
             ⚙️ Lancer l'orchestrateur
           </button>
         </div>
@@ -766,46 +767,6 @@
     btn.textContent = isPassword ? 'Masquer' : 'Afficher';
   }
 
-  function startProfileImport(userId, button) {
-    const fileInput = document.getElementById('profile-file-input');
-    if (!fileInput || !fileInput.files.length) {
-      alert("Merci de sélectionner un fichier GPX ou FIT.");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("file", fileInput.files[0]);
-    if (button) {
-      button.disabled = true;
-      button.textContent = "Import en cours…";
-    }
-
-    fetch(`/api/users/${userId}/import-activity`, {
-      method: "POST",
-      body: formData,
-    })
-      .then(async (r) => {
-        const payload = await r.json();
-        if (!r.ok) throw new Error(payload.detail || "Erreur lors de l'import.");
-        return payload;
-      })
-      .then(() => {
-        alert("Import lancé. Tu peux continuer à utiliser le site ; l'activité apparaîtra dans ton historique une fois le traitement terminé.");
-        if (button) {
-          button.disabled = false;
-          button.textContent = "✓ Import lancé — importer un autre fichier";
-        }
-      })
-      .catch((err) => {
-        console.error(err);
-        if (button) {
-          button.disabled = false;
-          button.textContent = "⚙️ Lancer l'orchestrateur";
-        }
-        alert(err.message || "Erreur lors de l'import.");
-      });
-  }
-
   (function setupSettingsPanels() {
     const panels = Array.from(document.querySelectorAll('[data-settings-panel]'));
     const links = Array.from(document.querySelectorAll('[data-settings-link]'));
@@ -841,6 +802,47 @@
     if (mobilePicker) mobilePicker.addEventListener('change', () => activate(mobilePicker.value, true));
     window.addEventListener('hashchange', () => activate(keyFromHash(), false));
     activate(keyFromHash(), false);
+  })();
+</script>
+
+<script>
+  // Script isolé afin que le retour d'import reste fonctionnel même si un autre
+  // script de la page rencontre une erreur.
+  (() => {
+    const button = document.getElementById('profile-import-button');
+    const fileInput = document.getElementById('profile-file-input');
+    const status = document.getElementById('profile-import-status');
+    if (!button || !fileInput || !status) return;
+
+    button.addEventListener('click', async () => {
+      if (!fileInput.files.length) {
+        status.textContent = 'Sélectionne d’abord un fichier GPX ou FIT.';
+        return;
+      }
+
+      button.disabled = true;
+      button.textContent = 'Import en cours…';
+      status.textContent = 'Fichier envoyé ; traitement en arrière-plan…';
+
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+      try {
+        const response = await fetch(`/api/users/{{ user.id }}/import-activity`, {
+          method: 'POST',
+          body: formData,
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.detail || "Erreur lors de l'import.");
+        status.textContent = "Import lancé. Tu peux continuer à utiliser le site ; l'activité apparaîtra dans l'historique une fois traitée.";
+        button.disabled = false;
+        button.textContent = '✓ Import lancé — importer un autre fichier';
+      } catch (error) {
+        console.error(error);
+        status.textContent = error.message || "L'import n'a pas pu être lancé.";
+        button.disabled = false;
+        button.textContent = "⚙️ Lancer l'orchestrateur";
+      }
+    });
   })();
 </script>
 

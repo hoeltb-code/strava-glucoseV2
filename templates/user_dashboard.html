@@ -514,8 +514,12 @@
 <div class="dashboard-page">
 
 {% set runner_name = user.first_name or user.email.split('@')[0] %}
-{% if request.query_params.get('payment_plan') == 'processing' %}
-<div class="payment-confirmation" role="status">Paiement confirmé. Ton plan est en cours de préparation et d’envoi par e-mail, ou tes crédits viennent d’être ajoutés à ton compte.</div>
+{% if request.query_params.get('payment_plan') == 'credits' %}
+<div class="payment-confirmation" role="status">Paiement confirmé : 3 crédits viennent d’être ajoutés à ton compte. Tu peux maintenant les utiliser pour télécharger tes plans.</div>
+{% elif request.query_params.get('payment_plan') == 'plan_sent' %}
+<div class="payment-confirmation" role="status">Paiement confirmé : ton plan est prêt et vient d’être envoyé par e-mail.</div>
+{% elif request.query_params.get('payment_plan') == 'processing' %}
+<div class="payment-confirmation" role="status">Paiement confirmé. La confirmation est en cours de finalisation ; actualise cette page dans quelques instants.</div>
 {% endif %}
 <section class="dashboard-hero" aria-labelledby="home-title">
   <div>

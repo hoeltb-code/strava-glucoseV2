@@ -6240,13 +6240,19 @@ def ui_course_plan_payment_success(
     ).one_or_none()
     if not attempt:
         raise HTTPException(status_code=404, detail="Session de paiement introuvable.")
+    payment_result = "processing"
     try:
-        _fulfill_paid_plan_attempt(db, session_id)
+        fulfilled_attempt = _fulfill_paid_plan_attempt(db, session_id)
+        payload = json.loads(fulfilled_attempt.plan_payload)
+        if isinstance(payload, dict) and payload.get("product") == "credit_pack":
+            payment_result = "credits"
+        elif fulfilled_attempt.customer_sent_at:
+            payment_result = "plan_sent"
     except RuntimeError as exc:
         logger.info("[PAYMENT] Retour Checkout en attente session=%s : %s", session_id, exc)
     except Exception:
         logger.exception("[PAYMENT] Livraison différée session=%s", session_id)
-    return RedirectResponse(url=f"/ui/user/{user_id}?payment_plan=processing", status_code=303)
+    return RedirectResponse(url=f"/ui/user/{user_id}?payment_plan={payment_result}", status_code=303)
 
 
 @app.post("/webhooks/stripe", response_class=JSONResponse)

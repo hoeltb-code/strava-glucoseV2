@@ -1613,6 +1613,13 @@
 
     function renderDistanceSplitPlanner(host, rows, coursePoints) {
       if (!host) return;
+      // La projection est recalculée à chaque modification des allures. On
+      // conserve le découpage choisi et l'état ouvert du panneau pendant son
+      // rafraîchissement, afin que le tableau reste réellement "en direct".
+      const previousPlanner = host.querySelector('.distance-split-planner');
+      const previousSize = previousPlanner?.querySelector('#home-distance-split-size')?.value;
+      const selectedSize = ['0.5', '1', '5', '10'].includes(previousSize) ? previousSize : '1';
+      const wasOpen = Boolean(previousPlanner?.open);
       const finishKm = Number(rows?.[rows.length - 1]?.cumulativeKm || 0);
       if (!(finishKm > 0)) {
         host.innerHTML = '';
@@ -1639,9 +1646,9 @@
       };
       const labelForRange = (fromKm, toKm) => `KM ${fromKm.toFixed(1)}–${toKm.toFixed(1)}`;
       host.innerHTML = `
-        <details class="distance-split-planner">
+        <details class="distance-split-planner"${wasOpen ? ' open' : ''}>
           <summary><span>Plan détaillé par distance<small>Dénivelé, allure estimée et ravitos sur chaque section</small></span></summary>
-          <div class="distance-split-controls"><label for="home-distance-split-size">Découpage</label><select id="home-distance-split-size"><option value="0.5">500 m</option><option value="1" selected>1 km</option><option value="5">5 km</option><option value="10">10 km</option></select></div>
+          <div class="distance-split-controls"><label for="home-distance-split-size">Découpage</label><select id="home-distance-split-size"><option value="0.5"${selectedSize === '0.5' ? ' selected' : ''}>500 m</option><option value="1"${selectedSize === '1' ? ' selected' : ''}>1 km</option><option value="5"${selectedSize === '5' ? ' selected' : ''}>5 km</option><option value="10"${selectedSize === '10' ? ' selected' : ''}>10 km</option></select></div>
           <div class="distance-split-table-wrap"><table class="distance-split-table"><thead><tr><th>Section</th><th>D+</th><th>D−</th><th>Temps</th><th>Allure</th><th>Ravito sur la section</th></tr></thead><tbody id="home-distance-split-rows"></tbody></table></div>
         </details>`;
       const sizeInput = host.querySelector('#home-distance-split-size');
@@ -2282,6 +2289,7 @@
           refreshProjectionSummary();
           renderTimeline();
           renderFuelingSchedule();
+          renderDistanceSplitPlanner(distanceSplitPlannerHost, projectedRows, aidStations);
         };
         timelineHost.addEventListener('input', (event) => {
           const input = event.target.closest('.timeline-stop-input');

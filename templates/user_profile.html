@@ -443,7 +443,7 @@
         <p id="profile-selected-file" style="font-size:0.85rem; color:#444; margin-top:10px; min-height:18px;"></p>
 
         <div style="margin-top:12px; text-align:right;">
-          <button type="button" onclick="startProfileImport({{ user.id }})" class="btn-primary">
+          <button type="button" onclick="startProfileImport({{ user.id }}, this)" class="btn-primary">
             ⚙️ Lancer l'orchestrateur
           </button>
         </div>
@@ -766,7 +766,7 @@
     btn.textContent = isPassword ? 'Masquer' : 'Afficher';
   }
 
-  function startProfileImport(userId) {
+  function startProfileImport(userId, button) {
     const fileInput = document.getElementById('profile-file-input');
     if (!fileInput || !fileInput.files.length) {
       alert("Merci de sélectionner un fichier GPX ou FIT.");
@@ -775,6 +775,10 @@
 
     const formData = new FormData();
     formData.append("file", fileInput.files[0]);
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Import en cours…";
+    }
 
     fetch(`/api/users/${userId}/import-activity`, {
       method: "POST",
@@ -785,14 +789,19 @@
         if (!r.ok) throw new Error(payload.detail || "Erreur lors de l'import.");
         return payload;
       })
-      .then((payload) => {
-        alert("Activité importée dans ton historique.");
-        if (payload.activity_id) {
-          window.location.assign(`/ui/user/${userId}/activity/${payload.activity_id}`);
+      .then(() => {
+        alert("Import lancé. Tu peux continuer à utiliser le site ; l'activité apparaîtra dans ton historique une fois le traitement terminé.");
+        if (button) {
+          button.disabled = false;
+          button.textContent = "✓ Import lancé — importer un autre fichier";
         }
       })
       .catch((err) => {
         console.error(err);
+        if (button) {
+          button.disabled = false;
+          button.textContent = "⚙️ Lancer l'orchestrateur";
+        }
         alert(err.message || "Erreur lors de l'import.");
       });
   }

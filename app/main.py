@@ -118,6 +118,7 @@ from fastapi import (
     UploadFile,
     File,
     Depends,
+    BackgroundTasks,
 )
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse, Response
@@ -2409,6 +2410,7 @@ async def process_activity_core(
     cli: StravaClient | None = None,
     update_strava_description: bool = False,
     trigger_source: str = "activity_import",
+    fetch_glucose: bool = True,
 ):
     def to_utc_aware(d: dt.datetime | None) -> dt.datetime | None:
         if d is None:
@@ -2434,21 +2436,25 @@ async def process_activity_core(
         start_aw = to_utc_aware(start_raw)
         end_aw   = to_utc_aware(end_raw)
 
-        # 2) Glycémie depuis la BASE -> on récupère en AWARE UTC
-        graph_db = load_glucose_graph_from_db(
-            db,
-            user_id=user_id,
-            start=start_aw,
-            end=end_aw,
-            margin_min=CGM_MATCH_MARGIN_MIN,
-        )
-
-        needs_live_fetch = not glucose_graph_has_activity_coverage(
-            graph_db,
-            start_aw,
-            end_aw,
-            max_delta_sec=CGM_MATCH_MAX_DELTA_SEC,
-        )
+        # 2) Glycémie depuis la BASE -> on récupère en AWARE UTC.
+        # Les imports historiques ne servent qu'au profil sportif : aucune
+        # requête CGM externe n'est nécessaire ni souhaitable.
+        graph_db = []
+        needs_live_fetch = False
+        if fetch_glucose:
+            graph_db = load_glucose_graph_from_db(
+                db,
+                user_id=user_id,
+                start=start_aw,
+                end=end_aw,
+                margin_min=CGM_MATCH_MARGIN_MIN,
+            )
+            needs_live_fetch = not glucose_graph_has_activity_coverage(
+                graph_db,
+                start_aw,
+                end_aw,
+                max_delta_sec=CGM_MATCH_MAX_DELTA_SEC,
+            )
 
         # Fallback : si la couverture est insuffisante, on lit “live”, on insère, puis on recharge DB
         if needs_live_fetch:
@@ -3390,6 +3396,7 @@ async def enrich_activity_from_gpx(filepath: str, user_id: int = 1):
         activity_id=None,                  # pas d'ID Strava
         cli=None,                          # pas de client Strava
         update_strava_description=False,   # on ne met pas à jour une activité Strava
+        fetch_glucose=False,               # import historique : profil sportif uniquement
     )
 
 
@@ -3521,6 +3528,7 @@ async def enrich_activity_from_fit(filepath: str, user_id: int = 1):
         activity_id=None,
         cli=None,
         update_strava_description=False,
+        fetch_glucose=False,
     )
 
 
@@ -10421,8 +10429,28 @@ def ui_user_delete_account(request: Request, user_id: int):
 #-------------------------------------------------------------------------------
 # IMPORT D’UNE ACTIVITÉ (API)
 #-------------------------------------------------------------------------------
+async def _process_imported_activity_in_background(filepath: str, suffix: str, user_id: int) -> None:
+    """Exécute l'import hors de la requête HTTP pour garder l'UI réactive."""
+    try:
+        if suffix == ".gpx":
+            await asyncio.to_thread(lambda: asyncio.run(enrich_activity_from_gpx(filepath, user_id=user_id)))
+        else:
+            await asyncio.to_thread(lambda: asyncio.run(enrich_activity_from_fit(filepath, user_id=user_id)))
+    except Exception:
+        logger.exception("[ACTIVITY_IMPORT] Échec import %s pour user_id=%s", suffix, user_id)
+    finally:
+        try:
+            os.unlink(filepath)
+        except FileNotFoundError:
+            pass
+
+
 @app.post("/api/users/{user_id}/import-activity")
-async def import_activity(user_id: int, file: UploadFile = File(...)):
+async def import_activity(
+    user_id: int,
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+):
     filename = file.filename or ""
     suffix = os.path.splitext(filename)[1].lower()
     if suffix not in {".gpx", ".fit"}:
@@ -10433,21 +10461,18 @@ async def import_activity(user_id: int, file: UploadFile = File(...)):
         filepath = temp_file.name
         temp_file.write(await file.read())
 
-    try:
-        if suffix == ".gpx":
-            result = await enrich_activity_from_gpx(filepath, user_id=user_id)
-        else:
-            result = await enrich_activity_from_fit(filepath, user_id=user_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    finally:
-        try:
-            os.unlink(filepath)
-        except FileNotFoundError:
-            pass
+    if suffix == ".fit" and FitFile is None:
+        os.unlink(filepath)
+        raise HTTPException(status_code=503, detail="La lecture des fichiers FIT n'est pas disponible sur ce serveur.")
+
+    background_tasks.add_task(
+        _process_imported_activity_in_background,
+        filepath,
+        suffix,
+        user_id,
+    )
 
     return {
-        "status": "ok",
-        "message": "Activité importée",
-        "activity_id": result.get("stored_activity_id") if result else None,
+        "status": "queued",
+        "message": "Import lancé en arrière-plan",
     }

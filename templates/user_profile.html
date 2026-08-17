@@ -269,6 +269,7 @@
     <a href="#settings-cgm" data-settings-link="cgm"><span class="settings-nav-index">03</span>Connexion CGM</a>
     <a href="#settings-club" data-settings-link="club"><span class="settings-nav-index">04</span>Club</a>
     <a href="#settings-enrich" data-settings-link="enrich"><span class="settings-nav-index">05</span>Enrichir Strava</a>
+    {% if plan_payment_enabled %}<a href="#settings-subscription" data-settings-link="subscription"><span class="settings-nav-index">06</span>Ton abonnement</a>{% endif %}
     <div class="settings-mobile-picker">
       <label for="settings-mobile-select">Profil</label>
       <select id="settings-mobile-select" aria-label="Choisir une rubrique de réglages">
@@ -277,6 +278,7 @@
         <option value="cgm">Connexion CGM</option>
         <option value="club">Club</option>
         <option value="enrich">Enrichir Strava</option>
+        {% if plan_payment_enabled %}<option value="subscription">Ton abonnement</option>{% endif %}
       </select>
     </div>
   </nav>
@@ -343,15 +345,22 @@
       </form>
       </div>
 
-      {% if plan_payment_enabled %}
-      <section class="plan-credits-card" aria-labelledby="plan-credits-title">
-        <h2 id="plan-credits-title" class="settings-panel-title">Ton abonnement</h2>
-        <div class="plan-credits-balance">{{ plan_credits }} crédit{% if plan_credits != 1 %}s{% endif %} disponible{% if plan_credits != 1 %}s{% endif %}</div>
-        <p>Un crédit permet de télécharger un plan de course en PDF et de le recevoir par e-mail. Tes crédits restent disponibles jusqu’à leur utilisation.</p>
-        <button type="button" class="btn-secondary" id="profile-buy-credit-pack">Recharger 3 crédits · 30 €</button>
-      </section>
-      {% endif %}
     </section>
+
+    {% if plan_payment_enabled %}
+    <section id="settings-subscription" class="settings-panel" data-settings-panel="subscription" hidden>
+      <div class="card" style="padding:18px;">
+        <h2 class="settings-panel-title">Ton abonnement</h2>
+        <p class="settings-panel-intro">Retrouve tes crédits de plans et recharge-les lorsque tu en as besoin.</p>
+        <section class="plan-credits-card" aria-labelledby="plan-credits-title">
+          <h3 id="plan-credits-title" class="settings-panel-title">Mes crédits</h3>
+          <div class="plan-credits-balance">{{ plan_credits }} crédit{% if plan_credits != 1 %}s{% endif %} disponible{% if plan_credits != 1 %}s{% endif %}</div>
+          <p>Un crédit permet de télécharger un plan de course en PDF et de le recevoir par e-mail. Tes crédits restent disponibles jusqu’à leur utilisation.</p>
+          <button type="button" class="btn-secondary" id="profile-buy-credit-pack">Recharger 3 crédits · 30 €</button>
+        </section>
+      </div>
+    </section>
+    {% endif %}
 
     <section id="settings-club" class="settings-panel" data-settings-panel="club" hidden>
       <div class="card" style="padding:18px;">
@@ -366,6 +375,19 @@
           </div>
           {% if selected_club %}<p class="muted" style="font-size:.82rem;">Club actuel : <strong>{{ selected_club.name }}</strong></p>{% endif %}
           <div class="settings-panel-actions"><button type="submit" class="btn-primary">Enregistrer le club</button></div>
+      </form>
+      </div>
+
+      <div class="card danger-card">
+        <h3 style="margin-top:0; color:#b91c1c;">Supprimer mon compte</h3>
+        <p style="margin:0 0 12px 0; font-size:0.9rem; color:#4b5563;">
+          Cette action efface définitivement ton profil, tes activités, tokens, crédits et données de glycémie. Impossible de revenir en arrière.
+        </p>
+        <form method="post" action="/ui/user/{{ user.id }}/delete-account"
+              onsubmit="return confirm('Supprimer définitivement ton compte et toutes les données associées ?');">
+          <button type="submit" style="background:#0d6efd; color:#fff; border:1px solid transparent; padding:8px 16px; border-radius:4px;">
+            Supprimer mon compte
+          </button>
         </form>
       </div>
     </section>
@@ -717,19 +739,6 @@
 </script>
 {% endif %}
 
-</div>
-
-<div class="card danger-card">
-  <h3 style="margin-top:0; color:#b91c1c;">Supprimer mon compte</h3>
-  <p style="margin:0 0 12px 0; font-size:0.9rem; color:#4b5563;">
-    Cette action efface définitivement ton profil, tes activités, tokens et données de glycémie. Impossible de revenir en arrière.
-  </p>
-  <form method="post" action="/ui/user/{{ user.id }}/delete-account"
-        onsubmit="return confirm('Supprimer définitivement ton compte et toutes les données associées ?');">
-    <button type="submit" style="background:#0d6efd; color:#fff; border:1px solid transparent; padding:8px 16px; border-radius:4px;">
-      Supprimer mon compte
-    </button>
-  </form>
 </div>
 
 <script>

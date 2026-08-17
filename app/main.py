@@ -7193,7 +7193,7 @@ def _send_course_plan_email(
         f"{greeting}\n\n"
         f"Ton plan de course pour {course_name or 'ta simulation'} est prêt.\n\n"
         "Tu trouveras le PDF et une feuille de route PNG en pièces jointes. Le PNG, compact et lisible sur téléphone, "
-        "reprend les passages, ravitos, assistances, contrôles et l’arrivée. Le GPX de la course est aussi joint lorsqu’une trace est disponible dans notre catalogue. Le PDF est aussi proposé au téléchargement sur ton appareil après cet envoi. "
+        "reprend les passages, ravitos, assistances, contrôles et l’arrivée. Le PDF est aussi proposé au téléchargement sur ton appareil après cet envoi. "
         "Il rassemble les éléments utiles pour préparer ta course :\n\n"
         "• ton temps estimé et l’intensité retenue ;\n"
         "• les allures et VAM utilisées selon les pentes ;\n"
@@ -7210,10 +7210,6 @@ def _send_course_plan_email(
     ))
     msg.add_attachment(pdf_data, maintype="application", subtype="pdf", filename=f"{safe_filename}-plan-de-course.pdf")
     msg.add_attachment(roadbook_png, maintype="image", subtype="png", filename=f"{safe_filename}-feuille-de-route.png")
-    gpx_attachment = _get_plan_gpx_attachment(plan)
-    if gpx_attachment:
-        gpx_data, gpx_filename = gpx_attachment
-        msg.add_attachment(gpx_data, maintype="application", subtype="gpx+xml", filename=gpx_filename)
     with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
         server.starttls()
         server.login(settings.SMTP_USER, settings.SMTP_PASS)
@@ -7233,7 +7229,7 @@ def _send_payment_confirmation_email(*, attempt: PlanPaymentAttempt, user: User,
         delivery = f"{credits_added or 3} crédits ont été ajoutés à ton compte. Tu peux les retrouver dans Profil → Ton abonnement et les utiliser quand tu le souhaites."
         purchase = "Pack de 3 crédits"
     else:
-        delivery = "Ton plan de course a été préparé et envoyé par e-mail avec son PDF, sa feuille de route PNG et, lorsqu’il est disponible, le GPX de la course."
+        delivery = "Ton plan de course a été préparé et envoyé par e-mail avec son PDF et sa feuille de route PNG."
         purchase = "Plan de course"
     msg = EmailMessage()
     msg["Subject"] = f"Confirmation de paiement · {purchase}"
@@ -7266,20 +7262,6 @@ def _send_payment_confirmation_if_needed(db: Session, *, attempt: PlanPaymentAtt
     except Exception:
         db.rollback()
         logger.exception("[PAYMENT] Confirmation e-mail impossible pour la demande %s", attempt.id)
-
-
-def _get_plan_gpx_attachment(plan: dict) -> tuple[bytes, str] | None:
-    """Return the official GPX when it is available locally for the selected course."""
-    course_id = str(plan.get("official_course_id") or "").strip()
-    loaded = _load_official_course(course_id)
-    if not loaded:
-        return None
-    try:
-        with open(loaded["route_path"], "rb") as handle:
-            return handle.read(), os.path.basename(loaded["route_path"])
-    except OSError:
-        logger.warning("[COURSE PLAN] GPX officiel indisponible pour %s", course_id)
-        return None
 
 
 def _send_course_plan_admin_copy(

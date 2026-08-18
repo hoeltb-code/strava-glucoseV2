@@ -1750,7 +1750,7 @@ def _collect_admin_user_rows(
             "carelink_error_message": carelink.error_message if carelink else None,
             "glucose_provider": (u.glucose_provider or "").upper() if u.glucose_provider else None,
             "cgm_source": (u.cgm_source or "").upper() if u.cgm_source else None,
-            # A wallet is created lazily; every account nevertheless has its one welcome credit.
+            # A wallet is created lazily; accounts without one start at zero credit.
             "plan_credits": credit_balances.get(u.id, 1),
         }
         has_libre = bool(row["libre_email"])
@@ -2157,8 +2157,6 @@ def startup_event():
     # 1) Créer les tables si elles n'existent pas (dont glucose_points)
     init_db()
     print("[DB] Tables vérifiées/créées.")
-    _ensure_existing_users_have_plan_credit()
-
     # 2) Démarrer le polling CGM dans un thread séparé
     t = threading.Thread(target=run_polling_loop, daemon=True)
     t.start()
@@ -5403,6 +5401,7 @@ def ui_user_profile(user_id: int, request: Request):
 
         plan_payment_enabled = _payment_pilot_allowed(user_id)
         plan_credits = _get_plan_credit_wallet(db, user_id).credits if plan_payment_enabled else 0
+        has_purchased_plan = _has_purchased_individual_plan(db, user_id) if plan_payment_enabled else False
         recent_plan_downloads = (
             db.query(CoursePlanDownload)
             .filter(CoursePlanDownload.user_id == user_id)
@@ -5446,6 +5445,7 @@ def ui_user_profile(user_id: int, request: Request):
             "nightscout_status_message": nightscout_status_message,
             "plan_payment_enabled": plan_payment_enabled,
             "plan_credits": plan_credits,
+            "has_purchased_plan": has_purchased_plan,
             "recent_plan_downloads": recent_plan_downloads,
         }
         return templates.TemplateResponse("user_profile.html", ctx)
@@ -6378,23 +6378,28 @@ async def ui_create_course_plan_checkout(
     if not _payment_pilot_allowed(user_id):
         raise HTTPException(status_code=404, detail="Paiement indisponible pour ce compte.")
     product = (product or "").strip().lower()
-    if product not in {"single_plan", "credit_pack"}:
+    if product not in {"first_plan", "single_plan", "credit_pack"}:
         raise HTTPException(status_code=422, detail="Produit de plan invalide.")
-    if product == "single_plan" and (not isinstance(plan, dict) or not isinstance(plan.get("roadbook"), list) or not plan.get("roadbook")):
+    if product in {"first_plan", "single_plan"} and (not isinstance(plan, dict) or not isinstance(plan.get("roadbook"), list) or not plan.get("roadbook")):
         raise HTTPException(status_code=422, detail="Calcule une projection avant de tester le paiement.")
     if not (settings.PLAN_ADMIN_EMAIL or "").strip():
         raise HTTPException(status_code=503, detail="La boîte d’archivage des plans doit être configurée avant les paiements.")
     user = db.query(User).filter(User.id == user_id).one_or_none()
     if not user or not user.email:
         raise HTTPException(status_code=404, detail="Utilisateur introuvable.")
+    has_purchased_plan = _has_purchased_individual_plan(db, user.id)
+    if product == "first_plan" and has_purchased_plan:
+        raise HTTPException(status_code=409, detail="L’offre de premier plan a déjà été utilisée.")
+    if product == "credit_pack" and not has_purchased_plan:
+        raise HTTPException(status_code=403, detail="L’offre premier plan doit être utilisée avant d’acheter un pack.")
     course_name = str(plan.get("course_name") or ("Pack de 3 crédits" if product == "credit_pack" else "Course simulée")).strip()[:160]
     credit_quantity = 3 if product == "credit_pack" else 0
-    amount_cents = 3000 if product == "credit_pack" else 1490
+    amount_cents = 3000 if product == "credit_pack" else 490 if product == "first_plan" else 1490
     attempt = PlanPaymentAttempt(
         user_id=user.id,
         user_email=user.email,
         course_name=course_name,
-        plan_payload=json.dumps({"product": product, "credits": credit_quantity, "plan": plan if product == "single_plan" else {}}, ensure_ascii=False, separators=(",", ":")),
+        plan_payload=json.dumps({"product": product, "credits": credit_quantity, "plan": plan if product in {"first_plan", "single_plan"} else {}}, ensure_ascii=False, separators=(",", ":")),
         amount_cents=amount_cents,
         currency="eur",
         status="creating_checkout",
@@ -6405,14 +6410,23 @@ async def ui_create_course_plan_checkout(
     try:
         stripe = _stripe_module()
         base_url = _get_app_base_url()
-        price_id = settings.STRIPE_PRICE_THREE_PLANS_ID if product == "credit_pack" else settings.STRIPE_PRICE_ONE_PLAN_ID
+        price_id = (
+            settings.STRIPE_PRICE_THREE_PLANS_ID if product == "credit_pack"
+            else settings.STRIPE_PRICE_FIRST_PLAN_ID if product == "first_plan"
+            else settings.STRIPE_PRICE_ONE_PLAN_ID
+        )
+        product_name = (
+            "Pack de 3 crédits Running Data Plan" if product == "credit_pack"
+            else "Offre premier plan Running Data Plan" if product == "first_plan"
+            else "Plan de course Running Data Plan"
+        )
         line_item = (
             {"price": price_id, "quantity": 1}
             if price_id
             else {
                 "price_data": {
                     "currency": "eur",
-                    "product_data": {"name": "Pack de 3 crédits Running Data Plan" if product == "credit_pack" else "Plan de course Running Data Plan"},
+                    "product_data": {"name": product_name},
                     "unit_amount": amount_cents,
                 },
                 "quantity": 1,
@@ -6425,7 +6439,7 @@ async def ui_create_course_plan_checkout(
             invoice_creation={
                 "enabled": True,
                 "invoice_data": {
-                    "description": "Pack de 3 crédits Running Data Plan" if product == "credit_pack" else "Plan de course Running Data Plan",
+                    "description": product_name,
                     "metadata": {"plan_payment_attempt_id": str(attempt.id), "product": product},
                 },
             },
@@ -7230,7 +7244,7 @@ def _send_payment_confirmation_email(*, attempt: PlanPaymentAttempt, user: User,
         purchase = "Pack de 3 crédits"
     else:
         delivery = "Ton plan de course a été préparé et envoyé par e-mail avec son PDF et sa feuille de route PNG."
-        purchase = "Plan de course"
+        purchase = "Offre premier plan" if product == "first_plan" else "Plan de course"
     msg = EmailMessage()
     msg["Subject"] = f"Confirmation de paiement · {purchase}"
     msg["From"] = f"{from_name} <{from_email}>"
@@ -7314,40 +7328,24 @@ def _payment_pilot_allowed(user_id: int) -> bool:
 def _get_plan_credit_wallet(db: Session, user_id: int) -> PlanCreditWallet:
     wallet = db.query(PlanCreditWallet).filter(PlanCreditWallet.user_id == user_id).one_or_none()
     if wallet is None:
-        wallet = PlanCreditWallet(user_id=user_id, credits=1)
+        wallet = PlanCreditWallet(user_id=user_id, credits=0)
         db.add(wallet)
         db.commit()
         db.refresh(wallet)
     return wallet
 
 
-def _ensure_existing_users_have_plan_credit() -> None:
-    """Give the welcome credit to every existing account that has no wallet yet.
+def _has_purchased_individual_plan(db: Session, user_id: int) -> bool:
+    """Whether a user has already paid for an individual plan.
 
-    Existing wallets are deliberately untouched so a purchase or a consumed credit can
-    never be overwritten when the application restarts.
+    Delivery failures still consume the introductory offer: payment succeeded and the
+    failed delivery can be retried by support without asking the user to pay again.
     """
-    db = SessionLocal()
-    try:
-        missing_user_ids = [
-            user_id
-            for (user_id,) in (
-                db.query(User.id)
-                .outerjoin(PlanCreditWallet, PlanCreditWallet.user_id == User.id)
-                .filter(PlanCreditWallet.id.is_(None))
-                .all()
-            )
-        ]
-        if not missing_user_ids:
-            return
-        db.add_all(PlanCreditWallet(user_id=user_id, credits=1) for user_id in missing_user_ids)
-        db.commit()
-        logger.info("[PAYMENT] Crédit de bienvenue ajouté à %s compte(s).", len(missing_user_ids))
-    except Exception:
-        db.rollback()
-        logger.exception("[PAYMENT] Impossible d'initialiser les crédits de bienvenue.")
-    finally:
-        db.close()
+    return db.query(PlanPaymentAttempt.id).filter(
+        PlanPaymentAttempt.user_id == user_id,
+        PlanPaymentAttempt.amount_cents.in_((490, 1490)),
+        PlanPaymentAttempt.status.in_(("paid_processing", "delivered", "delivery_failed")),
+    ).first() is not None
 
 
 def _stripe_module():
@@ -7399,7 +7397,7 @@ def _fulfill_paid_plan_attempt(db: Session, checkout_session_id: str) -> PlanPay
     if not isinstance(plan, dict):
         raise RuntimeError("Plan de course introuvable dans le snapshot.")
     if attempt.customer_sent_at:
-        _send_payment_confirmation_if_needed(db, attempt=attempt, user=user, product="single_plan")
+        _send_payment_confirmation_if_needed(db, attempt=attempt, user=user, product=product)
         return attempt
 
     attempt.stripe_payment_intent_id = str(checkout.payment_intent or "") or None
@@ -7436,7 +7434,7 @@ def _fulfill_paid_plan_attempt(db: Session, checkout_session_id: str) -> PlanPay
             course_name=attempt.course_name,
         ))
         db.commit()
-        _send_payment_confirmation_if_needed(db, attempt=attempt, user=user, product="single_plan")
+        _send_payment_confirmation_if_needed(db, attempt=attempt, user=user, product=product)
     except Exception as exc:
         attempt.status = "delivery_failed"
         attempt.last_error = str(exc)[:2000]
@@ -7725,6 +7723,7 @@ def ui_user_dashboard(user_id: int, request: Request):
     dashboard_warning = None
     debug_js = "{}"
     plan_credits = 0
+    has_purchased_plan = False
 
     try:
         user = db.query(User).get(user_id)
@@ -7744,6 +7743,7 @@ def ui_user_dashboard(user_id: int, request: Request):
             )
         if _payment_pilot_allowed(user_id):
             plan_credits = _get_plan_credit_wallet(db, user_id).credits
+            has_purchased_plan = _has_purchased_individual_plan(db, user_id)
 
         _maybe_refresh_glucose_for_page_view(db, user, page_name="dashboard")
 
@@ -8332,6 +8332,7 @@ def ui_user_dashboard(user_id: int, request: Request):
             "custom_course_mode": custom_course_mode,
             "plan_payment_test_enabled": _payment_pilot_allowed(user_id),
             "plan_credits": plan_credits,
+            "has_purchased_plan": has_purchased_plan,
             "debug_js": debug_js,
         },
     )

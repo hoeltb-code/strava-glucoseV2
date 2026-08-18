@@ -384,7 +384,11 @@
           <h3 id="plan-credits-title" class="settings-panel-title">Mes crédits</h3>
           <div class="plan-credits-balance">{{ plan_credits }} crédit{% if plan_credits != 1 %}s{% endif %} disponible{% if plan_credits != 1 %}s{% endif %}</div>
           <p>Un crédit permet de télécharger un plan de course en PDF et de le recevoir par e-mail. Tes crédits restent disponibles jusqu’à leur utilisation.</p>
+          {% if has_purchased_plan %}
           <button type="button" class="btn-secondary" id="profile-buy-credit-pack">Recharger 3 crédits · 30 €</button>
+          {% else %}
+          <p style="margin-top:14px;">Ton premier plan est disponible au tarif de lancement de <strong>4,90 €</strong> depuis ta projection de course.</p>
+          {% endif %}
         </section>
         <section class="plan-credits-card" style="margin-top:14px;" aria-labelledby="recent-plans-title">
           <h3 id="recent-plans-title" class="settings-panel-title">Mes 4 derniers plans</h3>

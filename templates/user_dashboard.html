@@ -816,6 +816,7 @@
     const customCourseMode = {{ custom_course_mode | default(false) | tojson }};
     const planPaymentPilotEnabled = {{ plan_payment_test_enabled | default(false) | tojson }};
     const planCredits = Number({{ plan_credits | default(0) | tojson }});
+    const hasPurchasedPlan = {{ has_purchased_plan | default(false) | tojson }};
     const runnerProfileData = {{ runner_profile_overview | default({}) | tojson | safe }};
     const communityPaceCurves = {{ dashboard_cohort_curves | default({}) | tojson | safe }};
     const officialCourses = {{ official_courses | default([]) | tojson | safe }};
@@ -2009,8 +2010,9 @@
           <div id="home-distance-split-planner"></div>
           <p class="course-plan-credit-note">Tu recevras un PDF détaillé (projection, profils, tronçons, passages, ravitos et nutrition) et une feuille de route PNG à partager. Vérifie toujours les informations officielles de l’organisateur avant le départ.</p>
           <div class="course-plan-email">
-            <button type="button" id="home-plan-email-btn">${planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : 'Acheter ce plan · 14,90 €') : '✉ Envoyer et télécharger le plan PDF'}</button>
-            ${planPaymentPilotEnabled ? '<button type="button" id="home-plan-credit-pack-btn" class="course-plan-credit-pack">Recharger 3 crédits · 30 €</button><p class="course-plan-credit-note">' + planCredits + ' crédit' + (planCredits === 1 ? '' : 's') + ' disponible' + (planCredits === 1 ? '' : 's') + ' · 1 crédit = 1 plan</p>' : ''}
+            <button type="button" id="home-plan-email-btn">${planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : (hasPurchasedPlan ? 'Acheter ce plan · 14,90 €' : 'Offre premier plan · 4,90 €')) : '✉ Envoyer et télécharger le plan PDF'}</button>
+            ${planPaymentPilotEnabled && hasPurchasedPlan ? '<button type="button" id="home-plan-credit-pack-btn" class="course-plan-credit-pack">Recharger 3 crédits · 30 €</button>' : ''}
+            ${planPaymentPilotEnabled ? '<p class="course-plan-credit-note">' + planCredits + ' crédit' + (planCredits === 1 ? '' : 's') + ' disponible' + (planCredits === 1 ? '' : 's') + (hasPurchasedPlan ? ' · 1 crédit = 1 plan' : ' · Offre de lancement réservée à ton premier plan') + '</p>' : ''}
           </div>
         `;
         result.classList.add('is-visible');
@@ -2074,7 +2076,7 @@
         renderDistanceSplitPlanner(distanceSplitPlannerHost, projectedRows, aidStations);
         const emailPlanButton = result.querySelector('#home-plan-email-btn');
         const creditPackButton = result.querySelector('#home-plan-credit-pack-btn');
-        const downloadPlanLabel = planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : 'Acheter ce plan · 14,90 €') : '✉ Envoyer et télécharger le plan PDF';
+        const downloadPlanLabel = planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : (hasPurchasedPlan ? 'Acheter ce plan · 14,90 €' : 'Offre premier plan · 4,90 €')) : '✉ Envoyer et télécharger le plan PDF';
         const startPaymentCheckout = async (product, planPayload) => {
           const response = await fetch(`/ui/user/{{ user.id }}/course-plan/checkout?product=${encodeURIComponent(product)}`, {
             method: 'POST',
@@ -2209,7 +2211,7 @@
           emailPlanButton.textContent = planPaymentPilotEnabled && planCredits < 1 ? 'Ouverture de Stripe…' : 'Préparation du PDF…';
           try {
             if (planPaymentPilotEnabled && planCredits < 1) {
-              await startPaymentCheckout('single_plan', plan);
+              await startPaymentCheckout(hasPurchasedPlan ? 'single_plan' : 'first_plan', plan);
               return;
             }
             const response = await fetch('/ui/user/{{ user.id }}/course-plan/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(plan) });

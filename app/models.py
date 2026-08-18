@@ -620,13 +620,13 @@ class PlanPaymentAttempt(Base):
 
 
 class PlanCreditWallet(Base):
-    """Credit balance for downloadable race plans. New users receive one welcome credit."""
+    """Credit balance for downloadable race plans."""
 
     __tablename__ = "plan_credit_wallets"
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True, index=True)
-    credits = Column(Integer, nullable=False, default=1)
+    credits = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 

@@ -63,6 +63,7 @@ class Settings(BaseSettings):
     PLAN_PAYMENTS_ENABLED: bool = Field(default=False)
     PLAN_PAYMENT_TEST_USER_ID: int | None = Field(default=None)
     PLAN_ADMIN_EMAIL: str | None = Field(default=None)
+    STRIPE_PRICE_FIRST_PLAN_ID: str | None = Field(default=None)
     STRIPE_PRICE_ONE_PLAN_ID: str | None = Field(default=None)
     STRIPE_PRICE_THREE_PLANS_ID: str | None = Field(default=None)
 

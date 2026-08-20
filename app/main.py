@@ -6587,6 +6587,14 @@ async def ui_send_course_plan_email(
 
     course_name = str(plan.get("course_name") or "Course simulée").strip()[:120]
     payment_active = _payment_pilot_allowed(user_id)
+    if payment_active and plan.get("digital_content_consent") is not True:
+        raise HTTPException(status_code=422, detail="Confirme la fourniture immédiate du plan numérique pour continuer.")
+    if payment_active:
+        plan = {
+            **plan,
+            "digital_content_consent": True,
+            "digital_content_consent_recorded_at": dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+        }
     wallet = _get_plan_credit_wallet(db, user_id) if payment_active else None
     if wallet is not None and wallet.credits < 1:
         raise HTTPException(status_code=402, detail="Aucun crédit disponible. Achète ce plan ou recharge 3 crédits.")
@@ -6682,6 +6690,8 @@ async def ui_create_course_plan_checkout(
         raise HTTPException(status_code=422, detail="Produit de plan invalide.")
     if product in {"first_plan", "single_plan"} and (not isinstance(plan, dict) or not isinstance(plan.get("roadbook"), list) or not plan.get("roadbook")):
         raise HTTPException(status_code=422, detail="Calcule une projection avant de tester le paiement.")
+    if product in {"first_plan", "single_plan"} and plan.get("digital_content_consent") is not True:
+        raise HTTPException(status_code=422, detail="Confirme la fourniture immédiate du plan numérique pour continuer.")
     if not (settings.PLAN_ADMIN_EMAIL or "").strip():
         raise HTTPException(status_code=503, detail="La boîte d’archivage des plans doit être configurée avant les paiements.")
     user = db.query(User).filter(User.id == user_id).one_or_none()
@@ -6693,6 +6703,12 @@ async def ui_create_course_plan_checkout(
     if product == "credit_pack" and not has_purchased_plan:
         raise HTTPException(status_code=403, detail="L’offre premier plan doit être utilisée avant d’acheter un pack.")
     course_name = str(plan.get("course_name") or ("Pack de 3 crédits" if product == "credit_pack" else "Course simulée")).strip()[:160]
+    if product in {"first_plan", "single_plan"}:
+        plan = {
+            **plan,
+            "digital_content_consent": True,
+            "digital_content_consent_recorded_at": dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+        }
     credit_quantity = 3 if product == "credit_pack" else 0
     amount_cents = 3000 if product == "credit_pack" else 490 if product == "first_plan" else 1490
     attempt = PlanPaymentAttempt(
@@ -7503,6 +7519,10 @@ def _send_course_plan_email(
         f"- Repère nutrition : {str(nutrition.get('carbs_rate') or '-').strip()} de glucides/h · {str(nutrition.get('calories_rate') or '-').strip()} d'apports/h",
     ]
     overview_summary = "\n".join(overview_lines)
+    withdrawal_notice = (
+        "\nTu as demandé expressément la fourniture immédiate de ce contenu numérique et reconnu la perte de ton droit de rétractation dès le début de son exécution, dans les conditions légales applicables.\n"
+        if plan.get("digital_content_consent") is True else ""
+    )
     msg.set_content(_append_login_link_footer(
         f"{greeting}\n\n"
         f"Ton plan de course pour {course_name or 'ta simulation'} est prêt.\n\n"
@@ -7519,6 +7539,7 @@ def _send_course_plan_email(
         "Ce plan est construit à partir de ton profil coureur, du parcours et de tes réglages. Plus ton historique Strava est riche, "
         "plus les allures utilisées deviennent personnalisées. Pense à tester la nutrition et les temps d’arrêt à l’entraînement : "
         "ce document est une base de préparation, à adapter à ton expérience, ta tolérance digestive et, si nécessaire, avec un professionnel.\n\n"
+        f"{withdrawal_notice}"
         "Bonne préparation pour ta course,\n"
         "Toute l'équipe Running Data Plan\n"
     ))
@@ -7545,6 +7566,10 @@ def _send_payment_confirmation_email(*, attempt: PlanPaymentAttempt, user: User,
     else:
         delivery = "Ton plan de course a été préparé et envoyé par e-mail avec son PDF et sa feuille de route PNG."
         purchase = "Offre premier plan" if product == "first_plan" else "Plan de course"
+    withdrawal_notice = (
+        "Tu as demandé expressément la fourniture immédiate de ce contenu numérique et reconnu la perte de ton droit de rétractation dès le début de son exécution, dans les conditions légales applicables.\n\n"
+        if product in {"first_plan", "single_plan"} else ""
+    )
     msg = EmailMessage()
     msg["Subject"] = f"Confirmation de paiement · {purchase}"
     msg["From"] = f"{from_name} <{from_email}>"
@@ -7556,6 +7581,7 @@ def _send_payment_confirmation_email(*, attempt: PlanPaymentAttempt, user: User,
         f"Montant : {amount} €\n"
         f"Référence : #{attempt.id}\n\n"
         f"{delivery}\n\n"
+        f"{withdrawal_notice}"
         "Stripe t’adresse également le justificatif de paiement et la facture associée. Pense à vérifier les dossiers Spam, Indésirables ou Promotions si tu ne les vois pas.\n\n"
         "Une question sur cet achat ? Utilise le formulaire d’assistance depuis Running Data Plan.\n\n"
         "L’équipe Running Data Plan\n"

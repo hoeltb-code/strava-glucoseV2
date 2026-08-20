@@ -360,6 +360,7 @@
   .course-plan-digital-consent { display:flex; flex:0 0 100%; width:100%; max-width:620px; align-items:flex-start; gap:8px; margin:3px auto 0; color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.73rem; font-weight:400; letter-spacing:0; line-height:1.42; text-align:left; text-transform:none; }
   .course-plan-digital-consent input { flex:0 0 auto; width:auto; min-height:0; margin:3px 0 0; }
   .course-plan-digital-consent a { color:var(--accent-2); text-decoration:underline; }
+  .plan-detail-lock { margin:14px 0; padding:14px; border:1px solid #efc3b7; border-radius:14px; background:#fff7f3; }.plan-detail-lock h3 { margin:0; font-size:1rem; }.plan-detail-lock p { margin:5px 0 0; font-size:.78rem; }
   .fueling-schedule { margin-top:18px; padding:14px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
   .fueling-schedule h3 { margin:0; color:var(--text-main); font-size:1.18rem; }
   .fueling-schedule > p { margin:5px 0 10px; color:var(--text-muted); font-size:.78rem; line-height:1.45; }
@@ -1049,7 +1050,7 @@
       });
     }
 
-    async function playPlanThinking() {
+    async function playPlanThinking(duration = 4000) {
       if (!planThinkingModal || !planThinkingStream) return;
       const selected = officialCourses.find((course) => course.id === officialCourseInput.value);
       const courseName = selected?.name || manualCourseNameInput.value.trim() || fileInput.files?.[0]?.name?.replace(/\.gpx$/i, '') || 'ta trace GPX';
@@ -1071,9 +1072,9 @@
           line.textContent = message;
           planThinkingStream.appendChild(line);
           while (planThinkingStream.children.length > 3) planThinkingStream.removeChild(planThinkingStream.firstElementChild);
-        }, index * 700);
+        }, index * (duration / 6));
       });
-      await new Promise((resolve) => window.setTimeout(resolve, 4000));
+      await new Promise((resolve) => window.setTimeout(resolve, duration));
       planThinkingModal.hidden = true;
     }
 
@@ -2373,6 +2374,7 @@
         const stopDetail = stopSeconds ? ` · ${formatDuration(stopSeconds)} de ravito` : '';
         const manualCourseName = manualCourseNameInput.value.trim() || 'Ma trace GPX';
         const courseDetail = data.official_course ? ` · ${data.official_course.name}` : ` · ${manualCourseName}`;
+        const planDetailsUnlocked = !planPaymentPilotEnabled || hasPurchasedPlan || planCredits > 0;
         result.innerHTML = `
           <h3 class="projection-planning-title">Planifier mon temps d’arrêts aux ravitos</h3>
           <div class="home-summary-label">${initialTargetAdjustment.targetSeconds ? `Objectif ${formatDuration(initialTargetAdjustment.targetSeconds)} · allures ajustées` : `Temps total estimé · ${manualProfileIsActive() ? 'réglages manuels' : zone}`}${courseDetail}</div>
@@ -2382,13 +2384,12 @@
           ${manualFallback ? '<div class="projection-detail" style="margin-top:8px;">Les pentes sans historique suffisant utilisent une courbe parabolique de départ, ajustable dans le tableau de profil.</div>' : ''}
           ${nutrition.weightIsEstimated ? '<div class="projection-detail" style="margin-top:8px;">Poids non renseigné : estimation basée sur 70 kg.</div>' : ''}
           <p class="projection-disclaimer">Ce plan est une estimation générique basée sur ton poids, le parcours et l’intensité choisie. Pour une stratégie précise et adaptée à ta santé, à ta tolérance digestive ou à un suivi glycémique, fais valider et personnaliser l’analyse par un professionnel de la nutrition.</p>
-          <div id="home-projection-timeline"></div>
-          <div id="home-fueling-schedule"></div>
-          <div id="home-distance-split-planner"></div>
+          ${planDetailsUnlocked ? '' : '<div class="plan-detail-lock"><h3>Plan détaillé prêt</h3><p>Valide ton plan pour débloquer le roadbook complet, les passages, les barrières et le plan nutrition toutes les 20 minutes.</p></div>'}
+          <div ${planDetailsUnlocked ? '' : 'hidden'}><div id="home-projection-timeline"></div><div id="home-fueling-schedule"></div><div id="home-distance-split-planner"></div></div>
           <p class="course-plan-credit-note">Tu recevras un PDF détaillé (projection, profils, tronçons, passages, ravitos et nutrition) et une feuille de route PNG à partager. Vérifie toujours les informations officielles de l’organisateur avant le départ.</p>
           <div class="course-plan-email">
             ${planPaymentPilotEnabled ? '<label class="course-plan-digital-consent" for="home-digital-content-consent"><input id="home-digital-content-consent" type="checkbox"> <span>J’accepte les <a href="/conditions-utilisation#contenus-numeriques" target="_blank" rel="noopener">conditions générales de vente</a>, demande la fourniture immédiate de mon plan numérique et reconnais perdre mon droit de rétractation dès le début de son exécution.</span></label>' : ''}
-            <button type="button" id="home-plan-email-btn">${planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : (hasPurchasedPlan ? 'Acheter ce plan · 14,90 €' : 'Offre premier plan · 4,90 €')) : '✉ Envoyer et télécharger le plan PDF'}</button>
+            <button type="button" id="home-plan-email-btn">${planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : (hasPurchasedPlan ? 'Valider mon plan · 14,90 €' : 'Valider mon plan · 4,90 €')) : '✉ Envoyer et télécharger le plan PDF'}</button>
             ${planPaymentPilotEnabled && hasPurchasedPlan ? '<button type="button" id="home-plan-credit-pack-btn" class="course-plan-credit-pack">Recharger 3 crédits · 30 €</button>' : ''}
             ${planPaymentPilotEnabled ? '<p class="course-plan-credit-note">' + planCredits + ' crédit' + (planCredits === 1 ? '' : 's') + ' disponible' + (planCredits === 1 ? '' : 's') + (hasPurchasedPlan ? ' · 1 crédit = 1 plan' : ' · Offre de lancement réservée à ton premier plan') + '</p>' : ''}
           </div>
@@ -2632,6 +2633,7 @@
             return;
           }
           if (planPaymentPilotEnabled) plan.digital_content_consent = true;
+          if (planPaymentPilotEnabled && planCredits < 1) await playPlanThinking(6000);
           emailPlanButton.disabled = true;
           emailPlanButton.textContent = planPaymentPilotEnabled && planCredits < 1 ? 'Ouverture de Stripe…' : 'Préparation du PDF…';
           try {

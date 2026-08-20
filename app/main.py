@@ -9184,15 +9184,30 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
                 share_show_club_logo=share_show_club_logo,
             )
 
-        # --- 4) GPS simplified ---
+        # --- 4) GPS simplified + carte 3D colorée selon la glycémie ---
         gps = []
+        activity_map_points = []
         for p in points:
             if p.lat is not None and p.lon is not None:
                 gps.append([float(p.lat), float(p.lon)])
+                activity_map_points.append({
+                    "latitude": round(float(p.lat), 6),
+                    "longitude": round(float(p.lon), 6),
+                    "altitude_m": round(float(p.altitude or 0), 1),
+                    "glucose_mgdl": round(float(p.glucose_mgdl), 1) if p.glucose_mgdl is not None else None,
+                })
         if len(gps) > 300:
             gps = gps[:: max(1, len(gps)//300) ]
+        if len(activity_map_points) > 550:
+            final_map_point = activity_map_points[-1]
+            step = max(1, math.ceil(len(activity_map_points) / 550))
+            activity_map_points = activity_map_points[::step]
+            if activity_map_points[-1] != final_map_point:
+                activity_map_points.append(final_map_point)
         gps_js = json.dumps(gps)
         has_gps = len(gps) > 1
+        activity_map_js = json.dumps(activity_map_points, ensure_ascii=False, separators=(",", ":"))
+        has_activity_map = len(activity_map_points) > 1
 
         # --- 5) Level Color ---
         level = activity.level
@@ -10075,6 +10090,8 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
             "level_color": level_color,
             "gps_js": gps_js,
             "has_gps": has_gps,
+            "activity_map_js": activity_map_js,
+            "has_activity_map": has_activity_map,
             "slopes_order": slopes_order,
             "hr_zones": hr_zones,
             "vam_by_slope_zone": vam_by_slope_zone,

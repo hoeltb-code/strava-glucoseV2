@@ -2,6 +2,8 @@
 {% block title %}Activité · {{ activity.name or "Sans titre" }}{% endblock %}
 
 {% block extra_head %}
+<link href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js" defer></script>
 <style>
   .activity-page {
     --activity-surface: #ffffff;
@@ -311,7 +313,7 @@
   .overview-map-container {
     padding:12px !important;
   }
-    .overview-map {
+  .overview-map {
       height:200px;
     }
     .table-responsive table {
@@ -347,6 +349,11 @@
       display:block !important;
     }
   }
+  .activity-map-3d { height:300px; border-radius:12px; overflow:hidden; background:linear-gradient(145deg,#dfe8df,#a8c0ad); }
+  .activity-map-legend { display:flex; flex-wrap:wrap; gap:9px; margin:9px 0 0; color:var(--activity-text-muted); font-size:.72rem; }
+  .activity-map-legend span { display:inline-flex; align-items:center; gap:5px; }
+  .activity-map-legend i { width:10px; height:10px; border-radius:50%; display:inline-block; }
+  .activity-map-note { margin:8px 0 0; color:var(--activity-text-dim); font-size:.72rem; }
 
   @media (min-width: 721px) {
     .table-responsive table {
@@ -527,18 +534,47 @@
           min-height:260px;
         ">
           <div class="overview-map-container" style="padding:16px;">
-            {% if has_gps %}
-              <div id="map" class="overview-map" style="width:100%;height:260px;border-radius:2px;"></div>
-              <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-              <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+            {% if has_activity_map %}
+              <div id="activity-map-3d" class="activity-map-3d" aria-label="Carte 3D de l’activité colorée selon la glycémie"></div>
+              <div class="activity-map-legend" aria-label="Légende glycémie"><span><i style="background:#ef4444"></i>&lt; 70 mg/dL</span><span><i style="background:#22c55e"></i>70–180 mg/dL</span><span><i style="background:#facc15"></i>&gt; 180 mg/dL</span><span><i style="background:#8b8b8b"></i>sans donnée</span></div>
+              <p class="activity-map-note">Carte en relief 3D : fais glisser pour tourner autour de la trace et utilise la molette pour zoomer.</p>
               <script>
-                const gpsPts = {{ gps_js|safe }};
-                if (gpsPts.length > 1) {
-                  const map = L.map('map');
-                  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-                  const poly = L.polyline(gpsPts,{color:'#fc4c02',weight:4}).addTo(map);
-                  map.fitBounds(poly.getBounds());
-                }
+                window.addEventListener('load', () => {
+                  const route = {{ activity_map_js|safe }};
+                  if (!window.maplibregl || route.length < 2) return;
+                  const coordinate = (item) => [item.longitude, item.latitude];
+                  const glucoseColor = (value) => {
+                    if (value === null || value === undefined || !Number.isFinite(Number(value))) return '#8b8b8b';
+                    if (Number(value) < 70) return '#ef4444';
+                    if (Number(value) > 180) return '#facc15';
+                    return '#22c55e';
+                  };
+                  const segments = {
+                    type: 'FeatureCollection',
+                    features: route.slice(1).map((item, index) => ({
+                      type: 'Feature',
+                      properties: { color: glucoseColor(item.glucose_mgdl) },
+                      geometry: { type: 'LineString', coordinates: [coordinate(route[index]), coordinate(item)] },
+                    })),
+                  };
+                  const bounds = route.reduce((result, item) => result.extend(coordinate(item)), new maplibregl.LngLatBounds(coordinate(route[0]), coordinate(route[0])));
+                  const activityMap = new maplibregl.Map({
+                    container: 'activity-map-3d', style: 'https://tiles.openfreemap.org/styles/liberty',
+                    center: coordinate(route[0]), zoom: 11, pitch: 0, bearing: 0, maxPitch: 85, attributionControl: false,
+                  });
+                  activityMap.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
+                  activityMap.on('load', () => {
+                    try {
+                      activityMap.addSource('activity-terrain-dem', { type: 'raster-dem', url: 'https://tiles.mapterhorn.com/tilejson.json' });
+                      activityMap.setTerrain({ source: 'activity-terrain-dem', exaggeration: 1.5 });
+                      activityMap.addLayer({ id: 'activity-hillshade', type: 'hillshade', source: 'activity-terrain-dem', paint: { 'hillshade-shadow-color': '#26352a', 'hillshade-exaggeration': .48 } });
+                    } catch (_error) {}
+                    activityMap.addSource('activity-route', { type: 'geojson', data: segments });
+                    activityMap.addLayer({ id: 'activity-route-shadow', type: 'line', source: 'activity-route', paint: { 'line-color': '#182419', 'line-width': 8, 'line-opacity': .28, 'line-blur': 2 } });
+                    activityMap.addLayer({ id: 'activity-route', type: 'line', source: 'activity-route', paint: { 'line-color': ['get', 'color'], 'line-width': 4.5, 'line-opacity': .98 } });
+                    activityMap.fitBounds(bounds, { padding: 38, duration: 0, maxZoom: 14 });
+                  });
+                });
               </script>
             {% else %}
               <p class="muted">Pas de GPS.</p>

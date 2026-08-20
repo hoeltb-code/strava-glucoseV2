@@ -442,6 +442,8 @@
       transition: box-shadow .15s ease, border-color .15s ease, transform .02s, background-color .15s ease;
       font-family: inherit;
     }
+    input[type="date"] { box-sizing:border-box !important; min-width:0 !important; max-width:100% !important; width:100% !important; }
+    label:has(> input[type="date"]) { min-width:0; max-width:100%; }
     input::placeholder, textarea::placeholder {
       color: var(--text-dim);
     }

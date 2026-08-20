@@ -2376,7 +2376,9 @@
         const stopDetail = stopSeconds ? ` · ${formatDuration(stopSeconds)} de ravito` : '';
         const manualCourseName = manualCourseNameInput.value.trim() || 'Ma trace GPX';
         const courseDetail = data.official_course ? ` · ${data.official_course.name}` : ` · ${manualCourseName}`;
-        const planDetailsUnlocked = !planPaymentPilotEnabled || hasPurchasedPlan || planCredits > 0;
+        // Chaque simulation démarre verrouillée : l'historique d'achat ou un
+        // crédit disponible ne déverrouillent pas le Roadbook avant délivrance.
+        const planDetailsUnlocked = false;
         result.innerHTML = `
           <div class="roadbook-preview" ${planDetailsUnlocked ? '' : 'hidden'}>
           <h3 class="projection-planning-title">Roadbook</h3>
@@ -2498,6 +2500,8 @@
         renderFuelingSchedule();
         renderDistanceSplitPlanner(distanceSplitPlannerHost, projectedRows, aidStations);
         const emailPlanButton = result.querySelector('#home-plan-email-btn');
+        const roadbookPreview = result.querySelector('.roadbook-preview');
+        const planDetailLock = result.querySelector('.plan-detail-lock');
         const creditPackButton = result.querySelector('#home-plan-credit-pack-btn');
         const digitalContentConsent = result.querySelector('#home-digital-content-consent');
         const digitalContentConsentRow = result.querySelector('#home-digital-content-consent-row');
@@ -2673,6 +2677,8 @@
             downloadLink.remove();
             window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1500);
             emailPlanButton.textContent = '✓ PDF envoyé et téléchargé';
+            if (roadbookPreview) roadbookPreview.hidden = false;
+            if (planDetailLock) planDetailLock.hidden = true;
             status.textContent = response.headers.get('X-Course-Plan-Message') || 'Le plan a été envoyé par e-mail et téléchargé sur cet appareil.';
             document.getElementById('home-first-plan-checklist')?.remove();
           } catch (error) {

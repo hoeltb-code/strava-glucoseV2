@@ -448,6 +448,32 @@ def _seo_course_payload(course_id: str) -> dict | None:
     analysis = _seo_course_analysis(route_stops)
     for leg in analysis["legs"]:
         leg["profile_svg"] = _seo_segment_profile_svg(profile, float(leg["from_km"]), float(leg["to_km"]))
+    map_profile = [
+        {
+            "longitude": round(float(point["longitude"]), 6),
+            "latitude": round(float(point["latitude"]), 6),
+            "elevation_m": round(float(point["elevation_m"])),
+            "distance_km": round(float(point["distance_km"]), 3),
+            "grade_percent": round(float(point.get("grade_percent") or 0), 1),
+        }
+        for point in profile
+        if isinstance(point, dict)
+        and isinstance(point.get("longitude"), (int, float))
+        and isinstance(point.get("latitude"), (int, float))
+    ]
+    if len(map_profile) > 450:
+        step = max(1, math.ceil(len(map_profile) / 450))
+        map_profile = map_profile[::step]
+        if map_profile[-1]["distance_km"] != round(float(profile[-1]["distance_km"]), 3):
+            final_point = profile[-1]
+            if isinstance(final_point.get("longitude"), (int, float)) and isinstance(final_point.get("latitude"), (int, float)):
+                map_profile.append({
+                    "longitude": round(float(final_point["longitude"]), 6),
+                    "latitude": round(float(final_point["latitude"]), 6),
+                    "elevation_m": round(float(final_point["elevation_m"])),
+                    "distance_km": round(float(final_point["distance_km"]), 3),
+                    "grade_percent": round(float(final_point.get("grade_percent") or 0), 1),
+                })
     return {
         **course,
         "slug": _seo_course_slug(course_id),
@@ -457,6 +483,7 @@ def _seo_course_payload(course_id: str) -> dict | None:
         "aid_points": [point for point in points if point.get("type") in {"aid_station", "aid_station_assistance"}],
         "cutoff_points": [point for point in points if point.get("cutoff_label")],
         "analysis": analysis,
+        "map_profile": map_profile,
     }
 
 

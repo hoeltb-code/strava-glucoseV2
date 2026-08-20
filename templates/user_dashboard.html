@@ -2378,7 +2378,8 @@
         const courseDetail = data.official_course ? ` · ${data.official_course.name}` : ` · ${manualCourseName}`;
         const planDetailsUnlocked = !planPaymentPilotEnabled || hasPurchasedPlan || planCredits > 0;
         result.innerHTML = `
-          <h3 class="projection-planning-title">Planifier mon temps d’arrêts aux ravitos</h3>
+          <div class="roadbook-preview" ${planDetailsUnlocked ? '' : 'hidden'}>
+          <h3 class="projection-planning-title">Roadbook</h3>
           <div class="home-summary-label">${initialTargetAdjustment.targetSeconds ? `Objectif ${formatDuration(initialTargetAdjustment.targetSeconds)} · allures ajustées` : `Temps total estimé · ${manualProfileIsActive() ? 'réglages manuels' : zone}`}${courseDetail}</div>
           <div class="projection-time" id="home-projection-total">${formatDuration(totalSeconds)}</div>
           <div class="projection-detail" id="home-projection-distance-detail">${Number(data.total_distance_km || 0).toFixed(1)} km · D+ ${Math.round(gain)} m · D− ${Math.round(loss)} m · ${formatDuration(movingSeconds)} en mouvement${stopDetail}</div>
@@ -2386,8 +2387,9 @@
           ${manualFallback ? '<div class="projection-detail" style="margin-top:8px;">Les pentes sans historique suffisant utilisent une courbe parabolique de départ, ajustable dans le tableau de profil.</div>' : ''}
           ${nutrition.weightIsEstimated ? '<div class="projection-detail" style="margin-top:8px;">Poids non renseigné : estimation basée sur 70 kg.</div>' : ''}
           <p class="projection-disclaimer">Ce plan est une estimation générique basée sur ton poids, le parcours et l’intensité choisie. Pour une stratégie précise et adaptée à ta santé, à ta tolérance digestive ou à un suivi glycémique, fais valider et personnaliser l’analyse par un professionnel de la nutrition.</p>
+          <div id="home-projection-timeline"></div><div id="home-fueling-schedule"></div><div id="home-distance-split-planner"></div>
+          </div>
           ${planDetailsUnlocked ? '' : '<div class="plan-detail-lock"><h3>Plan détaillé prêt</h3><p>Valide ton plan pour débloquer le roadbook complet, les passages, les barrières et le plan nutrition toutes les 20 minutes.</p></div>'}
-          <div ${planDetailsUnlocked ? '' : 'hidden'}><div id="home-projection-timeline"></div><div id="home-fueling-schedule"></div><div id="home-distance-split-planner"></div></div>
           <p class="course-plan-credit-note">Tu recevras un PDF détaillé (projection, profils, tronçons, passages, ravitos et nutrition) et une feuille de route PNG à partager. Vérifie toujours les informations officielles de l’organisateur avant le départ.</p>
           <div class="course-plan-email">
             ${planPaymentPilotEnabled ? '<label class="course-plan-digital-consent" id="home-digital-content-consent-row" for="home-digital-content-consent" hidden><input id="home-digital-content-consent" type="checkbox"> <span>J’accepte les <a href="/conditions-utilisation#contenus-numeriques" target="_blank" rel="noopener">conditions générales de vente</a>, demande la fourniture immédiate de mon plan numérique et reconnais perdre mon droit de rétractation dès le début de son exécution.</span></label>' : ''}
@@ -2692,6 +2694,7 @@
         });
         refreshProjectionSummary();
         renderRaceSettings();
+        if (raceSettings) raceSettings.after(result);
         if (!isUpdatingExistingPlan) nutritionSettings?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         refreshLiveProjection = () => {
           let nextMovingSeconds = 0;

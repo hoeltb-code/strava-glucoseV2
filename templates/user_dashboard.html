@@ -188,6 +188,7 @@
   .gpx-upload-card > p { margin:0 0 12px; color:var(--text-muted); font-size:.78rem; line-height:1.45; }
   .projection-form input[type="file"] { width:100%; min-height:44px; padding:8px; border:1px dashed var(--border); border-radius:12px; color:var(--text-muted); background:#fff; }
   .course-profile-preview { margin-top:14px; padding:13px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
+  .race-settings { margin-top:14px; padding:16px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:14px; background:#fff; }.race-settings[hidden] { display:none; }.race-settings h3 { margin:0; font-size:1rem; }.race-settings > p { margin:4px 0 12px; color:var(--text-muted); font-size:.78rem; }.race-settings-departure { display:grid; grid-template-columns:repeat(3,minmax(100px,1fr)); gap:9px; max-width:480px; }.race-settings label { color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.76rem; font-weight:400; letter-spacing:0; text-transform:none; }.race-settings input { width:100%; margin-top:4px; }.race-settings-stops { display:grid; gap:8px; margin-top:14px; }.race-settings-stop { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:center; padding:9px 10px; border-radius:10px; background:#f7f4ee; }.race-settings-stop strong { display:block; font-size:.8rem; }.race-settings-stop small { display:block; margin-top:2px; color:var(--text-muted); font-size:.72rem; }.race-settings-stop label { display:flex; align-items:center; gap:5px; white-space:nowrap; }.race-settings-stop input { width:58px; min-height:32px; margin:0; text-align:center; }
   .course-profile-preview .projection-profile { margin:0; }
   .course-profile-title { display:flex; flex-wrap:wrap; align-items:baseline; gap:8px; }
   .course-profile-title small { color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.76rem; font-weight:600; letter-spacing:0; }
@@ -294,13 +295,13 @@
   .projection-splits { width:100%; min-width:0; margin-top:16px; font-size:.84rem; }
   .projection-splits th, .projection-splits td { padding:8px 6px; }
   .projection-timeline { display:grid; gap:0; margin-top:16px; overflow:hidden; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
-  .roadbook-header { display:grid; grid-template-columns:92px minmax(0, 1fr) auto; gap:12px; padding:10px 14px; background:#eeebe4; color:#6b6a67; font-family:"DM Mono",monospace; font-size:.66rem; font-weight:700; letter-spacing:.10em; text-transform:uppercase; }
+  .roadbook-header { display:grid; grid-template-columns:92px minmax(0, 1fr) auto; gap:12px; padding:10px 14px; background:#eeebe4; color:#6b6a67; font-family:"Manrope",system-ui,sans-serif; font-size:.7rem; font-weight:600; letter-spacing:0; text-transform:none; }
   .roadbook-header span:last-child { text-align:right; }
   .timeline-row { display:grid; grid-template-columns:92px minmax(0, 1fr) auto; gap:12px; align-items:center; padding:13px 14px; border:0; border-bottom:1px solid #e5e0d8; border-radius:0; background:#fff; }
   .timeline-row:last-child { border-bottom:0; }
-  .timeline-km { color:#41434a; font-family:"DM Mono", monospace; font-size:.72rem; font-weight:700; letter-spacing:.04em; }
-  .timeline-race-time { margin-bottom:5px; color:#41434a; font-family:"DM Mono", monospace; font-size:.76rem; font-weight:700; line-height:1.2; }
-  .timeline-race-time small { display:block; color:var(--text-muted); font-family:inherit; font-size:.6rem; letter-spacing:.04em; }
+  .timeline-km { color:#41434a; font-family:"Manrope",system-ui,sans-serif; font-size:.72rem; font-weight:700; letter-spacing:0; }
+  .timeline-race-time { margin-bottom:5px; color:#41434a; font-family:"Manrope",system-ui,sans-serif; font-size:.76rem; font-weight:700; line-height:1.2; }
+  .timeline-race-time small { display:block; color:var(--text-muted); font-family:inherit; font-size:.6rem; font-weight:500; letter-spacing:0; }
   .timeline-title { font-size:.94rem; font-weight:700; }
   .timeline-meta { margin-top:3px; color:var(--text-muted); font-size:.78rem; }
   .timeline-summary { margin-top:4px; color:var(--text-main); font-size:.78rem; font-weight:650; }
@@ -315,7 +316,7 @@
   .timeline-panel-toggle { padding:5px 8px; border-radius:8px; border-color:#dfdad0; background:#fff; color:var(--text-main); font-size:.72rem; line-height:1; }
   .timeline-panel { display:none !important; }
   .timeline-panel.is-open { display:block !important; }
-  .timeline-detail-heading { color:var(--text-main); font-family:"DM Mono",monospace; font-size:.68rem; font-weight:800; letter-spacing:.10em; text-transform:uppercase; }
+  .timeline-detail-heading { color:var(--text-main); font-family:"Manrope",system-ui,sans-serif; font-size:.72rem; font-weight:700; letter-spacing:0; text-transform:none; }
   .timeline-nutrition-intro { margin:4px 0 0; color:var(--text-muted); font-size:.76rem; line-height:1.45; }
   .timeline-nutrition-advice { margin:8px 0 0; color:#8c482f; font-size:.76rem; line-height:1.45; }
   .timeline-nutrition-disclaimer { margin:9px 0 0; padding-top:8px; border-top:1px solid #e3ded5; color:var(--text-muted); font-size:.7rem; font-style:italic; line-height:1.4; }
@@ -581,6 +582,7 @@
     .timeline-row, .timeline-aid { grid-template-columns:70px minmax(0, 1fr); gap:8px; }
     .nutrition-rate-controls { grid-template-columns:1fr; gap:8px; }
     .calculation-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .race-settings-departure { grid-template-columns:1fr 1fr; }.race-settings-departure label:first-child { grid-column:1 / -1; }
     .timeline-time { grid-column:2; }
     .timeline-details { grid-column:1 / -1; }
     .mini-table {
@@ -760,6 +762,7 @@
     </section>
     <div class="course-profile-preview" id="home-course-profile-preview" hidden></div>
     <div id="home-custom-segment-explorer" hidden></div>
+    <section class="race-settings" id="home-race-settings" hidden aria-label="Départ et ravitos"></section>
     <div class="plan-thinking-modal" id="home-plan-thinking-modal" hidden role="status" aria-live="assertive" aria-label="Préparation de ton plan">
       <div class="plan-thinking-card">
         <p class="plan-thinking-kicker"><i></i> Préparation en cours</p>
@@ -876,6 +879,7 @@
     const status = document.getElementById('home-projection-status');
     const result = document.getElementById('home-projection-result');
     const courseProfilePreview = document.getElementById('home-course-profile-preview');
+    const raceSettings = document.getElementById('home-race-settings');
     const generatePlanButton = document.getElementById('home-generate-plan');
     const planReadyCard = document.getElementById('home-plan-ready-card');
     const planRecap = document.getElementById('home-plan-recap');
@@ -1093,7 +1097,7 @@
         : 'Allures manuelles, ravitos et détail du profil.';
       if (advancedSettings && planReadyCard && nutritionSettings) {
         if (usesManualPaces) planReadyCard.before(advancedSettings);
-        else (customSegmentExplorerHost || nutritionSettings).after(advancedSettings);
+        else (raceSettings || customSegmentExplorerHost || nutritionSettings).after(advancedSettings);
       }
       refreshTimeGoalUi();
       updatePlanFlow();
@@ -2123,6 +2127,10 @@
           seconds: Math.max(0, timeAtKm(targetKm) - timeAtKm(fromKm)),
         };
       };
+      const cumulativeElevationAt = (targetKm) => {
+        const metrics = metricsBetween(0, targetKm);
+        return `Cumul · D+ ${Math.round(metrics.gain)} m · D− ${Math.round(metrics.loss)} m`;
+      };
 
       const events = splitSegments.map((segment) => {
         const { carbs, proteins, fats, calories } = nutritionForLeg(segment.seconds, segment.distance, segment.gain);
@@ -2149,10 +2157,11 @@
       events.push({
         type: 'start',
         position: 0,
-        html: `<article class="timeline-row timeline-start"><div><div class="timeline-race-time"><small>TEMPS DE COURSE</small>0 min</div><div class="timeline-km">DÉPART<br>KM 0</div></div><div><div class="timeline-title">Départ</div><div class="timeline-start-control"><label>Date de départ <input class="timeline-departure-date" type="date" value="${departureDate || ''}" aria-label="Date de départ"></label><label>Heure <input class="timeline-departure-input" data-departure-part="hour" type="number" min="0" max="23" step="1" value="${departureHour}" aria-label="Heure de départ"><span>:</span><input class="timeline-departure-input" data-departure-part="minute" type="number" min="0" max="59" step="1" value="${departureMinute}" aria-label="Minutes de départ"></label></div><div class="timeline-detail-actions"><button type="button" class="timeline-panel-toggle" data-timeline-panel="profile" aria-expanded="false">Détail profil</button><button type="button" class="timeline-panel-toggle" data-timeline-panel="nutrition" aria-expanded="false">Détail nutrition</button></div><div class="timeline-details timeline-panel" data-timeline-panel-content="profile"><div class="timeline-detail-heading">Profil jusqu’au premier point</div>${firstLegProfile}${firstLegKmBreakdown}</div><div class="timeline-details timeline-panel" data-timeline-panel-content="nutrition"><div class="timeline-detail-heading">Premier ravito</div><p class="timeline-nutrition-intro">À prévoir ${firstDestination} · ${formatDuration(firstLegSeconds)} de course prévue.</p><div class="nutrition-chips"><span class="nutrition-chip">Apports : ${firstLegCalories} kcal</span><span class="nutrition-chip">Dépense : ~${firstLegEnergySpent} kcal</span><span class="nutrition-chip">Déficit : ~${firstLegDeficit} kcal</span><span class="nutrition-chip">${firstLegCarbs} g glucides</span>${firstLegProteins ? `<span class="nutrition-chip">${firstLegProteins} g protéines</span>` : ''}${firstLegFats ? `<span class="nutrition-chip">${firstLegFats} g lipides</span>` : ''}</div><p class="timeline-nutrition-advice">Pars avec ces apports déjà accessibles et répartis-les avant le premier ravito ; le déficit est attendu et ne doit pas être compensé d’un coup.</p></div></div><div class="timeline-time">${timelineTime(0)}</div></article>`,
+        html: `<article class="timeline-row timeline-start"><div><div class="timeline-race-time"><small>TEMPS DE COURSE</small>0 min</div><div class="timeline-km">DÉPART<br>KM 0</div></div><div><div class="timeline-title">Départ</div><div class="timeline-summary">Départ prévu · ${departureDate || '—'} · ${departureTime}</div><div class="timeline-detail-actions"><button type="button" class="timeline-panel-toggle" data-timeline-panel="profile" aria-expanded="false">Détail profil</button><button type="button" class="timeline-panel-toggle" data-timeline-panel="nutrition" aria-expanded="false">Détail nutrition</button></div><div class="timeline-details timeline-panel" data-timeline-panel-content="profile"><div class="timeline-detail-heading">Profil jusqu’au premier point</div>${firstLegProfile}${firstLegKmBreakdown}</div><div class="timeline-details timeline-panel" data-timeline-panel-content="nutrition"><div class="timeline-detail-heading">Premier ravito</div><p class="timeline-nutrition-intro">À prévoir ${firstDestination} · ${formatDuration(firstLegSeconds)} de course prévue.</p><div class="nutrition-chips"><span class="nutrition-chip">Apports : ${firstLegCalories} kcal</span><span class="nutrition-chip">Dépense : ~${firstLegEnergySpent} kcal</span><span class="nutrition-chip">Déficit : ~${firstLegDeficit} kcal</span><span class="nutrition-chip">${firstLegCarbs} g glucides</span>${firstLegProteins ? `<span class="nutrition-chip">${firstLegProteins} g protéines</span>` : ''}${firstLegFats ? `<span class="nutrition-chip">${firstLegFats} g lipides</span>` : ''}</div><p class="timeline-nutrition-advice">Pars avec ces apports déjà accessibles et répartis-les avant le premier ravito ; le déficit est attendu et ne doit pas être compensé d’un coup.</p></div></div><div class="timeline-time">${timelineTime(0)}</div></article>`,
       });
       aidStations.forEach((point, index) => {
         const incomingSegment = segmentTimeAtPoint(point.km);
+        const cumulativeElevation = cumulativeElevationAt(point.km);
         const incomingTimeLabel = timelineTime(elapsedAtPoint(point.km), incomingSegment.seconds);
         const nextRoadbookPoint = aidStations[index + 1];
         const nextRoadbookKm = nextRoadbookPoint ? nextRoadbookPoint.km : finishKm;
@@ -2163,7 +2172,7 @@
           events.push({
             type: 'control',
             position: point.km,
-            html: `<article class="timeline-row timeline-control"><div><div class="timeline-race-time"><small>TEMPS DE COURSE</small>${formatDuration(elapsedAtPoint(point.km))}</div><div class="timeline-km">CONTRÔLE<br>KM ${point.km.toFixed(1)}</div></div><div><div class="timeline-title">${point.label}</div><div class="timeline-summary">Point de passage chronométré${point.cutoffLabel ? ` · barrière ${point.cutoffLabel}` : ''}</div><button type="button" class="timeline-detail-toggle" aria-expanded="false">Détail</button><div class="timeline-details"><div class="timeline-detail-heading">Prochaine étape</div>${nextLegProfile}${nextLegKmBreakdown}<p class="timeline-nutrition-intro">Depuis le dernier point : ${formatDuration(incomingSegment.seconds)} de course.${point.stopSeconds ? ` Arrêt prévu : ${Math.round(point.stopSeconds / 60)} min.` : ''}</p>${point.cutoffLabel ? `<p class="timeline-nutrition-advice">Barrière horaire : ${point.cutoffLabel}. Vérifie ta marge à ce point de contrôle.</p>` : ''}</div></div><div class="timeline-time">${incomingTimeLabel}</div></article>`,
+            html: `<article class="timeline-row timeline-control"><div><div class="timeline-race-time"><small>TEMPS DE COURSE</small>${formatDuration(elapsedAtPoint(point.km))}</div><div class="timeline-km">CONTRÔLE<br>KM ${point.km.toFixed(1)}</div></div><div><div class="timeline-title">${point.label}</div><div class="timeline-summary">${cumulativeElevation}</div><div class="timeline-summary">Point de passage chronométré${point.cutoffLabel ? ` · barrière ${point.cutoffLabel}` : ''}</div><button type="button" class="timeline-detail-toggle" aria-expanded="false">Détail</button><div class="timeline-details"><div class="timeline-detail-heading">Prochaine étape</div>${nextLegProfile}${nextLegKmBreakdown}<p class="timeline-nutrition-intro">Depuis le dernier point : ${formatDuration(incomingSegment.seconds)} de course.${point.stopSeconds ? ` Arrêt prévu : ${Math.round(point.stopSeconds / 60)} min.` : ''}</p>${point.cutoffLabel ? `<p class="timeline-nutrition-advice">Barrière horaire : ${point.cutoffLabel}. Vérifie ta marge à ce point de contrôle.</p>` : ''}</div></div><div class="timeline-time">${incomingTimeLabel}</div></article>`,
           });
           return;
         }
@@ -2179,14 +2188,14 @@
         events.push({
           type: isAssistance ? 'aid_assistance' : 'aid',
           position: point.km,
-          html: `<article class="timeline-row timeline-aid ${isAssistance ? 'timeline-aid-assistance' : ''}"><div><div class="timeline-race-time"><small>TEMPS DE COURSE</small>${formatDuration(elapsedAtPoint(point.km))}</div><div class="timeline-km">${isAssistance ? 'ASSISTANCE' : 'RAVITO'}<br>KM ${point.km.toFixed(1)}</div></div><div><div class="timeline-title">${point.label}</div><label class="timeline-stop-control">Arrêt prévu <input class="timeline-stop-input" data-stop-km="${point.km}" type="number" min="0" max="120" step="1" value="${stopMinutes}" aria-label="Temps d’arrêt prévu à ${point.label}, en minutes"><span>min</span></label><div class="timeline-summary">Prochain ravito : ${nextAid ? `${nextAid.label} · km ${nextKm.toFixed(1)}` : `arrivée · km ${finishKm.toFixed(1)}`}</div><div class="timeline-detail-actions"><button type="button" class="timeline-panel-toggle" data-timeline-panel="profile" aria-expanded="false">Détail profil</button><button type="button" class="timeline-panel-toggle" data-timeline-panel="nutrition" aria-expanded="false">Détail nutrition</button></div><div class="timeline-details timeline-panel" data-timeline-panel-content="profile"><div class="timeline-detail-heading">Profil jusqu’au prochain point</div>${nextLegProfile}${nextLegKmBreakdown}</div><div class="timeline-details timeline-panel" data-timeline-panel-content="nutrition"><div class="timeline-detail-heading">À emporter pour la suite</div><p class="timeline-nutrition-intro">À prendre ${destination} · ${formatDuration(untilNextSeconds)} de course prévue${point.cutoffLabel ? ` · barrière ${point.cutoffLabel}` : ''}.</p><div class="nutrition-chips"><span class="nutrition-chip">Apports : ${calories} kcal</span><span class="nutrition-chip">Dépense : ~${energySpent} kcal</span><span class="nutrition-chip">Déficit : ~${deficit} kcal</span><span class="nutrition-chip">${carbs} g glucides</span>${proteins ? `<span class="nutrition-chip">${proteins} g protéines</span>` : ''}${fats ? `<span class="nutrition-chip">${fats} g lipides</span>` : ''}</div><p class="timeline-nutrition-advice">Objectif : ~${Math.round(calories / Math.max(0.1, untilNextSeconds / 3600))} kcal/h et ${Math.round(carbs / Math.max(0.1, untilNextSeconds / 3600))} g de glucides/h, répartis régulièrement avant le prochain ravito.</p></div></div><div class="timeline-time">${incomingTimeLabel}</div></article>`,
+          html: `<article class="timeline-row timeline-aid ${isAssistance ? 'timeline-aid-assistance' : ''}"><div><div class="timeline-race-time"><small>TEMPS DE COURSE</small>${formatDuration(elapsedAtPoint(point.km))}</div><div class="timeline-km">${isAssistance ? 'ASSISTANCE' : 'RAVITO'}<br>KM ${point.km.toFixed(1)}</div></div><div><div class="timeline-title">${point.label}</div><div class="timeline-summary">${cumulativeElevation}</div><div class="timeline-summary">Arrêt prévu · ${stopMinutes} min${point.cutoffLabel ? ` · barrière ${point.cutoffLabel}` : ''}</div><div class="timeline-summary">Prochain ravito : ${nextAid ? `${nextAid.label} · km ${nextKm.toFixed(1)}` : `arrivée · km ${finishKm.toFixed(1)}`}</div><div class="timeline-detail-actions"><button type="button" class="timeline-panel-toggle" data-timeline-panel="profile" aria-expanded="false">Détail profil</button><button type="button" class="timeline-panel-toggle" data-timeline-panel="nutrition" aria-expanded="false">Détail nutrition</button></div><div class="timeline-details timeline-panel" data-timeline-panel-content="profile"><div class="timeline-detail-heading">Profil jusqu’au prochain point</div>${nextLegProfile}${nextLegKmBreakdown}</div><div class="timeline-details timeline-panel" data-timeline-panel-content="nutrition"><div class="timeline-detail-heading">À emporter pour la suite</div><p class="timeline-nutrition-intro">À prendre ${destination} · ${formatDuration(untilNextSeconds)} de course prévue${point.cutoffLabel ? ` · barrière ${point.cutoffLabel}` : ''}.</p><div class="nutrition-chips"><span class="nutrition-chip">Apports : ${calories} kcal</span><span class="nutrition-chip">Dépense : ~${energySpent} kcal</span><span class="nutrition-chip">Déficit : ~${deficit} kcal</span><span class="nutrition-chip">${carbs} g glucides</span>${proteins ? `<span class="nutrition-chip">${proteins} g protéines</span>` : ''}${fats ? `<span class="nutrition-chip">${fats} g lipides</span>` : ''}</div><p class="timeline-nutrition-advice">Objectif : ~${Math.round(calories / Math.max(0.1, untilNextSeconds / 3600))} kcal/h et ${Math.round(carbs / Math.max(0.1, untilNextSeconds / 3600))} g de glucides/h, répartis régulièrement avant le prochain ravito.</p></div></div><div class="timeline-time">${incomingTimeLabel}</div></article>`,
         });
       });
       const totalStopSeconds = aidStations.reduce((sum, point) => sum + point.stopSeconds, 0);
       events.push({
         type: 'finish',
         position: finishKm,
-        html: `<article class="timeline-row timeline-finish"><div><div class="timeline-race-time"><small>TEMPS DE COURSE</small>${formatDuration(timeAtKm(finishKm) + totalStopSeconds)}</div><div class="timeline-km">ARRIVÉE<br>KM ${finishKm.toFixed(1)}</div></div><div><div class="timeline-title">Arrivée</div><div class="timeline-summary">${formatDuration(timeAtKm(finishKm))} en mouvement${totalStopSeconds ? ` · ${formatDuration(totalStopSeconds)} d’arrêts` : ''}</div><button type="button" class="timeline-detail-toggle" aria-expanded="false">Bilan</button><div class="timeline-details"><div class="timeline-detail-heading">Bilan de la projection</div><p class="timeline-nutrition-intro">Temps total incluant les arrêts : ${formatDuration(timeAtKm(finishKm) + totalStopSeconds)}.</p><p class="timeline-nutrition-advice">Prévois ta récupération dès l’arrivée : hydratation, glucides et protéines selon ta tolérance.</p></div></div><div class="timeline-time">${timelineTime(timeAtKm(finishKm) + totalStopSeconds)}</div></article>`,
+        html: `<article class="timeline-row timeline-finish"><div><div class="timeline-race-time"><small>TEMPS DE COURSE</small>${formatDuration(timeAtKm(finishKm) + totalStopSeconds)}</div><div class="timeline-km">ARRIVÉE<br>KM ${finishKm.toFixed(1)}</div></div><div><div class="timeline-title">Arrivée</div><div class="timeline-summary">${cumulativeElevationAt(finishKm)}</div><div class="timeline-summary">${formatDuration(timeAtKm(finishKm))} en mouvement${totalStopSeconds ? ` · ${formatDuration(totalStopSeconds)} d’arrêts` : ''}</div><button type="button" class="timeline-detail-toggle" aria-expanded="false">Bilan</button><div class="timeline-details"><div class="timeline-detail-heading">Bilan de la projection</div><p class="timeline-nutrition-intro">Temps total incluant les arrêts : ${formatDuration(timeAtKm(finishKm) + totalStopSeconds)}.</p><p class="timeline-nutrition-advice">Prévois ta récupération dès l’arrivée : hydratation, glucides et protéines selon ta tolérance.</p></div></div><div class="timeline-time">${timelineTime(timeAtKm(finishKm) + totalStopSeconds)}</div></article>`,
       });
       const eventRank = { start: -1, segment: 0, control: 1, aid: 2, aid_assistance: 2, finish: 3 };
       return `<div class="projection-timeline"><div class="roadbook-header"><span>Point</span><span>Tronçon / réglages</span><span>Passage</span></div>${events.sort((a, b) => a.position - b.position || eventRank[a.type] - eventRank[b.type]).map((event) => event.html).join('')}</div>`;
@@ -2204,6 +2213,10 @@
       result.innerHTML = '';
       courseProfilePreview.hidden = true;
       courseProfilePreview.innerHTML = '';
+      if (raceSettings) {
+        raceSettings.hidden = true;
+        raceSettings.innerHTML = '';
+      }
       if (customSegmentExplorerHost) {
         customSegmentExplorerHost.hidden = true;
         customSegmentExplorerHost.innerHTML = '';
@@ -2372,6 +2385,35 @@
         const distanceDetailOutput = result.querySelector('#home-projection-distance-detail');
         let departureTime = '07:00';
         let departureDate = new Date().toISOString().slice(0, 10);
+        const renderRaceSettings = () => {
+          if (!raceSettings) return;
+          const [hours, minutes] = departureTime.split(':').map((value) => Number(value) || 0);
+          raceSettings.innerHTML = `<h3>Départ et ravitos</h3><p>Ces réglages sont pris en compte dans les heures de passage et le chrono final.</p><div class="race-settings-departure"><label>Date de départ<input class="race-setting-date" type="date" value="${departureDate}"></label><label>Heure<input class="race-setting-hour" type="number" min="0" max="23" step="1" value="${hours}"></label><label>Minutes<input class="race-setting-minute" type="number" min="0" max="59" step="1" value="${minutes}"></label></div><div class="race-settings-stops">${aidStations.filter((point) => ['aid', 'aid_assistance'].includes(point.type)).map((point) => `<div class="race-settings-stop"><div><strong>${escapeHtml(point.label)}</strong><small>km ${point.km.toFixed(1)} · ${point.type === 'aid_assistance' ? 'avec assistance' : 'ravito'}</small></div><label>Arrêt <input class="race-setting-stop" data-stop-km="${point.km}" type="number" min="0" max="120" step="1" value="${Math.round(point.stopSeconds / 60)}"> min</label></div>`).join('') || '<p>Aucun ravito renseigné sur cette trace.</p>'}</div>`;
+          raceSettings.hidden = false;
+          raceSettings.oninput = (event) => {
+            const target = event.target;
+            if (target.classList.contains('race-setting-date')) {
+              if (/^\d{4}-\d{2}-\d{2}$/.test(target.value || '')) departureDate = target.value;
+              renderTimeline();
+              return;
+            }
+            if (target.classList.contains('race-setting-hour') || target.classList.contains('race-setting-minute')) {
+              const hour = Math.max(0, Math.min(23, Number(raceSettings.querySelector('.race-setting-hour')?.value) || 0));
+              const minute = Math.max(0, Math.min(59, Number(raceSettings.querySelector('.race-setting-minute')?.value) || 0));
+              departureTime = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+              renderTimeline();
+              return;
+            }
+            if (!target.classList.contains('race-setting-stop')) return;
+            const km = Number(target.dataset.stopKm);
+            const point = aidStations.find((item) => Math.abs(item.km - km) < .0001);
+            if (!point) return;
+            point.stopSeconds = Math.max(0, Math.min(120, Number(target.value) || 0)) * 60;
+            syncStopToCourseSettings(km, point.stopSeconds / 60);
+            if (requestedTargetSeconds() && refreshLiveProjection) refreshLiveProjection();
+            else { refreshProjectionSummary(); renderTimeline(); renderFuelingSchedule(); }
+          };
+        };
         const refreshProjectionSummary = () => {
           const currentStopSeconds = aidStations.reduce((sum, point) => sum + point.stopSeconds, 0);
           latestProjectionTotalSeconds = movingSeconds + currentStopSeconds;
@@ -2614,6 +2656,7 @@
           }
         });
         refreshProjectionSummary();
+        renderRaceSettings();
         if (!isUpdatingExistingPlan) nutritionSettings?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         refreshLiveProjection = () => {
           let nextMovingSeconds = 0;
@@ -2661,6 +2704,7 @@
           syncNutritionControls(nutrition);
           terrainNutritionWindows = buildTerrainNutritionWindows(projectedRows, aidStations, nutrition);
           refreshProjectionSummary();
+          renderRaceSettings();
           renderTimeline();
           renderFuelingSchedule();
           renderDistanceSplitPlanner(distanceSplitPlannerHost, projectedRows, aidStations);

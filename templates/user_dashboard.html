@@ -2391,13 +2391,13 @@
           <p class="projection-disclaimer">Ce plan est une estimation générique basée sur ton poids, le parcours et l’intensité choisie. Pour une stratégie précise et adaptée à ta santé, à ta tolérance digestive ou à un suivi glycémique, fais valider et personnaliser l’analyse par un professionnel de la nutrition.</p>
           <div id="home-projection-timeline"></div><div id="home-fueling-schedule"></div><div id="home-distance-split-planner"></div>
           </div>
-          ${planDetailsUnlocked ? '' : '<div class="plan-detail-lock"><h3>Plan détaillé prêt</h3><p>Valide ton plan pour débloquer le roadbook complet, les passages, les barrières et le plan nutrition toutes les 20 minutes.</p></div>'}
-          <p class="course-plan-credit-note">Tu recevras un PDF détaillé (projection, profils, tronçons, passages, ravitos et nutrition) et une feuille de route PNG à partager. Vérifie toujours les informations officielles de l’organisateur avant le départ.</p>
+          ${planDetailsUnlocked ? '' : '<div class="plan-detail-lock plan-purchase-details" id="home-plan-detail-lock" hidden><h3>Plan détaillé prêt</h3><p>Valide ton plan pour débloquer le roadbook complet, les passages, les barrières et le plan nutrition toutes les 20 minutes.</p></div>'}
+          <p class="course-plan-credit-note plan-purchase-details" hidden>Tu recevras un PDF détaillé (projection, profils, tronçons, passages, ravitos et nutrition) et une feuille de route PNG à partager. Vérifie toujours les informations officielles de l’organisateur avant le départ.</p>
           <div class="course-plan-email">
             ${planPaymentPilotEnabled ? '<label class="course-plan-digital-consent" id="home-digital-content-consent-row" for="home-digital-content-consent" hidden><input id="home-digital-content-consent" type="checkbox"> <span>J’accepte les <a href="/conditions-utilisation#contenus-numeriques" target="_blank" rel="noopener">conditions générales de vente</a>, demande la fourniture immédiate de mon plan numérique et reconnais perdre mon droit de rétractation dès le début de son exécution.</span></label>' : ''}
             <button type="button" id="home-plan-email-btn">${planPaymentPilotEnabled ? 'Valider mon plan' : '✉ Envoyer et télécharger le plan PDF'}</button>
-            ${planPaymentPilotEnabled && hasPurchasedPlan ? '<button type="button" id="home-plan-credit-pack-btn" class="course-plan-credit-pack">Recharger 3 crédits · 30 €</button>' : ''}
-            ${planPaymentPilotEnabled ? '<p class="course-plan-credit-note">' + planCredits + ' crédit' + (planCredits === 1 ? '' : 's') + ' disponible' + (planCredits === 1 ? '' : 's') + (hasPurchasedPlan ? ' · 1 crédit = 1 plan' : ' · Offre de lancement réservée à ton premier plan') + '</p>' : ''}
+            ${planPaymentPilotEnabled && hasPurchasedPlan ? '<button type="button" id="home-plan-credit-pack-btn" class="course-plan-credit-pack plan-purchase-details" hidden>Recharger 3 crédits · 30 €</button>' : ''}
+            ${planPaymentPilotEnabled ? '<p class="course-plan-credit-note plan-purchase-details" hidden>' + planCredits + ' crédit' + (planCredits === 1 ? '' : 's') + ' disponible' + (planCredits === 1 ? '' : 's') + (hasPurchasedPlan ? ' · 1 crédit = 1 plan' : ' · Offre de lancement réservée à ton premier plan') + '</p>' : ''}
           </div>
         `;
         result.classList.add('is-visible');
@@ -2502,6 +2502,7 @@
         const emailPlanButton = result.querySelector('#home-plan-email-btn');
         const roadbookPreview = result.querySelector('.roadbook-preview');
         const planDetailLock = result.querySelector('.plan-detail-lock');
+        const planPurchaseDetails = Array.from(result.querySelectorAll('.plan-purchase-details'));
         const creditPackButton = result.querySelector('#home-plan-credit-pack-btn');
         const digitalContentConsent = result.querySelector('#home-digital-content-consent');
         const digitalContentConsentRow = result.querySelector('#home-digital-content-consent-row');
@@ -2577,6 +2578,7 @@
             await playPlanThinking(6000);
             emailPlanButton.dataset.validated = 'true';
             emailPlanButton.disabled = false;
+            planPurchaseDetails.forEach((element) => { element.hidden = false; });
             if (digitalContentConsentRow) {
               digitalContentConsentRow.hidden = false;
               digitalContentConsentRow.scrollIntoView({ behavior: 'smooth', block: 'center' });

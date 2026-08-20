@@ -8123,6 +8123,7 @@ def ui_user_dashboard(user_id: int, request: Request):
     debug_js = "{}"
     plan_credits = 0
     has_purchased_plan = False
+    plan_download_count = 0
 
     try:
         user = db.query(User).get(user_id)
@@ -8143,6 +8144,7 @@ def ui_user_dashboard(user_id: int, request: Request):
         if _payment_pilot_allowed(user_id):
             plan_credits = _get_plan_credit_wallet(db, user_id).credits
             has_purchased_plan = _has_purchased_individual_plan(db, user_id)
+        plan_download_count = db.query(CoursePlanDownload.id).filter(CoursePlanDownload.user_id == user_id).count()
 
         _maybe_refresh_glucose_for_page_view(db, user, page_name="dashboard")
 
@@ -8732,6 +8734,7 @@ def ui_user_dashboard(user_id: int, request: Request):
             "plan_payment_test_enabled": _payment_pilot_allowed(user_id),
             "plan_credits": plan_credits,
             "has_purchased_plan": has_purchased_plan,
+            "plan_download_count": plan_download_count,
             "debug_js": debug_js,
         },
     )

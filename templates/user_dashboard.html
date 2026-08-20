@@ -113,12 +113,23 @@
   .projection-panel textarea { box-sizing:border-box; max-width:100%; }
   .projection-panel h2 { margin:0 0 8px; font-size:1.42rem; }
   .projection-panel p { color:var(--text-muted); margin:0 0 18px; line-height:1.45; }
-  .simulation-explainer { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; margin:14px 0 18px; }
-  .simulation-explainer-card { display:flex; align-items:flex-start; gap:11px; padding:12px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:14px; background:#fff; }
-  .simulation-explainer-card:nth-child(1), .simulation-explainer-card:nth-child(2), .simulation-explainer-card:nth-child(3) { border-color:#dfdad0; border-left-color:var(--accent); background:#fff; }
-  .simulation-step-index { flex:0 0 29px; height:29px; display:grid; place-items:center; border-radius:50%; background:#fff0ea; color:var(--accent-dark); font:700 .76rem "DM Mono", monospace; }
-  .simulation-explainer-card strong { display:block; color:var(--text-main); font-size:.9rem; }
-  .simulation-explainer-card p { margin:6px 0 0; font-size:.82rem; line-height:1.45; }
+  .simulation-progress { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin:14px 0 18px; padding:0; list-style:none; }
+  .simulation-progress-step { display:flex; align-items:center; gap:8px; min-width:0; padding:10px; border:1px solid #dfdad0; border-radius:12px; background:#fff; color:var(--text-muted); font-size:.78rem; font-weight:600; }
+  .simulation-progress-step b { flex:0 0 23px; width:23px; height:23px; display:grid; place-items:center; border-radius:50%; background:#f1eee8; color:#827d74; font-size:.72rem; }
+  .simulation-progress-step.is-active { border-color:var(--accent); color:var(--text-main); background:#fff7f3; }.simulation-progress-step.is-active b,.simulation-progress-step.is-done b { background:var(--accent); color:#fff; }.simulation-progress-step.is-done { color:var(--text-main); }
+  .plan-ready-card { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:16px 0 14px; padding:16px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:16px; background:#fff; }.plan-ready-card h3 { margin:0; font-size:1.05rem; }.plan-ready-card p { margin:4px 0 0; font-size:.8rem; }.plan-ready-card button { flex:0 0 auto; min-height:46px; padding:10px 16px; }.plan-ready-card button:disabled { opacity:.55; cursor:not-allowed; }
+  .generation-steps { display:flex; flex-wrap:wrap; gap:8px; margin:-4px 0 16px; }.generation-steps[hidden] { display:none; }.generation-step { display:inline-flex; align-items:center; gap:6px; padding:7px 9px; border:1px solid #dfdad0; border-radius:999px; background:#fff; color:var(--text-muted); font-size:.73rem; }.generation-step i { width:7px; height:7px; border-radius:50%; background:#c9c4bb; }.generation-step.is-active { border-color:var(--accent); color:var(--text-main); background:#fff7f3; }.generation-step.is-active i { background:var(--accent); animation:plan-pulse 1s infinite; }.generation-step.is-done i { background:#6d8d57; } @keyframes plan-pulse { 50% { transform:scale(1.55); opacity:.45; } }
+  .plan-thinking-modal { position:fixed; z-index:1000; inset:0; display:grid; place-items:center; padding:20px; background:rgba(32,29,24,.38); backdrop-filter:blur(4px); }.plan-thinking-modal[hidden] { display:none; }.plan-thinking-card { width:min(460px,100%); padding:22px; border:1px solid rgba(255,255,255,.55); border-radius:20px; background:#fffdf9; box-shadow:0 24px 70px rgba(32,29,24,.24); }.plan-thinking-kicker { display:flex; align-items:center; gap:8px; margin:0 0 8px; color:var(--accent-dark); font-family:"DM Mono",monospace; font-size:.7rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }.plan-thinking-kicker i { width:9px; height:9px; border-radius:50%; background:var(--accent); animation:plan-pulse .8s infinite; }.plan-thinking-card h3 { margin:0; font-size:1.28rem; }.plan-thinking-card > p { margin:5px 0 14px; font-size:.82rem; }.plan-thinking-stream { display:grid; gap:7px; min-height:116px; overflow:hidden; }.plan-thinking-line { padding:8px 10px; border-radius:10px; background:#f6f2eb; color:var(--text-main); font-size:.78rem; animation:plan-line-in .26s ease both; }.plan-thinking-line:last-child { border-left:3px solid var(--accent); background:#fff2ed; font-weight:700; } @keyframes plan-line-in { from { transform:translateY(9px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+  .first-plan-checklist { margin:0 0 18px; padding:16px; border:1px solid #c9ddc8; border-radius:18px; background:#f6fbf4; }
+  .first-plan-checklist h2 { margin:0; font-size:1.08rem; }.first-plan-checklist > p { margin:5px 0 12px; font-size:.84rem; }
+  .first-plan-steps { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:9px; }
+  .first-plan-step { display:flex; align-items:flex-start; gap:8px; min-height:64px; padding:10px; border:1px solid #dce7da; border-radius:12px; background:#fff; font-size:.78rem; line-height:1.4; }
+  .first-plan-step i { flex:0 0 20px; width:20px; height:20px; display:grid; place-items:center; border-radius:50%; background:#f1eee8; color:#827d74; font-style:normal; font-weight:800; }.first-plan-step.is-done i { background:#d9efda; color:#275c32; }.first-plan-step.is-done { border-color:#b7d9b9; }
+  .simulation-quick-settings { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; margin:14px 0; }.simulation-quick-settings > div { padding:15px; border:1px solid #dfdad0; border-radius:16px; background:#fff; }.simulation-quick-settings > div[hidden], #home-history-intensity-settings[hidden] { display:none!important; }
+  .plan-basis { margin-top:16px; padding:16px; border:1px solid #dfdad0; border-radius:18px; background:#fff; }.plan-basis h3 { margin:0; font-size:1.15rem; }.plan-basis > p { margin:5px 0 12px; font-size:.84rem; }.plan-basis-options,.pace-source-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }.plan-basis-option,.pace-source-option { display:block; padding:12px; border:1px solid #dfdad0; border-radius:13px; background:#fff; color:var(--text-main); cursor:pointer; font-family:"Manrope",system-ui,sans-serif; font-weight:400; letter-spacing:0; text-transform:none; }.plan-basis-option:has(input:checked),.pace-source-option:has(input:checked) { border-color:var(--accent); background:#fff7f3; box-shadow:0 0 0 2px rgba(255,90,54,.11); }.plan-basis-option input,.pace-source-option input { position:absolute; opacity:0; pointer-events:none; }.plan-basis-option strong,.pace-source-option strong { display:block; color:var(--text-main); font-size:.84rem; font-weight:700; }.plan-basis-option span,.pace-source-option span { display:block; margin-top:4px; color:var(--text-muted); font-size:.74rem; font-weight:400; line-height:1.4; }.pace-source-title { margin:0 0 8px; font-size:.86rem; }
+  .time-goal-toggle { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 10px; }.time-goal-toggle label { display:inline-flex; align-items:center; gap:6px; padding:7px 9px; border:1px solid #dfdad0; border-radius:999px; font-size:.78rem; font-weight:700; cursor:pointer; }.time-goal-fields { display:flex; align-items:end; gap:8px; }.time-goal-fields[hidden] { display:none!important; }.time-goal-fields label { flex:1; font-size:.75rem; color:var(--text-muted); }.time-goal-fields input { width:100%; margin-top:4px; }.time-goal-note { margin:9px 0 0!important; font-size:.76rem!important; }
+  .simulation-advanced { margin-top:14px; border:1px solid #dfdad0; border-radius:16px; background:#fff; overflow:hidden; }.simulation-advanced > summary { padding:14px 16px; cursor:pointer; font-weight:800; }.simulation-advanced-title { display:block; color:var(--text-main); font-size:.9rem; font-weight:800; }.simulation-advanced > summary .simulation-advanced-description { display:block; margin-top:3px; color:var(--text-muted); font-size:.77rem; font-weight:500; }.simulation-advanced-body { padding:0 16px 16px; border-top:1px solid #eee9e0; }
+  .manual-profile-choice { display:block; }
   .projection-form { display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:12px; align-items:end; }
   .projection-form > div:nth-child(1), .projection-form #home-gpx-source { grid-column:span 3; min-width:0; }
   .projection-form > div:nth-child(3), .projection-form > button { grid-column:span 3; }
@@ -182,13 +193,9 @@
   .course-profile-title small { color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.76rem; font-weight:600; letter-spacing:0; }
   .course-profile-title, .projection-planning-title, .projection-section-title { margin:16px 0 9px; }
   .course-profile-preview .course-profile-title { margin:0 0 10px; }
-  .manual-profile { margin-top:14px; padding:13px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:14px; background:#fff; box-sizing:border-box; min-width:0; max-width:100%; }
-  .pace-setup-title { margin-bottom:13px; }
-  .pace-setup-title h3 { margin:0; }
-  .pace-setup-title p { margin:4px 0 0; color:var(--text-muted); font-size:.78rem; line-height:1.4; }
-  .profile-history-choice,
-  .manual-profile-choice { padding:15px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
-  .pace-choice-title { display:block; margin:0 0 9px; color:var(--text-main); font-family:"Manrope",system-ui,sans-serif; font-size:1.08rem; font-weight:700; line-height:1.25; letter-spacing:-.02em; }
+  .manual-profile { min-width:0; max-width:100%; }
+  .profile-history-choice { padding:15px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
+  .pace-choice-title { display:block; margin:0 0 9px; color:var(--text-main); font-family:"Manrope",system-ui,sans-serif; font-size:1.42rem; font-weight:700; line-height:1.2; letter-spacing:-.025em; text-transform:none; }
   .pace-choice-kicker, .manual-profile-toggle, .profile-pacing-heading h3 { display:block; margin:0 0 6px; color:var(--text-main); font-family:"Manrope",system-ui,sans-serif; font-size:.9rem; font-weight:700; line-height:1.35; letter-spacing:-.01em; text-transform:none; }
   .pace-choice-field-label { margin:0 0 6px; color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.78rem; font-weight:500; line-height:1.4; letter-spacing:0; text-transform:none; }
   .profile-cardio-note { margin:10px 0 0; padding:9px 10px; border-left:3px solid var(--accent); border-radius:0 9px 9px 0; background:#fff7f3; color:var(--text-muted); font-size:.76rem; line-height:1.45; }
@@ -198,18 +205,19 @@
   .manual-profile-toggle { display:flex; align-items:center; gap:8px; cursor:pointer; }
   .manual-controls { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px; margin-top:14px; }
   .manual-controls[hidden] { display:none; }
-  .manual-control label { display:flex; justify-content:space-between; gap:8px; text-transform:none; letter-spacing:0; font-size:.8rem; }
-  .manual-control output { color:var(--accent-2); font-weight:700; }
+  .manual-control label { display:flex; justify-content:space-between; gap:8px; color:var(--text-main); font-family:"Manrope",system-ui,sans-serif; font-size:.8rem; font-weight:400; letter-spacing:0; text-transform:none; }
+  .manual-control output { color:var(--accent-2); font-family:inherit; font-weight:400; }
   .manual-control input[type="range"] { width:100%; accent-color:var(--accent); }
-  .manual-advanced-ascent { grid-column:1 / -1; padding:10px; border:1px solid rgba(184,255,69,.25); border-radius:11px; background:rgba(72,92,39,.12); }
+  .manual-advanced-ascent { grid-column:1 / -1; padding:10px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:11px; background:#fff; }
   .manual-advanced-ascent summary { color:var(--text-main); font-size:.82rem; font-weight:800; cursor:pointer; }
   .manual-advanced-ascent p { margin:7px 0; color:var(--text-muted); font-size:.74rem; line-height:1.4; }
-  .manual-advanced-toggle { display:flex; align-items:center; gap:7px; margin:8px 0; color:var(--text-main); font-size:.78rem; cursor:pointer; }
+  .manual-advanced-toggle { display:flex; align-items:center; gap:7px; margin:8px 0; color:var(--text-main); font-family:"Manrope",system-ui,sans-serif; font-size:.78rem; font-weight:400; letter-spacing:0; text-transform:none; cursor:pointer; }
   .manual-advanced-fields { display:grid; grid-template-columns:repeat(2,minmax(150px,1fr)); gap:9px; }
-  .manual-advanced-fields label { display:flex; flex-wrap:wrap; justify-content:space-between; gap:4px 8px; color:var(--text-muted); font-size:.73rem; }
-  .manual-advanced-fields output { color:var(--accent-2); font-weight:800; }
+  .manual-advanced-fields label { display:flex; flex-wrap:wrap; justify-content:space-between; gap:4px 8px; color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.73rem; font-weight:400; letter-spacing:0; text-transform:none; }
+  .manual-advanced-fields output { color:var(--accent-2); font-family:inherit; font-weight:400; }
   .manual-advanced-fields input[type="range"] { width:100%; accent-color:var(--accent); }
   .profile-pacing-preview { margin-top:14px; padding:13px; border:1px solid #dfdad0; border-radius:14px; background:#fff; box-sizing:border-box; min-width:0; max-width:100%; overflow:hidden; }
+  .manual-profile .profile-pacing-details { margin-top:14px; border-top:1px solid #e5e0d7; }.manual-profile .profile-pacing-details > summary { padding:13px 0 0; color:var(--text-main); cursor:pointer; font-size:.82rem; font-weight:700; }.manual-profile .profile-pacing-preview { margin-top:12px; padding:0; border:0; border-radius:0; background:transparent; }
   .profile-projection-zone { display:block; margin-bottom:12px; }
   .profile-projection-zone > div { min-width:0; }
   .profile-projection-zone p { margin:9px 0 0; color:var(--text-muted); font-size:.78rem; line-height:1.45; }
@@ -248,12 +256,14 @@
   .nutrition-plan-settings { margin-top:14px; padding:16px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:14px; background:#fff; }
   .nutrition-plan-settings .projection-section-title { margin:0 0 4px; }
   .nutrition-plan-settings > p { margin:0 0 13px; color:var(--text-muted); font-size:.76rem; line-height:1.4; }
+  .nutrition-auto-summary { display:flex; flex-wrap:wrap; gap:7px; min-height:32px; color:var(--text-muted); font-size:.78rem; line-height:1.4; }.nutrition-auto-summary .projection-nutrition-tag { margin:0; }.nutrition-customize-button { margin-top:12px; padding:8px 10px; border-color:#dfdad0; background:#fff; color:var(--text-main); font-size:.76rem; }.nutrition-manual-controls { margin-top:14px; padding-top:14px; border-top:1px solid #eee9e0; }.nutrition-manual-controls[hidden] { display:none; }
   .nutrition-rate-controls { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; }
-  .nutrition-rate-control label { display:flex; justify-content:space-between; gap:6px; margin:0; color:var(--text-main); font-family:"Manrope", sans-serif; font-size:.76rem; font-weight:700; letter-spacing:0; text-transform:none; }
-  .nutrition-rate-control output { color:var(--accent-2); font-weight:800; }
+  .nutrition-rate-control label { display:flex; justify-content:space-between; gap:6px; margin:0; color:var(--text-main); font-family:"Manrope", sans-serif; font-size:.76rem; font-weight:400; letter-spacing:0; text-transform:none; }
+  .nutrition-rate-control output { color:var(--accent-2); font-family:inherit; font-weight:400; }
   .nutrition-rate-control input { width:100%; margin-top:5px; accent-color:var(--accent); }
   .nutrition-energy-balance { display:flex; align-items:flex-start; gap:7px; margin:11px 0 0; color:var(--text-muted); font-family:"Manrope", system-ui, sans-serif; font-size:.76rem; font-weight:400; line-height:1.4; letter-spacing:0; text-transform:none; cursor:pointer; }
   .nutrition-energy-balance input { width:auto; min-height:0; margin:2px 0 0; accent-color:var(--accent); }
+  .nutrition-manual-controls > label:not(.nutrition-energy-balance) { color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.76rem; font-weight:400; letter-spacing:0; text-transform:none; }
   .profile-calculate { width:100%; margin-top:14px; }
   .projection-status { min-height:20px; margin:12px 0 0; color:var(--text-muted); font-size:.88rem; }
   .projection-result { display:none; margin-top:14px; padding:15px; border-radius:14px; background:#fbfaf7; border:1px solid rgba(255,90,54,.28); }
@@ -522,7 +532,7 @@
     .quick-action { min-height:120px; padding:14px; }
     .home-summary { grid-template-columns:1fr; gap:8px; }
     .projection-workbench { grid-template-columns:1fr; }
-    .simulation-explainer { grid-template-columns:1fr; }
+  .simulation-progress,.first-plan-steps,.simulation-quick-settings,.plan-basis-options { grid-template-columns:1fr; }.plan-ready-card { align-items:flex-start; flex-direction:column; }.plan-ready-card button { width:100%; }
     .projection-form { grid-template-columns:1fr; }
     .projection-form > div:nth-child(1), .projection-form #home-gpx-source, .projection-form > div:nth-child(3), .projection-form > button { grid-column:auto; }
     .gpx-source-fields { grid-template-columns:1fr; }
@@ -613,6 +623,21 @@
   <div class="profile-orb" aria-label="{{ runner_name }}">{{ runner_name[0]|upper }}</div>
 </section>
 
+{% if not custom_course_mode and plan_download_count == 0 %}
+{% set has_activity_history = activities|length > 0 %}
+{% set has_profile_history = runner_profile_overview and runner_profile_overview.zones and runner_profile_overview.zones.get('Zone 2') %}
+<section class="first-plan-checklist" id="home-first-plan-checklist" aria-labelledby="first-plan-checklist-title">
+  <h2 id="first-plan-checklist-title">Ton premier plan en 4 étapes</h2>
+  <p>Un premier chrono apparaît dès que tu choisis une course. Tu pourras ensuite tout affiner.</p>
+  <div class="first-plan-steps">
+    <div class="first-plan-step {% if has_activity_history %}is-done{% endif %}" id="home-checklist-activities"><i>{% if has_activity_history %}✓{% else %}1{% endif %}</i><span><strong>{% if has_activity_history %}Activités prêtes{% else %}Ajoute des activités{% endif %}</strong><br>Strava alimente ton profil.</span></div>
+    <div class="first-plan-step {% if has_profile_history %}is-done{% endif %}" id="home-checklist-profile"><i>{% if has_profile_history %}✓{% else %}2{% endif %}</i><span><strong>{% if has_profile_history %}Profil disponible{% else %}Choisis ton intensité{% endif %}</strong><br>Une base suffit pour démarrer.</span></div>
+    <div class="first-plan-step" id="home-checklist-course"><i>3</i><span><strong>Choisis un parcours</strong><br>Recherche une course ou importe un GPX.</span></div>
+    <div class="first-plan-step" id="home-checklist-plan"><i>4</i><span><strong>Génère ton plan</strong><br>Chrono, ravitos et roadbook.</span></div>
+  </div>
+</section>
+{% endif %}
+
 {% set profile_zone = runner_profile_overview.zones.get('Zone 2', {}) if runner_profile_overview and runner_profile_overview.zones else {} %}
 {% set flat_profile = profile_zone.get('S0_5') %}
 {% set climb_profile = profile_zone.get('S10_15') or profile_zone.get('S15_20') %}
@@ -620,23 +645,11 @@
 <section class="projection-workbench" aria-label="Simulation de course">
   <div class="projection-panel" id="simulation">
     <h2>{% if custom_course_mode %}Simuler ma propre trace GPX{% else %}Simuler une course{% endif %}</h2>
-    <div class="simulation-explainer">
-      <article class="simulation-explainer-card">
-        <span class="simulation-step-index">01</span>
-        <div><strong>{% if custom_course_mode %}Importe ta trace{% else %}Choisis ton parcours{% endif %}</strong>
-        <p>{% if custom_course_mode %}Donne un nom à ta course, ajoute son GPX puis place tes ravitos, assistances et contrôles.{% else %}Sélectionne une course enregistrée, puis l’intensité cardiaque à laquelle tu souhaites la courir.{% endif %}</p></div>
-      </article>
-      <article class="simulation-explainer-card">
-        <span class="simulation-step-index">02</span>
-        <div><strong>Ton historique affine le chrono</strong>
-        <p>La projection personnalisée devient fiable après avoir enregistré de nombreuses sorties, à différentes intensités et sur des profils de pente variés. Plus ton historique est riche, plus les vitesses utilisées sont précises.</p></div>
-      </article>
-      <article class="simulation-explainer-card">
-        <span class="simulation-step-index">03</span>
-        <div><strong>Ajuste si nécessaire</strong>
-        <p>Si tu viens de t’inscrire ou que ton historique est encore limité, l’ajustement manuel est recommandé : il crée un profil de départ représentatif, que tu peux affiner à tout moment.</p></div>
-      </article>
-    </div>
+    <ol class="simulation-progress" aria-label="Progression de la simulation">
+      <li class="simulation-progress-step is-active" data-plan-progress="course"><b>1</b><span>{% if custom_course_mode %}Ma trace{% else %}Parcours{% endif %}</span></li>
+      <li class="simulation-progress-step" data-plan-progress="method"><b>2</b><span>Méthode</span></li>
+      <li class="simulation-progress-step" data-plan-progress="plan"><b>3</b><span>Mon plan</span></li>
+    </ol>
     <form class="projection-form" id="home-projection-form">
       <div class="course-selection-showcase" {% if custom_course_mode %}hidden{% endif %}>
         <label for="home-official-course">Choisis un parcours</label>
@@ -677,11 +690,23 @@
       </div>
     </form>
     <div class="course-profile-preview" id="home-course-profile-preview" hidden></div>
-    <div class="manual-profile">
-      <div class="pace-setup-title"><h3>Choisir mes allures pour la course</h3><p>Définis l’intensité cible à partir de ton historique, ou corrige les allures manuellement pour cette simulation.</p></div>
-      <div class="profile-projection-zone profile-history-choice">
-        <h3 class="pace-choice-title">Mon intensité</h3>
-        <div>
+    <section class="plan-basis" aria-labelledby="home-plan-basis-title">
+      <h3 id="home-plan-basis-title">Comment veux-tu construire ton plan ?</h3>
+      <p>Choisis une base simple. Tu pourras toujours affiner les réglages ensuite.</p>
+      <div class="plan-basis-options" role="radiogroup" aria-label="Base de calcul du plan">
+        <label class="plan-basis-option"><input type="radio" name="home-plan-basis" value="paces" checked><strong>Mes allures</strong><span>Base ton plan sur tes sorties ou règle tes allures toi-même.</span></label>
+        <label class="plan-basis-option"><input type="radio" name="home-plan-basis" value="target"><strong>Mon objectif de temps</strong><span>Les allures sont calibrées pour viser un chrono total.</span></label>
+      </div>
+    </section>
+    <div class="simulation-quick-settings">
+      <div class="profile-projection-zone profile-history-choice" id="home-history-basis-settings">
+        <h3 class="pace-choice-title">La base de mes allures</h3>
+        <p class="pace-source-title">Comment souhaites-tu définir tes allures ?</p>
+        <div class="pace-source-options" role="radiogroup" aria-label="Source des allures">
+          <label class="pace-source-option"><input type="radio" name="home-pace-source" value="history" {% if runner_profile_overview and runner_profile_overview.zones %}checked{% endif %}><strong>Mon historique</strong><span>Allures issues de tes sorties.</span></label>
+          <label class="pace-source-option"><input type="radio" name="home-pace-source" value="manual" {% if not runner_profile_overview or not runner_profile_overview.zones %}checked{% endif %}><strong>Paramétrage manuel</strong><span>Plat, montée et descente réglés par toi.</span></label>
+        </div>
+        <div id="home-history-intensity-settings">
           <h4 class="pace-choice-kicker">Sur base de mon historique de sorties</h4>
           <label class="pace-choice-field-label" for="home-projection-zone">Intensité visée pour la course</label>
           <select id="home-projection-zone">
@@ -693,13 +718,60 @@
         <p id="home-profile-zone-note">Les allures et la VAM enregistrées dans cette zone cardiaque servent de référence à la projection.</p>
         <p class="profile-cardio-note"><strong>Important :</strong> renseigne bien ta fréquence cardiaque maximale dans tes réglages. Elle permet de calculer des zones cardio cohérentes et donc de choisir la bonne intensité pour cette projection. <a href="/ui/user/{{ user.id }}/profile">Vérifier mes réglages →</a></p>
       </div>
+      <div class="time-goal-card" id="home-time-basis-settings" hidden>
+        <h3 class="pace-choice-title">Mon objectif de temps</h3>
+        <div hidden aria-hidden="true"><input type="radio" name="home-time-mode" value="automatic" checked><input type="radio" name="home-time-mode" value="target"></div>
+        <div class="time-goal-fields" id="home-time-goal-fields">
+          <label for="home-target-hours">Heures<input id="home-target-hours" type="number" min="0" max="99" step="1" value="0"></label>
+          <label for="home-target-minutes">Minutes<input id="home-target-minutes" type="number" min="0" max="59" step="1" value="0"></label>
+        </div>
+        <p class="time-goal-note" id="home-time-goal-note">Le relief du GPX, tes allures par pente et les arrêts ravito restent pris en compte. Toutes les allures sont ensuite ajustées dans la même proportion pour atteindre ton objectif total.</p>
+      </div>
+    </div>
+    <section class="plan-ready-card" id="home-plan-ready-card" aria-live="polite">
+      <div><h3>Ton plan est prêt à être calculé</h3><p id="home-plan-recap">Choisis un parcours pour commencer.</p></div>
+      <button type="submit" form="home-projection-form" id="home-generate-plan" disabled>Générer mon plan</button>
+    </section>
+    <div class="generation-steps" id="home-generation-steps" hidden aria-live="polite">
+      <span class="generation-step" data-generation-step="0"><i></i>Analyse de la trace</span>
+      <span class="generation-step" data-generation-step="1"><i></i>Calcul des allures</span>
+      <span class="generation-step" data-generation-step="2"><i></i>Répartition du D+ et des tronçons</span>
+      <span class="generation-step" data-generation-step="3"><i></i>Préparation des ravitos</span>
+    </div>
+    <section class="nutrition-plan-settings" id="home-nutrition-settings" aria-labelledby="home-nutrition-title">
+      <h3 class="projection-section-title" id="home-nutrition-title">Plan nutrition</h3>
+      <p>Les recommandations sont calculées à partir du temps, du dénivelé et de l’intensité de ton plan.</p>
+      <div class="nutrition-auto-summary" id="home-nutrition-auto-summary">Génère ton plan pour afficher les apports recommandés.</div>
+      <button type="button" class="nutrition-customize-button" id="home-nutrition-customize" disabled>Personnaliser mes apports</button>
+      <div class="nutrition-manual-controls" id="home-nutrition-manual-controls" hidden>
+        <div class="nutrition-rate-controls">
+          <div class="nutrition-rate-control"><label for="home-carb-rate">Glucides <output id="home-carb-rate-output">— g/h</output></label><input id="home-carb-rate" type="range" min="30" max="120" step="1" value="65"></div>
+          <div class="nutrition-rate-control"><label for="home-protein-rate">Protéines <output id="home-protein-rate-output">— g/h</output></label><input id="home-protein-rate" type="range" min="0" max="20" step="1" value="0"></div>
+          <div class="nutrition-rate-control"><label for="home-fat-rate">Lipides <output id="home-fat-rate-output">— g/h</output></label><input id="home-fat-rate" type="range" min="0" max="35" step="1" value="0"></div>
+        </div>
+        <label class="nutrition-energy-balance" for="home-nutrition-energy-balance"><input id="home-nutrition-energy-balance" type="checkbox" checked> Préserver l’apport énergétique de référence en complétant avec les lipides si je baisse les glucides.</label>
+        <label for="home-runner-weight" style="margin-top:12px;">Poids pour les recommandations nutritionnelles</label>
+        <input id="home-runner-weight" type="number" min="35" max="150" step="0.5" value="{{ user.weight_kg or '' }}" placeholder="kg">
+      </div>
+    </section>
+    <div class="plan-thinking-modal" id="home-plan-thinking-modal" hidden role="status" aria-live="assertive" aria-label="Préparation de ton plan">
+      <div class="plan-thinking-card">
+        <p class="plan-thinking-kicker"><i></i> Préparation en cours</p>
+        <h3>Nous construisons ton plan</h3>
+        <p>Lecture du parcours et préparation de tes repères de course.</p>
+        <div class="plan-thinking-stream" id="home-plan-thinking-stream"></div>
+      </div>
+    </div>
+    <details class="simulation-advanced">
+      <summary><span class="simulation-advanced-title" id="home-advanced-title">Affiner mon plan</span><span class="simulation-advanced-description" id="home-advanced-description">Allures manuelles, ravitos et détail du profil.</span></summary>
+      <div class="simulation-advanced-body">
+    <div class="manual-profile">
       <div class="manual-profile-choice">
-        <h3 class="pace-choice-title">Modifications manuelles</h3>
         <label class="manual-profile-toggle" for="home-manual-mode">
           <input id="home-manual-mode" type="checkbox" {% if not runner_profile_overview or not runner_profile_overview.zones %}checked{% endif %}>
           Utiliser mes propres allures pour cette course
         </label>
-        <p class="profile-pacing-note">À utiliser pour corriger les données proposées ou créer un profil de départ. Niveau 1 : prudent · Niveau 5 : équilibré · Niveau 12 : très performant.</p>
+        <p class="profile-pacing-note">Corrige les données proposées pour cette course uniquement. Niveau 1 : prudent · Niveau 5 : équilibré · Niveau 12 : très performant.</p>
       </div>
       <div class="manual-controls" id="home-manual-controls" {% if runner_profile_overview and runner_profile_overview.zones %}hidden{% endif %}>
         <div class="manual-control">
@@ -731,23 +803,14 @@
           <span class="profile-live-total"><strong id="home-profile-live-total">Sélectionne un parcours</strong><small id="home-profile-live-stop-detail">Arrêts ravito · 0 min</small></span>
         </div>
         <div class="profile-pacing-curve" id="home-profile-curve" role="img" aria-label="Courbe d’allure utilisée pour la projection selon la pente"></div>
-        <div class="profile-pacing-live-grid" aria-live="polite">
-          <div class="profile-pacing-live-head"><span>Pente</span><span>Allure</span><span>VAM</span></div>
-          <div id="home-profile-live-data"></div>
-        </div>
+        <details class="profile-pacing-details">
+          <summary>Voir le détail par pente et allure</summary>
+          <div class="profile-pacing-live-grid" aria-live="polite">
+            <div class="profile-pacing-live-head"><span>Pente</span><span>Allure</span><span>VAM</span></div>
+            <div id="home-profile-live-data"></div>
+          </div>
+        </details>
       </div>
-    </div>
-    <div class="nutrition-plan-settings">
-        <h3 class="projection-section-title">Réglages nutrition du plan</h3>
-        <p>La base est adaptée au temps et au terrain. Tu peux l’ajuster selon tes habitudes ; le plan se recalcule immédiatement.</p>
-        <div class="nutrition-rate-controls">
-          <div class="nutrition-rate-control"><label for="home-carb-rate">Glucides <output id="home-carb-rate-output">— g/h</output></label><input id="home-carb-rate" type="range" min="30" max="120" step="1" value="65"></div>
-          <div class="nutrition-rate-control"><label for="home-protein-rate">Protéines <output id="home-protein-rate-output">— g/h</output></label><input id="home-protein-rate" type="range" min="0" max="20" step="1" value="0"></div>
-          <div class="nutrition-rate-control"><label for="home-fat-rate">Lipides <output id="home-fat-rate-output">— g/h</output></label><input id="home-fat-rate" type="range" min="0" max="35" step="1" value="0"></div>
-        </div>
-        <label class="nutrition-energy-balance" for="home-nutrition-energy-balance"><input id="home-nutrition-energy-balance" type="checkbox" checked> Préserver l’apport énergétique de référence en complétant avec les lipides si je baisse les glucides.</label>
-        <label for="home-runner-weight" style="margin-top:12px;">Poids pour les recommandations nutritionnelles</label>
-        <input id="home-runner-weight" type="number" min="35" max="150" step="0.5" value="{{ user.weight_kg or '' }}" placeholder="kg">
     </div>
     <div class="aid-stations" id="home-course-points">
       <h3 class="projection-section-title" id="home-point-settings-title">Points de ma trace</h3>
@@ -769,6 +832,8 @@
       <div class="official-point-settings" id="home-official-point-settings" hidden>Renseigne ci-dessous le temps d’arrêt prévu à chaque ravito et ravito avec assistance.</div>
       <p class="weight-note">Les quantités alimentaires sont des repères de planification à tester à l’entraînement et à adapter avec un professionnel de santé si nécessaire.</p>
     </div>
+      </div>
+    </details>
     <div class="projection-status" id="home-projection-status" aria-live="polite"></div>
     <div class="projection-result" id="home-projection-result" aria-live="polite"></div>
   </div>
@@ -795,12 +860,24 @@
     const carbRateOutput = document.getElementById('home-carb-rate-output');
     const proteinRateOutput = document.getElementById('home-protein-rate-output');
     const fatRateOutput = document.getElementById('home-fat-rate-output');
+    const nutritionAutoSummary = document.getElementById('home-nutrition-auto-summary');
+    const nutritionCustomizeButton = document.getElementById('home-nutrition-customize');
+    const nutritionManualControls = document.getElementById('home-nutrition-manual-controls');
+    const nutritionSettings = document.getElementById('home-nutrition-settings');
     const pointTypeInput = document.getElementById('home-point-type');
     const addPointButton = document.getElementById('home-add-point');
     const aidStationList = document.getElementById('home-aid-station-list');
     const status = document.getElementById('home-projection-status');
     const result = document.getElementById('home-projection-result');
     const courseProfilePreview = document.getElementById('home-course-profile-preview');
+    const generatePlanButton = document.getElementById('home-generate-plan');
+    const planReadyCard = document.getElementById('home-plan-ready-card');
+    const planRecap = document.getElementById('home-plan-recap');
+    const planProgressSteps = Array.from(document.querySelectorAll('[data-plan-progress]'));
+    const generationSteps = document.getElementById('home-generation-steps');
+    const generationStepItems = Array.from(document.querySelectorAll('[data-generation-step]'));
+    const planThinkingModal = document.getElementById('home-plan-thinking-modal');
+    const planThinkingStream = document.getElementById('home-plan-thinking-stream');
     const customSegmentExplorerHost = document.getElementById('home-custom-segment-explorer');
     const customCourseMode = {{ custom_course_mode | default(false) | tojson }};
     const planPaymentPilotEnabled = {{ plan_payment_test_enabled | default(false) | tojson }};
@@ -819,6 +896,19 @@
     const courseSearchResults = document.getElementById('home-course-search-results');
     const courseSearchEmpty = document.getElementById('home-course-search-empty');
     const courseBrowser = document.getElementById('home-course-browser');
+    const timeModeInputs = Array.from(document.querySelectorAll('input[name="home-time-mode"]'));
+    const targetHoursInput = document.getElementById('home-target-hours');
+    const targetMinutesInput = document.getElementById('home-target-minutes');
+    const timeGoalFields = document.getElementById('home-time-goal-fields');
+    const timeGoalNote = document.getElementById('home-time-goal-note');
+    const planBasisInputs = Array.from(document.querySelectorAll('input[name="home-plan-basis"]'));
+    const paceSourceInputs = Array.from(document.querySelectorAll('input[name="home-pace-source"]'));
+    const historyBasisSettings = document.getElementById('home-history-basis-settings');
+    const historyIntensitySettings = document.getElementById('home-history-intensity-settings');
+    const timeBasisSettings = document.getElementById('home-time-basis-settings');
+    const advancedSettings = document.querySelector('.simulation-advanced');
+    const advancedTitle = document.getElementById('home-advanced-title');
+    const advancedDescription = document.getElementById('home-advanced-description');
     const manualMode = document.getElementById('home-manual-mode');
     const manualControls = document.getElementById('home-manual-controls');
     const flatSpeed = document.getElementById('home-flat-speed');
@@ -857,6 +947,167 @@
       S20_25: '20/25', S25_30: '25/30', S30_40: '30/40', S40p: '>40',
     };
     let refreshLiveProjection = null;
+    let targetPaceMultiplier = 1;
+    let latestProjectionTotalSeconds = 0;
+    let manualOverridesEdited = false;
+
+    function manualProfileIsActive() {
+      return Boolean(manualMode?.checked && (selectedPaceSource() === 'manual' || manualOverridesEdited));
+    }
+
+    function isTargetTimeMode() {
+      return timeModeInputs.find((input) => input.checked)?.value === 'target';
+    }
+
+    function requestedTargetSeconds() {
+      if (!isTargetTimeMode()) return null;
+      const hours = Math.max(0, Math.min(99, Number(targetHoursInput?.value) || 0));
+      const minutes = Math.max(0, Math.min(59, Number(targetMinutesInput?.value) || 0));
+      const seconds = hours * 3600 + minutes * 60;
+      return seconds > 0 ? seconds : null;
+    }
+
+    function targetTimeAdjustment(baseMovingSeconds, stopSeconds = 0) {
+      const targetSeconds = requestedTargetSeconds();
+      if (!targetSeconds) return { factor: 1, targetSeconds: null, invalid: isTargetTimeMode() };
+      const targetMovingSeconds = targetSeconds - Math.max(0, stopSeconds);
+      if (targetMovingSeconds < 60 || !(baseMovingSeconds > 0)) return { factor: 1, targetSeconds, invalid: true };
+      return { factor: targetMovingSeconds / baseMovingSeconds, targetSeconds, invalid: false };
+    }
+
+    function refreshTimeGoalUi() {
+      const active = isTargetTimeMode();
+      if (timeGoalFields) timeGoalFields.hidden = !active;
+      if (active && !requestedTargetSeconds() && latestProjectionTotalSeconds > 0) {
+        const roundedMinutes = Math.max(1, Math.round(latestProjectionTotalSeconds / 300) * 5);
+        if (targetHoursInput) targetHoursInput.value = Math.floor(roundedMinutes / 60);
+        if (targetMinutesInput) targetMinutesInput.value = roundedMinutes % 60;
+      }
+      const targetSeconds = requestedTargetSeconds();
+      if (timeGoalNote) timeGoalNote.textContent = active
+        ? (targetSeconds ? `Objectif total : ${formatDuration(targetSeconds)}. Modifie les heures ou minutes : la projection se recalcule immédiatement, arrêts ravito inclus.` : 'Indique un temps cible total pour ajuster la projection.')
+        : 'Le chrono est calculé à partir de ton historique et du relief.';
+    }
+
+    function selectedPlanBasis() {
+      return planBasisInputs.find((input) => input.checked)?.value || 'paces';
+    }
+
+    function selectedPaceSource() {
+      return paceSourceInputs.find((input) => input.checked)?.value || 'history';
+    }
+
+    function hasSelectedCourse() {
+      return Boolean(officialCourseInput.value || (fileInput.files && fileInput.files[0]));
+    }
+
+    function updatePlanFlow() {
+      const hasCourse = hasSelectedCourse();
+      const basis = selectedPlanBasis();
+      planProgressSteps.forEach((step) => {
+        const key = step.dataset.planProgress;
+        const complete = key === 'course' || key === 'method' ? hasCourse : false;
+        const active = key === 'course' ? !hasCourse : key === 'plan' && hasCourse;
+        step.classList.toggle('is-done', complete);
+        step.classList.toggle('is-active', active);
+      });
+      if (generatePlanButton) generatePlanButton.disabled = !hasCourse;
+      if (!result.classList.contains('is-visible') && profileLiveTotal && profileLiveStopDetail) {
+        profileLiveTotal.textContent = hasCourse ? 'Génère ton plan pour avoir ton chrono' : 'Sélectionne un parcours';
+        profileLiveStopDetail.textContent = hasCourse ? 'Le relief et les ravitos seront pris en compte.' : 'Arrêts ravito · 0 min';
+      }
+      if (planRecap) {
+        if (!hasCourse) planRecap.textContent = 'Choisis un parcours pour commencer.';
+        else {
+          const selected = officialCourses.find((course) => course.id === officialCourseInput.value);
+          const courseName = selected?.name || manualCourseNameInput.value.trim() || fileInput.files?.[0]?.name?.replace(/\.gpx$/i, '') || 'ta trace GPX';
+          const method = basis === 'target' ? 'objectif de temps' : (selectedPaceSource() === 'manual' ? 'allures manuelles' : 'allures issues de ton historique');
+          planRecap.textContent = `${courseName} · ${method}. Nous calculerons le relief, les tronçons, les allures et les ravitos.`;
+        }
+      }
+    }
+
+    function setGenerationStage(stage) {
+      if (generationSteps) generationSteps.hidden = false;
+      generationStepItems.forEach((item) => {
+        const index = Number(item.dataset.generationStep);
+        item.classList.toggle('is-active', index === stage);
+        item.classList.toggle('is-done', index < stage || stage > 3);
+      });
+    }
+
+    async function playPlanThinking() {
+      if (!planThinkingModal || !planThinkingStream) return;
+      const selected = officialCourses.find((course) => course.id === officialCourseInput.value);
+      const courseName = selected?.name || manualCourseNameInput.value.trim() || fileInput.files?.[0]?.name?.replace(/\.gpx$/i, '') || 'ta trace GPX';
+      const courseMetrics = selected?.distance_km ? `${Number(selected.distance_km).toFixed(1)} km${selected.elevation_gain_m ? ` · D+ ${Math.round(selected.elevation_gain_m)} m` : ''}` : 'Lecture de la distance et du dénivelé';
+      const paceLabel = selectedPlanBasis() === 'target' ? `Calibrage des allures pour ton objectif de temps` : (selectedPaceSource() === 'manual' ? 'Application de tes allures manuelles par pente' : 'Croisement de tes allures avec les pentes du parcours');
+      const messages = [
+        `Parcours sélectionné · ${courseName}`,
+        courseMetrics,
+        paceLabel,
+        'Découpage des montées, descentes et tronçons',
+        'Préparation des passages et des ravitos',
+      ];
+      planThinkingStream.innerHTML = '';
+      planThinkingModal.hidden = false;
+      messages.forEach((message, index) => {
+        window.setTimeout(() => {
+          const line = document.createElement('div');
+          line.className = 'plan-thinking-line';
+          line.textContent = message;
+          planThinkingStream.appendChild(line);
+          while (planThinkingStream.children.length > 3) planThinkingStream.removeChild(planThinkingStream.firstElementChild);
+        }, index * 700);
+      });
+      await new Promise((resolve) => window.setTimeout(resolve, 4000));
+      planThinkingModal.hidden = true;
+    }
+
+    function syncPlanBasisUi() {
+      const basis = selectedPlanBasis();
+      const usesPaces = basis === 'paces';
+      const usesManualPaces = usesPaces && selectedPaceSource() === 'manual';
+      if (historyBasisSettings) historyBasisSettings.hidden = !usesPaces;
+      if (historyIntensitySettings) historyIntensitySettings.hidden = !usesPaces || usesManualPaces;
+      if (timeBasisSettings) timeBasisSettings.hidden = basis !== 'target';
+      const targetModeInput = timeModeInputs.find((input) => input.value === 'target');
+      const automaticModeInput = timeModeInputs.find((input) => input.value === 'automatic');
+      if (targetModeInput) targetModeInput.checked = basis === 'target';
+      if (automaticModeInput) automaticModeInput.checked = basis !== 'target';
+      if (manualMode) {
+        const manualWasEnabled = manualMode.checked;
+        manualMode.checked = usesManualPaces;
+        if (manualWasEnabled !== manualMode.checked) manualMode.dispatchEvent(new Event('change'));
+      }
+      if (advancedSettings) advancedSettings.open = usesManualPaces;
+      if (advancedTitle) advancedTitle.textContent = usesManualPaces ? 'Paramétrage manuel' : 'Affiner mon plan';
+      if (advancedDescription) advancedDescription.textContent = usesManualPaces
+        ? 'Règle tes allures par pente avant de générer ton plan.'
+        : 'Allures manuelles, ravitos et détail du profil.';
+      if (advancedSettings && planReadyCard && nutritionSettings) {
+        if (usesManualPaces) planReadyCard.before(advancedSettings);
+        else nutritionSettings.after(advancedSettings);
+      }
+      refreshTimeGoalUi();
+      updatePlanFlow();
+      if (refreshLiveProjection) refreshLiveProjection();
+    }
+
+    function setChecklistStepDone(id, done, doneText, pendingText) {
+      const step = document.getElementById(id);
+      if (!step) return;
+      const marker = step.querySelector('i');
+      const title = step.querySelector('strong');
+      step.classList.toggle('is-done', Boolean(done));
+      if (marker) marker.textContent = done ? '✓' : step.id === 'home-checklist-course' ? '3' : '4';
+      if (title) title.textContent = done ? doneText : pendingText;
+    }
+
+    function refreshCourseChecklist() {
+      const hasCourse = Boolean(officialCourseInput?.value || (fileInput?.files && fileInput.files[0]));
+      setChecklistStepDone('home-checklist-course', hasCourse, 'Parcours sélectionné', 'Choisis un parcours');
+    }
 
     function nutritionPreferences() {
       return {
@@ -874,6 +1125,16 @@
       carbRateOutput.textContent = `${Math.round(nutrition.carbRate)} g/h`;
       proteinRateOutput.textContent = `${Math.round(nutrition.proteinRate)} g/h`;
       fatRateOutput.textContent = `${Math.round(nutrition.fatRate)} g/h`;
+      if (nutritionAutoSummary) {
+        const plannedRate = Math.round(nutrition.carbRate * 4 + nutrition.proteinRate * 4 + nutrition.fatRate * 9);
+        nutritionAutoSummary.innerHTML = [
+          `<span class="projection-nutrition-tag"><strong>${Math.round(nutrition.carbRate)} g/h</strong> glucides</span>`,
+          nutrition.proteinRate ? `<span class="projection-nutrition-tag"><strong>${Math.round(nutrition.proteinRate)} g/h</strong> protéines</span>` : '',
+          nutrition.fatRate ? `<span class="projection-nutrition-tag"><strong>${Math.round(nutrition.fatRate)} g/h</strong> lipides</span>` : '',
+          `<span class="projection-nutrition-tag is-energy"><strong>${plannedRate} kcal/h</strong> apports</span>`,
+        ].filter(Boolean).join('');
+      }
+      if (nutritionCustomizeButton) nutritionCustomizeButton.disabled = false;
     }
 
     function currentCourseCoefficientPercent() {
@@ -1067,7 +1328,7 @@
       if (!profileCurve) return;
       const zone = zoneInput.value;
       const historicalZone = (runnerProfileData.zones || {})[zone] || {};
-      const manual = manualMode.checked;
+      const manual = manualProfileIsActive();
       const zoneNote = document.getElementById('home-profile-zone-note');
       if (zoneNote) {
         zoneNote.textContent = manual
@@ -1167,11 +1428,9 @@
       row.querySelector('.aid-save').addEventListener('click', () => {
         row.classList.add('is-saved');
         row.querySelector('.aid-save').textContent = 'Validé';
-        if (fileInput.files && fileInput.files[0]) form.requestSubmit();
       });
       row.querySelector('.aid-remove').addEventListener('click', () => {
         row.remove();
-        if (fileInput.files && fileInput.files[0]) form.requestSubmit();
       });
       row.querySelectorAll('input, select').forEach((input) => ['input', 'change'].forEach((eventName) => input.addEventListener(eventName, () => {
         row.classList.remove('is-saved');
@@ -1251,28 +1510,54 @@
     }
 
     manualMode.addEventListener('change', () => {
+      if (!manualMode.checked) manualOverridesEdited = false;
       manualControls.hidden = !manualMode.checked;
       renderProfilePacingTable();
       if (refreshLiveProjection) refreshLiveProjection();
     });
-    [flatSpeed, descentLevel, ascentLevel].forEach((input) => input.addEventListener('input', refreshManualLabels));
-    [advancedAscentMode, vam15Input, vam30Input].forEach((input) => input.addEventListener('input', refreshManualLabels));
-    advancedAscentMode.addEventListener('change', refreshManualLabels);
+    [flatSpeed, descentLevel, ascentLevel].forEach((input) => input.addEventListener('input', () => {
+      if (manualMode.checked) manualOverridesEdited = true;
+      refreshManualLabels();
+    }));
+    [advancedAscentMode, vam15Input, vam30Input].forEach((input) => input.addEventListener('input', () => {
+      if (manualMode.checked) manualOverridesEdited = true;
+      refreshManualLabels();
+    }));
+    advancedAscentMode.addEventListener('change', () => {
+      if (manualMode.checked) manualOverridesEdited = true;
+      refreshManualLabels();
+    });
     zoneInput.addEventListener('change', () => {
       renderProfilePacingTable();
       renderArchivedProfileTable();
       if (refreshLiveProjection) refreshLiveProjection();
     });
+    timeModeInputs.forEach((input) => input.addEventListener('change', () => {
+      refreshTimeGoalUi();
+      if (refreshLiveProjection) refreshLiveProjection();
+    }));
+    planBasisInputs.forEach((input) => input.addEventListener('change', syncPlanBasisUi));
+    paceSourceInputs.forEach((input) => input.addEventListener('change', syncPlanBasisUi));
+    [targetHoursInput, targetMinutesInput].forEach((input) => input?.addEventListener('input', () => {
+      refreshTimeGoalUi();
+      if (refreshLiveProjection) refreshLiveProjection();
+    }));
     [carbRateInput, proteinRateInput, fatRateInput].forEach((input) => input.addEventListener('input', () => {
       input.dataset.manual = 'true';
       if (refreshLiveProjection) refreshLiveProjection();
     }));
+    nutritionCustomizeButton?.addEventListener('click', () => {
+      const opening = nutritionManualControls.hidden;
+      nutritionManualControls.hidden = !opening;
+      nutritionCustomizeButton.textContent = opening ? 'Masquer les réglages manuels' : 'Personnaliser mes apports';
+    });
     nutritionEnergyBalanceInput.addEventListener('change', () => { if (refreshLiveProjection) refreshLiveProjection(); });
     weightInput.addEventListener('input', () => { if (refreshLiveProjection) refreshLiveProjection(); });
     addPointButton.addEventListener('click', () => addAidStation(pointTypeInput.value));
     officialCourseInput.addEventListener('change', () => {
       updateCourseSource();
-      if (officialCourseInput.value) form.requestSubmit();
+      refreshCourseChecklist();
+      updatePlanFlow();
     });
     const normalizeCourseSearch = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     const renderCourseSearchResults = () => {
@@ -1327,11 +1612,15 @@
       if (file && !manualCourseNameInput.value.trim()) {
         manualCourseNameInput.value = file.name.replace(/\.gpx$/i, '').replace(/[-_]+/g, ' ');
       }
-      if (file) form.requestSubmit();
+      refreshCourseChecklist();
+      updatePlanFlow();
     });
     renderAidStations();
     renderCourseSearchResults();
     updateCourseSource();
+    refreshCourseChecklist();
+    syncPlanBasisUi();
+    updatePlanFlow();
     refreshManualLabels();
     renderArchivedProfileTable();
 
@@ -1886,6 +2175,12 @@
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
+      const isUpdatingExistingPlan = result.classList.contains('is-visible');
+      if (generatePlanButton) {
+        generatePlanButton.disabled = true;
+        generatePlanButton.textContent = 'Préparation du plan…';
+      }
+      setGenerationStage(0);
       result.classList.remove('is-visible');
       result.innerHTML = '';
       courseProfilePreview.hidden = true;
@@ -1898,10 +2193,15 @@
       const courseId = officialCourseInput.value;
       if (!courseId && !file) {
         status.textContent = 'Choisis une course enregistrée pour lancer la simulation.';
+        if (generatePlanButton) {
+          generatePlanButton.textContent = 'Générer mon plan';
+          updatePlanFlow();
+        }
         return;
       }
 
       const zone = zoneInput.value;
+      if (!isUpdatingExistingPlan) await playPlanThinking();
       status.textContent = 'Analyse du parcours en cours…';
       const payload = new FormData();
       if (courseId) payload.append('course_id', courseId);
@@ -1915,6 +2215,7 @@
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || 'Impossible de lire ce GPX.');
+        setGenerationStage(1);
         const simulationCoefficientPercent = Math.max(0, Math.min(175, Number(data.official_course?.course_coefficient_percent ?? 100) || 100));
 
         let movingSeconds = 0;
@@ -1928,8 +2229,8 @@
           let segmentSeconds = 0;
           (segment.slope_distribution || []).forEach((part) => {
             const projectedPace = projectedPaceForSlope(part.slope_id, zone);
-            let pace = paceWithCourseDifficulty(manualMode.checked ? manualPaceForSlope(part.slope_id) : projectedPace.pace, simulationCoefficientPercent);
-            if (!manualMode.checked && projectedPace.source === 'Courbe de départ') manualFallback = true;
+            let pace = paceWithCourseDifficulty(manualProfileIsActive() ? manualPaceForSlope(part.slope_id) : projectedPace.pace, simulationCoefficientPercent);
+            if (!manualProfileIsActive() && projectedPace.source === 'Courbe de départ') manualFallback = true;
             const distance = Number(part.distance_km || 0);
             if (!(pace > 0) && distance > 0) {
               pace = paceWithCourseDifficulty(manualPaceForSlope(part.slope_id), simulationCoefficientPercent);
@@ -1953,26 +2254,25 @@
         if (!movingSeconds) {
           throw new Error('Impossible de calculer cette trace GPX. Vérifie qu’elle contient au moins deux points GPS et des altitudes.');
         }
+        setGenerationStage(2);
 
         status.textContent = '';
         const aidStations = (data.official_course ? officialCoursePoints(data.official_course) : getAidStations()).filter((aid) => aid.km <= Number(data.total_distance_km || 0));
+        setGenerationStage(3);
         const stopSeconds = aidStations.reduce((sum, aid) => sum + aid.stopSeconds, 0);
+        const initialTargetAdjustment = targetTimeAdjustment(movingSeconds, stopSeconds);
+        if (initialTargetAdjustment.invalid) {
+          throw new Error('L’objectif de temps doit être supérieur aux arrêts ravito prévus.');
+        }
+        targetPaceMultiplier = initialTargetAdjustment.factor;
+        if (targetPaceMultiplier !== 1) {
+          projectedRows.forEach((row) => { row.seconds *= targetPaceMultiplier; });
+          movingSeconds *= targetPaceMultiplier;
+        }
+        latestProjectionTotalSeconds = movingSeconds + stopSeconds;
         let nutrition = nutritionPlan(movingSeconds, Number(weightInput.value), Number(data.total_distance_km || 0), gain, zone, nutritionPreferences());
         syncNutritionControls(nutrition);
         let terrainNutritionWindows = buildTerrainNutritionWindows(projectedRows, aidStations, nutrition);
-        const nutritionSummaryMarkup = (currentNutrition) => {
-          const plannedRate = currentNutrition.carbRate * 4 + currentNutrition.proteinRate * 4 + currentNutrition.fatRate * 9;
-          const deficit = Math.max(0, Math.round(currentNutrition.expenditureRate - plannedRate));
-          const tags = [
-            `<span class="projection-nutrition-tag"><strong>${Math.round(currentNutrition.carbRate)} g/h</strong> glucides</span>`,
-            currentNutrition.proteinRate ? `<span class="projection-nutrition-tag"><strong>${Math.round(currentNutrition.proteinRate)} g/h</strong> protéines</span>` : '',
-            currentNutrition.fatRate ? `<span class="projection-nutrition-tag"><strong>${Math.round(currentNutrition.fatRate)} g/h</strong> lipides</span>` : '',
-            `<span class="projection-nutrition-tag is-energy"><strong>${Math.round(plannedRate)} kcal/h</strong> apports</span>`,
-            `<span class="projection-nutrition-tag"><strong>${Math.round(currentNutrition.expenditureRate)} kcal/h</strong> dépense</span>`,
-            `<span class="projection-nutrition-tag is-deficit"><strong>${deficit} kcal/h</strong> déficit</span>`,
-          ];
-          return tags.filter(Boolean).join('');
-        };
         const courseName = data.official_course?.name || manualCourseNameInput.value.trim();
         const metricsBetween = (fromKm, toKm) => {
           let previousKm = 0;
@@ -2026,12 +2326,11 @@
         const courseDetail = data.official_course ? ` · ${data.official_course.name}` : ` · ${manualCourseName}`;
         result.innerHTML = `
           <h3 class="projection-planning-title">Planifier mon temps d’arrêts aux ravitos</h3>
-          <div class="home-summary-label">Temps total estimé · ${manualMode.checked ? 'réglages manuels' : zone}${courseDetail}</div>
+          <div class="home-summary-label">${initialTargetAdjustment.targetSeconds ? `Objectif ${formatDuration(initialTargetAdjustment.targetSeconds)} · allures ajustées` : `Temps total estimé · ${manualProfileIsActive() ? 'réglages manuels' : zone}`}${courseDetail}</div>
           <div class="projection-time" id="home-projection-total">${formatDuration(totalSeconds)}</div>
           <div class="projection-detail" id="home-projection-distance-detail">${Number(data.total_distance_km || 0).toFixed(1)} km · D+ ${Math.round(gain)} m · D− ${Math.round(loss)} m · ${formatDuration(movingSeconds)} en mouvement${stopDetail}</div>
-          ${manualMode.checked ? '<div class="projection-detail" style="margin-top:8px;">Projection calculée avec tes réglages manuels. Ils ne sont pas encore sauvegardés.</div>' : ''}
+          ${manualProfileIsActive() ? '<div class="projection-detail" style="margin-top:8px;">Projection calculée avec tes réglages manuels. Ils ne sont pas encore sauvegardés.</div>' : ''}
           ${manualFallback ? '<div class="projection-detail" style="margin-top:8px;">Les pentes sans historique suffisant utilisent une courbe parabolique de départ, ajustable dans le tableau de profil.</div>' : ''}
-          <div class="projection-nutrition-summary" id="home-projection-nutrition-detail">${nutritionSummaryMarkup(nutrition)}</div>
           ${nutrition.weightIsEstimated ? '<div class="projection-detail" style="margin-top:8px;">Poids non renseigné : estimation basée sur 70 kg.</div>' : ''}
           <p class="projection-disclaimer">Ce plan est une estimation générique basée sur ton poids, le parcours et l’intensité choisie. Pour une stratégie précise et adaptée à ta santé, à ta tolérance digestive ou à un suivi glycémique, fais valider et personnaliser l’analyse par un professionnel de la nutrition.</p>
           <div id="home-projection-timeline"></div>
@@ -2046,22 +2345,22 @@
           </div>
         `;
         result.classList.add('is-visible');
+        setChecklistStepDone('home-checklist-plan', true, 'Projection prête', 'Génère ton plan');
         const timelineHost = result.querySelector('#home-projection-timeline');
         const fuelingScheduleHost = result.querySelector('#home-fueling-schedule');
         const distanceSplitPlannerHost = result.querySelector('#home-distance-split-planner');
         const totalProjectionOutput = result.querySelector('#home-projection-total');
         const distanceDetailOutput = result.querySelector('#home-projection-distance-detail');
-        const nutritionDetailOutput = result.querySelector('#home-projection-nutrition-detail');
         let departureTime = '07:00';
         let departureDate = new Date().toISOString().slice(0, 10);
         const refreshProjectionSummary = () => {
           const currentStopSeconds = aidStations.reduce((sum, point) => sum + point.stopSeconds, 0);
+          latestProjectionTotalSeconds = movingSeconds + currentStopSeconds;
           const currentStopDetail = currentStopSeconds ? ` · ${formatDuration(currentStopSeconds)} de ravito` : '';
           totalProjectionOutput.textContent = formatDuration(movingSeconds + currentStopSeconds);
           distanceDetailOutput.textContent = `${Number(data.total_distance_km || 0).toFixed(1)} km · D+ ${Math.round(gain)} m · D− ${Math.round(loss)} m · ${formatDuration(movingSeconds)} en mouvement${currentStopDetail}`;
           profileLiveTotal.textContent = `Temps estimé · ${formatDuration(movingSeconds + currentStopSeconds)}`;
           profileLiveStopDetail.textContent = `Arrêts ravito · ${currentStopSeconds ? formatDuration(currentStopSeconds) : '0 min'}`;
-          nutritionDetailOutput.innerHTML = nutritionSummaryMarkup(nutrition);
         };
         const syncStopToCourseSettings = (km, minutes) => {
           Array.from(aidStationList.querySelectorAll('[data-course-km]')).forEach((input) => {
@@ -2221,7 +2520,7 @@
             carbs: `${window.carbs} g`, at_aid: window.atAidCarbs ? `${window.atAidCarbs} g sur place` : 'Préparer au départ', to_carry: `${window.carryCarbs} g à emporter`, proteins: `${window.proteins} g`, fats: `${window.fats} g`, calories: `${window.calories} kcal`, advice: `${window.advice} ${window.onSiteAdvice}`,
           }));
           const pacing = slopeIds.map((slopeId) => {
-            const pace = paceWithCourseDifficulty(manualMode.checked ? manualPaceForSlope(slopeId) : projectedPaceForSlope(slopeId, zoneInput.value).pace, simulationCoefficientPercent);
+            const pace = paceWithCourseDifficulty(manualProfileIsActive() ? manualPaceForSlope(slopeId) : projectedPaceForSlope(slopeId, zoneInput.value).pace, simulationCoefficientPercent) * targetPaceMultiplier;
             const grade = slopeCenters[slopeId] || 0;
             const vam = pace > 0 ? Math.round((3600 / pace) * 10 * grade) : 0;
             return { slope: slopeLabels[slopeId], pace: formatPace(pace), vam: vam ? `${vam > 0 ? '+' : '−'}${Math.abs(vam)} m/h` : '-' };
@@ -2232,7 +2531,7 @@
             total_time: totalProjectionOutput.textContent,
             moving_time: formatDuration(movingSeconds),
             distance: `${finishKm.toFixed(1)} km`, elevation: `D+ ${Math.round(gain)} m · D- ${Math.round(loss)} m`,
-            zone: manualMode.checked ? 'Réglages manuels' : zoneInput.value,
+            zone: `${manualProfileIsActive() ? 'Réglages manuels' : zoneInput.value}${requestedTargetSeconds() ? ` · objectif ${formatDuration(requestedTargetSeconds())}` : ''}`,
             departure_time: departureTime,
             departure_date: departureDate,
             nutrition: { carbs_rate: `${Math.round(nutrition.carbRate)} g`, protein_rate: `${Math.round(nutrition.proteinRate)} g`, fat_rate: `${Math.round(nutrition.fatRate)} g`, calories_rate: `${Math.round(plannedRate)} kcal`, expenditure_rate: `~${Math.round(nutrition.expenditureRate)} kcal`, total_carbs: `${Math.round(nutrition.carbRate * movingSeconds / 3600)} g`, total_proteins: `${Math.round(nutrition.proteinRate * movingSeconds / 3600)} g`, total_fats: `${Math.round(nutrition.fatRate * movingSeconds / 3600)} g`, total_calories: `${Math.round(plannedRate * movingSeconds / 3600)} kcal` },
@@ -2270,6 +2569,7 @@
             window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1500);
             emailPlanButton.textContent = '✓ PDF envoyé et téléchargé';
             status.textContent = response.headers.get('X-Course-Plan-Message') || 'Le plan a été envoyé par e-mail et téléchargé sur cet appareil.';
+            document.getElementById('home-first-plan-checklist')?.remove();
           } catch (error) {
             emailPlanButton.disabled = false;
             emailPlanButton.textContent = downloadPlanLabel;
@@ -2297,8 +2597,8 @@
             let segmentSeconds = 0;
             (segment.slope_distribution || []).forEach((part) => {
               const projectedPace = projectedPaceForSlope(part.slope_id, activeZone);
-              let pace = paceWithCourseDifficulty(manualMode.checked ? manualPaceForSlope(part.slope_id) : projectedPace.pace, simulationCoefficientPercent);
-              if (!manualMode.checked && projectedPace.source === 'Courbe de départ') nextManualFallback = true;
+              let pace = paceWithCourseDifficulty(manualProfileIsActive() ? manualPaceForSlope(part.slope_id) : projectedPace.pace, simulationCoefficientPercent);
+              if (!manualProfileIsActive() && projectedPace.source === 'Courbe de départ') nextManualFallback = true;
               const distance = Number(part.distance_km || 0);
               if (!(pace > 0) && distance > 0) {
                 pace = paceWithCourseDifficulty(manualPaceForSlope(part.slope_id), simulationCoefficientPercent);
@@ -2319,7 +2619,15 @@
             });
           });
           if (!nextMovingSeconds) return;
-          movingSeconds = nextMovingSeconds;
+          const nextStopSeconds = aidStations.reduce((sum, point) => sum + point.stopSeconds, 0);
+          const nextTargetAdjustment = targetTimeAdjustment(nextMovingSeconds, nextStopSeconds);
+          if (nextTargetAdjustment.invalid) {
+            status.textContent = 'L’objectif de temps doit être supérieur aux arrêts ravito prévus.';
+            return;
+          }
+          targetPaceMultiplier = nextTargetAdjustment.factor;
+          if (targetPaceMultiplier !== 1) nextRows.forEach((row) => { row.seconds *= targetPaceMultiplier; });
+          movingSeconds = nextMovingSeconds * targetPaceMultiplier;
           manualFallback = nextManualFallback;
           projectedRows.splice(0, projectedRows.length, ...nextRows);
           nutrition = nutritionPlan(movingSeconds, Number(weightInput.value), Number(data.total_distance_km || 0), gain, activeZone, nutritionPreferences());
@@ -2339,6 +2647,12 @@
           if (!point) return;
           point.stopSeconds = minutes * 60;
           syncStopToCourseSettings(km, minutes);
+          if (requestedTargetSeconds() && refreshLiveProjection) {
+            refreshLiveProjection();
+            const refreshedInput = timelineHost.querySelector(`.timeline-stop-input[data-stop-km="${km}"]`);
+            if (refreshedInput) refreshedInput.focus();
+            return;
+          }
           refreshProjectionSummary();
           renderTimeline();
           renderFuelingSchedule();
@@ -2394,8 +2708,17 @@
           row.classList.toggle('is-expanded', expanded);
           toggle.setAttribute('aria-expanded', String(expanded));
         });
+        setGenerationStage(4);
+        if (generatePlanButton) {
+          generatePlanButton.disabled = false;
+          generatePlanButton.textContent = 'Mettre à jour mon plan';
+        }
       } catch (error) {
         status.textContent = error.message || 'La simulation n’a pas pu être calculée.';
+        if (generatePlanButton) {
+          generatePlanButton.textContent = 'Réessayer de générer mon plan';
+          updatePlanFlow();
+        }
       }
     });
   })();

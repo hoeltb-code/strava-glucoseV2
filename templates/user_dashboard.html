@@ -691,7 +691,6 @@
         </div>
       </div>
     </form>
-    <div class="course-profile-preview" id="home-course-profile-preview" hidden></div>
     <section class="plan-basis" aria-labelledby="home-plan-basis-title">
       <h3 id="home-plan-basis-title">Comment veux-tu construire ton plan ?</h3>
       <p>Choisis une base simple. Tu pourras toujours affiner les réglages ensuite.</p>
@@ -757,6 +756,8 @@
         <input id="home-runner-weight" type="number" min="35" max="150" step="0.5" value="{{ user.weight_kg or '' }}" placeholder="kg">
       </div>
     </section>
+    <div class="course-profile-preview" id="home-course-profile-preview" hidden></div>
+    <div id="home-custom-segment-explorer" hidden></div>
     <div class="plan-thinking-modal" id="home-plan-thinking-modal" hidden role="status" aria-live="assertive" aria-label="Préparation de ton plan">
       <div class="plan-thinking-card">
         <p class="plan-thinking-kicker"><i></i> Préparation en cours</p>
@@ -831,7 +832,6 @@
         </div>
       </div>
       <div class="aid-station-list" id="home-aid-station-list"></div>
-      <div id="home-custom-segment-explorer" hidden></div>
       <div class="official-point-settings" id="home-official-point-settings" hidden>Renseigne ci-dessous le temps d’arrêt prévu à chaque ravito et ravito avec assistance.</div>
       <p class="weight-note">Les quantités alimentaires sont des repères de planification à tester à l’entraînement et à adapter avec un professionnel de santé si nécessaire.</p>
     </div>
@@ -1091,7 +1091,7 @@
         : 'Allures manuelles, ravitos et détail du profil.';
       if (advancedSettings && planReadyCard && nutritionSettings) {
         if (usesManualPaces) planReadyCard.before(advancedSettings);
-        else nutritionSettings.after(advancedSettings);
+        else (customSegmentExplorerHost || nutritionSettings).after(advancedSettings);
       }
       refreshTimeGoalUi();
       updatePlanFlow();

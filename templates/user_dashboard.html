@@ -358,6 +358,7 @@
   .course-plan-email .course-plan-credit-pack { background:#fff; border-color:#dfdad0; color:var(--text-main); }
   .course-plan-credit-note { width:100%; margin:0; text-align:center; color:var(--text-muted); font-size:.78rem; }
   .course-plan-digital-consent { display:flex; flex:0 0 100%; width:100%; max-width:620px; align-items:flex-start; gap:8px; margin:3px auto 0; color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.73rem; font-weight:400; letter-spacing:0; line-height:1.42; text-align:left; text-transform:none; }
+  .course-plan-digital-consent[hidden] { display:none!important; }
   .course-plan-digital-consent input { flex:0 0 auto; width:auto; min-height:0; margin:3px 0 0; }
   .course-plan-digital-consent a { color:var(--accent-2); text-decoration:underline; }
   .plan-detail-lock { margin:14px 0; padding:14px; border:1px solid #efc3b7; border-radius:14px; background:#fff7f3; }.plan-detail-lock h3 { margin:0; font-size:1rem; }.plan-detail-lock p { margin:5px 0 0; font-size:.78rem; }
@@ -2388,8 +2389,8 @@
           <div ${planDetailsUnlocked ? '' : 'hidden'}><div id="home-projection-timeline"></div><div id="home-fueling-schedule"></div><div id="home-distance-split-planner"></div></div>
           <p class="course-plan-credit-note">Tu recevras un PDF détaillé (projection, profils, tronçons, passages, ravitos et nutrition) et une feuille de route PNG à partager. Vérifie toujours les informations officielles de l’organisateur avant le départ.</p>
           <div class="course-plan-email">
-            ${planPaymentPilotEnabled ? '<label class="course-plan-digital-consent" for="home-digital-content-consent"><input id="home-digital-content-consent" type="checkbox"> <span>J’accepte les <a href="/conditions-utilisation#contenus-numeriques" target="_blank" rel="noopener">conditions générales de vente</a>, demande la fourniture immédiate de mon plan numérique et reconnais perdre mon droit de rétractation dès le début de son exécution.</span></label>' : ''}
-            <button type="button" id="home-plan-email-btn">${planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : (hasPurchasedPlan ? 'Valider mon plan · 14,90 €' : 'Valider mon plan · 4,90 €')) : '✉ Envoyer et télécharger le plan PDF'}</button>
+            ${planPaymentPilotEnabled ? '<label class="course-plan-digital-consent" id="home-digital-content-consent-row" for="home-digital-content-consent" hidden><input id="home-digital-content-consent" type="checkbox"> <span>J’accepte les <a href="/conditions-utilisation#contenus-numeriques" target="_blank" rel="noopener">conditions générales de vente</a>, demande la fourniture immédiate de mon plan numérique et reconnais perdre mon droit de rétractation dès le début de son exécution.</span></label>' : ''}
+            <button type="button" id="home-plan-email-btn">${planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : 'Valider mon plan') : '✉ Envoyer et télécharger le plan PDF'}</button>
             ${planPaymentPilotEnabled && hasPurchasedPlan ? '<button type="button" id="home-plan-credit-pack-btn" class="course-plan-credit-pack">Recharger 3 crédits · 30 €</button>' : ''}
             ${planPaymentPilotEnabled ? '<p class="course-plan-credit-note">' + planCredits + ' crédit' + (planCredits === 1 ? '' : 's') + ' disponible' + (planCredits === 1 ? '' : 's') + (hasPurchasedPlan ? ' · 1 crédit = 1 plan' : ' · Offre de lancement réservée à ton premier plan') + '</p>' : ''}
           </div>
@@ -2496,6 +2497,7 @@
         const emailPlanButton = result.querySelector('#home-plan-email-btn');
         const creditPackButton = result.querySelector('#home-plan-credit-pack-btn');
         const digitalContentConsent = result.querySelector('#home-digital-content-consent');
+        const digitalContentConsentRow = result.querySelector('#home-digital-content-consent-row');
         const downloadPlanLabel = planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : (hasPurchasedPlan ? 'Acheter ce plan · 14,90 €' : 'Offre premier plan · 4,90 €')) : '✉ Envoyer et télécharger le plan PDF';
         const startPaymentCheckout = async (product, planPayload) => {
           const response = await fetch(`/ui/user/{{ user.id }}/course-plan/checkout?product=${encodeURIComponent(product)}`, {
@@ -2563,6 +2565,16 @@
           return metrics;
         };
         emailPlanButton.addEventListener('click', async () => {
+          if (planPaymentPilotEnabled && planCredits < 1 && !emailPlanButton.dataset.validated) {
+            emailPlanButton.disabled = true;
+            await playPlanThinking(6000);
+            emailPlanButton.dataset.validated = 'true';
+            emailPlanButton.disabled = false;
+            if (digitalContentConsentRow) digitalContentConsentRow.hidden = false;
+            emailPlanButton.textContent = hasPurchasedPlan ? 'Acheter ce plan · 14,90 €' : 'Offre premier plan · 4,90 €';
+            status.textContent = 'Ton plan est validé. Confirme les conditions de vente puis passe au paiement pour débloquer le roadbook et le plan nutrition détaillé.';
+            return;
+          }
           const finishKm = Number(data.total_distance_km || 0);
           const routePoints = [
             { label: 'Départ', type: 'start', km: 0, stopSeconds: 0 },
@@ -2633,7 +2645,6 @@
             return;
           }
           if (planPaymentPilotEnabled) plan.digital_content_consent = true;
-          if (planPaymentPilotEnabled && planCredits < 1) await playPlanThinking(6000);
           emailPlanButton.disabled = true;
           emailPlanButton.textContent = planPaymentPilotEnabled && planCredits < 1 ? 'Ouverture de Stripe…' : 'Préparation du PDF…';
           try {

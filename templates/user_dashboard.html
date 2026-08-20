@@ -2683,11 +2683,16 @@
           if (planPaymentPilotEnabled) plan.digital_content_consent = true;
           emailPlanButton.disabled = true;
           emailPlanButton.textContent = planPaymentPilotEnabled && planCredits < 1 ? 'Ouverture de Stripe…' : 'Préparation du PDF…';
+          let planPdfWindow = null;
           try {
             if (planPaymentPilotEnabled && planCredits < 1) {
               await startPaymentCheckout(hasPurchasedPlan ? 'single_plan' : 'first_plan', plan);
               return;
             }
+            // Sur iOS, l'attribut download est souvent ignoré et le PDF remplace l'onglet courant.
+            // L'onglet est donc créé pendant le geste utilisateur, avant la requête asynchrone.
+            planPdfWindow = window.open('', '_blank');
+            if (planPdfWindow) planPdfWindow.document.title = 'Préparation du PDF…';
             const response = await fetch('/ui/user/{{ user.id }}/course-plan/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(plan) });
             if (!response.ok) {
               const responseData = await response.json().catch(() => ({}));
@@ -2697,20 +2702,27 @@
             const downloadUrl = URL.createObjectURL(pdfBlob);
             const contentDisposition = response.headers.get('Content-Disposition') || '';
             const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
-            const downloadLink = document.createElement('a');
-            downloadLink.href = downloadUrl;
-            downloadLink.download = filenameMatch?.[1] || 'plan-de-course.pdf';
-            downloadLink.style.display = 'none';
-            document.body.appendChild(downloadLink);
-            downloadLink.click();
-            downloadLink.remove();
-            window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1500);
+            if (planPdfWindow && !planPdfWindow.closed) {
+              planPdfWindow.location.href = downloadUrl;
+            } else {
+              const downloadLink = document.createElement('a');
+              downloadLink.href = downloadUrl;
+              downloadLink.download = filenameMatch?.[1] || 'plan-de-course.pdf';
+              downloadLink.target = '_blank';
+              downloadLink.rel = 'noopener';
+              downloadLink.style.display = 'none';
+              document.body.appendChild(downloadLink);
+              downloadLink.click();
+              downloadLink.remove();
+            }
+            window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 60000);
             emailPlanButton.textContent = '✓ PDF envoyé et téléchargé';
             if (roadbookPreview) roadbookPreview.hidden = false;
             if (planDetailLock) planDetailLock.hidden = true;
             status.textContent = response.headers.get('X-Course-Plan-Message') || 'Le plan a été envoyé par e-mail et téléchargé sur cet appareil.';
             document.getElementById('home-first-plan-checklist')?.remove();
           } catch (error) {
+            if (planPdfWindow && !planPdfWindow.closed) planPdfWindow.close();
             emailPlanButton.disabled = false;
             emailPlanButton.textContent = downloadPlanLabel;
             status.textContent = error.message || 'L’envoi du plan a échoué.';

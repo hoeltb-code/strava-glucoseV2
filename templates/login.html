@@ -1,7 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Running Data Plan · Connexion{% endblock %}
+{% block title %}{{ seo_title }}{% endblock %}
 
 {% block extra_head %}
+<script type="application/ld+json">{{ schema_json|safe }}</script>
 <style>
   .login-shell {
     min-height: calc(100vh - 128px);
@@ -318,7 +319,7 @@
       <div>
         <p class="login-kicker">Running Data Plan <span style="font-size:.8em; font-weight:600;">· Compatible with Strava</span></p>
         <h1 class="login-title">
-          Prépare. Analyse. Régule.
+          Plan de course trail, pacing et glycémie.
         </h1>
         <p class="login-copy">
           Transforme tes sorties Strava en un profil de trail vivant : allures selon la pente, VAM, endurance,

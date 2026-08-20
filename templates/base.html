@@ -4,6 +4,23 @@
   <meta charset="utf-8">
   <title>{% block title %}Running Data Plan{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="{{ seo_robots|default('noindex,follow') }}">
+  {% if seo_title is defined %}
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:locale" content="fr_FR">
+  <meta property="og:type" content="{{ seo_og_type|default('website') }}">
+  <meta property="og:site_name" content="Running Data Plan">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta property="og:image" content="{{ seo_image_url }}">
+  <meta property="og:image:alt" content="Logo Running Data Plan">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="{{ seo_title }}">
+  <meta name="twitter:description" content="{{ seo_description }}">
+  <meta name="twitter:image" content="{{ seo_image_url }}">
+  {% endif %}
 
   <!-- 🗺️ Leaflet (cartes OpenStreetMap) -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>

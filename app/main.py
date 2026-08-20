@@ -5249,19 +5249,37 @@ def _seo_cta_url(request: Request, course_id: str | None = None) -> str:
 def _seo_page_context(request: Request, *, title: str, description: str, path: str, **extra) -> dict:
     base_url = _get_app_base_url()
     canonical_url = f"{base_url}{path}"
+    page_kind = extra.get("page_kind", "website")
+    schema_type = "Article" if page_kind == "guide" else "WebPage"
+    schema = {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": schema_type,
+                "headline": title,
+                "name": title,
+                "description": description,
+                "url": canonical_url,
+                "inLanguage": "fr-FR",
+            },
+            {
+                "@type": "BreadcrumbList",
+                "itemListElement": [
+                    {"@type": "ListItem", "position": 1, "name": "Accueil", "item": base_url},
+                    {"@type": "ListItem", "position": 2, "name": title, "item": canonical_url},
+                ],
+            },
+        ],
+    }
     return {
         "request": request,
         "seo_title": title,
         "seo_description": description,
         "canonical_url": canonical_url,
-        "schema_json": json.dumps({
-            "@context": "https://schema.org",
-            "@type": "WebPage",
-            "name": title,
-            "description": description,
-            "url": canonical_url,
-            "inLanguage": "fr-FR",
-        }, ensure_ascii=False),
+        "seo_image_url": f"{base_url}/static/logo.png",
+        "seo_og_type": "article" if page_kind in {"guide", "course"} else "website",
+        "seo_robots": "index,follow",
+        "schema_json": json.dumps(schema, ensure_ascii=False),
         "guide_links": [
             {"slug": slug, "title": guide["title"]}
             for slug, guide in SEO_GUIDES.items()
@@ -5275,8 +5293,8 @@ def _seo_page_context(request: Request, *, title: str, description: str, path: s
 def seo_guides_index(request: Request):
     return templates.TemplateResponse("seo_index.html", _seo_page_context(
         request,
-        title="Guides trail : plan de course, pacing et ravitaillement",
-        description="Guides pratiques pour construire un plan de course trail, gérer les allures selon la pente et préparer les ravitaillements.",
+        title="Guides trail, glycémie et diabète de type 1 pendant le sport",
+        description="Guides pratiques sur le plan de course trail, le pacing, les allures selon la pente et la gestion de la glycémie pendant le sport avec un diabète de type 1.",
         path="/guides",
         page_kind="guides",
         guides=[{"slug": slug, **guide} for slug, guide in SEO_GUIDES.items()],
@@ -7861,6 +7879,19 @@ def _render_login_page(request: Request):
         "login.html",
         {
             "request": request,
+            "seo_title": "Running Data Plan : plan de course trail, pacing et glycémie",
+            "seo_description": "Créez un plan de course trail personnalisé à partir de vos données Strava : pacing, allures selon la pente, ravitaillements et suivi de glycémie en option.",
+            "canonical_url": f"{_get_app_base_url()}/",
+            "seo_image_url": f"{_get_app_base_url()}/static/logo.png",
+            "seo_og_type": "website",
+            "seo_robots": "index,follow",
+            "schema_json": json.dumps({
+                "@context": "https://schema.org",
+                "@type": "WebSite",
+                "name": "Running Data Plan",
+                "url": _get_app_base_url(),
+                "inLanguage": "fr-FR",
+            }, ensure_ascii=False),
             "hero_points": hero_points,
             "onboarding_steps": onboarding_steps,
             "official_courses": official_courses,

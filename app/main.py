@@ -4129,6 +4129,8 @@ def ui_home(request: Request):
     nightscout_filter = _normalize_connection_filter(request.query_params.get("nightscout_filter"))
     activity_page = _safe_positive_int(request.query_params.get("activity_page"), 1)
     activity_page_size = 5
+    plan_page = _safe_positive_int(request.query_params.get("plan_page"), 1)
+    plan_page_size = 10
 
     recent_activities = []
     enrichment_dashboard = {}
@@ -4138,6 +4140,7 @@ def ui_home(request: Request):
     activity_pagination = {}
     course_plan_usage = {"total": 0, "last_30_days": 0, "unique_users": 0}
     course_plan_downloads = []
+    course_plan_pagination = {}
     signup_trend = []
     signup_trend_max = 1
     plan_download_trend = []
@@ -4164,12 +4167,23 @@ def ui_home(request: Request):
             "last_30_days": db.query(CoursePlanDownload.id).filter(CoursePlanDownload.downloaded_at >= usage_since).count(),
             "unique_users": db.query(func.count(func.distinct(CoursePlanDownload.user_id))).scalar() or 0,
         }
+        course_plan_total_pages = max(1, math.ceil(course_plan_usage["total"] / plan_page_size))
+        plan_page = min(plan_page, course_plan_total_pages)
         course_plan_downloads = (
             db.query(CoursePlanDownload)
-            .order_by(CoursePlanDownload.downloaded_at.desc())
-            .limit(50)
+            .order_by(CoursePlanDownload.downloaded_at.desc(), CoursePlanDownload.id.desc())
+            .offset((plan_page - 1) * plan_page_size)
+            .limit(plan_page_size)
             .all()
         )
+        course_plan_pagination = {
+            "page": plan_page,
+            "total_pages": course_plan_total_pages,
+            "has_prev": plan_page > 1,
+            "has_next": plan_page < course_plan_total_pages,
+            "prev_url": _build_url_with_query(request, plan_page=plan_page - 1) if plan_page > 1 else None,
+            "next_url": _build_url_with_query(request, plan_page=plan_page + 1) if plan_page < course_plan_total_pages else None,
+        }
         signup_start = dt.datetime.utcnow().date() - dt.timedelta(days=29)
         trend_start_at = dt.datetime.combine(signup_start, dt.time.min)
 
@@ -4313,6 +4327,7 @@ def ui_home(request: Request):
             "admin_message": admin_message,
             "course_plan_usage": course_plan_usage,
             "course_plan_downloads": course_plan_downloads,
+            "course_plan_pagination": course_plan_pagination,
             "signup_trend": signup_trend,
             "signup_trend_max": signup_trend_max,
             "plan_download_trend": plan_download_trend,

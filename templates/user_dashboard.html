@@ -1051,7 +1051,7 @@
       });
     }
 
-    async function playPlanThinking(duration = 4000) {
+    async function playPlanThinking(duration = 5000) {
       if (!planThinkingModal || !planThinkingStream) return;
       const selected = officialCourses.find((course) => course.id === officialCourseInput.value);
       const courseName = selected?.name || manualCourseNameInput.value.trim() || fileInput.files?.[0]?.name?.replace(/\.gpx$/i, '') || 'ta trace GPX';
@@ -1060,6 +1060,7 @@
       const messages = [
         `Parcours sélectionné · ${courseName}`,
         courseMetrics,
+        'Analyse du profil d’altitude et des pentes',
         paceLabel,
         'Découpage des montées, descentes et tronçons',
         'Préparation des passages et des ravitos',
@@ -1073,7 +1074,7 @@
           line.textContent = message;
           planThinkingStream.appendChild(line);
           while (planThinkingStream.children.length > 3) planThinkingStream.removeChild(planThinkingStream.firstElementChild);
-        }, index * (duration / 6));
+        }, index * (duration / 7));
       });
       await new Promise((resolve) => window.setTimeout(resolve, duration));
       planThinkingModal.hidden = true;

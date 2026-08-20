@@ -86,7 +86,7 @@
     a:hover { color: var(--link-hover); }
 
     /* ===== Header ===== */
-    header {
+    body > header {
       background: var(--bg-header);
       border-bottom: 1px solid var(--border);
       padding: 14px 24px;
@@ -174,7 +174,7 @@
     .logout-link:hover { color: var(--text-main); background: rgba(255, 139, 106, 0.07); border-color: var(--border); }
 
     @media (max-width: 640px) {
-      header {
+      body > header {
         padding: 10px 16px;
         flex-wrap: nowrap;
         gap: 10px;
@@ -398,7 +398,7 @@
       .card {
         padding: 16px;
       }
-      header {
+      body > header {
         flex-wrap: wrap;
         gap: 12px;
       }
@@ -644,6 +644,8 @@
     <div class="site-footer-inner">
       <span><span class="site-footer-brand">Running Data Plan</span> · Mieux préparer, en restant maître de ses données.</span>
       <nav class="site-footer-links" aria-label="Liens d'information">
+        <a href="/guides">Guides trail</a>
+        <a href="/courses">Parcours trail</a>
         <a href="/conditions-utilisation">Conditions d’utilisation</a>
         <a href="/aide">Aide</a>
         <a href="/assistance">Assistance</a>

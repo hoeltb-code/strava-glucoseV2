@@ -97,6 +97,7 @@ from collections import Counter, defaultdict, deque
 import re
 from urllib.parse import quote_plus, urlencode, urlsplit
 from bisect import bisect_left
+from functools import lru_cache
 from sqlalchemy import desc, func, and_
 from sqlalchemy.orm import Session, selectinload
 
@@ -201,6 +202,7 @@ from app.models import (
     UserLoginEvent,
 )
 from app.secrets import encrypt_secret
+from app.seo_content import SEO_GUIDES
 
 SLOPE_BANDS_DEF = [
     (-999, -40, "Sneg40p", "<-40%"),
@@ -286,6 +288,176 @@ def _load_official_course(course_id: str) -> dict | None:
     if not os.path.isfile(route_path):
         return None
     return {"course": course, "route_path": route_path}
+
+
+def _seo_course_slug(course_id: str) -> str:
+    return re.sub(r"-\d{4}$", "", str(course_id or "").strip().lower())
+
+
+def _seo_elevation_svg(profile: list[dict]) -> str:
+    """Small server-rendered elevation profile for public pages and crawlers."""
+    points = [
+        point for point in profile or []
+        if isinstance(point, dict)
+        and isinstance(point.get("distance_km"), (int, float))
+        and isinstance(point.get("elevation_m"), (int, float))
+    ]
+    if len(points) < 2:
+        return ""
+    if len(points) > 220:
+        step = max(1, len(points) // 220)
+        points = points[::step]
+        if points[-1] != profile[-1]:
+            points.append(profile[-1])
+    width, height, pad_x, pad_top, pad_bottom = 960, 260, 34, 26, 34
+    xs = [float(point["distance_km"]) for point in points]
+    ys = [float(point["elevation_m"]) for point in points]
+    min_x, max_x, min_y, max_y = min(xs), max(xs), min(ys), max(ys)
+    span_x, span_y = max(.01, max_x - min_x), max(1.0, max_y - min_y)
+    coordinates = [
+        (
+            pad_x + ((x - min_x) / span_x) * (width - 2 * pad_x),
+            pad_top + ((max_y - y) / span_y) * (height - pad_top - pad_bottom),
+        )
+        for x, y in zip(xs, ys)
+    ]
+    line = " ".join(f"{x:.1f},{y:.1f}" for x, y in coordinates)
+    area = f"{pad_x},{height - pad_bottom} {line} {width - pad_x},{height - pad_bottom}"
+    return (
+        f'<svg viewBox="0 0 {width} {height}" role="img" aria-label="Profil altimétrique de {max_x:.1f} kilomètres">'
+        '<defs><linearGradient id="seo-profile-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6a49" stop-opacity=".72"/><stop offset="1" stop-color="#ffdbc9" stop-opacity=".4"/></linearGradient></defs>'
+        f'<line x1="{pad_x}" y1="{height - pad_bottom}" x2="{width - pad_x}" y2="{height - pad_bottom}" stroke="#cfc9bf"/>'
+        f'<polygon points="{area}" fill="url(#seo-profile-fill)"/><polyline points="{line}" fill="none" stroke="#b73d25" stroke-width="3" stroke-linejoin="round"/>'
+        f'<text x="{pad_x}" y="{height - 10}" fill="#68645d" font-size="18">0 km</text><text x="{width - pad_x - 78}" y="{height - 10}" fill="#68645d" font-size="18">{max_x:.1f} km</text>'
+        f'<text x="{pad_x}" y="18" fill="#68645d" font-size="18">{min_y:.0f}–{max_y:.0f} m</text></svg>'
+    )
+
+
+def _seo_segment_profile_svg(profile: list[dict], from_km: float, to_km: float) -> str:
+    """Colored elevation profile for one aid-station-to-aid-station leg."""
+    if to_km <= from_km:
+        return ""
+    source = [
+        point for point in profile or []
+        if isinstance(point, dict)
+        and isinstance(point.get("distance_km"), (int, float))
+        and isinstance(point.get("elevation_m"), (int, float))
+    ]
+    if len(source) < 2:
+        return ""
+    inside = [point for point in source if from_km <= float(point["distance_km"]) <= to_km]
+    before = [point for point in source if float(point["distance_km"]) < from_km]
+    after = [point for point in source if float(point["distance_km"]) > to_km]
+    points = ([before[-1]] if before else []) + inside + ([after[0]] if after else [])
+    if len(points) < 2:
+        return ""
+    width, height, pad_x, pad_top, pad_bottom = 680, 170, 20, 18, 26
+    min_y = min(float(point["elevation_m"]) for point in points)
+    max_y = max(float(point["elevation_m"]) for point in points)
+    span_x, span_y = max(.01, to_km - from_km), max(1.0, max_y - min_y)
+    def coord(point):
+        x = pad_x + ((float(point["distance_km"]) - from_km) / span_x) * (width - 2 * pad_x)
+        y = pad_top + ((max_y - float(point["elevation_m"])) / span_y) * (height - pad_top - pad_bottom)
+        return x, y
+    coords = [coord(point) for point in points]
+    def color(grade):
+        grade = float(grade or 0)
+        if grade <= -8: return "#5bb9e6"
+        if grade < -2: return "#83cceb"
+        if grade < 5: return "#dfe68d"
+        if grade < 12: return "#f4c446"
+        if grade < 20: return "#f38b2d"
+        return "#e94c34"
+    base_y = height - pad_bottom
+    areas = "".join(
+        f'<polygon points="{previous[0]:.1f},{base_y} {previous[0]:.1f},{previous[1]:.1f} {current[0]:.1f},{current[1]:.1f} {current[0]:.1f},{base_y}" fill="{color(points[index].get("grade_percent"))}"/>'
+        for index, (previous, current) in enumerate(zip(coords, coords[1:]), start=1)
+    )
+    line = " ".join(f"{x:.1f},{y:.1f}" for x, y in coords)
+    return (
+        f'<svg viewBox="0 0 {width} {height}" role="img" aria-label="Profil coloré selon la pente, de {from_km:.1f} à {to_km:.1f} kilomètres">'
+        f'{areas}<polyline points="{line}" fill="none" stroke="#4a4741" stroke-width="1.4" stroke-linejoin="round"/>'
+        f'<line x1="{pad_x}" y1="{base_y}" x2="{width - pad_x}" y2="{base_y}" stroke="#cfc9bf"/>'
+        f'<text x="{pad_x}" y="{height - 7}" fill="#68645d" font-size="14">{from_km:.1f} km</text><text x="{width - pad_x - 53}" y="{height - 7}" fill="#68645d" font-size="14">{to_km:.1f} km</text></svg>'
+    )
+
+
+def _seo_course_analysis(points: list[dict]) -> dict:
+    """Turn official checkpoints into readable, course-specific pacing sections."""
+    clean_points = [point for point in points if isinstance(point, dict)]
+    legs = []
+    for previous, current in zip(clean_points, clean_points[1:]):
+        try:
+            distance = float(current.get("km") or 0) - float(previous.get("km") or 0)
+            gain = float(current.get("elevation_gain_m") or 0) - float(previous.get("elevation_gain_m") or 0)
+            loss = float(current.get("elevation_loss_m") or 0) - float(previous.get("elevation_loss_m") or 0)
+        except (TypeError, ValueError):
+            continue
+        if distance <= 0:
+            continue
+        density = gain / distance
+        if gain >= max(120, loss * 1.25):
+            terrain, advice = "Montée dominante", "Garde une intensité durable ; la marche active peut être plus efficace qu’une relance forcée."
+        elif loss >= max(120, gain * 1.25):
+            terrain, advice = "Descente dominante", "Protège les quadriceps et l’attention : la vitesse se gagne surtout en restant relâché et précis."
+        else:
+            terrain, advice = "Terrain mixte", "Utilise les portions roulantes pour retrouver un rythme régulier sans transformer chaque relance en accélération."
+        legs.append({
+            "from": previous.get("name") or "Départ",
+            "to": current.get("name") or "Point suivant",
+            "from_km": round(float(previous.get("km") or 0), 1),
+            "to_km": round(float(current.get("km") or 0), 1),
+            "distance_km": round(distance, 1),
+            "gain_m": round(max(gain, 0)),
+            "loss_m": round(max(loss, 0)),
+            "ascent_density": round(density),
+            "terrain": terrain,
+            "advice": advice,
+        })
+    longest_leg = max(legs, key=lambda leg: leg["distance_km"], default=None)
+    biggest_climb = max(legs, key=lambda leg: leg["gain_m"], default=None)
+    biggest_descent = max(legs, key=lambda leg: leg["loss_m"], default=None)
+    return {"legs": legs, "longest_leg": longest_leg, "biggest_climb": biggest_climb, "biggest_descent": biggest_descent}
+
+
+@lru_cache(maxsize=32)
+def _seo_course_payload(course_id: str) -> dict | None:
+    loaded = _load_official_course(course_id)
+    if not loaded:
+        return None
+    course = loaded["course"]
+    try:
+        _bands, gpx_distance_m, _segments, profile = _compute_slope_distribution_from_gpx(
+            open(loaded["route_path"], "rb").read()
+        )
+    except (OSError, ValueError, TypeError):
+        gpx_distance_m, profile = 0.0, []
+    points = [
+        {
+            **point,
+            "altitude_m": point.get("altitude_m"),
+            "elevation_gain_m": point.get("elevation_gain_m"),
+            "elevation_loss_m": point.get("elevation_loss_m"),
+            "cutoff_label": point.get("cutoff_label"),
+        }
+        for point in sorted(course.get("points") or [], key=lambda point: float(point.get("km") or 0))
+    ]
+    route_stops = [point for point in points if point.get("type") == "start"]
+    route_stops += [point for point in points if point.get("type") in {"aid_station", "aid_station_assistance"}]
+    route_stops += [point for point in points if point.get("type") == "finish"]
+    analysis = _seo_course_analysis(route_stops)
+    for leg in analysis["legs"]:
+        leg["profile_svg"] = _seo_segment_profile_svg(profile, float(leg["from_km"]), float(leg["to_km"]))
+    return {
+        **course,
+        "slug": _seo_course_slug(course_id),
+        "gpx_distance_km": round(float(gpx_distance_m or 0) / 1000, 1) if gpx_distance_m else None,
+        "profile_svg": _seo_elevation_svg(profile),
+        "points": points,
+        "aid_points": [point for point in points if point.get("type") in {"aid_station", "aid_station_assistance"}],
+        "cutoff_points": [point for point in points if point.get("cutoff_label")],
+        "analysis": analysis,
+    }
 
 
 def _slope_band_center(min_v: float, max_v: float) -> float:
@@ -5022,6 +5194,134 @@ def home_redirect(request: Request):
     même si une session est active (le header offre un lien déconnexion).
     """
     return _render_login_page(request)
+
+
+def _seo_cta_url(request: Request, course_id: str | None = None) -> str:
+    user_id = request.session.get("user_id")
+    if user_id:
+        suffix = "#simulation" if course_id else ""
+        return f"/ui/user/{user_id}{suffix}"
+    return "/ui/signup"
+
+
+def _seo_page_context(request: Request, *, title: str, description: str, path: str, **extra) -> dict:
+    base_url = _get_app_base_url()
+    canonical_url = f"{base_url}{path}"
+    return {
+        "request": request,
+        "seo_title": title,
+        "seo_description": description,
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps({
+            "@context": "https://schema.org",
+            "@type": "WebPage",
+            "name": title,
+            "description": description,
+            "url": canonical_url,
+            "inLanguage": "fr-FR",
+        }, ensure_ascii=False),
+        "guide_links": [
+            {"slug": slug, "title": guide["title"]}
+            for slug, guide in SEO_GUIDES.items()
+        ],
+        "cta_url": _seo_cta_url(request, extra.get("course_id")),
+        **extra,
+    }
+
+
+@app.get("/guides", response_class=HTMLResponse)
+def seo_guides_index(request: Request):
+    return templates.TemplateResponse("seo_index.html", _seo_page_context(
+        request,
+        title="Guides trail : plan de course, pacing et ravitaillement",
+        description="Guides pratiques pour construire un plan de course trail, gérer les allures selon la pente et préparer les ravitaillements.",
+        path="/guides",
+        page_kind="guides",
+        guides=[{"slug": slug, **guide} for slug, guide in SEO_GUIDES.items()],
+    ))
+
+
+@app.get("/guides/{slug}", response_class=HTMLResponse)
+def seo_guide_detail(request: Request, slug: str):
+    guide = SEO_GUIDES.get(slug)
+    if not guide:
+        raise HTTPException(status_code=404, detail="Guide introuvable.")
+    related_courses = [
+        _seo_course_payload(course_id) for course_id in guide.get("course_ids", [])
+    ]
+    return templates.TemplateResponse("seo_guide.html", _seo_page_context(
+        request,
+        title=guide["title"],
+        description=guide["description"],
+        path=f"/guides/{slug}",
+        page_kind="guide",
+        guide={"slug": slug, **guide},
+        related_courses=[course for course in related_courses if course],
+    ))
+
+
+@app.get("/courses", response_class=HTMLResponse)
+def seo_courses_index(request: Request):
+    courses = []
+    for item in _load_official_course_catalog():
+        course = _seo_course_payload(str(item["id"]))
+        if course:
+            courses.append(course)
+    return templates.TemplateResponse("seo_index.html", _seo_page_context(
+        request,
+        title="Courses trail : profils GPX, ravitos et plan de course",
+        description="Prépare un plan de course trail à partir du profil GPX, des ravitaillements, des barrières et de tes allures selon la pente.",
+        path="/courses",
+        page_kind="courses",
+        courses=courses,
+    ))
+
+
+@app.get("/courses/{slug}", response_class=HTMLResponse)
+def seo_course_detail(request: Request, slug: str):
+    course_id = next(
+        (str(item["id"]) for item in _load_official_course_catalog() if _seo_course_slug(item["id"]) == slug),
+        None,
+    )
+    course = _seo_course_payload(course_id) if course_id else None
+    if not course:
+        raise HTTPException(status_code=404, detail="Course introuvable.")
+    description = (
+        f"Préparer {course['name']} : profil GPX, {course.get('distance_km')} km, "
+        f"D+ {course.get('elevation_gain_m')} m, ravitaillements, barrières et stratégie d’allure trail."
+    )
+    related = [
+        item for item in (_seo_course_payload(str(row["id"])) for row in _load_official_course_catalog())
+        if item and item["id"] != course["id"]
+    ][:3]
+    return templates.TemplateResponse("seo_course.html", _seo_page_context(
+        request,
+        title=f"{course['name']} : plan de course, profil et ravitaillements",
+        description=description,
+        path=f"/courses/{course['slug']}",
+        page_kind="course",
+        course=course,
+        course_id=course["id"],
+        related_courses=related,
+    ))
+
+
+@app.get("/robots.txt", response_class=Response)
+def seo_robots(request: Request):
+    return Response(
+        content=f"User-agent: *\nAllow: /\nSitemap: {_get_app_base_url()}/sitemap.xml\n",
+        media_type="text/plain",
+    )
+
+
+@app.get("/sitemap.xml", response_class=Response)
+def seo_sitemap(request: Request):
+    base_url = _get_app_base_url()
+    paths = ["/", "/guides", "/courses"]
+    paths += [f"/guides/{slug}" for slug in SEO_GUIDES]
+    paths += [f"/courses/{_seo_course_slug(item['id'])}" for item in _load_official_course_catalog()]
+    urls = "".join(f"<url><loc>{escape(base_url + path)}</loc></url>" for path in paths)
+    return Response(content=f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>', media_type="application/xml")
 
 
 def _support_form_context(request: Request) -> dict:

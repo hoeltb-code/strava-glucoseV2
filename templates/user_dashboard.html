@@ -144,6 +144,17 @@
   .course-selection-showcase > label { display:block; }
   .course-selection-showcase .course-selection-intro { margin:4px 0 12px; color:var(--text-muted); font-size:.8rem; line-height:1.5; }
   .course-picker { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:11px; margin-top:7px; }
+  .course-search-shell { margin-top:12px; padding:14px; border:1px solid #dfdad0; border-radius:16px; background:#fff; }
+  .course-search-input { min-height:46px; font-size:.96rem; }
+  .course-search-results { display:flex; flex-wrap:wrap; gap:8px; margin-top:11px; }
+  .course-search-result { padding:8px 11px; border:1px solid #ead7d0; border-radius:999px; background:#fff8f5; color:var(--text-main); font:700 .78rem "Manrope",sans-serif; letter-spacing:0; text-transform:none; box-shadow:none; }
+  .course-search-result:hover, .course-search-result:focus-visible { background:#fff0ea; border-color:var(--accent); color:var(--text-main); transform:none; }
+  .course-search-result small { margin-left:5px; color:var(--text-muted); font-weight:600; }
+  .course-search-empty { margin:10px 0 0; color:var(--text-muted); font-size:.82rem; }
+  .course-browser { margin-top:12px; }
+  .course-browser summary { cursor:pointer; color:var(--text-muted); font-size:.82rem; font-weight:700; }
+  .course-browser select { margin-top:8px; }
+  .course-custom-link { display:inline-flex; align-items:center; gap:8px; margin-top:13px; color:var(--accent-dark); font-size:.84rem; font-weight:800; }
   .course-picker-card { min-height:156px; padding:0 14px 14px; border:1px solid #dfdad0; border-radius:15px; background:#fff; color:var(--text-main); text-align:left; cursor:pointer; letter-spacing:normal; box-shadow:none; overflow:hidden; transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease; }
   .course-picker-card:nth-child(2), .course-picker-card:nth-child(3) { background:#fff; }
   .course-picker-card:hover, .course-picker-card.is-selected { transform:translateY(-3px); border-color:#ff5a36; box-shadow:0 12px 22px rgba(255,90,54,.17),0 0 0 3px rgba(255,90,54,.10); filter:saturate(1.06); }
@@ -631,45 +642,20 @@
           <option value="">Choisir une course enregistrée</option>
           {% for course in official_courses %}<option value="{{ course.id }}" {% if not course.route_available %}disabled{% endif %}>{{ course.name }}</option>{% endfor %}
         </select>
-        <div class="course-picker" role="list" aria-label="Courses à planifier">
-          {% set utmb_course_ids = ['utmb-2026', 'ccc-2026', 'tds-2026', 'occ-2026', 'mcc-2026', 'etc-2026'] %}
-          {% set grp_course_ids = ['grp-ultra-tour-2026', 'grp-tour-des-cirques-2026', 'grp-tour-des-lacs-2026', 'grp-tour-du-moudang-2026', 'grp-tour-du-bastan-2026', 'grp-tour-de-la-gela-2026', 'grp-tour-du-neouvielle-2026'] %}
-          {% set utmb_courses = official_courses | selectattr('id', 'in', utmb_course_ids) | list %}
-          {% set grp_courses = official_courses | selectattr('id', 'in', grp_course_ids) | list %}
-          {% if utmb_courses %}
-          <details class="course-picker-card course-picker-event" data-utmb-event-card role="listitem" open>
-            <summary class="course-picker-card-head"><span><strong>🏔️ UTMB Mont-Blanc 2026</strong><span class="course-picker-event-list">{% for course in utmb_courses %}{{ course.short_name or course.name }}{% if not loop.last %} · {% endif %}{% endfor %}</span></span><span class="course-picker-arrow">⌄</span></summary>
-            <label class="sr-only" for="home-utmb-course">Choisir une course UTMB</label>
-            <select id="home-utmb-course" data-utmb-course-picker>
-              <option value="">Choisir une course UTMB</option>
-              {% for course in utmb_courses %}<option value="{{ course.id }}">{{ course.name }} · {{ course.distance_km }} km</option>{% endfor %}
+        <div class="course-search-shell">
+          <label class="sr-only" for="home-course-search">Rechercher une course</label>
+          <input id="home-course-search" class="course-search-input" type="search" autocomplete="off" placeholder="Rechercher une course : UTMB, CCC, OCC, GRP…">
+          <div id="home-course-search-results" class="course-search-results" role="listbox" aria-label="Courses correspondantes"></div>
+          <p id="home-course-search-empty" class="course-search-empty" hidden>Aucun parcours officiel ne correspond à cette recherche.</p>
+          <details class="course-browser">
+            <summary>Voir toutes les courses disponibles</summary>
+            <label class="sr-only" for="home-course-browser">Toutes les courses</label>
+            <select id="home-course-browser">
+              <option value="">Choisir dans la liste complète</option>
+              {% for course in official_courses %}<option value="{{ course.id }}" {% if not course.route_available %}disabled{% endif %}>{{ course.name }} · {{ course.distance_km }} km{% if not course.route_available %} · GPX indisponible{% endif %}</option>{% endfor %}
             </select>
           </details>
-          {% endif %}
-          {% if grp_courses %}
-          <details class="course-picker-card course-picker-event" data-grp-event-card role="listitem" open>
-            <summary class="course-picker-card-head"><span><strong>🏔️ Grand Raid des Pyrénées 2026</strong><span class="course-picker-event-list">{% for course in grp_courses %}{{ course.short_name or course.name }}{% if not loop.last %} · {% endif %}{% endfor %}</span></span><span class="course-picker-arrow">⌄</span></summary>
-            <label class="sr-only" for="home-grp-course">Choisir une course du Grand Raid des Pyrénées</label>
-            <select id="home-grp-course" data-grp-course-picker>
-              <option value="">Choisir une course GRP</option>
-              {% for course in grp_courses %}<option value="{{ course.id }}">{{ course.name }} · {{ course.distance_km }} km</option>{% endfor %}
-            </select>
-          </details>
-          {% endif %}
-          {% for course in official_courses %}
-          {% if course.id not in utmb_course_ids and course.id not in grp_course_ids %}
-          <button class="course-picker-card" type="button" data-course-picker="{{ course.id }}" {% if not course.route_available %}disabled{% endif %} role="listitem">
-            <span class="course-picker-card-head"><strong>🏔️ {{ course.name }}</strong><span class="course-picker-arrow">→</span></span>
-            <small>{% if course.distance_km %}{{ course.distance_km }} km{% endif %}{% if course.elevation_gain_m %} · D+ {{ course.elevation_gain_m|round|int }} m{% endif %}{% if course.elevation_loss_m %} · D− {{ course.elevation_loss_m|round|int }} m{% endif %}{% if not course.route_available %}<br>GPX manquant{% endif %}</small>
-            <span class="course-picker-action">Planifier cette course →</span>
-          </button>
-          {% endif %}
-          {% endfor %}
-          <a class="course-picker-card is-custom" href="/ui/user/{{ user.id }}/course-simulator" role="listitem">
-            <span class="course-picker-card-head"><strong>Ma propre trace GPX</strong><span class="course-picker-arrow">→</span></span>
-            <small>Importe ton GPX, définis tes ravitos, assistances et contrôles, puis utilise toutes les fonctionnalités disponibles pour les courses préparées.</small>
-            <span class="course-picker-action">Créer ma simulation →</span>
-          </a>
+          <a class="course-custom-link" href="/ui/user/{{ user.id }}/course-simulator">＋ Créer une simulation avec ma propre trace GPX</a>
         </div>
       </div>
       <div id="home-gpx-source" class="gpx-upload-card" {% if not custom_course_mode %}hidden aria-hidden="true"{% endif %}>
@@ -826,6 +812,10 @@
     const utmbEventCard = document.querySelector('[data-utmb-event-card]');
     const grpCoursePicker = document.querySelector('[data-grp-course-picker]');
     const grpEventCard = document.querySelector('[data-grp-event-card]');
+    const courseSearchInput = document.getElementById('home-course-search');
+    const courseSearchResults = document.getElementById('home-course-search-results');
+    const courseSearchEmpty = document.getElementById('home-course-search-empty');
+    const courseBrowser = document.getElementById('home-course-browser');
     const manualMode = document.getElementById('home-manual-mode');
     const manualControls = document.getElementById('home-manual-controls');
     const flatSpeed = document.getElementById('home-flat-speed');
@@ -1237,6 +1227,7 @@
       if (utmbEventCard) utmbEventCard.classList.toggle('is-selected', utmbCourseIds.has(officialCourseInput.value));
       if (grpCoursePicker) grpCoursePicker.value = grpCourseIds.has(officialCourseInput.value) ? officialCourseInput.value : '';
       if (grpEventCard) grpEventCard.classList.toggle('is-selected', grpCourseIds.has(officialCourseInput.value));
+      if (courseBrowser) courseBrowser.value = officialCourseInput.value;
       renderProfilePacingTable();
     }
 
@@ -1280,6 +1271,40 @@
       updateCourseSource();
       if (officialCourseInput.value) form.requestSubmit();
     });
+    const normalizeCourseSearch = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const renderCourseSearchResults = () => {
+      if (!courseSearchResults || !courseSearchInput) return;
+      const query = normalizeCourseSearch(courseSearchInput.value.trim());
+      const matches = officialCourses.filter((course) => {
+        const haystack = normalizeCourseSearch(`${course.name || ''} ${course.short_name || ''} ${course.id || ''}`);
+        return !query || haystack.includes(query);
+      }).filter((course) => course.route_available).slice(0, query ? 8 : 5);
+      courseSearchResults.innerHTML = '';
+      matches.forEach((course) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'course-search-result';
+        button.setAttribute('role', 'option');
+        button.innerHTML = `${escapeHtml(course.short_name || course.name)}<small>${Number(course.distance_km || 0).toFixed(0)} km</small>`;
+        button.addEventListener('click', () => {
+          officialCourseInput.value = course.id;
+          courseSearchInput.value = course.name || course.short_name || '';
+          courseSearchResults.innerHTML = '';
+          officialCourseInput.dispatchEvent(new Event('change'));
+        });
+        courseSearchResults.appendChild(button);
+      });
+      courseSearchEmpty.hidden = !query || matches.length > 0;
+    };
+    if (courseSearchInput) {
+      courseSearchInput.addEventListener('input', renderCourseSearchResults);
+      courseSearchInput.addEventListener('focus', renderCourseSearchResults);
+    }
+    if (courseBrowser) courseBrowser.addEventListener('change', () => {
+      if (!courseBrowser.value) return;
+      officialCourseInput.value = courseBrowser.value;
+      officialCourseInput.dispatchEvent(new Event('change'));
+    });
     document.querySelectorAll('[data-course-picker]').forEach((card) => card.addEventListener('click', () => {
       officialCourseInput.value = card.dataset.coursePicker;
       officialCourseInput.dispatchEvent(new Event('change'));
@@ -1302,6 +1327,7 @@
       if (file) form.requestSubmit();
     });
     renderAidStations();
+    renderCourseSearchResults();
     updateCourseSource();
     refreshManualLabels();
     renderArchivedProfileTable();

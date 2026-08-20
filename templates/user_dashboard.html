@@ -1106,7 +1106,7 @@
         : 'Allures manuelles, ravitos et détail du profil.';
       if (advancedSettings && planReadyCard && nutritionSettings) {
         if (usesManualPaces) planReadyCard.before(advancedSettings);
-        else (raceSettings || customSegmentExplorerHost || nutritionSettings).after(advancedSettings);
+        else nutritionSettings.after(advancedSettings);
       }
       refreshTimeGoalUi();
       updatePlanFlow();
@@ -2395,7 +2395,7 @@
           <p class="course-plan-credit-note">Tu recevras un PDF détaillé (projection, profils, tronçons, passages, ravitos et nutrition) et une feuille de route PNG à partager. Vérifie toujours les informations officielles de l’organisateur avant le départ.</p>
           <div class="course-plan-email">
             ${planPaymentPilotEnabled ? '<label class="course-plan-digital-consent" id="home-digital-content-consent-row" for="home-digital-content-consent" hidden><input id="home-digital-content-consent" type="checkbox"> <span>J’accepte les <a href="/conditions-utilisation#contenus-numeriques" target="_blank" rel="noopener">conditions générales de vente</a>, demande la fourniture immédiate de mon plan numérique et reconnais perdre mon droit de rétractation dès le début de son exécution.</span></label>' : ''}
-            <button type="button" id="home-plan-email-btn">${planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : 'Valider mon plan') : '✉ Envoyer et télécharger le plan PDF'}</button>
+            <button type="button" id="home-plan-email-btn">${planPaymentPilotEnabled ? 'Valider mon plan' : '✉ Envoyer et télécharger le plan PDF'}</button>
             ${planPaymentPilotEnabled && hasPurchasedPlan ? '<button type="button" id="home-plan-credit-pack-btn" class="course-plan-credit-pack">Recharger 3 crédits · 30 €</button>' : ''}
             ${planPaymentPilotEnabled ? '<p class="course-plan-credit-note">' + planCredits + ' crédit' + (planCredits === 1 ? '' : 's') + ' disponible' + (planCredits === 1 ? '' : 's') + (hasPurchasedPlan ? ' · 1 crédit = 1 plan' : ' · Offre de lancement réservée à ton premier plan') + '</p>' : ''}
           </div>
@@ -2572,14 +2572,17 @@
           return metrics;
         };
         emailPlanButton.addEventListener('click', async () => {
-          if (planPaymentPilotEnabled && planCredits < 1 && !emailPlanButton.dataset.validated) {
+          if (planPaymentPilotEnabled && !emailPlanButton.dataset.validated) {
             emailPlanButton.disabled = true;
             await playPlanThinking(6000);
             emailPlanButton.dataset.validated = 'true';
             emailPlanButton.disabled = false;
-            if (digitalContentConsentRow) digitalContentConsentRow.hidden = false;
-            emailPlanButton.textContent = hasPurchasedPlan ? 'Acheter ce plan · 14,90 €' : 'Offre premier plan · 4,90 €';
-            status.textContent = 'Ton plan est validé. Confirme les conditions de vente puis passe au paiement pour débloquer le roadbook et le plan nutrition détaillé.';
+            if (digitalContentConsentRow) {
+              digitalContentConsentRow.hidden = false;
+              digitalContentConsentRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            emailPlanButton.textContent = planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : (hasPurchasedPlan ? 'Acheter ce plan · 14,90 €' : 'Offre premier plan · 4,90 €');
+            status.textContent = planCredits > 0 ? 'Ton plan est validé. Confirme les conditions pour le télécharger et débloquer le Roadbook.' : 'Ton plan est validé. Confirme les conditions de vente puis passe au paiement pour débloquer le roadbook et le plan nutrition détaillé.';
             return;
           }
           const finishKm = Number(data.total_distance_km || 0);

@@ -119,7 +119,7 @@
   .simulation-progress-step.is-active { border-color:var(--accent); color:var(--text-main); background:#fff7f3; }.simulation-progress-step.is-active b,.simulation-progress-step.is-done b { background:var(--accent); color:#fff; }.simulation-progress-step.is-done { color:var(--text-main); }
   .plan-ready-card { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:16px 0 14px; padding:16px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:16px; background:#fff; }.plan-ready-card h3 { margin:0; font-size:1.05rem; }.plan-ready-card p { margin:4px 0 0; font-size:.8rem; }.plan-ready-card button { flex:0 0 auto; min-height:46px; padding:10px 16px; }.plan-ready-card button:disabled { opacity:.55; cursor:not-allowed; }
   .generation-steps { display:flex; flex-wrap:wrap; gap:8px; margin:-4px 0 16px; }.generation-steps[hidden] { display:none; }.generation-step { display:inline-flex; align-items:center; gap:6px; padding:7px 9px; border:1px solid #dfdad0; border-radius:999px; background:#fff; color:var(--text-muted); font-size:.73rem; }.generation-step i { width:7px; height:7px; border-radius:50%; background:#c9c4bb; }.generation-step.is-active { border-color:var(--accent); color:var(--text-main); background:#fff7f3; }.generation-step.is-active i { background:var(--accent); animation:plan-pulse 1s infinite; }.generation-step.is-done i { background:#6d8d57; } @keyframes plan-pulse { 50% { transform:scale(1.55); opacity:.45; } }
-  .plan-thinking-modal { position:fixed; z-index:1000; inset:0; display:grid; place-items:center; padding:20px; background:rgba(32,29,24,.38); backdrop-filter:blur(4px); }.plan-thinking-modal[hidden] { display:none; }.plan-thinking-card { width:min(460px,100%); padding:22px; border:1px solid rgba(255,255,255,.55); border-radius:20px; background:#fffdf9; box-shadow:0 24px 70px rgba(32,29,24,.24); }.plan-thinking-kicker { display:flex; align-items:center; gap:8px; margin:0 0 8px; color:var(--accent-dark); font-family:"DM Mono",monospace; font-size:.7rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }.plan-thinking-kicker i { width:9px; height:9px; border-radius:50%; background:var(--accent); animation:plan-pulse .8s infinite; }.plan-thinking-card h3 { margin:0; font-size:1.28rem; }.plan-thinking-card > p { margin:5px 0 14px; font-size:.82rem; }.plan-thinking-stream { display:grid; gap:7px; min-height:116px; overflow:hidden; }.plan-thinking-line { padding:8px 10px; border-radius:10px; background:#f6f2eb; color:var(--text-main); font-size:.78rem; animation:plan-line-in .26s ease both; }.plan-thinking-line:last-child { border-left:3px solid var(--accent); background:#fff2ed; font-weight:700; } @keyframes plan-line-in { from { transform:translateY(9px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+  .plan-thinking-modal { position:fixed; z-index:1000; inset:0; display:grid; place-items:center; padding:20px; background:rgba(32,29,24,.38); backdrop-filter:blur(4px); }.plan-thinking-modal[hidden] { display:none; }.plan-thinking-card { width:min(460px,100%); padding:22px; border:1px solid rgba(255,255,255,.55); border-radius:20px; background:#fffdf9; box-shadow:0 24px 70px rgba(32,29,24,.24); }.plan-thinking-kicker { display:flex; align-items:center; gap:8px; margin:0 0 8px; color:var(--accent-dark); font-family:"DM Mono",monospace; font-size:.7rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }.plan-thinking-kicker i { width:9px; height:9px; border-radius:50%; background:var(--accent); animation:plan-pulse .8s infinite; }.plan-thinking-card h3 { margin:0; font-size:1.28rem; }.plan-thinking-card > p { margin:5px 0 14px; font-size:.82rem; }.plan-thinking-stream { display:grid; gap:7px; min-height:116px; overflow:hidden; }.plan-thinking-line { padding:8px 10px; border-radius:10px; background:#f6f2eb; color:var(--text-main); font-size:.78rem; animation:plan-line-in .26s ease both; }.plan-thinking-line:last-child { border-left:3px solid var(--accent); background:#fff2ed; font-weight:700; }.plan-thinking-profile { margin:0 0 14px; padding:10px; border:1px solid #e2ddd3; border-radius:12px; background:#fff; }.plan-thinking-profile .projection-profile { margin:0; }.plan-thinking-profile .projection-profile h3,.plan-thinking-profile .home-summary-label,.plan-thinking-profile .slope-legend { display:none; }.plan-thinking-profile svg { display:block; width:100%; height:auto; max-height:130px; } @keyframes plan-line-in { from { transform:translateY(9px); opacity:0; } to { transform:translateY(0); opacity:1; } }
   .first-plan-checklist { margin:0 0 18px; padding:16px; border:1px solid #c9ddc8; border-radius:18px; background:#f6fbf4; }
   .first-plan-checklist h2 { margin:0; font-size:1.08rem; }.first-plan-checklist > p { margin:5px 0 12px; font-size:.84rem; }
   .first-plan-steps { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:9px; }
@@ -353,6 +353,7 @@
   .distance-split-stop { display:inline-flex; align-items:center; max-width:250px; padding:4px 7px; border-radius:999px; background:#fff0eb; color:#a93622; font-size:.69rem; font-weight:800; line-height:1.25; }
   .distance-split-empty { padding:14px; color:var(--text-muted); font-size:.78rem; }
   .course-plan-email { display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:8px; margin:18px 0 2px; }
+  .course-plan-purchase-actions { display:flex; flex:0 0 100%; width:100%; justify-content:center; align-items:center; flex-wrap:wrap; gap:8px; }
   .course-plan-email button { padding:10px 15px; border-radius:10px; border:1px solid transparent; background:var(--grad-accent); color:#fff; font-weight:800; box-shadow:none; }
   .course-plan-email button:disabled { cursor:wait; opacity:.68; }
   .course-plan-email .course-plan-credit-pack { background:#fff; border-color:#dfdad0; color:var(--text-main); }
@@ -361,7 +362,7 @@
   .course-plan-digital-consent[hidden] { display:none!important; }
   .course-plan-digital-consent input { flex:0 0 auto; width:auto; min-height:0; margin:3px 0 0; }
   .course-plan-digital-consent a { color:var(--accent-2); text-decoration:underline; }
-  .plan-detail-lock { margin:14px 0; padding:14px; border:1px solid #efc3b7; border-radius:14px; background:#fff7f3; }.plan-detail-lock h3 { margin:0; font-size:1rem; }.plan-detail-lock p { margin:5px 0 0; font-size:.78rem; }
+  .plan-detail-lock { margin:14px 0; padding:14px; border:1px solid #b7d9b9; border-radius:14px; background:#f6fbf4; }.plan-detail-lock h3 { margin:0; color:#275c32; font-size:1rem; }.plan-detail-lock p { margin:5px 0 0; font-size:.78rem; }
   .fueling-schedule { margin-top:18px; padding:14px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
   .fueling-schedule h3 { margin:0; color:var(--text-main); font-size:1.18rem; }
   .fueling-schedule > p { margin:5px 0 10px; color:var(--text-muted); font-size:.78rem; line-height:1.45; }
@@ -773,6 +774,7 @@
         <p class="plan-thinking-kicker"><i></i> Préparation en cours</p>
         <h3>Nous construisons ton plan</h3>
         <p>Lecture du parcours et préparation de tes repères de course.</p>
+        <div class="plan-thinking-profile" id="home-plan-thinking-profile" hidden></div>
         <div class="plan-thinking-stream" id="home-plan-thinking-stream"></div>
       </div>
     </div>
@@ -893,6 +895,7 @@
     const generationStepItems = Array.from(document.querySelectorAll('[data-generation-step]'));
     const planThinkingModal = document.getElementById('home-plan-thinking-modal');
     const planThinkingStream = document.getElementById('home-plan-thinking-stream');
+    const planThinkingProfile = document.getElementById('home-plan-thinking-profile');
     const customSegmentExplorerHost = document.getElementById('home-custom-segment-explorer');
     const customCourseMode = {{ custom_course_mode | default(false) | tojson }};
     const planPaymentPilotEnabled = {{ plan_payment_test_enabled | default(false) | tojson }};
@@ -1051,7 +1054,7 @@
       });
     }
 
-    async function playPlanThinking(duration = 5000) {
+    async function playPlanThinking(duration = 5000, profile = null) {
       if (!planThinkingModal || !planThinkingStream) return;
       const selected = officialCourses.find((course) => course.id === officialCourseInput.value);
       const courseName = selected?.name || manualCourseNameInput.value.trim() || fileInput.files?.[0]?.name?.replace(/\.gpx$/i, '') || 'ta trace GPX';
@@ -1066,6 +1069,13 @@
         'Préparation des passages et des ravitos',
       ];
       planThinkingStream.innerHTML = '';
+      const profilePoints = profile?.elevationProfile || [];
+      if (planThinkingProfile) {
+        planThinkingProfile.innerHTML = profilePoints.length > 1
+          ? elevationProfileSvg(profilePoints, [], profile.courseName || courseName)
+          : '';
+        planThinkingProfile.hidden = profilePoints.length < 2;
+      }
       planThinkingModal.hidden = false;
       messages.forEach((message, index) => {
         window.setTimeout(() => {
@@ -1078,6 +1088,7 @@
       });
       await new Promise((resolve) => window.setTimeout(resolve, duration));
       planThinkingModal.hidden = true;
+      if (planThinkingProfile) planThinkingProfile.innerHTML = '';
     }
 
     function syncPlanBasisUi() {
@@ -2252,7 +2263,6 @@
       }
 
       const zone = zoneInput.value;
-      if (!isUpdatingExistingPlan) await playPlanThinking();
       status.textContent = 'Analyse du parcours en cours…';
       const payload = new FormData();
       if (courseId) payload.append('course_id', courseId);
@@ -2260,12 +2270,20 @@
       payload.append('sport', 'run');
 
       try {
-        const response = await fetch('/ui/user/{{ user.id }}/runner-profile/pace-projection', {
+        const projectionRequest = fetch('/ui/user/{{ user.id }}/runner-profile/pace-projection', {
           method: 'POST',
           body: payload,
         });
+        if (!isUpdatingExistingPlan) await playPlanThinking(4000);
+        const response = await projectionRequest;
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || 'Impossible de lire ce GPX.');
+        if (!isUpdatingExistingPlan) {
+          await playPlanThinking(1800, {
+            elevationProfile: data.elevation_profile,
+            courseName: data.official_course?.name || manualCourseNameInput.value.trim(),
+          });
+        }
         setGenerationStage(1);
         const simulationCoefficientPercent = Math.max(0, Math.min(175, Number(data.official_course?.course_coefficient_percent ?? 100) || 100));
 
@@ -2395,8 +2413,10 @@
           <p class="course-plan-credit-note plan-purchase-details" hidden>Tu recevras un PDF détaillé (projection, profils, tronçons, passages, ravitos et nutrition) et une feuille de route PNG à partager. Vérifie toujours les informations officielles de l’organisateur avant le départ.</p>
           <div class="course-plan-email">
             ${planPaymentPilotEnabled ? '<label class="course-plan-digital-consent" id="home-digital-content-consent-row" for="home-digital-content-consent" hidden><input id="home-digital-content-consent" type="checkbox"> <span>J’accepte les <a href="/conditions-utilisation#contenus-numeriques" target="_blank" rel="noopener">conditions générales de vente</a>, demande la fourniture immédiate de mon plan numérique et reconnais perdre mon droit de rétractation dès le début de son exécution.</span></label>' : ''}
-            <button type="button" id="home-plan-email-btn">${planPaymentPilotEnabled ? 'Valider mon plan' : '✉ Envoyer et télécharger le plan PDF'}</button>
-            ${planPaymentPilotEnabled && hasPurchasedPlan ? '<button type="button" id="home-plan-credit-pack-btn" class="course-plan-credit-pack plan-purchase-details" hidden>Recharger 3 crédits · 30 €</button>' : ''}
+            <div class="course-plan-purchase-actions">
+              <button type="button" id="home-plan-email-btn">${planPaymentPilotEnabled ? 'Valider mon plan' : '✉ Envoyer et télécharger le plan PDF'}</button>
+              ${planPaymentPilotEnabled && hasPurchasedPlan ? '<button type="button" id="home-plan-credit-pack-btn" class="course-plan-credit-pack plan-purchase-details" hidden>Recharger 3 crédits · 30 €</button>' : ''}
+            </div>
             ${planPaymentPilotEnabled ? '<p class="course-plan-credit-note plan-purchase-details" hidden>' + planCredits + ' crédit' + (planCredits === 1 ? '' : 's') + ' disponible' + (planCredits === 1 ? '' : 's') + (hasPurchasedPlan ? ' · 1 crédit = 1 plan' : ' · Offre de lancement réservée à ton premier plan') + '</p>' : ''}
           </div>
         `;

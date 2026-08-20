@@ -6,22 +6,20 @@
   "edition_year": 2026,
   "sport": "trail",
   "route_file": "mcc-2026.gpx",
-  "distance_km": 38.7,
-  "elevation_gain_m": 2364,
-  "elevation_loss_m": 1834,
+  "distance_km": 38.5,
+  "elevation_gain_m": 2298,
+  "elevation_loss_m": 1768,
   "course_coefficient_percent": 100,
   "course_pace_category": "technical",
-  "start_location": "Martigny-Combe",
+  "start_location": "Martigny Combe",
   "finish_location": "Chamonix",
   "timezone": "Europe/Paris",
   "points": [
-    {"order": 1, "km": 0.0, "segment_km": 0.0, "name": "Martigny-Combe", "altitude_m": 506, "elevation_gain_m": 0, "elevation_loss_m": 0, "type": "start", "fastest_label": "Lun. 10:00", "slowest_label": "Lun. 10:30", "services_count": 3},
-    {"order": 2, "km": 7.6, "segment_km": 7.6, "name": "Col de la Forclaz", "altitude_m": 1532, "elevation_gain_m": 1038, "elevation_loss_m": 13, "type": "aid_station", "fastest_label": "Lun. 10:53", "slowest_label": "Lun. 12:55", "cutoff_label": "Lun. 12:30", "services_count": 4},
-    {"order": 3, "km": 17.3, "segment_km": 9.7, "name": "Col de Balme", "altitude_m": 2202, "elevation_gain_m": 1966, "elevation_loss_m": 269, "type": "aid_station", "fastest_label": "Lun. 11:56", "slowest_label": "Lun. 15:47", "cutoff_label": "Lun. 15:45"},
-    {"order": 4, "km": 23.9, "segment_km": 6.5, "name": "Le Tour", "altitude_m": 1487, "elevation_gain_m": 2032, "elevation_loss_m": 1051, "type": "checkpoint", "fastest_label": "Lun. 12:28", "slowest_label": "Lun. 17:13"},
-    {"order": 5, "km": 27.7, "segment_km": 3.8, "name": "Argentière", "altitude_m": 1255, "elevation_gain_m": 2101, "elevation_loss_m": 1351, "type": "aid_station", "fastest_label": "Lun. 12:46", "slowest_label": "Lun. 18:04", "cutoff_label": "Lun. 18:00", "services_count": 3},
-    {"order": 6, "km": 32.3, "segment_km": 4.5, "name": "Le Lavancher", "altitude_m": 1219, "elevation_gain_m": 2221, "elevation_loss_m": 1507, "type": "checkpoint", "fastest_label": "Lun. 13:08", "slowest_label": "Lun. 19:03"},
-    {"order": 7, "km": 34.3, "segment_km": 1.9, "name": "Les Bois", "altitude_m": 1178, "elevation_gain_m": 2326, "elevation_loss_m": 1654, "type": "checkpoint", "fastest_label": "Lun. 13:21", "slowest_label": "Lun. 19:38"},
-    {"order": 8, "km": 38.7, "segment_km": 4.3, "name": "Chamonix", "altitude_m": 1035, "elevation_gain_m": 2364, "elevation_loss_m": 1834, "type": "finish", "fastest_label": "Lun. 13:40", "slowest_label": "Lun. 20:31", "cutoff_label": "Lun. 20:30", "services_count": 6}
+    {"order": 1, "km": 0.0, "segment_km": 0.0, "name": "Martigny Combe", "altitude_m": 506, "elevation_gain_m": 0, "elevation_loss_m": 0, "type": "start"},
+    {"order": 2, "km": 7.6, "segment_km": 7.6, "name": "Col de la Forclaz", "altitude_m": 1536, "elevation_gain_m": 1041, "elevation_loss_m": 13, "type": "aid_station", "cutoff_label": "Lun. 12:30", "services_count": 1},
+    {"order": 3, "km": 16.9, "segment_km": 9.3, "name": "Col de Balme", "altitude_m": 2206, "elevation_gain_m": 1972, "elevation_loss_m": 272, "type": "aid_station", "cutoff_label": "Lun. 15:45", "services_count": 1},
+    {"order": 4, "km": 27.8, "segment_km": 10.9, "name": "Argentière", "altitude_m": 1255, "elevation_gain_m": 2109, "elevation_loss_m": 1359, "type": "aid_station", "cutoff_label": "Lun. 18:00", "services_count": 1},
+    {"order": 5, "km": 32.1, "segment_km": 4.3, "name": "La Joux", "altitude_m": 1171, "elevation_gain_m": 2170, "elevation_loss_m": 1503, "type": "checkpoint"},
+    {"order": 6, "km": 38.5, "segment_km": 6.5, "name": "Chamonix", "altitude_m": 1035, "elevation_gain_m": 2298, "elevation_loss_m": 1768, "type": "finish", "cutoff_label": "Lun. 20:30", "services_count": 1}
   ]
 }

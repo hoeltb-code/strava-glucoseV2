@@ -254,7 +254,7 @@
   .profile-pacing-live-cell { min-width:0; padding:5px 4px; border-bottom:1px solid rgba(148,174,214,.14); overflow-wrap:anywhere; color:var(--text-main); }
   .profile-pacing-live-cell:first-child { font-weight:700; }
   .nutrition-plan-settings { margin-top:14px; padding:16px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:14px; background:#fff; }
-  .nutrition-plan-settings .projection-section-title { margin:0 0 4px; }
+  .nutrition-plan-settings .projection-section-title { margin:0 0 4px; }.nutrition-plan-settings .nutrition-subtitle { margin:15px 0 4px; color:var(--text-main); font-size:.94rem; }
   .nutrition-plan-settings > p { margin:0 0 13px; color:var(--text-muted); font-size:.76rem; line-height:1.4; }
   .nutrition-auto-summary { display:flex; flex-wrap:wrap; gap:7px; min-height:32px; color:var(--text-muted); font-size:.78rem; line-height:1.4; }.nutrition-auto-summary .projection-nutrition-tag { margin:0; }.nutrition-customize-button { margin-top:12px; padding:8px 10px; border-color:#dfdad0; background:#fff; color:var(--text-main); font-size:.76rem; }.nutrition-manual-controls { margin-top:14px; padding-top:14px; border-top:1px solid #eee9e0; }.nutrition-manual-controls[hidden] { display:none; }
   .calculation-summary { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:7px; margin:0 0 13px; padding:10px; border-radius:12px; background:#f7f4ee; }.calculation-summary[hidden] { display:none; }.calculation-summary-item { min-width:0; }.calculation-summary-item span { display:block; color:var(--text-muted); font-size:.66rem; line-height:1.25; }.calculation-summary-item strong { display:block; margin-top:2px; overflow:hidden; color:var(--text-main); font-size:.82rem; line-height:1.25; text-overflow:ellipsis; white-space:nowrap; }
@@ -740,8 +740,10 @@
       <span class="generation-step" data-generation-step="3"><i></i>Préparation des ravitos</span>
     </div>
     <section class="nutrition-plan-settings" id="home-nutrition-settings" aria-labelledby="home-nutrition-title">
+      <h3 class="projection-section-title" id="home-nutrition-title">Ton plan en un coup d’œil</h3>
+      <p>Voici le résultat calculé pour ton parcours et les recommandations associées.</p>
       <div class="calculation-summary" id="home-calculation-summary" hidden aria-label="Résumé du calcul"></div>
-      <h3 class="projection-section-title" id="home-nutrition-title">Plan nutrition</h3>
+      <h4 class="nutrition-subtitle">Plan nutrition</h4>
       <p>Les recommandations sont calculées à partir du temps, du dénivelé et de l’intensité de ton plan.</p>
       <div class="nutrition-auto-summary" id="home-nutrition-auto-summary">Génère ton plan pour afficher les apports recommandés.</div>
       <button type="button" class="nutrition-customize-button" id="home-nutrition-customize" disabled>Personnaliser mes apports</button>

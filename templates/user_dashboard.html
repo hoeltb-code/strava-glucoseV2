@@ -257,6 +257,7 @@
   .nutrition-plan-settings .projection-section-title { margin:0 0 4px; }
   .nutrition-plan-settings > p { margin:0 0 13px; color:var(--text-muted); font-size:.76rem; line-height:1.4; }
   .nutrition-auto-summary { display:flex; flex-wrap:wrap; gap:7px; min-height:32px; color:var(--text-muted); font-size:.78rem; line-height:1.4; }.nutrition-auto-summary .projection-nutrition-tag { margin:0; }.nutrition-customize-button { margin-top:12px; padding:8px 10px; border-color:#dfdad0; background:#fff; color:var(--text-main); font-size:.76rem; }.nutrition-manual-controls { margin-top:14px; padding-top:14px; border-top:1px solid #eee9e0; }.nutrition-manual-controls[hidden] { display:none; }
+  .calculation-summary { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:7px; margin:0 0 13px; padding:10px; border-radius:12px; background:#f7f4ee; }.calculation-summary[hidden] { display:none; }.calculation-summary-item { min-width:0; }.calculation-summary-item span { display:block; color:var(--text-muted); font-size:.66rem; line-height:1.25; }.calculation-summary-item strong { display:block; margin-top:2px; overflow:hidden; color:var(--text-main); font-size:.82rem; line-height:1.25; text-overflow:ellipsis; white-space:nowrap; }
   .nutrition-rate-controls { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; }
   .nutrition-rate-control label { display:flex; justify-content:space-between; gap:6px; margin:0; color:var(--text-main); font-family:"Manrope", sans-serif; font-size:.76rem; font-weight:400; letter-spacing:0; text-transform:none; }
   .nutrition-rate-control output { color:var(--accent-2); font-family:inherit; font-weight:400; }
@@ -579,6 +580,7 @@
     .roadbook-header { display:none; }
     .timeline-row, .timeline-aid { grid-template-columns:70px minmax(0, 1fr); gap:8px; }
     .nutrition-rate-controls { grid-template-columns:1fr; gap:8px; }
+    .calculation-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
     .timeline-time { grid-column:2; }
     .timeline-details { grid-column:1 / -1; }
     .mini-table {
@@ -739,6 +741,7 @@
       <span class="generation-step" data-generation-step="3"><i></i>Préparation des ravitos</span>
     </div>
     <section class="nutrition-plan-settings" id="home-nutrition-settings" aria-labelledby="home-nutrition-title">
+      <div class="calculation-summary" id="home-calculation-summary" hidden aria-label="Résumé du calcul"></div>
       <h3 class="projection-section-title" id="home-nutrition-title">Plan nutrition</h3>
       <p>Les recommandations sont calculées à partir du temps, du dénivelé et de l’intensité de ton plan.</p>
       <div class="nutrition-auto-summary" id="home-nutrition-auto-summary">Génère ton plan pour afficher les apports recommandés.</div>
@@ -864,6 +867,7 @@
     const nutritionCustomizeButton = document.getElementById('home-nutrition-customize');
     const nutritionManualControls = document.getElementById('home-nutrition-manual-controls');
     const nutritionSettings = document.getElementById('home-nutrition-settings');
+    const calculationSummary = document.getElementById('home-calculation-summary');
     const pointTypeInput = document.getElementById('home-point-type');
     const addPointButton = document.getElementById('home-add-point');
     const aidStationList = document.getElementById('home-aid-station-list');
@@ -1135,6 +1139,19 @@
         ].filter(Boolean).join('');
       }
       if (nutritionCustomizeButton) nutritionCustomizeButton.disabled = false;
+    }
+
+    function renderCalculationSummary({ distanceKm, gain, movingSeconds, stopSeconds, nutrition }) {
+      if (!calculationSummary || !(distanceKm > 0)) return;
+      const totalSeconds = movingSeconds + stopSeconds;
+      calculationSummary.innerHTML = [
+        ['Distance', `${distanceKm.toFixed(1)} km`],
+        ['Dénivelé positif', `D+ ${Math.round(gain)} m`],
+        ['Chrono prévu', formatDuration(totalSeconds)],
+        ['Glucides', `${Math.round(nutrition.carbRate)} g/h`],
+        ['Allure moyenne', formatPace(movingSeconds / distanceKm)],
+      ].map(([label, value]) => `<div class="calculation-summary-item"><span>${label}</span><strong>${value}</strong></div>`).join('');
+      calculationSummary.hidden = false;
     }
 
     function currentCourseCoefficientPercent() {
@@ -2361,6 +2378,13 @@
           distanceDetailOutput.textContent = `${Number(data.total_distance_km || 0).toFixed(1)} km · D+ ${Math.round(gain)} m · D− ${Math.round(loss)} m · ${formatDuration(movingSeconds)} en mouvement${currentStopDetail}`;
           profileLiveTotal.textContent = `Temps estimé · ${formatDuration(movingSeconds + currentStopSeconds)}`;
           profileLiveStopDetail.textContent = `Arrêts ravito · ${currentStopSeconds ? formatDuration(currentStopSeconds) : '0 min'}`;
+          renderCalculationSummary({
+            distanceKm: Number(data.total_distance_km || 0),
+            gain,
+            movingSeconds,
+            stopSeconds: currentStopSeconds,
+            nutrition,
+          });
         };
         const syncStopToCourseSettings = (km, minutes) => {
           Array.from(aidStationList.querySelectorAll('[data-course-km]')).forEach((input) => {
@@ -2588,6 +2612,7 @@
           }
         });
         refreshProjectionSummary();
+        if (!isUpdatingExistingPlan) nutritionSettings?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         refreshLiveProjection = () => {
           let nextMovingSeconds = 0;
           let nextManualFallback = false;

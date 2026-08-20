@@ -189,6 +189,7 @@
   .projection-form input[type="file"] { width:100%; min-height:44px; padding:8px; border:1px dashed var(--border); border-radius:12px; color:var(--text-muted); background:#fff; }
   .course-profile-preview { margin-top:14px; padding:13px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
   .race-settings { margin-top:14px; padding:16px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:14px; background:#fff; }.race-settings[hidden] { display:none; }.race-settings h3 { margin:0; font-size:1rem; }.race-settings > p { margin:4px 0 12px; color:var(--text-muted); font-size:.78rem; }.race-settings-departure { display:grid; grid-template-columns:repeat(3,minmax(100px,1fr)); gap:9px; max-width:480px; }.race-settings label { color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.76rem; font-weight:400; letter-spacing:0; text-transform:none; }.race-settings input { width:100%; margin-top:4px; }.race-settings-stops { display:grid; gap:8px; margin-top:14px; }.race-settings-stop { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:center; padding:9px 10px; border-radius:10px; background:#f7f4ee; }.race-settings-stop strong { display:block; font-size:.8rem; }.race-settings-stop small { display:block; margin-top:2px; color:var(--text-muted); font-size:.72rem; }.race-settings-stop label { display:flex; align-items:center; gap:5px; white-space:nowrap; }.race-settings-stop input { width:58px; min-height:32px; margin:0; text-align:center; }
+  .race-settings-times { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:7px; margin:0 0 14px; }.race-settings-time { padding:8px; border-radius:10px; background:#f7f4ee; }.race-settings-time span { display:block; color:var(--text-muted); font-size:.66rem; }.race-settings-time strong { display:block; margin-top:2px; color:var(--text-main); font-size:.8rem; line-height:1.25; }
   .course-profile-preview .projection-profile { margin:0; }
   .course-profile-title { display:flex; flex-wrap:wrap; align-items:baseline; gap:8px; }
   .course-profile-title small { color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.76rem; font-weight:600; letter-spacing:0; }
@@ -355,7 +356,7 @@
   .course-plan-email button:disabled { cursor:wait; opacity:.68; }
   .course-plan-email .course-plan-credit-pack { background:#fff; border-color:#dfdad0; color:var(--text-main); }
   .course-plan-credit-note { width:100%; margin:0; text-align:center; color:var(--text-muted); font-size:.78rem; }
-  .course-plan-digital-consent { display:flex; flex:0 0 100%; width:100%; max-width:620px; align-items:flex-start; gap:8px; margin:3px auto 0; color:var(--text-muted); font-size:.73rem; line-height:1.42; text-align:left; }
+  .course-plan-digital-consent { display:flex; flex:0 0 100%; width:100%; max-width:620px; align-items:flex-start; gap:8px; margin:3px auto 0; color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.73rem; font-weight:400; letter-spacing:0; line-height:1.42; text-align:left; text-transform:none; }
   .course-plan-digital-consent input { flex:0 0 auto; width:auto; min-height:0; margin:3px 0 0; }
   .course-plan-digital-consent a { color:var(--accent-2); text-decoration:underline; }
   .fueling-schedule { margin-top:18px; padding:14px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
@@ -583,6 +584,7 @@
     .nutrition-rate-controls { grid-template-columns:1fr; gap:8px; }
     .calculation-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
     .race-settings-departure { grid-template-columns:1fr 1fr; }.race-settings-departure label:first-child { grid-column:1 / -1; }
+    .race-settings-times { grid-template-columns:repeat(2,minmax(0,1fr)); }
     .timeline-time { grid-column:2; }
     .timeline-details { grid-column:1 / -1; }
     .mini-table {
@@ -1192,6 +1194,16 @@
     function paceWithCourseDifficulty(pace, coefficientPercent = currentCourseCoefficientPercent()) {
       const multiplier = courseTimeMultiplier(coefficientPercent);
       return pace > 0 ? pace * multiplier : pace;
+    }
+
+    function applyRacePacingProgression(rows, totalDistanceKm) {
+      const totalDistance = Math.max(.001, Number(totalDistanceKm) || 0);
+      rows.forEach((row) => {
+        const midpointKm = Math.max(0, Number(row.cumulativeKm || 0) - Number(row.distance || 0) / 2);
+        const progression = 1.05 - 0.10 * Math.max(0, Math.min(1, midpointKm / totalDistance));
+        row.seconds *= progression;
+      });
+      return rows.reduce((sum, row) => sum + Number(row.seconds || 0), 0);
     }
 
     function refreshManualLabels() {
@@ -2282,6 +2294,7 @@
             loss: Number(segment.elevation_loss_m || 0),
           });
         });
+        movingSeconds = applyRacePacingProgression(projectedRows, data.total_distance_km);
 
         if (!movingSeconds) {
           throw new Error('Impossible de calculer cette trace GPX. Vérifie qu’elle contient au moins deux points GPS et des altitudes.');
@@ -2388,7 +2401,11 @@
         const renderRaceSettings = () => {
           if (!raceSettings) return;
           const [hours, minutes] = departureTime.split(':').map((value) => Number(value) || 0);
-          raceSettings.innerHTML = `<h3>Départ et ravitos</h3><p>Ces réglages sont pris en compte dans les heures de passage et le chrono final.</p><div class="race-settings-departure"><label>Date de départ<input class="race-setting-date" type="date" value="${departureDate}"></label><label>Heure<input class="race-setting-hour" type="number" min="0" max="23" step="1" value="${hours}"></label><label>Minutes<input class="race-setting-minute" type="number" min="0" max="59" step="1" value="${minutes}"></label></div><div class="race-settings-stops">${aidStations.filter((point) => ['aid', 'aid_assistance'].includes(point.type)).map((point) => `<div class="race-settings-stop"><div><strong>${escapeHtml(point.label)}</strong><small>km ${point.km.toFixed(1)} · ${point.type === 'aid_assistance' ? 'avec assistance' : 'ravito'}</small></div><label>Arrêt <input class="race-setting-stop" data-stop-km="${point.km}" type="number" min="0" max="120" step="1" value="${Math.round(point.stopSeconds / 60)}"> min</label></div>`).join('') || '<p>Aucun ravito renseigné sur cette trace.</p>'}</div>`;
+          const stopSeconds = aidStations.reduce((sum, point) => sum + point.stopSeconds, 0);
+          const targetSeconds = requestedTargetSeconds();
+          const totalSeconds = movingSeconds + stopSeconds;
+          const targetLabel = targetSeconds ? 'Chrono cible' : 'Chrono estimé';
+          raceSettings.innerHTML = `<h3>Départ et ravitos</h3><p>Ces réglages sont pris en compte dans les heures de passage et le chrono final.</p><div class="race-settings-times"><div class="race-settings-time"><span>${targetLabel}</span><strong>${formatDuration(targetSeconds || totalSeconds)}</strong></div><div class="race-settings-time"><span>Temps total</span><strong>${formatDuration(totalSeconds)}</strong></div><div class="race-settings-time"><span>En mouvement</span><strong>${formatDuration(movingSeconds)}</strong></div><div class="race-settings-time"><span>Aux ravitos</span><strong>${formatDuration(stopSeconds)}</strong></div></div><div class="race-settings-departure"><label>Date de départ<input class="race-setting-date" type="date" value="${departureDate}"></label><label>Heure<input class="race-setting-hour" type="number" min="0" max="23" step="1" value="${hours}"></label><label>Minutes<input class="race-setting-minute" type="number" min="0" max="59" step="1" value="${minutes}"></label></div><div class="race-settings-stops">${aidStations.filter((point) => ['aid', 'aid_assistance'].includes(point.type)).map((point) => `<div class="race-settings-stop"><div><strong>${escapeHtml(point.label)}</strong><small>km ${point.km.toFixed(1)} · ${point.type === 'aid_assistance' ? 'avec assistance' : 'ravito'}</small></div><label>Arrêt <input class="race-setting-stop" data-stop-km="${point.km}" type="number" min="0" max="120" step="1" value="${Math.round(point.stopSeconds / 60)}"> min</label></div>`).join('') || '<p>Aucun ravito renseigné sur cette trace.</p>'}</div>`;
           raceSettings.hidden = false;
           raceSettings.oninput = (event) => {
             const target = event.target;
@@ -2688,6 +2705,7 @@
               loss: Number(segment.elevation_loss_m || 0),
             });
           });
+          nextMovingSeconds = applyRacePacingProgression(nextRows, data.total_distance_km);
           if (!nextMovingSeconds) return;
           const nextStopSeconds = aidStations.reduce((sum, point) => sum + point.stopSeconds, 0);
           const nextTargetAdjustment = targetTimeAdjustment(nextMovingSeconds, nextStopSeconds);

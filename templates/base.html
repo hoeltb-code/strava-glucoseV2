@@ -437,7 +437,7 @@
 
     input[type="text"], input[type="email"], input[type="password"],
     input[type="number"], input[type="date"], select, textarea {
-      width:100%; padding:10px 12px; font-size:.95rem;
+      box-sizing:border-box; min-width:0; max-width:100%; width:100%; padding:10px 12px; font-size:.95rem;
       border-radius:12px; border:1px solid var(--border-soft); background:#fff; color:var(--text-main);
       transition: box-shadow .15s ease, border-color .15s ease, transform .02s, background-color .15s ease;
       font-family: inherit;

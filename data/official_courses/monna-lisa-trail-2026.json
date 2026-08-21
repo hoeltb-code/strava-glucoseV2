@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "monna-lisa-trail-2026",
+  "name": "La Monna Lisa Trail 2026",
+  "short_name": "Monna Lisa",
+  "edition_year": 2026,
+  "sport": "trail",
+  "route_file": "monna-lisa-trail-2026.gpx",
+  "distance_km": 30.1,
+  "elevation_gain_m": 1176,
+  "elevation_loss_m": 1141,
+  "course_coefficient_percent": 100,
+  "course_pace_category": "technical",
+  "start_location": "Millau",
+  "finish_location": "Millau",
+  "timezone": "Europe/Paris",
+  "points": [
+    {"order": 1, "km": 0.0, "segment_km": 0.0, "name": "Millau", "altitude_m": 360, "elevation_gain_m": 0, "elevation_loss_m": 0, "type": "start", "fastest_label": "Vague 1 · 09:25", "slowest_label": "Vague 2 · 09:50"},
+    {"order": 2, "km": 14.2, "segment_km": 14.2, "name": "Betpaumes", "altitude_m": 826, "elevation_gain_m": 604, "elevation_loss_m": 137, "type": "aid_station", "services_count": 1},
+    {"order": 3, "km": 21.4, "segment_km": 7.2, "name": "Lauglanou", "altitude_m": 815, "elevation_gain_m": 1015, "elevation_loss_m": 559, "type": "aid_station", "cutoff_label": "Sam. 14:30", "services_count": 1},
+    {"order": 4, "km": 30.1, "segment_km": 8.7, "name": "Arrivée · Millau", "altitude_m": 395, "elevation_gain_m": 1176, "elevation_loss_m": 1141, "type": "finish", "services_count": 1}
+  ]
+}

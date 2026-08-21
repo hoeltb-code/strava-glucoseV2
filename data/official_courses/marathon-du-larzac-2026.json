@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "id": "marathon-du-larzac-2026",
+  "name": "Marathon du Larzac 2026",
+  "short_name": "Marathon du Larzac",
+  "edition_year": 2026,
+  "sport": "trail",
+  "route_file": "marathon-du-larzac-2026.gpx",
+  "distance_km": 33.3,
+  "elevation_gain_m": 1400,
+  "elevation_loss_m": 1740,
+  "course_coefficient_percent": 100,
+  "course_pace_category": "technical",
+  "start_location": "Notre-Dame de la Salvage",
+  "finish_location": "Millau",
+  "timezone": "Europe/Paris",
+  "points": [
+    {"order": 1, "km": 0.0, "segment_km": 0.0, "name": "Notre-Dame de la Salvage", "altitude_m": 733, "elevation_gain_m": 0, "elevation_loss_m": 0, "type": "start", "fastest_label": "Vague 1 · 07:00", "slowest_label": "Vague 2 · 07:20"},
+    {"order": 2, "km": 18.8, "segment_km": 18.8, "name": "Mas de Bru", "altitude_m": 750, "elevation_gain_m": 771, "elevation_loss_m": 754, "type": "aid_station", "services_count": 1},
+    {"order": 3, "km": 24.3, "segment_km": 5.5, "name": "Massebiau", "altitude_m": 366, "elevation_gain_m": 820, "elevation_loss_m": 1187, "type": "aid_station", "services_count": 1},
+    {"order": 4, "km": 27.5, "segment_km": 3.2, "name": "Le Cade", "altitude_m": 834, "elevation_gain_m": 1299, "elevation_loss_m": 1200, "type": "aid_station", "services_count": 1},
+    {"order": 5, "km": 33.3, "segment_km": 5.8, "name": "Arrivée · Millau", "altitude_m": 393, "elevation_gain_m": 1400, "elevation_loss_m": 1740, "type": "finish", "services_count": 1}
+  ]
+}

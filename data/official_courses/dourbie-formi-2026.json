@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "dourbie-formi-2026",
+  "name": "La Dourbie Formi 2026",
+  "short_name": "Dourbie Formi",
+  "edition_year": 2026,
+  "sport": "trail",
+  "route_file": "dourbie-formi-2026.gpx",
+  "distance_km": 23.1,
+  "elevation_gain_m": 1229,
+  "elevation_loss_m": 1197,
+  "course_coefficient_percent": 100,
+  "course_pace_category": "technical",
+  "start_location": "Millau · Graufesenque",
+  "finish_location": "Millau",
+  "timezone": "Europe/Paris",
+  "points": [
+    {"order": 1, "km": 0.0, "segment_km": 0.0, "name": "Millau · Graufesenque", "altitude_m": 359, "elevation_gain_m": 0, "elevation_loss_m": 0, "type": "start", "fastest_label": "Vague 1 · 07:10", "slowest_label": "Vague 2 · 07:35"},
+    {"order": 2, "km": 8.4, "segment_km": 8.4, "name": "Mas de Bru", "altitude_m": 748, "elevation_gain_m": 458, "elevation_loss_m": 69, "type": "checkpoint", "cutoff_label": "Sam. 09:00"},
+    {"order": 3, "km": 17.6, "segment_km": 9.2, "name": "Massebiau", "altitude_m": 366, "elevation_gain_m": 805, "elevation_loss_m": 800, "type": "aid_station", "cutoff_label": "Sam. 11:10", "services_count": 1},
+    {"order": 4, "km": 23.1, "segment_km": 5.5, "name": "Arrivée · Millau", "altitude_m": 391, "elevation_gain_m": 1229, "elevation_loss_m": 1197, "type": "finish", "services_count": 1}
+  ]
+}

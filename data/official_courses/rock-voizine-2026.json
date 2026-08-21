@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "id": "rock-voizine-2026",
+  "name": "La Rock’Voizine 2026",
+  "short_name": "Rock’Voizine",
+  "edition_year": 2026,
+  "sport": "trail",
+  "route_file": "rock-voizine-2026.gpx",
+  "distance_km": 48.3,
+  "elevation_gain_m": 1813,
+  "elevation_loss_m": 2298,
+  "course_coefficient_percent": 100,
+  "course_pace_category": "technical",
+  "start_location": "Saint-André-de-Vézines",
+  "finish_location": "Millau",
+  "timezone": "Europe/Paris",
+  "points": [
+    {"order": 1, "km": 0.0, "segment_km": 0.0, "name": "Départ · Saint-André-de-Vézines", "altitude_m": 873, "elevation_gain_m": 0, "elevation_loss_m": 0, "type": "start", "fastest_label": "Ven. 06:00"},
+    {"order": 2, "km": 16.4, "segment_km": 16.4, "name": "La Bresse", "altitude_m": 744, "elevation_gain_m": 457, "elevation_loss_m": 587, "type": "aid_station", "cutoff_label": "Ven. 08:30", "services_count": 1},
+    {"order": 3, "km": 26.8, "segment_km": 10.4, "name": "Longuiers", "altitude_m": 831, "elevation_gain_m": 925, "elevation_loss_m": 967, "type": "aid_station", "cutoff_label": "Ven. 10:20", "services_count": 1},
+    {"order": 4, "km": 40.4, "segment_km": 13.6, "name": "Lauglanou", "altitude_m": 815, "elevation_gain_m": 1629, "elevation_loss_m": 1687, "type": "aid_station", "cutoff_label": "Ven. 12:45", "services_count": 1},
+    {"order": 5, "km": 48.3, "segment_km": 7.9, "name": "Arrivée · Millau", "altitude_m": 388, "elevation_gain_m": 1813, "elevation_loss_m": 2298, "type": "finish", "services_count": 1}
+  ]
+}

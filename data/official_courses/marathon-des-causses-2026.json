@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "marathon-des-causses-2026",
+  "name": "Marathon des Causses 2026",
+  "short_name": "Marathon des Causses",
+  "edition_year": 2026,
+  "sport": "trail",
+  "route_file": "marathon-des-causses-2026.gpx",
+  "distance_km": 33.6,
+  "elevation_gain_m": 1584,
+  "elevation_loss_m": 1549,
+  "course_coefficient_percent": 100,
+  "course_pace_category": "technical",
+  "start_location": "Millau",
+  "finish_location": "Millau",
+  "timezone": "Europe/Paris",
+  "points": [
+    {"order": 1, "km": 0.0, "segment_km": 0.0, "name": "Millau", "altitude_m": 360, "elevation_gain_m": 0, "elevation_loss_m": 0, "type": "start", "fastest_label": "Vague 1 · 12:10", "slowest_label": "Vague 2 · 12:35"},
+    {"order": 2, "km": 11.6, "segment_km": 11.6, "name": "La Cresse", "altitude_m": 429, "elevation_gain_m": 525, "elevation_loss_m": 458, "type": "aid_station", "cutoff_label": "Sam. 14:50", "services_count": 1},
+    {"order": 3, "km": 19.1, "segment_km": 7.5, "name": "Lauglanou", "altitude_m": 817, "elevation_gain_m": 973, "elevation_loss_m": 516, "type": "aid_station", "cutoff_label": "Sam. 16:30", "services_count": 1},
+    {"order": 4, "km": 25.3, "segment_km": 6.2, "name": "Le Cade", "altitude_m": 831, "elevation_gain_m": 1167, "elevation_loss_m": 697, "type": "aid_station", "services_count": 1},
+    {"order": 5, "km": 26.6, "segment_km": 1.3, "name": "Déroutage", "altitude_m": 807, "elevation_gain_m": 1195, "elevation_loss_m": 748, "type": "checkpoint", "cutoff_label": "Sam. 18:10"},
+    {"order": 6, "km": 33.6, "segment_km": 7.0, "name": "Arrivée · Millau", "altitude_m": 395, "elevation_gain_m": 1584, "elevation_loss_m": 1549, "type": "finish", "services_count": 1}
+  ]
+}

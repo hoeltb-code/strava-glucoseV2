@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "boffi-fifty-2026",
+  "name": "Boffi Fifty 2026",
+  "short_name": "Boffi Fifty",
+  "edition_year": 2026,
+  "sport": "trail",
+  "route_file": "boffi-fifty-2026.gpx",
+  "distance_km": 47.3,
+  "elevation_gain_m": 2208,
+  "elevation_loss_m": 2174,
+  "course_coefficient_percent": 100,
+  "course_pace_category": "technical",
+  "start_location": "Millau",
+  "finish_location": "Millau",
+  "timezone": "Europe/Paris",
+  "points": [
+    {"order": 1, "km": 0.0, "segment_km": 0.0, "name": "Millau", "altitude_m": 360, "elevation_gain_m": 0, "elevation_loss_m": 0, "type": "start", "fastest_label": "Vague 1 · 06:40", "slowest_label": "Vague 2 · 07:05"},
+    {"order": 2, "km": 11.9, "segment_km": 11.9, "name": "La Cresse", "altitude_m": 430, "elevation_gain_m": 555, "elevation_loss_m": 488, "type": "aid_station", "cutoff_label": "Sam. 09:40", "services_count": 1},
+    {"order": 3, "km": 19.5, "segment_km": 7.6, "name": "Lauglanou", "altitude_m": 816, "elevation_gain_m": 997, "elevation_loss_m": 540, "type": "aid_station", "cutoff_label": "Sam. 11:35", "services_count": 1},
+    {"order": 4, "km": 35.7, "segment_km": 16.2, "name": "Ravin du Monna", "altitude_m": 807, "elevation_gain_m": 1684, "elevation_loss_m": 1241, "type": "aid_station", "services_count": 1},
+    {"order": 5, "km": 41.8, "segment_km": 6.1, "name": "Le Cade", "altitude_m": 834, "elevation_gain_m": 2109, "elevation_loss_m": 1635, "type": "aid_station", "services_count": 1},
+    {"order": 6, "km": 47.3, "segment_km": 5.5, "name": "Arrivée · Millau", "altitude_m": 394, "elevation_gain_m": 2208, "elevation_loss_m": 2174, "type": "finish", "services_count": 1}
+  ]
+}

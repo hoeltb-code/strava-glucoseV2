@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "id": "integrale-des-causses-2026",
+  "name": "Intégrale des Causses 2026",
+  "short_name": "Intégrale des Causses",
+  "edition_year": 2026,
+  "sport": "trail",
+  "route_file": "integrale-des-causses-2026.gpx",
+  "distance_km": 61.3,
+  "elevation_gain_m": 2695,
+  "elevation_loss_m": 2762,
+  "course_coefficient_percent": 100,
+  "course_pace_category": "technical",
+  "start_location": "Peyreleau",
+  "finish_location": "Millau",
+  "timezone": "Europe/Paris",
+  "points": [
+    {"order": 1, "km": 0.0, "segment_km": 0.0, "name": "Peyreleau", "altitude_m": 424, "elevation_gain_m": 0, "elevation_loss_m": 0, "type": "start", "fastest_label": "Vague 1 · 06:30", "slowest_label": "Vague 2 · 06:50"},
+    {"order": 2, "km": 19.2, "segment_km": 19.2, "name": "Saint-André-de-Vézines", "altitude_m": 867, "elevation_gain_m": 858, "elevation_loss_m": 436, "type": "aid_station", "fastest_label": "Ven. 08:00", "slowest_label": "Ven. 10:35", "services_count": 1},
+    {"order": 3, "km": 30.7, "segment_km": 11.5, "name": "La Roque Sainte-Marguerite", "altitude_m": 400, "elevation_gain_m": 1152, "elevation_loss_m": 1205, "type": "aid_station", "fastest_label": "Ven. 09:00", "slowest_label": "Ven. 13:25", "services_count": 1},
+    {"order": 4, "km": 33.1, "segment_km": 2.4, "name": "Pierrefiche", "altitude_m": 657, "elevation_gain_m": 1411, "elevation_loss_m": 1213, "type": "checkpoint", "fastest_label": "Ven. 09:25", "slowest_label": "Ven. 14:35"},
+    {"order": 5, "km": 38.3, "segment_km": 5.2, "name": "La Salvage", "altitude_m": 729, "elevation_gain_m": 1636, "elevation_loss_m": 1372, "type": "aid_station", "fastest_label": "Ven. 09:40", "slowest_label": "Ven. 15:40", "services_count": 1},
+    {"order": 6, "km": 46.7, "segment_km": 8.4, "name": "Mas de Bru", "altitude_m": 735, "elevation_gain_m": 2063, "elevation_loss_m": 1804, "type": "aid_station", "fastest_label": "Ven. 10:35", "slowest_label": "Ven. 18:10", "services_count": 1},
+    {"order": 7, "km": 52.3, "segment_km": 5.6, "name": "Massebiau", "altitude_m": 365, "elevation_gain_m": 2114, "elevation_loss_m": 2227, "type": "aid_station", "fastest_label": "Ven. 11:05", "slowest_label": "Ven. 19:30", "services_count": 1},
+    {"order": 8, "km": 55.3, "segment_km": 3.0, "name": "Le Cade", "altitude_m": 830, "elevation_gain_m": 2583, "elevation_loss_m": 2243, "type": "aid_station", "fastest_label": "Ven. 11:20", "slowest_label": "Ven. 21:10", "services_count": 1},
+    {"order": 9, "km": 58.4, "segment_km": 3.1, "name": "La Pouncho", "altitude_m": 820, "elevation_gain_m": 2654, "elevation_loss_m": 2325, "type": "checkpoint", "fastest_label": "Ven. 11:35", "slowest_label": "Ven. 22:30"},
+    {"order": 10, "km": 61.3, "segment_km": 2.9, "name": "Arrivée · Millau", "altitude_m": 425, "elevation_gain_m": 2695, "elevation_loss_m": 2762, "type": "finish", "fastest_label": "Ven. 11:50", "slowest_label": "Sam. 00:05", "services_count": 1}
+  ]
+}

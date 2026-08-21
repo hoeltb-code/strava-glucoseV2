@@ -92,6 +92,7 @@ import shutil
 import logging
 import time
 import tempfile
+import uuid
 from datetime import datetime, timedelta
 from collections import Counter, defaultdict, deque
 import re
@@ -197,6 +198,7 @@ from app.models import (
     ActivityVamPeak,
     ActivityZoneSlopeAgg,
     CoursePlanDownload,
+    CoursePlan,
     PlanPaymentAttempt,
     PlanCreditWallet,
     UserLoginEvent,
@@ -6623,6 +6625,59 @@ async def ui_runner_profile_pace_projection(
     }
 
 
+@app.post("/ui/user/{user_id}/course-plans", response_class=JSONResponse)
+async def ui_save_course_plan(
+    request: Request,
+    user_id: int,
+    payload: dict = Body(...),
+    db: Session = Depends(get_db),
+):
+    """Create or update an autosaved race-plan draft owned by the current user."""
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+    user = db.query(User).filter(User.id == user_id).one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur introuvable.")
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=422, detail="Plan de course invalide.")
+    course_plan = _upsert_course_plan_snapshot(db, user, payload)
+    db.commit()
+    db.refresh(course_plan)
+    return {"plan": _serialize_course_plan(course_plan)}
+
+
+@app.get("/ui/user/{user_id}/course-plans/{plan_id}", response_class=JSONResponse)
+def ui_get_course_plan(request: Request, user_id: int, plan_id: str, db: Session = Depends(get_db)):
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+    course_plan = db.query(CoursePlan).filter(
+        CoursePlan.id == plan_id,
+        CoursePlan.user_id == user_id,
+        CoursePlan.status != "archived",
+    ).one_or_none()
+    if not course_plan:
+        raise HTTPException(status_code=404, detail="Plan de course introuvable.")
+    return {"plan": _serialize_course_plan(course_plan)}
+
+
+@app.post("/ui/user/{user_id}/course-plans/{plan_id}/archive", response_class=JSONResponse)
+def ui_archive_course_plan(request: Request, user_id: int, plan_id: str, db: Session = Depends(get_db)):
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+    course_plan = db.query(CoursePlan).filter(
+        CoursePlan.id == plan_id,
+        CoursePlan.user_id == user_id,
+    ).one_or_none()
+    if not course_plan:
+        raise HTTPException(status_code=404, detail="Plan de course introuvable.")
+    course_plan.status = "archived"
+    db.commit()
+    return {"ok": True}
+
+
 @app.post("/ui/user/{user_id}/course-plan/email")
 async def ui_send_course_plan_email(
     request: Request,
@@ -6647,21 +6702,29 @@ async def ui_send_course_plan_email(
 
     course_name = str(plan.get("course_name") or "Course simulée").strip()[:120]
     payment_active = _payment_pilot_allowed(user_id)
-    if payment_active and plan.get("digital_content_consent") is not True:
+    requested_plan_id = str(plan.get("course_plan_id") or "").strip()
+    existing_course_plan = db.query(CoursePlan).filter(
+        CoursePlan.id == requested_plan_id,
+        CoursePlan.user_id == user.id,
+    ).one_or_none() if requested_plan_id else None
+    is_existing_purchased_plan = bool(existing_course_plan and existing_course_plan.status == "purchased")
+    if payment_active and not is_existing_purchased_plan and plan.get("digital_content_consent") is not True:
         raise HTTPException(status_code=422, detail="Confirme la fourniture immédiate du plan numérique pour continuer.")
-    if payment_active:
+    if payment_active and not is_existing_purchased_plan:
         plan = {
             **plan,
             "digital_content_consent": True,
             "digital_content_consent_recorded_at": dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
         }
-    wallet = _get_plan_credit_wallet(db, user_id) if payment_active else None
+    course_plan = _upsert_course_plan_snapshot(db, user, plan)
+    wallet = _get_plan_credit_wallet(db, user_id) if payment_active and not is_existing_purchased_plan else None
     if wallet is not None and wallet.credits < 1:
         raise HTTPException(status_code=402, detail="Aucun crédit disponible. Achète ce plan ou recharge 3 crédits.")
     delivery_attempt = None
-    if payment_active:
+    if payment_active and not is_existing_purchased_plan:
         delivery_attempt = PlanPaymentAttempt(
             user_id=user.id,
+            course_plan_id=course_plan.id,
             user_email=user.email,
             course_name=course_name,
             plan_payload=json.dumps({"product": "credit_delivery", "plan": plan}, ensure_ascii=False, separators=(",", ":")),
@@ -6672,6 +6735,7 @@ async def ui_send_course_plan_email(
         db.add(delivery_attempt)
         db.commit()
         db.refresh(delivery_attempt)
+        course_plan.payment_attempt_id = delivery_attempt.id
     try:
         pdf_data = _build_course_plan_pdf(user=user, plan=plan)
         roadbook_png = _build_course_plan_roadbook_png(plan=plan)
@@ -6694,11 +6758,15 @@ async def ui_send_course_plan_email(
         )
         if wallet is not None:
             wallet.credits -= 1
+        course_plan.status = "purchased"
+        course_plan.purchased_at = course_plan.purchased_at or dt.datetime.utcnow()
+        course_plan.last_downloaded_at = dt.datetime.utcnow()
         if delivery_attempt is not None:
             delivery_attempt.customer_sent_at = dt.datetime.utcnow()
             delivery_attempt.status = "delivered"
             delivery_attempt.last_error = None
         db.add(CoursePlanDownload(
+            course_plan_id=course_plan.id,
             user_id=user.id,
             user_email=user.email,
             first_name=user.first_name,
@@ -6757,6 +6825,9 @@ async def ui_create_course_plan_checkout(
     user = db.query(User).filter(User.id == user_id).one_or_none()
     if not user or not user.email:
         raise HTTPException(status_code=404, detail="Utilisateur introuvable.")
+    course_plan = None
+    if product in {"first_plan", "single_plan"}:
+        course_plan = _upsert_course_plan_snapshot(db, user, plan)
     has_purchased_plan = _has_purchased_individual_plan(db, user.id)
     if product == "first_plan" and has_purchased_plan:
         raise HTTPException(status_code=409, detail="L’offre de premier plan a déjà été utilisée.")
@@ -6773,6 +6844,7 @@ async def ui_create_course_plan_checkout(
     amount_cents = 3000 if product == "credit_pack" else 490 if product == "first_plan" else 1490
     attempt = PlanPaymentAttempt(
         user_id=user.id,
+        course_plan_id=course_plan.id if course_plan else None,
         user_email=user.email,
         course_name=course_name,
         plan_payload=json.dumps({"product": product, "credits": credit_quantity, "plan": plan if product in {"first_plan", "single_plan"} else {}}, ensure_ascii=False, separators=(",", ":")),
@@ -6783,6 +6855,9 @@ async def ui_create_course_plan_checkout(
     db.add(attempt)
     db.commit()
     db.refresh(attempt)
+    if course_plan is not None:
+        course_plan.payment_attempt_id = attempt.id
+        db.commit()
     try:
         stripe = _stripe_module()
         base_url = _get_app_base_url()
@@ -6864,7 +6939,8 @@ def ui_course_plan_payment_success(
         logger.info("[PAYMENT] Retour Checkout en attente session=%s : %s", session_id, exc)
     except Exception:
         logger.exception("[PAYMENT] Livraison différée session=%s", session_id)
-    return RedirectResponse(url=f"/ui/user/{user_id}?payment_plan={payment_result}", status_code=303)
+    plan_query = f"&plan={quote_plus(attempt.course_plan_id)}" if attempt.course_plan_id else ""
+    return RedirectResponse(url=f"/ui/user/{user_id}?payment_plan={payment_result}{plan_query}", status_code=303)
 
 
 @app.post("/webhooks/stripe", response_class=JSONResponse)
@@ -7734,6 +7810,104 @@ def _has_purchased_individual_plan(db: Session, user_id: int) -> bool:
     ).first() is not None
 
 
+def _serialize_course_plan(course_plan: CoursePlan) -> dict:
+    """Small, template-safe representation of a saved race plan."""
+    return {
+        "id": course_plan.id,
+        "course_id": course_plan.course_id or "",
+        "course_name": course_plan.course_name or "Plan de course",
+        "source_type": course_plan.source_type or "official",
+        "status": course_plan.status or "draft",
+        "settings": course_plan.settings_payload or {},
+        "calculation": course_plan.calculation_payload or {},
+        "purchased_at": course_plan.purchased_at.isoformat() if course_plan.purchased_at else None,
+        "last_downloaded_at": course_plan.last_downloaded_at.isoformat() if course_plan.last_downloaded_at else None,
+        "created_at": course_plan.created_at.isoformat() if course_plan.created_at else None,
+        "updated_at": course_plan.updated_at.isoformat() if course_plan.updated_at else None,
+    }
+
+
+def _upsert_course_plan_snapshot(db: Session, user: User, payload: dict) -> CoursePlan:
+    """Persist a draft or the latest calculation without changing a paid plan's access."""
+    plan_id = str(payload.get("course_plan_id") or payload.get("plan_id") or "").strip()
+    course_plan = None
+    if plan_id:
+        course_plan = db.query(CoursePlan).filter(
+            CoursePlan.id == plan_id,
+            CoursePlan.user_id == user.id,
+        ).one_or_none()
+        if course_plan is None:
+            raise HTTPException(status_code=404, detail="Plan de course introuvable.")
+
+    course_id = str(payload.get("course_id") or payload.get("official_course_id") or "").strip()[:160]
+    course_name = str(payload.get("course_name") or "Nouveau plan").strip()[:160] or "Nouveau plan"
+    source_type = str(payload.get("source_type") or ("official" if course_id else "custom")).strip().lower()
+    if source_type not in {"official", "custom"}:
+        source_type = "official"
+    settings_payload = payload.get("settings") or payload.get("plan_settings") or {}
+    calculation_payload = payload.get("calculation") or payload.get("calculation_snapshot")
+    if not isinstance(settings_payload, dict):
+        raise HTTPException(status_code=422, detail="Réglages de plan invalides.")
+    if calculation_payload is not None and not isinstance(calculation_payload, dict):
+        raise HTTPException(status_code=422, detail="Calcul de plan invalide.")
+
+    if course_plan is None:
+        course_plan = CoursePlan(
+            id=str(uuid.uuid4()),
+            user_id=user.id,
+            course_id=course_id or None,
+            course_name=course_name,
+            source_type=source_type,
+            status="draft",
+            settings_payload=settings_payload,
+            calculation_payload=calculation_payload,
+        )
+        db.add(course_plan)
+    else:
+        course_plan.course_id = course_id or course_plan.course_id
+        course_plan.course_name = course_name or course_plan.course_name
+        course_plan.source_type = source_type
+        course_plan.settings_payload = settings_payload
+        if calculation_payload is not None:
+            course_plan.calculation_payload = calculation_payload
+    return course_plan
+
+
+def _backfill_legacy_course_plans(db: Session, user_id: int) -> None:
+    """Expose historic paid deliveries as reopenable plans without changing their audit trail."""
+    attempts = db.query(PlanPaymentAttempt).filter(
+        PlanPaymentAttempt.user_id == user_id,
+        PlanPaymentAttempt.course_plan_id.is_(None),
+        PlanPaymentAttempt.status.in_(("paid_processing", "delivered", "delivery_failed")),
+        PlanPaymentAttempt.amount_cents.in_((0, 490, 1490)),
+    ).all()
+    changed = False
+    for attempt in attempts:
+        try:
+            payload = json.loads(attempt.plan_payload or "{}")
+            plan_data = payload.get("plan", payload) if isinstance(payload, dict) else {}
+        except (TypeError, ValueError):
+            plan_data = {}
+        if not isinstance(plan_data, dict) or not plan_data.get("course_name"):
+            continue
+        course_plan = CoursePlan(
+            id=str(uuid.uuid4()), user_id=user_id,
+            course_id=str(plan_data.get("course_id") or plan_data.get("official_course_id") or "")[:160] or None,
+            course_name=str(plan_data.get("course_name") or attempt.course_name or "Plan de course")[:160],
+            source_type=str(plan_data.get("source_type") or "official")[:20], status="purchased",
+            settings_payload=plan_data.get("settings") if isinstance(plan_data.get("settings"), dict) else {},
+            calculation_payload=plan_data.get("calculation") if isinstance(plan_data.get("calculation"), dict) else None,
+            payment_attempt_id=attempt.id, purchased_at=attempt.customer_sent_at or attempt.updated_at or attempt.created_at,
+            last_downloaded_at=attempt.customer_sent_at,
+        )
+        db.add(course_plan)
+        db.flush()
+        attempt.course_plan_id = course_plan.id
+        changed = True
+    if changed:
+        db.commit()
+
+
 def _stripe_module():
     if not settings.STRIPE_SECRET_KEY:
         raise RuntimeError("STRIPE_SECRET_KEY est manquant.")
@@ -7782,7 +7956,16 @@ def _fulfill_paid_plan_attempt(db: Session, checkout_session_id: str) -> PlanPay
     plan = payload.get("plan") if isinstance(payload, dict) and "plan" in payload else payload
     if not isinstance(plan, dict):
         raise RuntimeError("Plan de course introuvable dans le snapshot.")
+    course_plan = db.query(CoursePlan).filter(
+        CoursePlan.id == attempt.course_plan_id,
+        CoursePlan.user_id == user.id,
+    ).one_or_none() if attempt.course_plan_id else None
     if attempt.customer_sent_at:
+        if course_plan and course_plan.status != "purchased":
+            course_plan.status = "purchased"
+            course_plan.purchased_at = course_plan.purchased_at or dt.datetime.utcnow()
+            course_plan.last_downloaded_at = dt.datetime.utcnow()
+            db.commit()
         _send_payment_confirmation_if_needed(db, attempt=attempt, user=user, product=product)
         return attempt
 
@@ -7812,7 +7995,12 @@ def _fulfill_paid_plan_attempt(db: Session, checkout_session_id: str) -> PlanPay
         attempt.customer_sent_at = dt.datetime.utcnow()
         attempt.status = "delivered"
         attempt.last_error = None
+        if course_plan:
+            course_plan.status = "purchased"
+            course_plan.purchased_at = course_plan.purchased_at or dt.datetime.utcnow()
+            course_plan.last_downloaded_at = dt.datetime.utcnow()
         db.add(CoursePlanDownload(
+            course_plan_id=course_plan.id if course_plan else None,
             user_id=user.id,
             user_email=user.email,
             first_name=user.first_name,
@@ -8124,6 +8312,8 @@ def ui_user_dashboard(user_id: int, request: Request):
     plan_credits = 0
     has_purchased_plan = False
     plan_download_count = 0
+    saved_course_plans = []
+    resume_course_plan = None
 
     try:
         user = db.query(User).get(user_id)
@@ -8144,7 +8334,18 @@ def ui_user_dashboard(user_id: int, request: Request):
         if _payment_pilot_allowed(user_id):
             plan_credits = _get_plan_credit_wallet(db, user_id).credits
             has_purchased_plan = _has_purchased_individual_plan(db, user_id)
+        _backfill_legacy_course_plans(db, user_id)
         plan_download_count = db.query(CoursePlanDownload.id).filter(CoursePlanDownload.user_id == user_id).count()
+        course_plan_rows = (
+            db.query(CoursePlan)
+            .filter(CoursePlan.user_id == user_id, CoursePlan.status != "archived")
+            .order_by(CoursePlan.updated_at.desc(), CoursePlan.created_at.desc())
+            .all()
+        )
+        saved_course_plans = [_serialize_course_plan(item) for item in course_plan_rows]
+        resume_plan_id = str(request.query_params.get("plan") or "").strip()
+        if resume_plan_id:
+            resume_course_plan = next((item for item in saved_course_plans if item["id"] == resume_plan_id), None)
 
         _maybe_refresh_glucose_for_page_view(db, user, page_name="dashboard")
 
@@ -8735,6 +8936,8 @@ def ui_user_dashboard(user_id: int, request: Request):
             "plan_credits": plan_credits,
             "has_purchased_plan": has_purchased_plan,
             "plan_download_count": plan_download_count,
+            "saved_course_plans": saved_course_plans,
+            "resume_course_plan": resume_course_plan,
             "debug_js": debug_js,
         },
     )

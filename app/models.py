@@ -6,6 +6,7 @@
 # - Nouvelles tables : ActivityVamPeak, ActivityZoneSlopeAgg, UserSettings, UserVamPR
 # -----------------------------------------------------------------------------
 from datetime import datetime
+import uuid
 
 from sqlalchemy import (
     Column,
@@ -584,6 +585,7 @@ class CoursePlanDownload(Base):
     __tablename__ = "course_plan_downloads"
 
     id = Column(Integer, primary_key=True, index=True)
+    course_plan_id = Column(String(36), ForeignKey("course_plans.id"), nullable=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     user_email = Column(String, nullable=False)
     first_name = Column(String, nullable=True)
@@ -594,12 +596,35 @@ class CoursePlanDownload(Base):
     user = relationship("User")
 
 
+class CoursePlan(Base):
+    """Persistent user-owned race plan, from first draft through paid delivery."""
+
+    __tablename__ = "course_plans"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    course_id = Column(String(160), nullable=True, index=True)
+    course_name = Column(String(160), nullable=False, default="Nouveau plan")
+    source_type = Column(String(20), nullable=False, default="official")
+    status = Column(String(24), nullable=False, default="draft", index=True)
+    settings_payload = Column(JSON, nullable=False, default=dict)
+    calculation_payload = Column(JSON, nullable=True)
+    payment_attempt_id = Column(Integer, ForeignKey("plan_payment_attempts.id"), nullable=True, index=True)
+    purchased_at = Column(DateTime, nullable=True)
+    last_downloaded_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow, index=True)
+
+    user = relationship("User")
+
+
 class PlanPaymentAttempt(Base):
     """Immutable plan snapshot and delivery trail for a paid race-plan request."""
 
     __tablename__ = "plan_payment_attempts"
 
     id = Column(Integer, primary_key=True, index=True)
+    course_plan_id = Column(String(36), ForeignKey("course_plans.id"), nullable=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     user_email = Column(String, nullable=False)
     course_name = Column(String(160), nullable=False)

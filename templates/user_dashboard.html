@@ -125,6 +125,7 @@
   .first-plan-steps { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:9px; }
   .first-plan-step { display:flex; align-items:flex-start; gap:8px; min-height:64px; padding:10px; border:1px solid #dce7da; border-radius:12px; background:#fff; font-size:.78rem; line-height:1.4; }
   .first-plan-step i { flex:0 0 20px; width:20px; height:20px; display:grid; place-items:center; border-radius:50%; background:#f1eee8; color:#827d74; font-style:normal; font-weight:800; }.first-plan-step.is-done i { background:#d9efda; color:#275c32; }.first-plan-step.is-done { border-color:#b7d9b9; }
+  .plan-library { margin:0 0 18px; padding:16px; border:1px solid #dfdad0; border-radius:18px; background:#fffdf9; }.plan-library-header { display:flex; align-items:end; justify-content:space-between; gap:12px; }.plan-library h2 { margin:0; font-size:1.1rem; }.plan-library-header p { margin:4px 0 0; color:var(--text-muted); font-size:.8rem; }.plan-library-tabs { display:flex; flex-wrap:wrap; gap:7px; margin:15px 0 12px; }.plan-library-tab { padding:8px 11px; border:1px solid #dfdad0; border-radius:999px; background:#fff; color:var(--text-main); font-family:"Manrope",system-ui,sans-serif; font-size:.78rem; font-weight:700; }.plan-library-tab.is-active { border-color:var(--accent); background:#fff2ed; color:var(--accent-dark); }.plan-library-panel[hidden] { display:none!important; }.plan-library-search { width:100%; margin:0 0 10px; }.plan-library-tags { display:flex; flex-wrap:wrap; gap:8px; }.plan-library-tag { display:inline-flex; align-items:center; gap:6px; max-width:100%; padding:8px 10px; border:1px solid #dfdad0; border-radius:999px; background:#fff; color:var(--text-main); font-family:"Manrope",system-ui,sans-serif; font-size:.77rem; font-weight:700; text-decoration:none; cursor:pointer; }.plan-library-tag:hover { border-color:var(--accent); color:var(--accent-dark); }.plan-library-tag small { color:var(--text-muted); font-size:.68rem; font-weight:500; }.plan-library-tag.is-purchased { border-color:#b7d9b9; background:#f6fbf4; color:#275c32; }.plan-library-empty { margin:0; padding:12px; border-radius:12px; background:#f7f4ee; color:var(--text-muted); font-size:.78rem; }.plan-library-new-gpx { display:inline-flex; margin-top:11px; color:var(--accent-dark); font-size:.78rem; font-weight:700; text-decoration:none; }
   .simulation-quick-settings { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; margin:14px 0; }.simulation-quick-settings > div { padding:15px; border:1px solid #dfdad0; border-radius:16px; background:#fff; }.simulation-quick-settings > div[hidden], #home-history-intensity-settings[hidden] { display:none!important; }
   .plan-basis { margin-top:16px; padding:16px; border:1px solid #dfdad0; border-radius:18px; background:#fff; }.plan-basis h3 { margin:0; font-size:1.15rem; }.plan-basis > p { margin:5px 0 12px; font-size:.84rem; }.plan-basis-options,.pace-source-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }.plan-basis-option,.pace-source-option { display:block; padding:12px; border:1px solid #dfdad0; border-radius:13px; background:#fff; color:var(--text-main); cursor:pointer; font-family:"Manrope",system-ui,sans-serif; font-weight:400; letter-spacing:0; text-transform:none; }.plan-basis-option:has(input:checked),.pace-source-option:has(input:checked) { border-color:var(--accent); background:#fff7f3; box-shadow:0 0 0 2px rgba(255,90,54,.11); }.plan-basis-option input,.pace-source-option input { position:absolute; opacity:0; pointer-events:none; }.plan-basis-option strong,.pace-source-option strong { display:block; color:var(--text-main); font-size:.84rem; font-weight:700; }.plan-basis-option span,.pace-source-option span { display:block; margin-top:4px; color:var(--text-muted); font-size:.74rem; font-weight:400; line-height:1.4; }.pace-source-title { margin:0 0 8px; font-size:.86rem; }
   .time-goal-toggle { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 10px; }.time-goal-toggle label { display:inline-flex; align-items:center; gap:6px; padding:7px 9px; border:1px solid #dfdad0; border-radius:999px; font-size:.78rem; font-weight:700; cursor:pointer; }.time-goal-fields { display:flex; align-items:end; gap:8px; }.time-goal-fields[hidden] { display:none!important; }.time-goal-fields label { flex:1; font-size:.75rem; color:var(--text-muted); }.time-goal-fields input { width:100%; margin-top:4px; }.time-goal-note { margin:9px 0 0!important; font-size:.76rem!important; }
@@ -634,6 +635,35 @@
   <div class="profile-orb" aria-label="{{ runner_name }}">{{ runner_name[0]|upper }}</div>
 </section>
 
+{% set draft_plans = saved_course_plans|selectattr('status', 'equalto', 'draft')|list %}
+{% set purchased_plans = saved_course_plans|selectattr('status', 'equalto', 'purchased')|list %}
+<section class="plan-library" id="home-plan-library" aria-labelledby="home-plan-library-title">
+  <div class="plan-library-header">
+    <div><h2 id="home-plan-library-title">Mes plans de course</h2><p>Commence une course, reprends un brouillon ou retrouve tes roadbooks achetés.</p></div>
+  </div>
+  <div class="plan-library-tabs" role="tablist" aria-label="Mes plans de course">
+    <button type="button" class="plan-library-tab is-active" data-plan-library-tab="new" role="tab" aria-selected="true">Nouveau plan</button>
+    <button type="button" class="plan-library-tab" data-plan-library-tab="draft" role="tab" aria-selected="false">Plans en cours{% if draft_plans %} · {{ draft_plans|length }}{% endif %}</button>
+    <button type="button" class="plan-library-tab" data-plan-library-tab="purchased" role="tab" aria-selected="false">Plans terminés{% if purchased_plans %} · {{ purchased_plans|length }}{% endif %}</button>
+  </div>
+  <div class="plan-library-panel" data-plan-library-panel="new">
+    <label class="sr-only" for="home-plan-library-search">Rechercher une course pour un nouveau plan</label>
+    <input class="plan-library-search" id="home-plan-library-search" type="search" placeholder="Rechercher une course : UTMB, CCC, OCC, GRP…">
+    <div class="plan-library-tags" id="home-plan-library-course-tags">
+      {% for course in official_courses if course.route_available %}
+      <button type="button" class="plan-library-tag" data-plan-library-course="{{ course.id }}" data-plan-library-search="{{ course.name }} {{ course.short_name or '' }} {{ course.id }}"><span>{{ course.short_name or course.name }}</span><small>{{ '%.0f'|format(course.distance_km) }} km</small></button>
+      {% endfor %}
+    </div>
+    <a class="plan-library-new-gpx" href="/ui/user/{{ user.id }}/course-simulator">＋ Créer un plan depuis ma trace GPX</a>
+  </div>
+  <div class="plan-library-panel" data-plan-library-panel="draft" hidden>
+    {% if draft_plans %}<div class="plan-library-tags">{% for plan in draft_plans %}<a class="plan-library-tag" href="/ui/user/{{ user.id }}?plan={{ plan.id }}#simulation"><span>{{ plan.course_name }}</span><small>Modifié le {{ plan.updated_at[:10] if plan.updated_at else '—' }} · Reprendre</small></a>{% endfor %}</div>{% else %}<p class="plan-library-empty">Tu n’as aucun plan en cours. Choisis une course pour commencer : tes réglages seront sauvegardés automatiquement.</p>{% endif %}
+  </div>
+  <div class="plan-library-panel" data-plan-library-panel="purchased" hidden>
+    {% if purchased_plans %}<div class="plan-library-tags">{% for plan in purchased_plans %}<a class="plan-library-tag is-purchased" href="/ui/user/{{ user.id }}?plan={{ plan.id }}#simulation"><span>{{ plan.course_name }}</span><small>Roadbook disponible · Ouvrir</small></a>{% endfor %}</div>{% else %}<p class="plan-library-empty">Tes plans achetés apparaîtront ici, avec leur roadbook et la possibilité de les mettre à jour.</p>{% endif %}
+  </div>
+</section>
+
 {% if not custom_course_mode and plan_download_count == 0 %}
 {% set has_activity_history = activities|length > 0 %}
 {% set has_profile_history = runner_profile_overview and runner_profile_overview.zones and runner_profile_overview.zones.get('Zone 2') %}
@@ -901,13 +931,21 @@
     const planThinkingStream = document.getElementById('home-plan-thinking-stream');
     const planThinkingProfile = document.getElementById('home-plan-thinking-profile');
     const customSegmentExplorerHost = document.getElementById('home-custom-segment-explorer');
-    const customCourseMode = {{ custom_course_mode | default(false) | tojson }};
+    let customCourseMode = {{ custom_course_mode | default(false) | tojson }};
     const planPaymentPilotEnabled = {{ plan_payment_test_enabled | default(false) | tojson }};
     const planCredits = Number({{ plan_credits | default(0) | tojson }});
     const hasPurchasedPlan = {{ has_purchased_plan | default(false) | tojson }};
     const runnerProfileData = {{ runner_profile_overview | default({}) | tojson | safe }};
     const communityPaceCurves = {{ dashboard_cohort_curves | default({}) | tojson | safe }};
     const officialCourses = {{ official_courses | default([]) | tojson | safe }};
+    const resumedCoursePlan = {{ resume_course_plan | default(none) | tojson | safe }};
+    let activeCoursePlanId = resumedCoursePlan?.id || '';
+    let activeCoursePlanStatus = resumedCoursePlan?.status || 'draft';
+    let activeCoursePlanSettings = resumedCoursePlan?.settings || {};
+    let savedCustomGpxText = activeCoursePlanSettings?.gpx_text || '';
+    let coursePlanSaveTimer = null;
+    let coursePlanSaveInFlight = false;
+    let restoringCoursePlan = false;
     const utmbCourseIds = new Set(['utmb-2026', 'ccc-2026', 'tds-2026', 'occ-2026', 'mcc-2026', 'etc-2026']);
     const grpCourseIds = new Set(['grp-ultra-tour-2026', 'grp-tour-des-cirques-2026', 'grp-tour-des-lacs-2026', 'grp-tour-du-moudang-2026', 'grp-tour-du-bastan-2026', 'grp-tour-de-la-gela-2026', 'grp-tour-du-neouvielle-2026']);
     const utmbCoursePicker = document.querySelector('[data-utmb-course-picker]');
@@ -918,6 +956,7 @@
     const courseSearchResults = document.getElementById('home-course-search-results');
     const courseSearchEmpty = document.getElementById('home-course-search-empty');
     const courseBrowser = document.getElementById('home-course-browser');
+    const planLibrarySearch = document.getElementById('home-plan-library-search');
     const timeModeInputs = Array.from(document.querySelectorAll('input[name="home-time-mode"]'));
     const targetHoursInput = document.getElementById('home-target-hours');
     const targetMinutesInput = document.getElementById('home-target-minutes');
@@ -1589,6 +1628,137 @@
       renderArchivedProfileTable();
       if (refreshLiveProjection) refreshLiveProjection();
     });
+    function collectCoursePlanSettings() {
+      return {
+        plan_basis: selectedPlanBasis(), pace_source: selectedPaceSource(), zone: zoneInput?.value || 'Zone 2',
+        target_hours: targetHoursInput?.value || '0', target_minutes: targetMinutesInput?.value || '0',
+        manual_mode: Boolean(manualMode?.checked), flat_speed: flatSpeed?.value || '',
+        descent_level: descentLevel?.value || '', ascent_level: ascentLevel?.value || '',
+        advanced_ascent_mode: Boolean(advancedAscentMode?.checked), vam_15: vam15Input?.value || '', vam_30: vam30Input?.value || '',
+        carb_rate: carbRateInput?.value || '', protein_rate: proteinRateInput?.value || '', fat_rate: fatRateInput?.value || '',
+        nutrition_energy_balance: Boolean(nutritionEnergyBalanceInput?.checked), weight: weightInput?.value || '',
+        departure_date: raceSettings?.querySelector('.race-setting-date')?.value || '',
+        departure_hour: raceSettings?.querySelector('.race-setting-hour')?.value || '', departure_minute: raceSettings?.querySelector('.race-setting-minute')?.value || '',
+        stops: Array.from(raceSettings?.querySelectorAll('.race-setting-stop') || []).map((input) => ({ km: input.dataset.stopKm, minutes: input.value })),
+        gpx_text: savedCustomGpxText || '',
+      };
+    }
+
+    async function saveCoursePlanDraft(calculation = null) {
+      if (restoringCoursePlan || coursePlanSaveInFlight) return null;
+      const selectedCourse = officialCourses.find((course) => course.id === officialCourseInput.value);
+      const courseName = selectedCourse?.name || manualCourseNameInput?.value?.trim() || '';
+      if (!selectedCourse && !courseName) return null;
+      coursePlanSaveInFlight = true;
+      try {
+        const response = await fetch('/ui/user/{{ user.id }}/course-plans', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            plan_id: activeCoursePlanId || undefined,
+            course_id: selectedCourse?.id || '', course_name: courseName,
+            source_type: selectedCourse ? 'official' : 'custom', settings: collectCoursePlanSettings(), calculation,
+          }),
+        });
+        if (!response.ok) throw new Error('Sauvegarde du plan impossible.');
+        const payload = await response.json();
+        if (payload?.plan?.id) {
+          activeCoursePlanId = payload.plan.id;
+          activeCoursePlanStatus = payload.plan.status || activeCoursePlanStatus;
+          activeCoursePlanSettings = payload.plan.settings || activeCoursePlanSettings;
+          showSavedPlanInLibrary(payload.plan);
+          const url = new URL(window.location.href);
+          url.searchParams.set('plan', activeCoursePlanId);
+          history.replaceState({}, '', `${url.pathname}${url.search}${url.hash || '#simulation'}`);
+        }
+        return payload.plan;
+      } catch (error) {
+        console.warn('[course-plan] sauvegarde brouillon', error);
+        return null;
+      } finally {
+        coursePlanSaveInFlight = false;
+      }
+    }
+
+    function scheduleCoursePlanSave(calculation = null, delay = 700) {
+      // Le brouillon est sauvegardé discrètement au fil des réglages ; seul le
+      // téléchargement reste verrouillé jusqu'à la validation explicite.
+      if (restoringCoursePlan) return;
+      window.clearTimeout(coursePlanSaveTimer);
+      coursePlanSaveTimer = window.setTimeout(() => { saveCoursePlanDraft(calculation); }, delay);
+    }
+
+    function showSavedPlanInLibrary(plan) {
+      if (!plan?.id || plan.status !== 'draft') return;
+      const panel = document.querySelector('[data-plan-library-panel="draft"]');
+      if (!panel || panel.querySelector(`[data-saved-plan-id="${plan.id}"]`)) return;
+      let tags = panel.querySelector('.plan-library-tags');
+      if (!tags) {
+        panel.innerHTML = '';
+        tags = document.createElement('div');
+        tags.className = 'plan-library-tags';
+        panel.appendChild(tags);
+      }
+      const link = document.createElement('a');
+      link.className = 'plan-library-tag';
+      link.dataset.savedPlanId = plan.id;
+      link.href = `/ui/user/{{ user.id }}?plan=${encodeURIComponent(plan.id)}#simulation`;
+      link.innerHTML = `<span>${escapeHtml(plan.course_name || 'Plan de course')}</span><small>Enregistré · Reprendre</small>`;
+      tags.prepend(link);
+    }
+
+    function restoreSavedCoursePlan() {
+      if (!resumedCoursePlan?.settings) return;
+      const settings = resumedCoursePlan.settings;
+      restoringCoursePlan = true;
+      const setValue = (input, value) => { if (input && value !== undefined && value !== null && value !== '') input.value = value; };
+      const setCheckedRadio = (inputs, value) => inputs.find((input) => input.value === value) && (inputs.find((input) => input.value === value).checked = true);
+      setCheckedRadio(planBasisInputs, settings.plan_basis);
+      setCheckedRadio(paceSourceInputs, settings.pace_source);
+      setValue(zoneInput, settings.zone); setValue(targetHoursInput, settings.target_hours); setValue(targetMinutesInput, settings.target_minutes);
+      if (manualMode && settings.manual_mode !== undefined) manualMode.checked = Boolean(settings.manual_mode);
+      setValue(flatSpeed, settings.flat_speed); setValue(descentLevel, settings.descent_level); setValue(ascentLevel, settings.ascent_level);
+      if (advancedAscentMode && settings.advanced_ascent_mode !== undefined) advancedAscentMode.checked = Boolean(settings.advanced_ascent_mode);
+      setValue(vam15Input, settings.vam_15); setValue(vam30Input, settings.vam_30);
+      setValue(carbRateInput, settings.carb_rate); setValue(proteinRateInput, settings.protein_rate); setValue(fatRateInput, settings.fat_rate); setValue(weightInput, settings.weight);
+      if (nutritionEnergyBalanceInput && settings.nutrition_energy_balance !== undefined) nutritionEnergyBalanceInput.checked = Boolean(settings.nutrition_energy_balance);
+      if (resumedCoursePlan.course_id) {
+        officialCourseInput.value = resumedCoursePlan.course_id;
+        if (courseSearchInput) courseSearchInput.value = resumedCoursePlan.course_name || '';
+        officialCourseInput.dispatchEvent(new Event('change'));
+      } else if (resumedCoursePlan.source_type === 'custom' && settings.gpx_text) {
+        customCourseMode = true;
+        manualCourseNameInput.value = resumedCoursePlan.course_name || 'Ma trace GPX';
+        updateCourseSource();
+        try {
+          const transfer = new DataTransfer();
+          transfer.items.add(new File([settings.gpx_text], `${manualCourseNameInput.value || 'trace'}.gpx`, { type: 'application/gpx+xml' }));
+          fileInput.files = transfer.files;
+        } catch (error) {
+          console.warn('[course-plan] restauration GPX', error);
+        }
+      }
+      syncPlanBasisUi(); refreshManualLabels();
+      restoringCoursePlan = false;
+      if (resumedCoursePlan.course_id || (resumedCoursePlan.source_type === 'custom' && settings.gpx_text)) window.setTimeout(() => form.requestSubmit(), 180);
+    }
+
+    document.querySelectorAll('[data-plan-library-tab]').forEach((button) => button.addEventListener('click', () => {
+      const tab = button.dataset.planLibraryTab;
+      document.querySelectorAll('[data-plan-library-tab]').forEach((item) => { item.classList.toggle('is-active', item === button); item.setAttribute('aria-selected', item === button ? 'true' : 'false'); });
+      document.querySelectorAll('[data-plan-library-panel]').forEach((panel) => { panel.hidden = panel.dataset.planLibraryPanel !== tab; });
+    }));
+    document.querySelectorAll('[data-plan-library-course]').forEach((button) => button.addEventListener('click', () => {
+      activeCoursePlanId = ''; activeCoursePlanStatus = 'draft'; activeCoursePlanSettings = {}; savedCustomGpxText = '';
+      officialCourseInput.value = button.dataset.planLibraryCourse;
+      if (courseSearchInput) courseSearchInput.value = button.textContent.trim();
+      officialCourseInput.dispatchEvent(new Event('change'));
+      document.getElementById('simulation')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }));
+    planLibrarySearch?.addEventListener('input', () => {
+      const query = normalizeCourseSearch(planLibrarySearch.value);
+      document.querySelectorAll('[data-plan-library-course]').forEach((tag) => { tag.hidden = Boolean(query) && !normalizeCourseSearch(tag.dataset.planLibrarySearch).includes(query); });
+    });
+
     timeModeInputs.forEach((input) => input.addEventListener('change', () => {
       refreshTimeGoalUi();
       if (refreshLiveProjection) refreshLiveProjection();
@@ -1615,6 +1785,7 @@
       updateCourseSource();
       refreshCourseChecklist();
       updatePlanFlow();
+      scheduleCoursePlanSave();
     });
     const normalizeCourseSearch = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     const renderCourseSearchResults = () => {
@@ -1669,9 +1840,17 @@
       if (file && !manualCourseNameInput.value.trim()) {
         manualCourseNameInput.value = file.name.replace(/\.gpx$/i, '').replace(/[-_]+/g, ' ');
       }
+      if (file) file.text().then((text) => {
+        savedCustomGpxText = text.length <= 2_000_000 ? text : '';
+        if (!savedCustomGpxText) status.textContent = 'La trace est trop volumineuse pour être conservée dans ce brouillon. Tu pourras toutefois générer ce plan maintenant.';
+        scheduleCoursePlanSave();
+      }).catch(() => { savedCustomGpxText = ''; });
       refreshCourseChecklist();
       updatePlanFlow();
     });
+    [manualCourseNameInput, zoneInput, targetHoursInput, targetMinutesInput, manualMode, flatSpeed, descentLevel, ascentLevel, advancedAscentMode, vam15Input, vam30Input, carbRateInput, proteinRateInput, fatRateInput, nutritionEnergyBalanceInput, weightInput, ...planBasisInputs, ...paceSourceInputs]
+      .filter(Boolean)
+      .forEach((input) => input.addEventListener('change', () => scheduleCoursePlanSave()));
     renderAidStations();
     renderCourseSearchResults();
     updateCourseSource();
@@ -1680,6 +1859,7 @@
     updatePlanFlow();
     refreshManualLabels();
     renderArchivedProfileTable();
+    restoreSavedCoursePlan();
 
     function formatDuration(seconds) {
       if (!Number.isFinite(seconds) || seconds <= 0) return '–';
@@ -2332,6 +2512,11 @@
 
         status.textContent = '';
         const aidStations = (data.official_course ? officialCoursePoints(data.official_course) : getAidStations()).filter((aid) => aid.km <= Number(data.total_distance_km || 0));
+        const restoredStops = activeCoursePlanSettings?.stops || [];
+        restoredStops.forEach((savedStop) => {
+          const point = aidStations.find((item) => Math.abs(Number(item.km) - Number(savedStop.km)) < 0.001);
+          if (point) point.stopSeconds = Math.max(0, Number(savedStop.minutes) || 0) * 60;
+        });
         setGenerationStage(3);
         const stopSeconds = aidStations.reduce((sum, aid) => sum + aid.stopSeconds, 0);
         const initialTargetAdjustment = targetTimeAdjustment(movingSeconds, stopSeconds);
@@ -2398,9 +2583,10 @@
         const stopDetail = stopSeconds ? ` · ${formatDuration(stopSeconds)} de ravito` : '';
         const manualCourseName = manualCourseNameInput.value.trim() || 'Ma trace GPX';
         const courseDetail = data.official_course ? ` · ${data.official_course.name}` : ` · ${manualCourseName}`;
-        // Chaque simulation démarre verrouillée : l'historique d'achat ou un
-        // crédit disponible ne déverrouillent pas le Roadbook avant délivrance.
-        const planDetailsUnlocked = false;
+        // Un plan acheté est réouvrable : son roadbook reste disponible même après
+        // avoir quitté la page. Les nouvelles simulations restent verrouillées.
+        const planDetailsUnlocked = activeCoursePlanStatus === 'purchased';
+        const isSavedPurchasedPlan = planDetailsUnlocked;
         result.innerHTML = `
           <div class="roadbook-preview" ${planDetailsUnlocked ? '' : 'hidden'}>
           <h3 class="projection-planning-title">Roadbook</h3>
@@ -2418,7 +2604,7 @@
           <div class="course-plan-email">
             ${planPaymentPilotEnabled ? '<label class="course-plan-digital-consent" id="home-digital-content-consent-row" for="home-digital-content-consent" hidden><input id="home-digital-content-consent" type="checkbox"> <span>J’accepte les <a href="/conditions-utilisation#contenus-numeriques" target="_blank" rel="noopener">conditions générales de vente</a>, demande la fourniture immédiate de mon plan numérique et reconnais perdre mon droit de rétractation dès le début de son exécution.</span></label>' : ''}
             <div class="course-plan-purchase-actions">
-              <button type="button" id="home-plan-email-btn">${planPaymentPilotEnabled ? 'Valider mon plan' : '✉ Envoyer et télécharger le plan PDF'}</button>
+            <button type="button" id="home-plan-email-btn">${isSavedPurchasedPlan ? 'Télécharger la nouvelle version' : 'Valider et enregistrer mon plan'}</button>
               ${planPaymentPilotEnabled && hasPurchasedPlan ? '<button type="button" id="home-plan-credit-pack-btn" class="course-plan-credit-pack plan-purchase-details" hidden>Recharger 3 crédits · 30 €</button>' : ''}
             </div>
             ${planPaymentPilotEnabled ? '<p class="course-plan-credit-note plan-purchase-details" hidden>' + planCredits + ' crédit' + (planCredits === 1 ? '' : 's') + ' disponible' + (planCredits === 1 ? '' : 's') + (hasPurchasedPlan ? ' · 1 crédit = 1 plan' : ' · Offre de lancement réservée à ton premier plan') + '</p>' : ''}
@@ -2431,8 +2617,8 @@
         const distanceSplitPlannerHost = result.querySelector('#home-distance-split-planner');
         const totalProjectionOutput = result.querySelector('#home-projection-total');
         const distanceDetailOutput = result.querySelector('#home-projection-distance-detail');
-        let departureTime = '07:00';
-        let departureDate = new Date().toISOString().slice(0, 10);
+        let departureTime = `${String(Math.max(0, Math.min(23, Number(activeCoursePlanSettings?.departure_hour) || 7))).padStart(2, '0')}:${String(Math.max(0, Math.min(59, Number(activeCoursePlanSettings?.departure_minute) || 0))).padStart(2, '0')}`;
+        let departureDate = /^\d{4}-\d{2}-\d{2}$/.test(activeCoursePlanSettings?.departure_date || '') ? activeCoursePlanSettings.departure_date : new Date().toISOString().slice(0, 10);
         const renderRaceSettings = () => {
           if (!raceSettings) return;
           const [hours, minutes] = departureTime.split(':').map((value) => Number(value) || 0);
@@ -2444,6 +2630,7 @@
           raceSettings.hidden = false;
           raceSettings.oninput = (event) => {
             const target = event.target;
+            scheduleCoursePlanSave();
             if (target.classList.contains('race-setting-date')) {
               if (/^\d{4}-\d{2}-\d{2}$/.test(target.value || '')) departureDate = target.value;
               renderTimeline();
@@ -2530,7 +2717,7 @@
         const creditPackButton = result.querySelector('#home-plan-credit-pack-btn');
         const digitalContentConsent = result.querySelector('#home-digital-content-consent');
         const digitalContentConsentRow = result.querySelector('#home-digital-content-consent-row');
-        const downloadPlanLabel = planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : (hasPurchasedPlan ? 'Acheter ce plan · 14,90 €' : 'Offre premier plan · 4,90 €')) : '✉ Envoyer et télécharger le plan PDF';
+        const downloadPlanLabel = isSavedPurchasedPlan ? 'Télécharger la nouvelle version' : (planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : (hasPurchasedPlan ? 'Acheter ce plan · 14,90 €' : 'Offre premier plan · 4,90 €')) : '✉ Envoyer et télécharger le plan PDF');
         const startPaymentCheckout = async (product, planPayload) => {
           const response = await fetch(`/ui/user/{{ user.id }}/course-plan/checkout?product=${encodeURIComponent(product)}`, {
             method: 'POST',
@@ -2597,9 +2784,16 @@
           return metrics;
         };
         emailPlanButton.addEventListener('click', async () => {
-          if (planPaymentPilotEnabled && !emailPlanButton.dataset.validated) {
+          if (!isSavedPurchasedPlan && !emailPlanButton.dataset.validated) {
             emailPlanButton.disabled = true;
             await playPlanThinking(6000);
+            const savedPlan = await saveCoursePlanDraft();
+            if (!savedPlan && !activeCoursePlanId) {
+              emailPlanButton.disabled = false;
+              status.textContent = 'Impossible d’enregistrer le plan pour le moment. Réessaie dans quelques instants.';
+              return;
+            }
+            showSavedPlanInLibrary(savedPlan);
             emailPlanButton.dataset.validated = 'true';
             emailPlanButton.disabled = false;
             planPurchaseDetails.forEach((element) => { element.hidden = false; });
@@ -2607,8 +2801,8 @@
               digitalContentConsentRow.hidden = false;
               digitalContentConsentRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
-            emailPlanButton.textContent = planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : (hasPurchasedPlan ? 'Acheter ce plan · 14,90 €' : 'Offre premier plan · 4,90 €');
-            status.textContent = planCredits > 0 ? 'Ton plan est validé. Confirme les conditions pour le télécharger et débloquer le Roadbook.' : 'Ton plan est validé. Confirme les conditions de vente puis passe au paiement pour débloquer le roadbook et le plan nutrition détaillé.';
+            emailPlanButton.textContent = planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : (hasPurchasedPlan ? 'Acheter ce plan · 14,90 €' : 'Offre premier plan · 4,90 €')) : 'Télécharger mon plan PDF';
+            status.textContent = planPaymentPilotEnabled ? (planCredits > 0 ? 'Ton plan est enregistré. Confirme les conditions pour le télécharger et débloquer le Roadbook.' : 'Ton plan est enregistré. Confirme les conditions de vente puis passe au paiement pour débloquer le roadbook et le plan nutrition détaillé.') : 'Ton plan est enregistré. Tu peux maintenant le télécharger.';
             return;
           }
           const finishKm = Number(data.total_distance_km || 0);
@@ -2663,9 +2857,15 @@
             const vam = pace > 0 ? Math.round((3600 / pace) * 10 * grade) : 0;
             return { slope: slopeLabels[slopeId], pace: formatPace(pace), vam: vam ? `${vam > 0 ? '+' : '−'}${Math.abs(vam)} m/h` : '-' };
           });
+          if (!activeCoursePlanId) await saveCoursePlanDraft();
           const plan = {
+            course_plan_id: activeCoursePlanId || '',
+            course_id: data.official_course?.id || '',
             course_name: data.official_course?.name || manualCourseName,
             official_course_id: data.official_course?.id || '',
+            source_type: data.official_course ? 'official' : 'custom',
+            settings: collectCoursePlanSettings(),
+            calculation: { distance_km: finishKm, elevation_gain_m: Math.round(gain), elevation_loss_m: Math.round(loss), total_seconds: Math.round(movingSeconds + aidStations.reduce((sum, point) => sum + point.stopSeconds, 0)), moving_seconds: Math.round(movingSeconds) },
             total_time: totalProjectionOutput.textContent,
             moving_time: formatDuration(movingSeconds),
             distance: `${finishKm.toFixed(1)} km`, elevation: `D+ ${Math.round(gain)} m · D- ${Math.round(loss)} m`,
@@ -2675,17 +2875,17 @@
             nutrition: { carbs_rate: `${Math.round(nutrition.carbRate)} g`, protein_rate: `${Math.round(nutrition.proteinRate)} g`, fat_rate: `${Math.round(nutrition.fatRate)} g`, calories_rate: `${Math.round(plannedRate)} kcal`, expenditure_rate: `~${Math.round(nutrition.expenditureRate)} kcal`, total_carbs: `${Math.round(nutrition.carbRate * movingSeconds / 3600)} g`, total_proteins: `${Math.round(nutrition.proteinRate * movingSeconds / 3600)} g`, total_fats: `${Math.round(nutrition.fatRate * movingSeconds / 3600)} g`, total_calories: `${Math.round(plannedRate * movingSeconds / 3600)} kcal` },
             roadbook, pacing, nutrition_stops: nutritionStops, fueling_schedule: buildPdfFuelingSchedule(), legs, elevation_profile: data.elevation_profile || [], fueling_windows: terrainNutritionWindows,
           };
-          if (planPaymentPilotEnabled && !digitalContentConsent?.checked) {
+          if (planPaymentPilotEnabled && !isSavedPurchasedPlan && !digitalContentConsent?.checked) {
             status.textContent = 'Confirme la fourniture immédiate du plan numérique pour continuer.';
             digitalContentConsent?.focus();
             return;
           }
-          if (planPaymentPilotEnabled) plan.digital_content_consent = true;
+          if (planPaymentPilotEnabled && !isSavedPurchasedPlan) plan.digital_content_consent = true;
           emailPlanButton.disabled = true;
-          emailPlanButton.textContent = planPaymentPilotEnabled && planCredits < 1 ? 'Ouverture de Stripe…' : 'Préparation du PDF…';
+          emailPlanButton.textContent = planPaymentPilotEnabled && !isSavedPurchasedPlan && planCredits < 1 ? 'Ouverture de Stripe…' : 'Préparation du PDF…';
           let planPdfWindow = null;
           try {
-            if (planPaymentPilotEnabled && planCredits < 1) {
+            if (planPaymentPilotEnabled && !isSavedPurchasedPlan && planCredits < 1) {
               await startPaymentCheckout(hasPurchasedPlan ? 'single_plan' : 'first_plan', plan);
               return;
             }
@@ -2717,6 +2917,7 @@
             }
             window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 60000);
             emailPlanButton.textContent = '✓ PDF envoyé et téléchargé';
+            activeCoursePlanStatus = 'purchased';
             if (roadbookPreview) roadbookPreview.hidden = false;
             if (planDetailLock) planDetailLock.hidden = true;
             status.textContent = response.headers.get('X-Course-Plan-Message') || 'Le plan a été envoyé par e-mail et téléchargé sur cet appareil.';
@@ -2742,6 +2943,10 @@
         refreshProjectionSummary();
         renderRaceSettings();
         if (raceSettings) raceSettings.after(result);
+        scheduleCoursePlanSave({
+          distance_km: Number(data.total_distance_km || 0), elevation_gain_m: Math.round(gain), elevation_loss_m: Math.round(loss),
+          moving_seconds: Math.round(movingSeconds), total_seconds: Math.round(movingSeconds + aidStations.reduce((sum, point) => sum + point.stopSeconds, 0)),
+        }, 0);
         if (!isUpdatingExistingPlan) (nutritionHeading || nutritionSettings)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         refreshLiveProjection = () => {
           let nextMovingSeconds = 0;

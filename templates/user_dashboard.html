@@ -125,7 +125,7 @@
   .first-plan-steps { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:9px; }
   .first-plan-step { display:flex; align-items:flex-start; gap:8px; min-height:64px; padding:10px; border:1px solid #dce7da; border-radius:12px; background:#fff; font-size:.78rem; line-height:1.4; }
   .first-plan-step i { flex:0 0 20px; width:20px; height:20px; display:grid; place-items:center; border-radius:50%; background:#f1eee8; color:#827d74; font-style:normal; font-weight:800; }.first-plan-step.is-done i { background:#d9efda; color:#275c32; }.first-plan-step.is-done { border-color:#b7d9b9; }
-  .plan-library { margin:0 0 18px; padding:16px; border:1px solid #dfdad0; border-radius:18px; background:#fffdf9; }.plan-library-header { display:flex; align-items:end; justify-content:space-between; gap:12px; }.plan-library h2 { margin:0; font-size:1.1rem; }.plan-library-header p { margin:4px 0 0; color:var(--text-muted); font-size:.8rem; }.plan-library-tabs { display:flex; flex-wrap:wrap; gap:7px; margin:15px 0 12px; }.plan-library-tab { padding:8px 11px; border:1px solid #dfdad0; border-radius:999px; background:#fff; color:var(--text-main); font-family:"Manrope",system-ui,sans-serif; font-size:.78rem; font-weight:700; }.plan-library-tab.is-active { border-color:var(--accent); background:#fff2ed; color:var(--accent-dark); }.plan-library-panel[hidden] { display:none!important; }.plan-library-search { width:100%; margin:0 0 10px; }.plan-library-tags { display:flex; flex-wrap:wrap; gap:8px; }.plan-library-tag { display:inline-flex; align-items:center; gap:6px; max-width:100%; padding:8px 10px; border:1px solid #dfdad0; border-radius:999px; background:#fff; color:var(--text-main); font-family:"Manrope",system-ui,sans-serif; font-size:.77rem; font-weight:700; text-decoration:none; cursor:pointer; }.plan-library-tag:hover { border-color:var(--accent); color:var(--accent-dark); }.plan-library-tag small { color:var(--text-muted); font-size:.68rem; font-weight:500; }.plan-library-tag.is-purchased { border-color:#b7d9b9; background:#f6fbf4; color:#275c32; }.plan-library-empty { margin:0; padding:12px; border-radius:12px; background:#f7f4ee; color:var(--text-muted); font-size:.78rem; }.plan-library-new-gpx { display:inline-flex; margin-top:11px; color:var(--accent-dark); font-size:.78rem; font-weight:700; text-decoration:none; }
+  .plan-library { margin:0 0 18px; }.plan-library-header { display:flex; align-items:end; justify-content:space-between; gap:12px; }.plan-library h2 { margin:0; font-size:1.1rem; }.plan-library-header p { margin:4px 0 0; color:var(--text-muted); font-size:.8rem; }.plan-library-tabs { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:15px 0 12px; }.plan-library-tab { min-height:92px; padding:14px; border:1px solid #dfdad0; border-radius:16px; background:#fff; color:var(--text-main); cursor:pointer; font-family:"Manrope",system-ui,sans-serif; text-align:left; }.plan-library-tab strong { display:block; font-size:.88rem; font-weight:700; }.plan-library-tab span { display:block; margin-top:5px; color:var(--text-muted); font-size:.72rem; font-weight:400; line-height:1.35; }.plan-library-tab.is-active { border-color:var(--accent); background:#fff2ed; box-shadow:0 0 0 2px rgba(255,90,54,.11); }.plan-library-tab.is-active strong { color:var(--accent-dark); }.plan-library-panel { padding:14px; border:1px solid #dfdad0; border-radius:16px; background:#fff; }.plan-library-panel[hidden] { display:none!important; }.plan-library-tags { display:flex; flex-wrap:wrap; gap:8px; }.plan-library-tag { display:inline-flex; align-items:center; gap:6px; max-width:100%; padding:8px 10px; border:1px solid #dfdad0; border-radius:999px; background:#fff; color:var(--text-main); font-family:"Manrope",system-ui,sans-serif; font-size:.77rem; font-weight:700; text-decoration:none; cursor:pointer; }.plan-library-tag:hover { border-color:var(--accent); color:var(--accent-dark); }.plan-library-tag small { color:var(--text-muted); font-size:.68rem; font-weight:500; }.plan-library-tag.is-purchased { border-color:#b7d9b9; background:#f6fbf4; color:#275c32; }.plan-library-empty { margin:0; padding:12px; border-radius:12px; background:#f7f4ee; color:var(--text-muted); font-size:.78rem; }
   .simulation-quick-settings { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; margin:14px 0; }.simulation-quick-settings > div { padding:15px; border:1px solid #dfdad0; border-radius:16px; background:#fff; }.simulation-quick-settings > div[hidden], #home-history-intensity-settings[hidden] { display:none!important; }
   .plan-basis { margin-top:16px; padding:16px; border:1px solid #dfdad0; border-radius:18px; background:#fff; }.plan-basis h3 { margin:0; font-size:1.15rem; }.plan-basis > p { margin:5px 0 12px; font-size:.84rem; }.plan-basis-options,.pace-source-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }.plan-basis-option,.pace-source-option { display:block; padding:12px; border:1px solid #dfdad0; border-radius:13px; background:#fff; color:var(--text-main); cursor:pointer; font-family:"Manrope",system-ui,sans-serif; font-weight:400; letter-spacing:0; text-transform:none; }.plan-basis-option:has(input:checked),.pace-source-option:has(input:checked) { border-color:var(--accent); background:#fff7f3; box-shadow:0 0 0 2px rgba(255,90,54,.11); }.plan-basis-option input,.pace-source-option input { position:absolute; opacity:0; pointer-events:none; }.plan-basis-option strong,.pace-source-option strong { display:block; color:var(--text-main); font-size:.84rem; font-weight:700; }.plan-basis-option span,.pace-source-option span { display:block; margin-top:4px; color:var(--text-muted); font-size:.74rem; font-weight:400; line-height:1.4; }.pace-source-title { margin:0 0 8px; font-size:.86rem; }
   .time-goal-toggle { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 10px; }.time-goal-toggle label { display:inline-flex; align-items:center; gap:6px; padding:7px 9px; border:1px solid #dfdad0; border-radius:999px; font-size:.78rem; font-weight:700; cursor:pointer; }.time-goal-fields { display:flex; align-items:end; gap:8px; }.time-goal-fields[hidden] { display:none!important; }.time-goal-fields label { flex:1; font-size:.75rem; color:var(--text-muted); }.time-goal-fields input { width:100%; margin-top:4px; }.time-goal-note { margin:9px 0 0!important; font-size:.76rem!important; }
@@ -535,6 +535,8 @@
     border:1px solid rgba(255,255,255,0.18);
   }
   @media (max-width: 640px) {
+    .plan-library-tabs { grid-template-columns:1fr; }
+    .plan-library-tab { min-height:0; }
     .dashboard-hero { grid-template-columns:1fr auto; padding:19px; gap:14px; }
     .profile-orb { width:52px; height:52px; font-size:1.05rem; }
     .quick-actions { grid-template-columns:repeat(2, minmax(0, 1fr)); gap:9px; }
@@ -642,19 +644,9 @@
     <div><h2 id="home-plan-library-title">Mes plans de course</h2><p>Commence une course, reprends un brouillon ou retrouve tes roadbooks achetés.</p></div>
   </div>
   <div class="plan-library-tabs" role="tablist" aria-label="Mes plans de course">
-    <button type="button" class="plan-library-tab is-active" data-plan-library-tab="new" role="tab" aria-selected="true">Nouveau plan</button>
-    <button type="button" class="plan-library-tab" data-plan-library-tab="draft" role="tab" aria-selected="false">Plans en cours{% if draft_plans %} · {{ draft_plans|length }}{% endif %}</button>
-    <button type="button" class="plan-library-tab" data-plan-library-tab="purchased" role="tab" aria-selected="false">Plans terminés{% if purchased_plans %} · {{ purchased_plans|length }}{% endif %}</button>
-  </div>
-  <div class="plan-library-panel" data-plan-library-panel="new">
-    <label class="sr-only" for="home-plan-library-search">Rechercher une course pour un nouveau plan</label>
-    <input class="plan-library-search" id="home-plan-library-search" type="search" placeholder="Rechercher une course : UTMB, CCC, OCC, GRP…">
-    <div class="plan-library-tags" id="home-plan-library-course-tags">
-      {% for course in official_courses if course.route_available %}
-      <button type="button" class="plan-library-tag" data-plan-library-course="{{ course.id }}" data-plan-library-search="{{ course.name }} {{ course.short_name or '' }} {{ course.id }}"><span>{{ course.short_name or course.name }}</span><small>{{ '%.0f'|format(course.distance_km) }} km</small></button>
-      {% endfor %}
-    </div>
-    <a class="plan-library-new-gpx" href="/ui/user/{{ user.id }}/course-simulator">＋ Créer un plan depuis ma trace GPX</a>
+    <button type="button" class="plan-library-tab is-active" data-plan-library-tab="new" role="tab" aria-selected="true"><strong>Nouveau plan</strong><span>Choisis une course et construis une nouvelle stratégie.</span></button>
+    <button type="button" class="plan-library-tab" data-plan-library-tab="draft" role="tab" aria-selected="false"><strong>Plans en cours{% if draft_plans %} · {{ draft_plans|length }}{% endif %}</strong><span>Reprends un plan sauvegardé et poursuis ses réglages.</span></button>
+    <button type="button" class="plan-library-tab" data-plan-library-tab="purchased" role="tab" aria-selected="false"><strong>Plans terminés{% if purchased_plans %} · {{ purchased_plans|length }}{% endif %}</strong><span>Ouvre tes roadbooks et télécharge une nouvelle version.</span></button>
   </div>
   <div class="plan-library-panel" data-plan-library-panel="draft" hidden>
     {% if draft_plans %}<div class="plan-library-tags">{% for plan in draft_plans %}<a class="plan-library-tag" href="/ui/user/{{ user.id }}?plan={{ plan.id }}#simulation"><span>{{ plan.course_name }}</span><small>Modifié le {{ plan.updated_at[:10] if plan.updated_at else '—' }} · Reprendre</small></a>{% endfor %}</div>{% else %}<p class="plan-library-empty">Tu n’as aucun plan en cours. Choisis une course pour commencer : tes réglages seront sauvegardés automatiquement.</p>{% endif %}
@@ -956,7 +948,7 @@
     const courseSearchResults = document.getElementById('home-course-search-results');
     const courseSearchEmpty = document.getElementById('home-course-search-empty');
     const courseBrowser = document.getElementById('home-course-browser');
-    const planLibrarySearch = document.getElementById('home-plan-library-search');
+    const courseSelectionShowcase = document.querySelector('.course-selection-showcase');
     const timeModeInputs = Array.from(document.querySelectorAll('input[name="home-time-mode"]'));
     const targetHoursInput = document.getElementById('home-target-hours');
     const targetMinutesInput = document.getElementById('home-target-minutes');
@@ -1738,14 +1730,29 @@
         }
       }
       syncPlanBasisUi(); refreshManualLabels();
+      activatePlanLibrary(resumedCoursePlan.status === 'purchased' ? 'purchased' : 'draft');
       restoringCoursePlan = false;
       if (resumedCoursePlan.course_id || (resumedCoursePlan.source_type === 'custom' && settings.gpx_text)) window.setTimeout(() => form.requestSubmit(), 180);
     }
 
+    function activatePlanLibrary(tab) {
+      document.querySelectorAll('[data-plan-library-tab]').forEach((item) => {
+        const active = item.dataset.planLibraryTab === tab;
+        item.classList.toggle('is-active', active);
+        item.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      document.querySelectorAll('[data-plan-library-panel]').forEach((panel) => { panel.hidden = panel.dataset.planLibraryPanel !== tab; });
+      if (courseSelectionShowcase) {
+        courseSelectionShowcase.hidden = tab !== 'new';
+        courseSelectionShowcase.setAttribute('aria-hidden', String(tab !== 'new'));
+      }
+    }
     document.querySelectorAll('[data-plan-library-tab]').forEach((button) => button.addEventListener('click', () => {
       const tab = button.dataset.planLibraryTab;
-      document.querySelectorAll('[data-plan-library-tab]').forEach((item) => { item.classList.toggle('is-active', item === button); item.setAttribute('aria-selected', item === button ? 'true' : 'false'); });
-      document.querySelectorAll('[data-plan-library-panel]').forEach((panel) => { panel.hidden = panel.dataset.planLibraryPanel !== tab; });
+      if (tab === 'new') {
+        activeCoursePlanId = ''; activeCoursePlanStatus = 'draft'; activeCoursePlanSettings = {}; savedCustomGpxText = '';
+      }
+      activatePlanLibrary(tab);
     }));
     document.querySelectorAll('[data-plan-library-course]').forEach((button) => button.addEventListener('click', () => {
       activeCoursePlanId = ''; activeCoursePlanStatus = 'draft'; activeCoursePlanSettings = {}; savedCustomGpxText = '';
@@ -1754,11 +1761,6 @@
       officialCourseInput.dispatchEvent(new Event('change'));
       document.getElementById('simulation')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }));
-    planLibrarySearch?.addEventListener('input', () => {
-      const query = normalizeCourseSearch(planLibrarySearch.value);
-      document.querySelectorAll('[data-plan-library-course]').forEach((tag) => { tag.hidden = Boolean(query) && !normalizeCourseSearch(tag.dataset.planLibrarySearch).includes(query); });
-    });
-
     timeModeInputs.forEach((input) => input.addEventListener('change', () => {
       refreshTimeGoalUi();
       if (refreshLiveProjection) refreshLiveProjection();

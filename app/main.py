@@ -422,6 +422,96 @@ def _seo_course_analysis(points: list[dict]) -> dict:
     return {"legs": legs, "longest_leg": longest_leg, "biggest_climb": biggest_climb, "biggest_descent": biggest_descent}
 
 
+TEMPLIERS_2026_DEPARTURES = {
+    "endurance-trail-des-templiers-2026": ("vendredi 16 octobre 2026", "zone basse du Domaine de St-Estève, Millau"),
+    "integrale-des-causses-2026": ("vendredi 16 octobre 2026", "Peyreleau"),
+    "marathon-du-larzac-2026": ("vendredi 16 octobre 2026", "Notre-Dame de la Salvage"),
+    "rock-voizine-2026": ("vendredi 16 octobre 2026", "Saint-André-de-Vézines"),
+    "boffi-fifty-2026": ("samedi 17 octobre 2026", "zone basse du Domaine de St-Estève, Millau"),
+    "dourbie-formi-2026": ("samedi 17 octobre 2026", "site de la Graufesenque, Millau"),
+    "monna-lisa-trail-2026": ("samedi 17 octobre 2026", "zone basse du Domaine de St-Estève, Millau"),
+    "marathon-des-causses-2026": ("samedi 17 octobre 2026", "zone basse du Domaine de St-Estève, Millau"),
+    "les-troubadours-2026": ("samedi 17 octobre 2026", "zone basse du Domaine de St-Estève, Millau"),
+    "vo2-trail-2026": ("samedi 17 octobre 2026", "zone basse du Domaine de St-Estève, Millau"),
+    "grand-trail-des-templiers-2026": ("dimanche 18 octobre 2026", "zone basse du Domaine de St-Estève, Millau"),
+}
+
+
+def _seo_course_editorial(course: dict, analysis: dict) -> dict:
+    """Build useful, course-specific editorial copy from the local route data."""
+    name = str(course.get("name") or "ce trail")
+    distance = float(course.get("distance_km") or 0)
+    gain = int(round(float(course.get("elevation_gain_m") or 0)))
+    points = list(course.get("points") or [])
+    aid_points = [point for point in points if point.get("type") in {"aid_station", "aid_station_assistance"}]
+    cutoff_points = [point for point in points if point.get("cutoff_label")]
+    start = next((point for point in points if point.get("type") == "start"), {})
+    start_window = " à ".join(filter(None, [start.get("fastest_label"), start.get("slowest_label")]))
+    course_id = str(course.get("id") or "")
+    festival_departure = TEMPLIERS_2026_DEPARTURES.get(course_id)
+    is_templiers = festival_departure is not None
+    longest_leg = analysis.get("longest_leg") or {}
+    biggest_climb = analysis.get("biggest_climb") or {}
+    longest_text = (
+        f"Le tronçon le plus long relie {longest_leg.get('from')} à {longest_leg.get('to')} "
+        f"({longest_leg.get('distance_km')} km). Prépare son contenu de sac et son effort avant le départ."
+        if longest_leg else "Découpe la course par tronçon afin de prévoir l’effort, l’eau et les apports jusqu’au point suivant."
+    )
+    climb_text = (
+        f"La principale accumulation de dénivelé du découpage se situe entre {biggest_climb.get('from')} et "
+        f"{biggest_climb.get('to')} (+{biggest_climb.get('gain_m')} m). Commence cette section en réserve."
+        if biggest_climb else "Utilise la pente et le ressenti pour choisir entre course et marche active."
+    )
+    aid_names = ", ".join(str(point.get("name")) for point in aid_points[:4])
+    start_sentence = f"La fenêtre de départ indiquée dans les données du parcours est {start_window}. " if start_window else ""
+    if festival_departure:
+        event_date, departure_location = festival_departure
+        start_sentence = (
+            f"Le départ est prévu le {event_date}, depuis {departure_location}. "
+            + (f"Les vagues indiquées sont {start_window}. " if start_window else "")
+        )
+    intro = (
+        f"{name} se prépare avec une logique de trail : {distance:.1f} km et {gain} m de dénivelé positif ne se résument pas à une allure moyenne. "
+        f"{start_sentence}Le plan de course sert à répartir l’effort selon la pente, à anticiper les arrêts et à garder une marge pour les portions techniques."
+    )
+    ravito_text = (
+        f"Les points de ravitaillement référencés sont {aid_names}. Pour chacun, associe un objectif simple : boire, refaire le plein et repartir avec ce qui est nécessaire jusqu’au point suivant."
+        if aid_names else "Le parcours ne référence pas de ravitaillement intermédiaire : prévois l’autonomie en boisson et en énergie dès le départ."
+    )
+    cutoff_text = (
+        f"{len(cutoff_points)} barrière{'s' if len(cutoff_points) > 1 else ''} horaire{'s' if len(cutoff_points) > 1 else ''} apparaissent dans les données. Regarde ton avance avant chaque contrôle et compare-la à la difficulté du tronçon suivant, pas seulement au chrono global."
+        if cutoff_points else "Aucune barrière horaire n’est renseignée dans ce fichier. Vérifie tout de même les dernières consignes de l’organisateur avant le départ."
+    )
+    festival_sections = []
+    if is_templiers:
+        meal_courses = {"endurance-trail-des-templiers-2026", "integrale-des-causses-2026", "grand-trail-des-templiers-2026"}
+        meal_text = (
+            "Un repas d’après-course est annoncé avec l’inscription ; pour l’Endurance Trail et l’Intégrale des Causses, il est prévu dans la Grange près de l’arrivée le vendredi à partir de 13 h. Pour le Grand Trail des Templiers, il est annoncé sous la tente du Salon du Trail le dimanche à partir de 13 h."
+            if course_id in meal_courses else
+            "Un ravitaillement d’arrivée est annoncé pour toutes les courses. Vérifie les modalités pratiques et les horaires définitifs auprès de l’organisation."
+        )
+        festival_sections = [
+            ("Logistique du départ au Festival des Templiers", start_sentence + "Prévois une heure sur site, et jusqu’à deux heures le samedi si le retrait du dossard doit encore être effectué. Le Salon du Trail se trouve avenue de Millau Plage à Millau ; ses horaires annoncés sont jeudi après-midi et vendredi après-midi de 12 h à 19 h, puis samedi de 9 h à 19 h."),
+            ("Assistance personnelle et postes de ravitaillement", "L’assistance est autorisée uniquement sur les zones officielles de ravitaillement, jamais aux points d’eau. Le passage dans le poste est obligatoire. L’accès au poste est interdit aux suiveurs ; l’assistance personnelle est prévue dans une zone de 50 mètres avant le poste, sauf au Truel où l’accès est interdit. La liste définitive des zones est communiquée avec le dossard."),
+            ("Arrivée, récupération et résultats", "Les arrivées sont prévues sur la zone haute du Domaine de St-Estève, avenue de Millau Plage à Millau. " + meal_text + " Après l’événement, l’organisation annonce le dépôt des résultats pour l’UTMB Index et l’ITRA."),
+        ]
+    return {
+        "intro": intro,
+        "sections": [
+            ("Construire un plan d’allure pour " + name, "Pars avec une première estimation prudente, puis règle les allures par pente : effort contrôlé en montée, relance durable sur le roulant et descente précise plutôt que précipitée. " + climb_text),
+            ("Planifier les ravitaillements et l’autonomie", ravito_text + " " + longest_text),
+            ("Organiser l’heure de départ et les temps de passage", start_sentence + cutoff_text + " Les horaires, parcours et produits proposés peuvent évoluer : les documents de l’organisateur restent la référence."),
+            ("Préparer l’entraînement spécifique", f"Travaille les montées, les descentes et les sorties longues adaptées à {distance:.1f} km. Teste l’alimentation et le matériel sur un terrain proche du profil, plutôt que de les découvrir le jour de la course."),
+        ] + festival_sections,
+        "faq": [
+            (f"Comment préparer un plan de course pour {name} ?", "Utilise le profil, les tronçons et tes propres allures par pente. Ajoute un temps d’arrêt réaliste aux ravitaillements et garde une marge sur les portions longues ou techniques."),
+            ("Quelle allure viser en trail ?", "Ne cherche pas une allure unique au kilomètre. En montée, appuie-toi sur l’effort et la marche active ; sur le roulant, choisis une intensité durable ; en descente, privilégie la régularité et la sécurité."),
+            ("Comment gérer les ravitaillements ?", "Prépare pour chaque point ce que tu bois, manges et emportes pour le tronçon suivant. Les arrêts font partie du temps de course : mieux vaut les anticiper que les subir."),
+            ("Les horaires et barrières affichés sont-ils définitifs ?", "Non. Ils servent à organiser une préparation, mais l’organisateur doit toujours être consulté pour les informations officielles et les éventuelles mises à jour."),
+        ],
+    }
+
+
 @lru_cache(maxsize=32)
 def _seo_course_payload(course_id: str) -> dict | None:
     loaded = _load_official_course(course_id)
@@ -476,6 +566,7 @@ def _seo_course_payload(course_id: str) -> dict | None:
                     "distance_km": round(float(final_point["distance_km"]), 3),
                     "grade_percent": round(float(final_point.get("grade_percent") or 0), 1),
                 })
+    editorial = _seo_course_editorial(course, analysis)
     return {
         **course,
         "slug": _seo_course_slug(course_id),
@@ -485,6 +576,7 @@ def _seo_course_payload(course_id: str) -> dict | None:
         "aid_points": [point for point in points if point.get("type") in {"aid_station", "aid_station_assistance"}],
         "cutoff_points": [point for point in points if point.get("cutoff_label")],
         "analysis": analysis,
+        "editorial": editorial,
         "map_profile": map_profile,
     }
 
@@ -5273,6 +5365,19 @@ def _seo_page_context(request: Request, *, title: str, description: str, path: s
             },
         ],
     }
+    faq_items = extra.get("faq_items") or []
+    if faq_items:
+        schema["@graph"].append({
+            "@type": "FAQPage",
+            "mainEntity": [
+                {
+                    "@type": "Question",
+                    "name": str(question),
+                    "acceptedAnswer": {"@type": "Answer", "text": str(answer)},
+                }
+                for question, answer in faq_items
+            ],
+        })
     return {
         "request": request,
         "seo_title": title,
@@ -5349,8 +5454,8 @@ def seo_course_detail(request: Request, slug: str):
     if not course:
         raise HTTPException(status_code=404, detail="Course introuvable.")
     description = (
-        f"Préparer {course['name']} : profil GPX, {course.get('distance_km')} km, "
-        f"D+ {course.get('elevation_gain_m')} m, ravitaillements, barrières et stratégie d’allure trail."
+        f"Préparer {course['name']} : plan de course, profil GPX, allures selon la pente, "
+        f"heure de départ, ravitaillements et barrières horaires. {course.get('distance_km')} km · D+ {course.get('elevation_gain_m')} m."
     )
     related = [
         item for item in (_seo_course_payload(str(row["id"])) for row in _load_official_course_catalog())
@@ -5358,12 +5463,13 @@ def seo_course_detail(request: Request, slug: str):
     ][:3]
     return templates.TemplateResponse("seo_course.html", _seo_page_context(
         request,
-        title=f"{course['name']} : plan de course, profil et ravitaillements",
+        title=f"{course['name']} : plan de course, allures et ravitaillements",
         description=description,
         path=f"/courses/{course['slug']}",
         page_kind="course",
         course=course,
         course_id=course["id"],
+        faq_items=course["editorial"]["faq"],
         related_courses=related,
     ))
 

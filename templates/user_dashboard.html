@@ -1794,9 +1794,9 @@
       if (!courseSearchResults || !courseSearchInput) return;
       const query = normalizeCourseSearch(courseSearchInput.value.trim());
       const matches = officialCourses.filter((course) => {
-        const haystack = normalizeCourseSearch(`${course.name || ''} ${course.short_name || ''} ${course.id || ''}`);
+        const haystack = normalizeCourseSearch(`${course.name || ''} ${course.short_name || ''} ${course.event_name || ''} ${course.search_terms || ''} ${course.id || ''}`);
         return !query || haystack.includes(query);
-      }).filter((course) => course.route_available).slice(0, query ? 8 : 5);
+      }).filter((course) => course.route_available).slice(0, query ? 12 : 5);
       courseSearchResults.innerHTML = '';
       matches.forEach((course) => {
         const button = document.createElement('button');

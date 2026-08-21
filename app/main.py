@@ -250,6 +250,7 @@ def _load_official_course_catalog() -> list[dict]:
             route_file = os.path.basename(str(course.get("route_file") or ""))
             if not course_id or not route_file.lower().endswith(".gpx"):
                 continue
+            event_name = "Festival des Templiers" if course_id in TEMPLIERS_2026_DEPARTURES else ""
             courses.append(
                 {
                     "id": course_id,
@@ -260,6 +261,8 @@ def _load_official_course_catalog() -> list[dict]:
                     "elevation_loss_m": course.get("elevation_loss_m"),
                     "course_coefficient_percent": course.get("course_coefficient_percent", 100),
                     "course_pace_category": course.get("course_pace_category", ""),
+                    "event_name": event_name,
+                    "search_terms": event_name,
                     "route_available": os.path.isfile(os.path.join(OFFICIAL_COURSES_DIR, route_file)),
                     "points": course.get("points") or [],
                 }

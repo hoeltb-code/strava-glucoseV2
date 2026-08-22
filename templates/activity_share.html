@@ -944,13 +944,27 @@
       ctx.fillRect(0, 0, size.width, size.height);
     }
 
+    function exportSafeArea() {
+      // Instagram superpose ses actions sur le bord droit et son champ de
+      // réponse en bas des Stories. Les posts 4:5 conservent des marges plus
+      // équilibrées, sans rogner le contenu utile.
+      if (currentRatioKey === "story") return { left:72, right:156, top:72, bottom:250 };
+      return { left:72, right:72, top:58, bottom:68 };
+    }
+
+    function exportContentBox() {
+      const safe = exportSafeArea();
+      return { x:safe.left, y:safe.top, width:size.width - safe.left - safe.right, height:size.height - safe.top - safe.bottom, bottom:size.height - safe.bottom };
+    }
+
     function drawExportHeader(ctx, theme, subtitle) {
       const compact = size.height < 1600;
-      const x = 72; const y = compact ? 88 : 106;
+      const safe = exportSafeArea();
+      const x = safe.left; const y = safe.top + (compact ? 30 : 34);
       applyTextStyle(ctx, "700 26px Orbitron, sans-serif", theme.accent);
       ctx.fillText(subtitle.toUpperCase(), x, y);
       applyTextStyle(ctx, compact ? "700 50px Rajdhani, sans-serif" : "700 60px Rajdhani, sans-serif", "#fff");
-      drawWrappedText(ctx, storyData.activity_name || "Activité", x, y + 56, { maxWidth:900, lineHeight:54, maxLines:2 });
+      drawWrappedText(ctx, storyData.activity_name || "Activité", x, y + 56, { maxWidth:size.width - x - safe.right, lineHeight:54, maxLines:2 });
       applyTextStyle(ctx, "700 25px Rajdhani, sans-serif", "rgba(224,236,252,.8)");
       ctx.fillText(storyData.activity_date || "", x, y + (compact ? 118 : 130));
     }
@@ -960,7 +974,7 @@
     }
 
     function drawCompactMetricGrid(ctx, metrics, theme, y, maxRows = 2) {
-      const columns = 2; const x = 72; const gap = 16; const width = 936; const rowHeight = size.height < 1600 ? 104 : 124;
+      const columns = 2; const { x, width } = exportContentBox(); const gap = 16; const rowHeight = size.height < 1600 ? 104 : 124;
       metrics.slice(0, columns * maxRows).forEach((metric, index) => {
         const col = index % columns; const row = Math.floor(index / columns);
         const cardWidth = (width - gap) / columns;
@@ -1024,34 +1038,50 @@
     }
 
     function drawExportFooter(ctx) {
+      const { bottom } = exportContentBox();
       applyTextStyle(ctx, "700 21px Orbitron, sans-serif", "rgba(255,255,255,.72)", "center");
-      ctx.fillText("RUNNING DATA PLAN", size.width / 2, size.height - 44);
+      ctx.fillText("RUNNING DATA PLAN", size.width / 2, bottom - 16);
       ctx.textAlign = "start";
+    }
+
+    function drawGlucoseLegend(ctx, x, y) {
+      const items = [["#ff5b61", "<70"], ["#2fe08b", "70–180"], ["#f6cf46", ">180"]];
+      roundedRect(ctx, x, y, 312, 42, 18); ctx.fillStyle = "rgba(7,19,31,.82)"; ctx.fill();
+      items.forEach(([color, label], index) => {
+        const itemX = x + 16 + index * 98;
+        ctx.fillStyle = color; ctx.beginPath(); ctx.arc(itemX, y + 21, 6, 0, Math.PI * 2); ctx.fill();
+        applyTextStyle(ctx, "700 16px Rajdhani, sans-serif", "#fff"); ctx.fillText(label, itemX + 11, y + 27);
+      });
     }
 
     function drawSummaryExport(ctx, theme) {
       drawExportBackground(ctx, theme); drawExportHeader(ctx, theme, "Résumé activité");
-      drawCompactMetricGrid(ctx, shareMetricList(["distance", "duration", "effort", "dplus", "fcAvg"]), theme, size.height < 1600 ? 220 : 260, 3);
+      const box = exportContentBox(); const metricsY = size.height < 1600 ? 220 : 260;
+      drawCompactMetricGrid(ctx, shareMetricList(["distance", "duration", "effort", "dplus", "fcAvg"]), theme, metricsY, 3);
       const routeY = size.height < 1600 ? 620 : 760;
-      drawRouteExport(ctx, theme, { x:72, y:routeY, width:936, height:size.height - routeY - 110 }, false);
+      drawRouteExport(ctx, theme, { x:box.x, y:routeY, width:box.width, height:box.bottom - routeY - 52 }, false);
       drawExportFooter(ctx);
     }
 
     function drawProfileExport(ctx, theme) {
       drawExportBackground(ctx, theme); drawExportHeader(ctx, theme, "Profil trail");
+      const box = exportContentBox();
       drawCompactMetricGrid(ctx, shareMetricList(["distance", "dplus", "duration", "effort"]), theme, size.height < 1600 ? 220 : 260, 2);
       const profileY = size.height < 1600 ? 510 : 620;
-      roundedRect(ctx, 72, profileY, 936, size.height - profileY - 110, 30); ctx.fillStyle = "rgba(255,255,255,.055)"; ctx.fill();
-      drawMiniProfileExport(ctx, theme, { x:112, y:profileY + 80, width:856, height:size.height - profileY - 230 });
+      roundedRect(ctx, box.x, profileY, box.width, box.bottom - profileY - 52, 30); ctx.fillStyle = "rgba(255,255,255,.055)"; ctx.fill();
+      drawMiniProfileExport(ctx, theme, { x:box.x + 40, y:profileY + 80, width:box.width - 80, height:box.bottom - profileY - 172 });
       drawExportFooter(ctx);
     }
 
     function drawRouteMapExport(ctx, theme, glucoseMode) {
       drawExportBackground(ctx, theme); drawExportHeader(ctx, theme, glucoseMode && storyData.has_glucose ? "Carte & glycémie" : "Carte parcours");
+      const box = exportContentBox();
       const metrics = glucoseMode && storyData.has_glucose ? shareMetricList(["distance", "duration", "tir", "glyAvg"]) : shareMetricList(["distance", "duration", "effort", "dplus"]);
       drawCompactMetricGrid(ctx, metrics, theme, size.height < 1600 ? 220 : 260, 2);
       const mapY = size.height < 1600 ? 510 : 620;
-      drawRouteExport(ctx, theme, { x:72, y:mapY, width:936, height:size.height - mapY - 110 }, glucoseMode && storyData.has_glucose);
+      const mapBox = { x:box.x, y:mapY, width:box.width, height:box.bottom - mapY - 52 };
+      drawRouteExport(ctx, theme, mapBox, glucoseMode && storyData.has_glucose);
+      if (glucoseMode && storyData.has_glucose) drawGlucoseLegend(ctx, mapBox.x + 24, mapBox.y + mapBox.height - 62);
       drawExportFooter(ctx);
     }
 

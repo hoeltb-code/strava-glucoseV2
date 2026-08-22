@@ -246,6 +246,26 @@
   .profile-pacing-curve .curve-point { fill:#fff; stroke:var(--accent); stroke-width:2.5; }
   .profile-pacing-curve .cohort-band { fill:rgba(78, 91, 108, .18); stroke:#718092; stroke-width:1.3; stroke-dasharray:5 4; stroke-linejoin:round; }
   .profile-pacing-curve .cohort-median { fill:none; stroke:#5e6874; stroke-width:1.5; stroke-dasharray:5 4; stroke-linejoin:round; }
+  .target-pacing-card { margin-top:16px; padding:16px; border:1px solid #dfdad0; border-top:4px solid var(--accent); border-radius:14px; background:#fff; }
+  .target-pacing-card h3 { margin:0; color:var(--text-main); font-size:1rem; }
+  .target-pacing-card > p { margin:5px 0 0; color:var(--text-muted); font-size:.8rem; line-height:1.45; }
+  .target-pacing-summary { display:flex; flex-wrap:wrap; gap:7px; margin:12px 0 2px; }
+  .target-pacing-summary span { padding:6px 8px; border:1px solid #dfdad0; border-radius:999px; background:#fbfaf7; color:var(--text-main); font-size:.72rem; }
+  .target-pacing-summary strong { color:var(--accent-dark); }
+  .target-pacing-card .profile-pacing-curve { margin-top:12px; }
+  .target-pacing-explanation { margin-top:10px !important; }
+  .terrain-pace-overview { margin-top:16px; padding:16px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
+  .terrain-pace-overview h3 { margin:0; color:var(--text-main); font-size:1rem; }
+  .terrain-pace-overview > p { margin:5px 0 12px; color:var(--text-muted); font-size:.8rem; line-height:1.45; }
+  .terrain-pace-profile { overflow:hidden; border:1px solid #e4dfd6; border-radius:11px 11px 0 0; background:#fbfaf7; }
+  .terrain-pace-profile svg { display:block; width:100%; height:112px; }
+  .terrain-pace-columns { display:flex; align-items:stretch; min-width:max-content; border:1px solid #e4dfd6; border-top:0; border-radius:0 0 11px 11px; overflow:hidden; background:#fff; }
+  .terrain-pace-scroll { overflow-x:auto; padding-bottom:2px; }
+  .terrain-pace-column { min-width:98px; padding:9px 8px; border-right:1px solid #e8e2d9; background:#fff; }
+  .terrain-pace-column:last-child { border-right:0; }
+  .terrain-pace-column.is-descent { border-top:3px solid #5bb9e6; }.terrain-pace-column.is-flat { border-top:3px solid #dfe68d; }.terrain-pace-column.is-climb { border-top:3px solid #f4c446; }.terrain-pace-column.is-steep { border-top:3px solid #e94c34; }
+  .terrain-pace-column small { display:block; color:var(--text-muted); font-size:.65rem; line-height:1.3; }.terrain-pace-column strong { display:block; margin:5px 0 3px; color:var(--text-main); font-family:"DM Mono",monospace; font-size:.86rem; letter-spacing:-.04em; }.terrain-pace-column span { display:block; color:var(--accent-dark); font-size:.68rem; font-weight:700; }
+  .terrain-pace-note { margin:10px 0 0 !important; font-size:.74rem !important; }
   .cohort-reference-legend { display:flex; align-items:flex-start; gap:7px; margin:0 10px 10px; color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.7rem; line-height:1.4; }
   .cohort-reference-legend i { display:inline-block; flex:0 0 auto; width:18px; height:9px; margin-top:4px; border:1px dashed #718092; border-radius:2px; background:rgba(78,91,108,.18); }
   .cohort-reference-legend b { color:#5e6874; font-weight:700; }
@@ -793,7 +813,9 @@
     </section>
     <div class="course-profile-preview" id="home-course-profile-preview" hidden></div>
     <div id="home-custom-segment-explorer" hidden></div>
+    <div id="home-target-pacing-curve" hidden></div>
     <section class="race-settings" id="home-race-settings" hidden aria-label="Départ et ravitos"></section>
+    <div id="home-terrain-pace-overview" hidden></div>
     <div class="plan-thinking-modal" id="home-plan-thinking-modal" hidden role="status" aria-live="assertive" aria-label="Préparation de ton plan">
       <div class="plan-thinking-card">
         <p class="plan-thinking-kicker"><i></i> Préparation en cours</p>
@@ -913,6 +935,7 @@
     const result = document.getElementById('home-projection-result');
     const courseProfilePreview = document.getElementById('home-course-profile-preview');
     const raceSettings = document.getElementById('home-race-settings');
+    const terrainPaceOverviewHost = document.getElementById('home-terrain-pace-overview');
     const generatePlanButton = document.getElementById('home-generate-plan');
     const planReadyCard = document.getElementById('home-plan-ready-card');
     const planRecap = document.getElementById('home-plan-recap');
@@ -923,6 +946,7 @@
     const planThinkingStream = document.getElementById('home-plan-thinking-stream');
     const planThinkingProfile = document.getElementById('home-plan-thinking-profile');
     const customSegmentExplorerHost = document.getElementById('home-custom-segment-explorer');
+    const targetPacingCurveHost = document.getElementById('home-target-pacing-curve');
     let customCourseMode = {{ custom_course_mode | default(false) | tojson }};
     const planPaymentPilotEnabled = {{ plan_payment_test_enabled | default(false) | tojson }};
     const planCredits = Number({{ plan_credits | default(0) | tojson }});
@@ -1494,6 +1518,124 @@
           return `<div class="profile-pacing-live-row"><span class="profile-pacing-live-cell" data-label="Pente">${slopeLabels[point.slopeId]}</span><span class="profile-pacing-live-cell" data-label="Allure">${formatPace(point.pace)}</span><span class="profile-pacing-live-cell" data-label="VAM">${vam ? `${vam > 0 ? '+' : '−'}${Math.abs(vam)} m/h` : '—'}</span></div>`;
         }).join('');
       }
+    }
+
+    function renderTargetPacingCurve({ zone, courseDifficulty, movingSeconds, stopSeconds }) {
+      if (!targetPacingCurveHost) return;
+      if (!isTargetTimeMode()) {
+        targetPacingCurveHost.hidden = true;
+        targetPacingCurveHost.innerHTML = '';
+        return;
+      }
+      const multiplier = Math.max(.05, Number(targetPaceMultiplier) || 1);
+      const manual = manualProfileIsActive();
+      const points = slopeIds.map((slopeId) => {
+        const projected = projectedPaceForSlope(slopeId, zone);
+        const basePace = manual ? manualPaceForSlope(slopeId) : projected.pace;
+        const coursePace = paceWithCourseDifficulty(basePace, courseDifficulty);
+        return { slopeId, x:slopeCenters[slopeId], pace:coursePace * multiplier };
+      }).filter((point) => Number.isFinite(point.x) && point.pace > 0).sort((a, b) => a.x - b.x);
+      if (!points.length) return;
+
+      const width = 680; const height = 220; const pad = { left:52, right:16, top:18, bottom:36 };
+      const yMin = 120; const yMax = 7200;
+      const xScale = (x) => pad.left + ((x + 45) / 90) * (width - pad.left - pad.right);
+      const yScale = (pace) => {
+        const bounded = Math.max(yMin, Math.min(yMax, pace));
+        return pad.top + ((Math.log(bounded) - Math.log(yMin)) / (Math.log(yMax) - Math.log(yMin))) * (height - pad.top - pad.bottom);
+      };
+      const path = points.map((point, index) => `${index ? 'L' : 'M'} ${xScale(point.x).toFixed(1)} ${yScale(point.pace).toFixed(1)}`).join(' ');
+      const xTicks = [-40, -20, 0, 20, 40];
+      const yTicks = [120, 180, 300, 600, 1200, 2400, 4800, 7200];
+      const grid = [
+        ...xTicks.map((tick) => `<line class="curve-grid" x1="${xScale(tick)}" y1="${pad.top}" x2="${xScale(tick)}" y2="${height - pad.bottom}"/><text class="curve-axis-label" x="${xScale(tick)}" y="${height - 12}" text-anchor="middle">${tick > 0 ? '+' : ''}${tick}%</text>`),
+        ...yTicks.map((tick) => `<line class="curve-grid" x1="${pad.left}" y1="${yScale(tick)}" x2="${width - pad.right}" y2="${yScale(tick)}"/><text class="curve-axis-label" x="${pad.left - 7}" y="${yScale(tick) + 4}" text-anchor="end">${formatPace(tick).replace(' /km', '')}</text>`),
+      ].join('');
+      const dots = points.map((point) => `<circle class="curve-point" cx="${xScale(point.x)}" cy="${yScale(point.pace)}" r="3"><title>${slopeLabels[point.slopeId]} · ${formatPace(point.pace)}</title></circle>`).join('');
+      const targetSeconds = requestedTargetSeconds();
+      targetPacingCurveHost.hidden = false;
+      targetPacingCurveHost.innerHTML = `<section class="target-pacing-card" aria-label="Allures retenues pour le chrono cible"><h3>Allures retenues pour le chrono cible</h3><p>Cette courbe est appliquée aux pentes du parcours pour calculer le chrono de chaque tronçon.</p><div class="target-pacing-summary"><span>Objectif total <strong>${formatDuration(targetSeconds || movingSeconds + stopSeconds)}</strong></span><span>En mouvement <strong>${formatDuration(movingSeconds)}</strong></span><span>Ravitos <strong>${formatDuration(stopSeconds)}</strong></span></div><div class="profile-pacing-curve" role="img" aria-label="Allures retenues selon la pente pour atteindre le chrono cible"><svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">${grid}<path class="curve-line" d="${path}"/>${dots}<text class="curve-axis-label" x="${width / 2}" y="${height - 1}" text-anchor="middle">Pente</text><text class="curve-axis-label" x="12" y="${height / 2}" transform="rotate(-90 12 ${height / 2})" text-anchor="middle">Allure</text></svg></div><p class="target-pacing-explanation">Si tu augmentes les pauses aux ravitos, le temps en mouvement se réduit et toute la courbe s’ajuste pour conserver le chrono total visé.</p></section>`;
+    }
+
+    function terrainPaceKind(grade) {
+      if (grade <= -8) return 'descent';
+      if (grade < 5) return 'flat';
+      if (grade < 15) return 'climb';
+      return 'steep';
+    }
+
+    function terrainPaceColor(kind) {
+      return ({ descent:'#5bb9e6', flat:'#dfe68d', climb:'#f4c446', steep:'#e94c34' })[kind] || '#dfe68d';
+    }
+
+    function buildTerrainPaceSegments(rows) {
+      let previousKm = 0;
+      const segments = [];
+      (rows || []).forEach((row) => {
+        const toKm = Number(row.cumulativeKm || 0);
+        const fromKm = previousKm;
+        previousKm = toKm;
+        const distance = Math.max(0, toKm - fromKm);
+        if (!(distance > 0)) return;
+        const slopeParts = row.slopeDistribution || [];
+        const weightedGrade = slopeParts.reduce((sum, part) => sum + (slopeCenters[part.slope_id] || 0) * Number(part.distance_km || 0), 0);
+        const slopeDistance = slopeParts.reduce((sum, part) => sum + Number(part.distance_km || 0), 0);
+        const grade = slopeDistance > 0 ? weightedGrade / slopeDistance : 0;
+        const kind = terrainPaceKind(grade);
+        const current = segments[segments.length - 1];
+        const canJoin = current
+          && current.kind === kind
+          && Math.abs(current.averageGrade - grade) <= 6
+          && current.distance < 8;
+        if (canJoin) {
+          const nextDistance = current.distance + distance;
+          current.toKm = toKm;
+          current.seconds += Number(row.seconds || 0);
+          current.gain += Number(row.gain || 0);
+          current.loss += Number(row.loss || 0);
+          current.averageGrade = ((current.averageGrade * current.distance) + (grade * distance)) / nextDistance;
+          current.distance = nextDistance;
+          return;
+        }
+        segments.push({
+          fromKm, toKm, distance, seconds:Number(row.seconds || 0), gain:Number(row.gain || 0), loss:Number(row.loss || 0), averageGrade:grade, kind,
+        });
+      });
+      return segments;
+    }
+
+    function renderTerrainPaceOverview(profile, rows) {
+      if (!terrainPaceOverviewHost) return;
+      const segments = buildTerrainPaceSegments(rows);
+      if (!segments.length || !Array.isArray(profile) || profile.length < 2) {
+        terrainPaceOverviewHost.hidden = true;
+        terrainPaceOverviewHost.innerHTML = '';
+        return;
+      }
+      const width = 900; const height = 112; const padding = 12;
+      const maxKm = Math.max(...segments.map((segment) => segment.toKm), .1);
+      const elevations = profile.map((point) => Number(point.elevation_m)).filter(Number.isFinite);
+      const minElevation = Math.min(...elevations); const maxElevation = Math.max(...elevations);
+      const elevationRange = Math.max(1, maxElevation - minElevation);
+      const xScale = (km) => padding + (Math.max(0, Math.min(maxKm, km)) / maxKm) * (width - padding * 2);
+      const yScale = (elevation) => 8 + ((maxElevation - elevation) / elevationRange) * (height - 28);
+      const profilePoints = profile.filter((point) => Number.isFinite(Number(point.distance_km)) && Number.isFinite(Number(point.elevation_m)));
+      const outline = profilePoints.map((point, index) => `${index ? 'L' : 'M'} ${xScale(Number(point.distance_km)).toFixed(1)} ${yScale(Number(point.elevation_m)).toFixed(1)}`).join(' ');
+      const area = `${outline} L ${xScale(maxKm).toFixed(1)} ${height - 16} L ${xScale(0).toFixed(1)} ${height - 16} Z`;
+      const segmentLines = segments.map((segment) => {
+        const points = profilePoints.filter((point) => Number(point.distance_km) >= segment.fromKm && Number(point.distance_km) <= segment.toKm);
+        const line = points.map((point, index) => `${index ? 'L' : 'M'} ${xScale(Number(point.distance_km)).toFixed(1)} ${yScale(Number(point.elevation_m)).toFixed(1)}`).join(' ');
+        return line ? `<path d="${line}" fill="none" stroke="${terrainPaceColor(segment.kind)}" stroke-width="4" stroke-linecap="round"/>` : '';
+      }).join('');
+      const markers = segments.slice(0, -1).map((segment) => `<line x1="${xScale(segment.toKm).toFixed(1)}" y1="8" x2="${xScale(segment.toKm).toFixed(1)}" y2="${height - 16}" stroke="#fff" stroke-opacity=".75" stroke-width="1"/>`).join('');
+      const columns = segments.map((segment) => {
+        const pace = segment.seconds / Math.max(.01, segment.distance);
+        const grade = `${segment.averageGrade >= 0 ? '+' : ''}${Math.round(segment.averageGrade)} %`;
+        return `<article class="terrain-pace-column is-${segment.kind}" style="flex:${Math.max(1, segment.distance).toFixed(2)} 0 98px"><small>km ${segment.fromKm.toFixed(1)} → ${segment.toKm.toFixed(1)} · ${grade}</small><strong>${formatPace(pace)}</strong><span>${segment.distance.toFixed(1)} km · D+ ${Math.round(segment.gain)} m</span></article>`;
+      }).join('');
+      const targetNote = isTargetTimeMode() ? 'Ces allures intègrent ton chrono cible et les pauses renseignées aux ravitos.' : 'Ces allures découlent de ta base d’allures et du relief de la course.';
+      terrainPaceOverviewHost.hidden = false;
+      terrainPaceOverviewHost.innerHTML = `<section class="terrain-pace-overview" aria-label="Allures par portions homogènes"><h3>Allures sur le parcours</h3><p>Chaque colonne regroupe une portion où la pente reste comparable. Sa largeur représente la distance : tu lis ainsi l’allure réellement retenue, sans découpage artificiel.</p><div class="terrain-pace-profile"><svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="Profil de la course découpé en portions homogènes"><path d="${area}" fill="#f2eee6"/><path d="${outline}" fill="none" stroke="#a9a298" stroke-width="2"/>${segmentLines}${markers}<text x="${padding}" y="${height - 2}" fill="#77746d" font-size="10">0 km</text><text x="${width - padding - 42}" y="${height - 2}" fill="#77746d" font-size="10">${maxKm.toFixed(1)} km</text></svg></div><div class="terrain-pace-scroll"><div class="terrain-pace-columns">${columns}</div></div><p class="terrain-pace-note">${targetNote}</p></section>`;
     }
 
     function renderAidStations() {
@@ -2482,6 +2624,14 @@
         customSegmentExplorerHost.hidden = true;
         customSegmentExplorerHost.innerHTML = '';
       }
+      if (targetPacingCurveHost) {
+        targetPacingCurveHost.hidden = true;
+        targetPacingCurveHost.innerHTML = '';
+      }
+      if (terrainPaceOverviewHost) {
+        terrainPaceOverviewHost.hidden = true;
+        terrainPaceOverviewHost.innerHTML = '';
+      }
       const file = fileInput.files && fileInput.files[0];
       const courseId = officialCourseInput.value;
       if (!courseId && !file) {
@@ -2548,6 +2698,7 @@
             seconds: segmentSeconds,
             gain: Number(segment.elevation_gain_m || 0),
             loss: Number(segment.elevation_loss_m || 0),
+            slopeDistribution: segment.slope_distribution || [],
           });
         });
         movingSeconds = applyRacePacingProgression(projectedRows, data.total_distance_km);
@@ -2626,6 +2777,12 @@
           segmentPicker.addEventListener('change', renderSelectedCourseSegment);
           renderSelectedCourseSegment();
         }
+        renderTargetPacingCurve({
+          zone,
+          courseDifficulty: simulationCoefficientPercent,
+          movingSeconds,
+          stopSeconds,
+        });
         const totalSeconds = movingSeconds + stopSeconds;
         const stopDetail = stopSeconds ? ` · ${formatDuration(stopSeconds)} de ravito` : '';
         const manualCourseName = manualCourseNameInput.value.trim() || 'Ma trace GPX';
@@ -2989,7 +3146,9 @@
         });
         refreshProjectionSummary();
         renderRaceSettings();
-        if (raceSettings) raceSettings.after(result);
+        renderTerrainPaceOverview(data.elevation_profile, projectedRows);
+        if (raceSettings && terrainPaceOverviewHost) raceSettings.after(terrainPaceOverviewHost);
+        if (terrainPaceOverviewHost) terrainPaceOverviewHost.after(result);
         scheduleCoursePlanSave({
           distance_km: Number(data.total_distance_km || 0), elevation_gain_m: Math.round(gain), elevation_loss_m: Math.round(loss),
           moving_seconds: Math.round(movingSeconds), total_seconds: Math.round(movingSeconds + aidStations.reduce((sum, point) => sum + point.stopSeconds, 0)),
@@ -3023,6 +3182,7 @@
               seconds: segmentSeconds,
               gain: Number(segment.elevation_gain_m || 0),
               loss: Number(segment.elevation_loss_m || 0),
+              slopeDistribution: segment.slope_distribution || [],
             });
           });
           nextMovingSeconds = applyRacePacingProgression(nextRows, data.total_distance_km);
@@ -3041,8 +3201,15 @@
           nutrition = nutritionPlan(movingSeconds, Number(weightInput.value), Number(data.total_distance_km || 0), gain, activeZone, nutritionPreferences());
           syncNutritionControls(nutrition);
           terrainNutritionWindows = buildTerrainNutritionWindows(projectedRows, aidStations, nutrition);
+          renderTargetPacingCurve({
+            zone: activeZone,
+            courseDifficulty: simulationCoefficientPercent,
+            movingSeconds,
+            stopSeconds: nextStopSeconds,
+          });
           refreshProjectionSummary();
           renderRaceSettings();
+          renderTerrainPaceOverview(data.elevation_profile, projectedRows);
           renderTimeline();
           renderFuelingSchedule();
           renderDistanceSplitPlanner(distanceSplitPlannerHost, projectedRows, aidStations);

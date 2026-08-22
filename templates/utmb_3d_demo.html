@@ -75,6 +75,9 @@
   const route = {{ course.map_profile_3d|default(course.map_profile)|tojson }};
   const coursePoints = {{ course.points|tojson }};
   const courseName = {{ course.name|tojson }};
+  const courseEventName = {{ course.video_event_name|default('Running Data Plan')|tojson }};
+  const courseElevationGain = {{ course.elevation_gain_m|default(0)|tojson }};
+  const courseElevationLoss = {{ course.elevation_loss_m|default(0)|tojson }};
   const apiKey = {{ maptiler_api_key|tojson }};
   const status = document.getElementById('utmb-3d-status');
   const videoMapContainer = document.getElementById('utmb-3d-map');
@@ -371,39 +374,27 @@
     const context = videoHud.getContext('2d');
     context.clearRect(0, 0, width, height);
     const inset = 16 * scale;
-    const infoX = inset + 25 * scale;
-    const infoY = 63 * scale;
+    const infoX = inset + 22 * scale;
+    const infoY = 78 * scale;
     const infoWidth = width - infoX - inset;
-    const infoHeight = 168 * scale;
-    const totalPoint = route[route.length - 1];
-    drawHudPanel(context, infoX, infoY, infoWidth, infoHeight, 8 * scale, { border:false, fill:'rgba(0,0,0,.30)' });
-    context.fillStyle = '#fff'; context.textAlign = 'left'; context.textBaseline = 'middle';
-    context.font = `700 ${26 * scale}px Manrope, sans-serif`;
-    context.fillText(courseName, infoX + 16 * scale, infoY + 23 * scale);
-    context.fillStyle = '#e6e6e6'; context.font = `700 ${15 * scale}px "DM Mono", monospace`;
-    context.fillText(`${Number(totalPoint.distance_km || 0).toFixed(1)} KM  ·  D+ ${Math.round(Number(totalPoint.elevation_gain_cumulative_m || 0))} M`, infoX + 16 * scale, infoY + 49 * scale);
-
-    const elevations = route.map((item) => Number(item.elevation_m || 0));
-    const minElevation = Math.min(...elevations); const maxElevation = Math.max(...elevations);
-    const chartX = infoX + 16 * scale; const chartY = infoY + 82 * scale;
-    const chartWidth = infoWidth - 32 * scale; const chartHeight = 48 * scale;
-    context.beginPath();
-    const step = Math.max(1, Math.ceil(route.length / 120));
-    for (let index = 0; index < route.length; index += step) {
-      const point = route[index]; const ratio = index / Math.max(1, route.length - 1);
-      const elevationRatio = (Number(point.elevation_m || 0) - minElevation) / Math.max(1, maxElevation - minElevation);
-      const x = chartX + ratio * chartWidth; const y = chartY + (1 - elevationRatio) * chartHeight;
-      if (index === 0) context.moveTo(x, y); else context.lineTo(x, y);
+    const infoHeight = 110 * scale;
+    drawHudPanel(context, infoX, infoY, infoWidth, infoHeight, 7 * scale, { border:false, fill:'rgba(0,0,0,.30)' });
+    const textX = infoX + 16 * scale;
+    const title = String(courseName || '').replace(/\s+20\d{2}\s*$/, '').toUpperCase();
+    context.textAlign = 'left'; context.textBaseline = 'middle';
+    let titleSize = 30 * scale;
+    context.font = `800 ${titleSize}px Manrope, sans-serif`;
+    while (context.measureText(title).width > infoWidth - 32 * scale && titleSize > 20 * scale) {
+      titleSize -= scale;
+      context.font = `800 ${titleSize}px Manrope, sans-serif`;
     }
-    context.strokeStyle = '#fff'; context.lineWidth = 1.8 * scale; context.stroke();
-    const progressRatio = clamp(hudRouteIndex / Math.max(1, route.length - 1), 0, 1);
-    const activeElevation = Number(route[Math.round(hudRouteIndex)].elevation_m || 0);
-    const markerX = chartX + progressRatio * chartWidth;
-    const markerY = chartY + (1 - ((activeElevation - minElevation) / Math.max(1, maxElevation - minElevation))) * chartHeight;
-    context.beginPath(); context.arc(markerX, markerY, 3.5 * scale, 0, Math.PI * 2); context.fillStyle = '#f6c547'; context.fill(); context.strokeStyle = '#17221c'; context.lineWidth = 1.4 * scale; context.stroke();
-    const profilePoint = dataAt(hudRouteIndex);
-    context.fillStyle = '#fff'; context.font = `700 ${14 * scale}px "DM Mono", monospace`; context.textAlign = 'center'; context.textBaseline = 'middle';
-    context.fillText(`KM ${profilePoint.distance_km.toFixed(1)}  ·  D+ ${Math.round(profilePoint.elevation_gain_cumulative_m)} m`, infoX + infoWidth / 2, infoY + infoHeight - 17 * scale);
+    context.lineJoin = 'round'; context.lineWidth = 2.4 * scale;
+    context.strokeStyle = '#fff'; context.strokeText(title, textX, infoY + 28 * scale);
+    context.fillStyle = '#ffbd59'; context.fillText(title, textX, infoY + 28 * scale);
+    context.fillStyle = '#fff'; context.font = `800 ${20 * scale}px Manrope, sans-serif`;
+    context.fillText(String(courseEventName || '').toUpperCase(), textX, infoY + 57 * scale);
+    context.fillStyle = '#f3f3f3'; context.font = `700 ${16 * scale}px "DM Mono", monospace`;
+    context.fillText(`D+ ${Math.round(Number(courseElevationGain || 0)).toLocaleString('fr-FR')} M  ·  D− ${Math.round(Number(courseElevationLoss || 0)).toLocaleString('fr-FR')} M`, textX, infoY + 84 * scale);
 
     const screenPoint = C.SceneTransforms.wgs84ToWindowCoordinates(viewer.scene, positionAt(hudRouteIndex));
     if (!screenPoint) return;

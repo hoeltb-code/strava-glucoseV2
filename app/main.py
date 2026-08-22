@@ -440,6 +440,20 @@ TEMPLIERS_2026_DEPARTURES = {
 }
 
 
+def _course_event_name(course_id: str) -> str:
+    """Nom court de l'événement utilisé dans les habillages de parcours."""
+    normalized_id = str(course_id or "").strip().lower()
+    if normalized_id in TEMPLIERS_2026_DEPARTURES:
+        return "Festival des Templiers"
+    if normalized_id.startswith("grp-"):
+        return "Grand Raid des Pyrénées"
+    if normalized_id in {"diagonale-des-fous-2026", "trail-de-bourbon-2026"}:
+        return "Grand Raid de la Réunion"
+    if normalized_id in {"utmb-2026", "ccc-2026", "occ-2026", "tds-2026", "mcc-2026", "etc-2026"}:
+        return "UTMB Mont-Blanc"
+    return "Running Data Plan"
+
+
 def _seo_course_editorial(course: dict, analysis: dict) -> dict:
     """Build useful, course-specific editorial copy from the local route data."""
     name = str(course.get("name") or "ce trail")
@@ -576,6 +590,7 @@ def _seo_course_payload(course_id: str) -> dict | None:
     editorial = _seo_course_editorial(course, analysis)
     return {
         **course,
+        "video_event_name": _course_event_name(str(course.get("id") or course_id)),
         "slug": _seo_course_slug(course_id),
         "gpx_distance_km": round(float(gpx_distance_m or 0) / 1000, 1) if gpx_distance_m else None,
         "profile_svg": _seo_elevation_svg(profile),

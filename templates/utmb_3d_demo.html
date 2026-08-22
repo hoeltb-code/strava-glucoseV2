@@ -294,9 +294,9 @@
     drawRoundedRectangle(context, 2, 2, 336, 80, 5);
     context.fillStyle = 'rgba(0,0,0,.50)'; context.fill();
     context.strokeStyle = '#ff5a36'; context.lineWidth = 2; context.stroke();
-    context.fillStyle = '#ffffff'; context.font = '700 17px sans-serif';
+    context.fillStyle = '#ffffff'; context.font = '700 21px sans-serif';
     context.fillText(String(item.name || 'Point de passage').slice(0, 23), 16, 33);
-    context.fillStyle = '#ffd3c6'; context.font = '700 14px sans-serif';
+    context.fillStyle = '#ffd3c6'; context.font = '700 18px sans-serif';
     context.fillText(`KM ${Number(item.km || 0).toFixed(1)}  ·  D+ ${Math.round(Number(routePoint.elevation_gain_cumulative_m || 0))} m`, 16, 63);
     return canvas;
   };
@@ -362,14 +362,15 @@
     const context = videoHud.getContext('2d');
     context.clearRect(0, 0, width, height);
     const inset = 16 * scale;
-    const titleTopInset = 38 * scale;
-    const topInset = 76 * scale;
+    const titleLeftInset = inset + 25 * scale;
+    const titleTopInset = 63 * scale;
+    const topInset = 101 * scale;
     const totalPoint = route[route.length - 1];
     context.fillStyle = '#fff'; context.textAlign = 'left'; context.textBaseline = 'middle';
-    context.font = `700 ${22 * scale}px sans-serif`;
-    context.fillText(courseName, inset, titleTopInset + 11 * scale);
-    context.fillStyle = '#e6e6e6'; context.font = `700 ${11 * scale}px sans-serif`;
-    context.fillText(`${Number(totalPoint.distance_km || 0).toFixed(1)} KM  ·  D+ ${Math.round(Number(totalPoint.elevation_gain_cumulative_m || 0))} M`, inset, titleTopInset + 34 * scale);
+    context.font = `700 ${26 * scale}px sans-serif`;
+    context.fillText(courseName, titleLeftInset, titleTopInset + 11 * scale);
+    context.fillStyle = '#e6e6e6'; context.font = `700 ${15 * scale}px sans-serif`;
+    context.fillText(`${Number(totalPoint.distance_km || 0).toFixed(1)} KM  ·  D+ ${Math.round(Number(totalPoint.elevation_gain_cumulative_m || 0))} M`, titleLeftInset, titleTopInset + 34 * scale);
 
     const profileWidth = Math.min(300 * scale, width - inset * 2);
     const profileHeight = 94 * scale;
@@ -380,7 +381,7 @@
     const minElevation = Math.min(...elevations); const maxElevation = Math.max(...elevations);
     const chartX = profileX + 10 * scale; const chartY = profileY + 22 * scale;
     const chartWidth = profileWidth - 20 * scale; const chartHeight = profileHeight - 45 * scale;
-    context.fillStyle = '#f1f1f1'; context.font = `700 ${9 * scale}px sans-serif`; context.textAlign = 'left'; context.textBaseline = 'middle';
+    context.fillStyle = '#f1f1f1'; context.font = `700 ${13 * scale}px sans-serif`; context.textAlign = 'left'; context.textBaseline = 'middle';
     context.fillText('PROFIL GPX', chartX, profileY + 11 * scale);
     context.beginPath();
     const step = Math.max(1, Math.ceil(route.length / 120));
@@ -395,9 +396,9 @@
     const activeElevation = Number(route[Math.round(hudRouteIndex)].elevation_m || 0);
     const markerX = chartX + progressRatio * chartWidth;
     const markerY = chartY + (1 - ((activeElevation - minElevation) / Math.max(1, maxElevation - minElevation))) * chartHeight;
-    context.beginPath(); context.arc(markerX, markerY, 3.5 * scale, 0, Math.PI * 2); context.fillStyle = '#fff'; context.fill(); context.strokeStyle = '#17221c'; context.lineWidth = 1.4 * scale; context.stroke();
+    context.beginPath(); context.arc(markerX, markerY, 3.5 * scale, 0, Math.PI * 2); context.fillStyle = '#f6c547'; context.fill(); context.strokeStyle = '#17221c'; context.lineWidth = 1.4 * scale; context.stroke();
     const profilePoint = dataAt(hudRouteIndex);
-    context.fillStyle = '#fff'; context.font = `700 ${10 * scale}px sans-serif`; context.textAlign = 'center'; context.textBaseline = 'middle';
+    context.fillStyle = '#fff'; context.font = `700 ${14 * scale}px sans-serif`; context.textAlign = 'center'; context.textBaseline = 'middle';
     context.fillText(`KM ${profilePoint.distance_km.toFixed(1)}  ·  D+ ${Math.round(profilePoint.elevation_gain_cumulative_m)} m`, profileX + profileWidth / 2, profileY + profileHeight - 12 * scale);
 
     const screenPoint = C.SceneTransforms.wgs84ToWindowCoordinates(viewer.scene, positionAt(hudRouteIndex));
@@ -412,9 +413,9 @@
       const cardY = clamp(pointY - 145 * scale, profileY + profileHeight + 12 * scale, height - inset - cardHeight);
       context.beginPath(); context.moveTo(pointX, pointY - 8 * scale); context.lineTo(cardX + cardWidth / 2, cardY + cardHeight); context.strokeStyle = '#fff'; context.lineWidth = 1.35 * scale; context.stroke();
       drawHudPanel(context, cardX, cardY, cardWidth, cardHeight, 5 * scale, { fill:'rgba(9,14,12,.84)', stroke:'#f6c547' });
-      context.fillStyle = '#fff'; context.font = `700 ${15 * scale}px sans-serif`; context.textAlign = 'center'; context.textBaseline = 'middle';
+      context.fillStyle = '#fff'; context.font = `700 ${23 * scale}px sans-serif`; context.textAlign = 'center'; context.textBaseline = 'middle';
       context.fillText(String(poi.name || 'Point de passage').slice(0, 28), cardX + cardWidth / 2, cardY + 25 * scale);
-      context.fillStyle = '#ffd3c6'; context.font = `700 ${12 * scale}px sans-serif`;
+      context.fillStyle = '#f6c547'; context.font = `700 ${16 * scale}px sans-serif`;
       context.fillText(`KM ${Number(poi.km || point.distance_km).toFixed(1)}  ·  D+ ${Math.round(point.elevation_gain_cumulative_m)} m`, cardX + cardWidth / 2, cardY + 51 * scale);
     }
   };

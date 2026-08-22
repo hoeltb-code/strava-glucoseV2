@@ -248,19 +248,19 @@
       <div class="share-caption">Trace avec départ, arrivée et lecture du dénivelé.</div>
     </article>
 
-    <article class="share-card">
+    {% if story_export_data.has_glucose %}<article class="share-card">
       <div class="share-card-top">
         <div>
-          <h3>Carte & glycémie</h3>
-          <p>{% if story_export_data.has_glucose %}Trace segmentée selon la glycémie pendant l’effort.{% else %}Aucune donnée CGM pour cette activité : la trace utilisera le thème choisi.{% endif %}</p>
+          <h3>Carte & courbe glycémie</h3>
+          <p>Trace segmentée selon la glycémie et évolution lissée pendant l’effort.</p>
         </div>
         <button type="button" class="share-download-button" data-download-key="glucose-route">Télécharger</button>
       </div>
       <div class="share-preview">
         <canvas class="share-canvas" data-canvas-key="glucose-route" width="1080" height="1920"></canvas>
       </div>
-      <div class="share-caption">Rouge &lt; 70 · vert 70–180 · jaune &gt; 180 mg/dL.</div>
-    </article>
+      <div class="share-caption">Carte, légende et courbe CGM dans un seul visuel prêt à partager.</div>
+    </article>{% endif %}
   </div>
 </div>
 
@@ -1037,6 +1037,27 @@
       return true;
     }
 
+    function drawGlucoseCurveExport(ctx, theme, box) {
+      const points = (storyData.glucose_points || []).filter((point) => Number.isFinite(Number(point.elapsed_sec)) && Number.isFinite(Number(point.mgdl))).sort((a, b) => a.elapsed_sec - b.elapsed_sec);
+      if (points.length < 2) return false;
+      roundedRect(ctx, box.x, box.y, box.width, box.height, 24); ctx.fillStyle = "rgba(255,255,255,.055)"; ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,.12)"; ctx.lineWidth = 1; ctx.stroke();
+      const minTime = Number(points[0].elapsed_sec); const maxTime = Number(points[points.length - 1].elapsed_sec);
+      const values = points.map((point) => Number(point.mgdl)); const yMin = Math.max(50, Math.floor((Math.min(...values, 70) - 15) / 10) * 10); const yMax = Math.min(260, Math.ceil((Math.max(...values, 180) + 15) / 10) * 10);
+      const inner = { x:box.x + 58, y:box.y + 42, width:box.width - 82, height:box.height - 74 };
+      const x = (value) => inner.x + ((value - minTime) / Math.max(1, maxTime - minTime)) * inner.width;
+      const y = (value) => inner.y + inner.height - ((value - yMin) / Math.max(20, yMax - yMin)) * inner.height;
+      [70, 180].forEach((value) => { if (value < yMin || value > yMax) return; ctx.strokeStyle = value === 70 ? "rgba(255,91,97,.42)" : "rgba(246,207,70,.42)"; ctx.setLineDash([5, 7]); ctx.beginPath(); ctx.moveTo(inner.x, y(value)); ctx.lineTo(inner.x + inner.width, y(value)); ctx.stroke(); ctx.setLineDash([]); });
+      applyTextStyle(ctx, "700 18px Orbitron, sans-serif", theme.accent); ctx.fillText("GLYCÉMIE", box.x + 20, box.y + 27);
+      [yMin, Math.round((yMin + yMax) / 2), yMax].forEach((value) => { applyTextStyle(ctx, "700 17px Rajdhani, sans-serif", "rgba(255,255,255,.75)", "end"); ctx.fillText(String(value), inner.x - 10, y(value) + 5); }); ctx.textAlign = "start";
+      const smooth = buildMonotoneInterpolatedPoints(points.map((point) => ({ elapsed_sec:Number(point.elapsed_sec), mgdl:Number(point.mgdl) })), 14);
+      ctx.save(); ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.lineWidth = 5;
+      for (let index = 1; index < smooth.length; index += 1) { const previous = smooth[index - 1]; const point = smooth[index]; ctx.strokeStyle = zoneColor((previous.mgdl + point.mgdl) / 2); ctx.beginPath(); ctx.moveTo(x(previous.elapsed_sec), y(previous.mgdl)); ctx.lineTo(x(point.elapsed_sec), y(point.mgdl)); ctx.stroke(); }
+      ctx.restore();
+      applyTextStyle(ctx, "700 16px Rajdhani, sans-serif", "rgba(255,255,255,.68)"); ctx.fillText("départ", inner.x, box.y + box.height - 16); ctx.textAlign = "end"; ctx.fillText(`${Math.round((maxTime - minTime) / 60)} min`, inner.x + inner.width, box.y + box.height - 16); ctx.textAlign = "start";
+      return true;
+    }
+
     function drawExportFooter(ctx) {
       const { bottom } = exportContentBox();
       applyTextStyle(ctx, "700 21px Orbitron, sans-serif", "rgba(255,255,255,.72)", "center");
@@ -1079,9 +1100,14 @@
       const metrics = glucoseMode && storyData.has_glucose ? shareMetricList(["distance", "duration", "tir", "glyAvg"]) : shareMetricList(["distance", "duration", "effort", "dplus"]);
       drawCompactMetricGrid(ctx, metrics, theme, size.height < 1600 ? 220 : 260, 2);
       const mapY = size.height < 1600 ? 510 : 620;
-      const mapBox = { x:box.x, y:mapY, width:box.width, height:box.bottom - mapY - 52 };
+      const availableHeight = box.bottom - mapY - 52;
+      const hasGlucoseCurve = glucoseMode && storyData.has_glucose;
+      const curveGap = hasGlucoseCurve ? 26 : 0;
+      const mapHeight = hasGlucoseCurve ? availableHeight * .52 : availableHeight;
+      const mapBox = { x:box.x, y:mapY, width:box.width, height:mapHeight };
       drawRouteExport(ctx, theme, mapBox, glucoseMode && storyData.has_glucose);
       if (glucoseMode && storyData.has_glucose) drawGlucoseLegend(ctx, mapBox.x + 24, mapBox.y + mapBox.height - 62);
+      if (hasGlucoseCurve) drawGlucoseCurveExport(ctx, theme, { x:box.x, y:mapY + mapHeight + curveGap, width:box.width, height:availableHeight - mapHeight - curveGap });
       drawExportFooter(ctx);
     }
 

@@ -77,6 +77,8 @@
     border-color:#fff;
     box-shadow:0 0 0 4px rgba(255,255,255,0.08), 0 12px 24px rgba(0,0,0,0.25);
   }
+  .share-ratio-button { min-height:38px; padding:8px 12px; border:1px solid var(--share-border); border-radius:999px; background:rgba(255,255,255,.04); color:var(--share-muted); font:700 .76rem "Manrope",sans-serif; cursor:pointer; }
+  .share-ratio-button.is-active { border-color:#fff; background:rgba(255,255,255,.13); color:#fff; }
   .share-grid {
     display:grid;
     grid-template-columns:repeat(2, minmax(0, 1fr));
@@ -142,6 +144,7 @@
     aspect-ratio:9 / 16;
     border-radius:18px;
   }
+  .share-canvas.is-post { aspect-ratio:4 / 5; }
   .share-caption {
     margin-top:12px;
     font-size:0.82rem;
@@ -168,16 +171,16 @@
       <div style="font-family:'Orbitron', sans-serif; font-size:0.78rem; letter-spacing:0.18em; text-transform:uppercase; color:var(--text-dim);">
         Partage activité
       </div>
-      <h1 style="margin:8px 0 6px 0; font-size:1.8rem;">5 visuels, une couleur, des récits différents</h1>
+      <h1 style="margin:8px 0 6px 0; font-size:1.8rem;">Des visuels de course, avec ou sans glycémie</h1>
       <p class="muted" style="margin:0; max-width:760px;">
-        Tu choisis un thème couleur, puis tu télécharges l’une des 5 variantes: plus sport, plus glycémie, plus mixte, la trace du parcours, ou un profil avancé.
+        Choisis un thème et un format : Story 9:16 ou Post 4:5. Les visuels glycémie s’activent seulement quand des données CGM sont disponibles.
       </p>
     </div>
     <a class="share-back-link" href="/ui/user/{{ user.id }}/activity/{{ activity.id }}">Retour à l’activité</a>
   </div>
 
   <div class="share-note">
-    Export en `PNG` avec fond transparent. Les métriques changent selon le sport: allure pour la course, vitesse pour le vélo, cardio pour les séances type crossfit ou muscu.
+    Chaque PNG est prêt à publier, avec un fond opaque adapté aux réseaux sociaux. Les métriques changent selon le sport : allure pour la course, vitesse pour le vélo et cardio pour les séances en salle.
   </div>
 
   <div class="share-theme-panel">
@@ -194,6 +197,10 @@
         <button type="button" class="share-theme-button" data-theme-key="coral" style="--theme-preview:linear-gradient(135deg, #ff8a5b, #f6cf46);"></button>
         <button type="button" class="share-theme-button" data-theme-key="sunset" style="--theme-preview:linear-gradient(135deg, #ff6b9e, #9d7bff);"></button>
       </div>
+      <div class="share-theme-swatches" aria-label="Format d’export">
+        <button type="button" class="share-ratio-button is-active" data-ratio-key="story">Story 9:16</button>
+        <button type="button" class="share-ratio-button" data-ratio-key="post">Post 4:5</button>
+      </div>
     </div>
   </div>
 
@@ -201,85 +208,57 @@
     <article class="share-card">
       <div class="share-card-top">
         <div>
-          <h3>Sport + graphique</h3>
-          <p>La version la plus complète avec le graphique glycémie et les stats sport principales.</p>
+          <h3>Résumé activité</h3>
+          <p>Les repères essentiels de la séance, sans répétition de données.</p>
         </div>
-        <button type="button" class="share-download-button" data-download-key="performance">Télécharger</button>
+        <button type="button" class="share-download-button" data-download-key="summary">Télécharger</button>
       </div>
       <div class="share-preview">
-        <canvas class="share-canvas" data-canvas-key="performance" width="1080" height="1920"></canvas>
+        <canvas class="share-canvas" data-canvas-key="summary" width="1080" height="1920"></canvas>
       </div>
-      <div class="share-caption">Allure ou vitesse selon le sport, plus TIR, min, max et courbe.</div>
+      <div class="share-caption">Distance, durée, allure/vitesse, D+ et cardio si disponible.</div>
     </article>
 
     <article class="share-card">
       <div class="share-card-top">
         <div>
-          <h3>Focus glycémie</h3>
-          <p>Sans graphique, mais avec plus d’espace pour les indicateurs glycémiques.</p>
-        </div>
-        <button type="button" class="share-download-button" data-download-key="glucose">Télécharger</button>
-      </div>
-      <div class="share-preview">
-        <canvas class="share-canvas" data-canvas-key="glucose" width="1080" height="1920"></canvas>
-      </div>
-      <div class="share-caption">TIR, moyenne, min, max, hypos, hypers et contexte d’effort.</div>
-    </article>
-
-    <article class="share-card">
-      <div class="share-card-top">
-        <div>
-          <h3>Focus sport</h3>
-          <p>Une composition plus éditoriale, plus sportive, avec les infos redistribuées autrement.</p>
-        </div>
-        <button type="button" class="share-download-button" data-download-key="sport">Télécharger</button>
-      </div>
-      <div class="share-preview">
-        <canvas class="share-canvas" data-canvas-key="sport" width="1080" height="1920"></canvas>
-      </div>
-      <div class="share-caption">Mise en page plus nerveuse, plus centrée effort et séance.</div>
-    </article>
-
-    <article class="share-card">
-      <div class="share-card-top">
-        <div>
-          <h3>Trace blanche</h3>
-          <p>La vue du parcours par le dessus, uniquement la trace en blanc sur fond transparent.</p>
-        </div>
-        <button type="button" class="share-download-button" data-download-key="route">Télécharger</button>
-      </div>
-      <div class="share-preview">
-        <canvas class="share-canvas" data-canvas-key="route" width="1080" height="1920"></canvas>
-      </div>
-      <div class="share-caption">Parfait pour superposer la sortie dans une story plus libre.</div>
-    </article>
-
-    <article class="share-card">
-      <div class="share-card-top">
-        <div>
-          <h3>Profil avancé</h3>
-          <p>Une variante orientée relief et données avancées, utile surtout quand la sortie a du dénivelé.</p>
+          <h3>Profil trail</h3>
+          <p>Le relief et les données utiles pour raconter une sortie vallonnée.</p>
         </div>
         <button type="button" class="share-download-button" data-download-key="profile">Télécharger</button>
       </div>
       <div class="share-preview">
         <canvas class="share-canvas" data-canvas-key="profile" width="1080" height="1920"></canvas>
       </div>
-      <div class="share-caption">Profil d’élévation, VAM max 5 min si disponible, plus données glycémie.</div>
+      <div class="share-caption">Profil d’élévation, D+, allure et durée.</div>
     </article>
 
     <article class="share-card">
       <div class="share-card-top">
         <div>
-          <h3>Fun minimal</h3>
-          <p>Une version simple, drôle et légère, avec les vraies stats mais des sous-titres qui prennent moins la tête.</p>
+          <h3>Carte parcours</h3>
+          <p>Une trace en relief stylisé, disponible pour toutes les activités GPS.</p>
         </div>
-        <button type="button" class="share-download-button" data-download-key="fun">Télécharger</button>
+        <button type="button" class="share-download-button" data-download-key="route">Télécharger</button>
       </div>
       <div class="share-preview">
-        <canvas class="share-canvas" data-canvas-key="fun" width="1080" height="1920"></canvas>
+        <canvas class="share-canvas" data-canvas-key="route" width="1080" height="1920"></canvas>
       </div>
-      <div class="share-caption">Distance, pace, temps, TIR et la trace blanche sur un layout plus éditorial.</div>
+      <div class="share-caption">Trace avec départ, arrivée et lecture du dénivelé.</div>
+    </article>
+
+    <article class="share-card">
+      <div class="share-card-top">
+        <div>
+          <h3>Carte & glycémie</h3>
+          <p>{% if story_export_data.has_glucose %}Trace segmentée selon la glycémie pendant l’effort.{% else %}Aucune donnée CGM pour cette activité : la trace utilisera le thème choisi.{% endif %}</p>
+        </div>
+        <button type="button" class="share-download-button" data-download-key="glucose-route">Télécharger</button>
+      </div>
+      <div class="share-preview">
+        <canvas class="share-canvas" data-canvas-key="glucose-route" width="1080" height="1920"></canvas>
+      </div>
+      <div class="share-caption">Rouge &lt; 70 · vert 70–180 · jaune &gt; 180 mg/dL.</div>
     </article>
   </div>
 </div>
@@ -288,6 +267,10 @@
   (function() {
     const storyData = {{ story_export_data | tojson | safe }};
     const size = { width: 1080, height: 1920 };
+    const exportRatios = {
+      story: { label:"Story 9:16", width:1080, height:1920 },
+      post: { label:"Post 4:5", width:1080, height:1350 },
+    };
     const themeLabel = document.getElementById("shareThemeLabel");
     const themes = {
       cyan: {
@@ -320,6 +303,7 @@
       }
     };
     let currentThemeKey = "cyan";
+    let currentRatioKey = "story";
     let clubLogoImagePromise = null;
     const FONT_SIZE_BUMP_PX = 9;
     const PANEL_OVERLAY_ALPHA = 0.08;
@@ -648,13 +632,26 @@
 
     function getRoutePoints() {
       const route = Array.isArray(storyData.route_points) ? storyData.route_points : [];
-      return route
-        .filter((point) => Array.isArray(point) && point.length >= 2)
-        .map((point) => ({
-          lat: Number(point[0]),
-          lon: Number(point[1]),
-        }))
+      const points = route
+        .map((point) => Array.isArray(point)
+          ? { lat:Number(point[0]), lon:Number(point[1]), altitude_m:0, glucose_mgdl:null }
+          : { lat:Number(point?.lat), lon:Number(point?.lon), altitude_m:Number(point?.altitude_m || 0), glucose_mgdl:point?.glucose_mgdl == null ? null : Number(point.glucose_mgdl) })
         .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lon));
+      // Les capteurs CGM sont moins fréquents que les points GPS : on relie
+      // progressivement deux mesures afin que la couleur reste continue sur la trace.
+      let previousKnown = -1;
+      for (let index = 0; index < points.length; index += 1) {
+        if (!Number.isFinite(points[index].glucose_mgdl)) continue;
+        if (previousKnown >= 0 && index - previousKnown > 1) {
+          const start = points[previousKnown].glucose_mgdl;
+          const end = points[index].glucose_mgdl;
+          for (let between = previousKnown + 1; between < index; between += 1) {
+            points[between].glucose_mgdl = start + (end - start) * ((between - previousKnown) / (index - previousKnown));
+          }
+        }
+        previousKnown = index;
+      }
+      return points;
     }
 
     function drawRoutePath(ctx, points, routeBox, options) {
@@ -932,6 +929,131 @@
       ctx.textAlign = "start";
     }
 
+    function drawExportBackground(ctx, theme) {
+      const gradient = ctx.createLinearGradient(0, 0, size.width, size.height);
+      gradient.addColorStop(0, "#0b1828");
+      gradient.addColorStop(.55, "#10283a");
+      gradient.addColorStop(1, "#07131f");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size.width, size.height);
+      const glow = ctx.createRadialGradient(size.width * .85, size.height * .12, 10, size.width * .85, size.height * .12, size.width * .65);
+      glow.addColorStop(0, theme.accentSoft);
+      glow.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, size.width, size.height);
+    }
+
+    function drawExportHeader(ctx, theme, subtitle) {
+      const compact = size.height < 1600;
+      const x = 72; const y = compact ? 88 : 106;
+      applyTextStyle(ctx, "700 26px Orbitron, sans-serif", theme.accent);
+      ctx.fillText(subtitle.toUpperCase(), x, y);
+      applyTextStyle(ctx, compact ? "700 50px Rajdhani, sans-serif" : "700 60px Rajdhani, sans-serif", "#fff");
+      drawWrappedText(ctx, storyData.activity_name || "Activité", x, y + 56, { maxWidth:900, lineHeight:54, maxLines:2 });
+      applyTextStyle(ctx, "700 25px Rajdhani, sans-serif", "rgba(224,236,252,.8)");
+      ctx.fillText(storyData.activity_date || "", x, y + (compact ? 118 : 130));
+    }
+
+    function shareMetricList(keys) {
+      return keys.map(resolveMetric).filter((metric) => metric.value && metric.value !== "–");
+    }
+
+    function drawCompactMetricGrid(ctx, metrics, theme, y, maxRows = 2) {
+      const columns = 2; const x = 72; const gap = 16; const width = 936; const rowHeight = size.height < 1600 ? 104 : 124;
+      metrics.slice(0, columns * maxRows).forEach((metric, index) => {
+        const col = index % columns; const row = Math.floor(index / columns);
+        const cardWidth = (width - gap) / columns;
+        const cardX = x + col * (cardWidth + gap); const cardY = y + row * (rowHeight + gap);
+        roundedRect(ctx, cardX, cardY, cardWidth, rowHeight, 22);
+        ctx.fillStyle = "rgba(255,255,255,.07)"; ctx.fill();
+        ctx.strokeStyle = theme.accentSoft; ctx.lineWidth = 1; ctx.stroke();
+        applyTextStyle(ctx, "700 17px Orbitron, sans-serif", "rgba(224,236,252,.7)");
+        ctx.fillText(metric.label, cardX + 20, cardY + 30);
+        applyTextStyle(ctx, "700 48px Rajdhani, sans-serif", "#fff");
+        ctx.fillText(metric.value, cardX + 20, cardY + 82);
+      });
+    }
+
+    function projectRouteForExport(points, box, elevationLift = 0) {
+      const lats = points.map((point) => point.lat); const lons = points.map((point) => point.lon);
+      const minLat = Math.min(...lats); const maxLat = Math.max(...lats); const minLon = Math.min(...lons); const maxLon = Math.max(...lons);
+      const latRange = Math.max(.000001, maxLat - minLat); const lonRange = Math.max(.000001, maxLon - minLon);
+      const scale = Math.min(box.width / lonRange, box.height / latRange);
+      const drawnWidth = lonRange * scale; const drawnHeight = latRange * scale;
+      const offsetX = box.x + (box.width - drawnWidth) / 2; const offsetY = box.y + (box.height - drawnHeight) / 2;
+      const alts = points.map((point) => Number(point.altitude_m || 0)); const minAlt = Math.min(...alts); const maxAlt = Math.max(...alts); const altRange = Math.max(1, maxAlt - minAlt);
+      return points.map((point) => ({
+        ...point,
+        x: offsetX + (point.lon - minLon) * scale,
+        y: offsetY + drawnHeight - (point.lat - minLat) * scale - ((Number(point.altitude_m || 0) - minAlt) / altRange) * elevationLift,
+      }));
+    }
+
+    function drawRouteExport(ctx, theme, box, glucoseMode) {
+      const points = getRoutePoints();
+      if (points.length < 2) return false;
+      roundedRect(ctx, box.x, box.y, box.width, box.height, 30);
+      ctx.fillStyle = "rgba(255,255,255,.055)"; ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,.12)"; ctx.lineWidth = 1.2; ctx.stroke();
+      const projected = projectRouteForExport(points, { x:box.x + 38, y:box.y + 38, width:box.width - 76, height:box.height - 76 }, glucoseMode ? 70 : 38);
+      ctx.save(); ctx.shadowColor = "rgba(0,0,0,.45)"; ctx.shadowBlur = 14; ctx.lineCap = "round"; ctx.lineJoin = "round";
+      for (let index = 1; index < projected.length; index += 1) {
+        const previous = projected[index - 1]; const point = projected[index];
+        const hasGlycemia = glucoseMode && Number.isFinite(Number(point.glucose_mgdl));
+        ctx.strokeStyle = hasGlycemia ? zoneColor(Number(point.glucose_mgdl)) : theme.accent;
+        ctx.lineWidth = glucoseMode ? 10 : 8;
+        ctx.beginPath(); ctx.moveTo(previous.x, previous.y); ctx.lineTo(point.x, point.y); ctx.stroke();
+      }
+      ctx.restore();
+      [projected[0], projected[projected.length - 1]].forEach((point, index) => {
+        ctx.fillStyle = index ? "#fff" : theme.accent; ctx.beginPath(); ctx.arc(point.x, point.y, 9, 0, Math.PI * 2); ctx.fill();
+      });
+      return true;
+    }
+
+    function drawMiniProfileExport(ctx, theme, box) {
+      const points = (storyData.altitude_profile_points || []).map((point) => ({ km:Number(point[0]), alt:Number(point[1]) })).filter((point) => Number.isFinite(point.km) && Number.isFinite(point.alt));
+      if (points.length < 2) return false;
+      const minKm = points[0].km; const maxKm = points[points.length - 1].km; const minAlt = Math.min(...points.map((point) => point.alt)); const maxAlt = Math.max(...points.map((point) => point.alt));
+      const x = (value) => box.x + ((value - minKm) / Math.max(.1, maxKm - minKm)) * box.width;
+      const y = (value) => box.y + box.height - ((value - minAlt) / Math.max(1, maxAlt - minAlt)) * (box.height - 16) - 8;
+      ctx.save(); ctx.beginPath(); ctx.moveTo(box.x, box.y + box.height); points.forEach((point) => ctx.lineTo(x(point.km), y(point.alt))); ctx.lineTo(box.x + box.width, box.y + box.height); ctx.closePath(); ctx.fillStyle = theme.accentSoft; ctx.fill();
+      ctx.beginPath(); points.forEach((point, index) => index ? ctx.lineTo(x(point.km), y(point.alt)) : ctx.moveTo(x(point.km), y(point.alt))); ctx.strokeStyle = "#fff"; ctx.lineWidth = 4; ctx.stroke(); ctx.restore();
+      return true;
+    }
+
+    function drawExportFooter(ctx) {
+      applyTextStyle(ctx, "700 21px Orbitron, sans-serif", "rgba(255,255,255,.72)", "center");
+      ctx.fillText("RUNNING DATA PLAN", size.width / 2, size.height - 44);
+      ctx.textAlign = "start";
+    }
+
+    function drawSummaryExport(ctx, theme) {
+      drawExportBackground(ctx, theme); drawExportHeader(ctx, theme, "Résumé activité");
+      drawCompactMetricGrid(ctx, shareMetricList(["distance", "duration", "effort", "dplus", "fcAvg"]), theme, size.height < 1600 ? 220 : 260, 3);
+      const routeY = size.height < 1600 ? 620 : 760;
+      drawRouteExport(ctx, theme, { x:72, y:routeY, width:936, height:size.height - routeY - 110 }, false);
+      drawExportFooter(ctx);
+    }
+
+    function drawProfileExport(ctx, theme) {
+      drawExportBackground(ctx, theme); drawExportHeader(ctx, theme, "Profil trail");
+      drawCompactMetricGrid(ctx, shareMetricList(["distance", "dplus", "duration", "effort"]), theme, size.height < 1600 ? 220 : 260, 2);
+      const profileY = size.height < 1600 ? 510 : 620;
+      roundedRect(ctx, 72, profileY, 936, size.height - profileY - 110, 30); ctx.fillStyle = "rgba(255,255,255,.055)"; ctx.fill();
+      drawMiniProfileExport(ctx, theme, { x:112, y:profileY + 80, width:856, height:size.height - profileY - 230 });
+      drawExportFooter(ctx);
+    }
+
+    function drawRouteMapExport(ctx, theme, glucoseMode) {
+      drawExportBackground(ctx, theme); drawExportHeader(ctx, theme, glucoseMode && storyData.has_glucose ? "Carte & glycémie" : "Carte parcours");
+      const metrics = glucoseMode && storyData.has_glucose ? shareMetricList(["distance", "duration", "tir", "glyAvg"]) : shareMetricList(["distance", "duration", "effort", "dplus"]);
+      drawCompactMetricGrid(ctx, metrics, theme, size.height < 1600 ? 220 : 260, 2);
+      const mapY = size.height < 1600 ? 510 : 620;
+      drawRouteExport(ctx, theme, { x:72, y:mapY, width:936, height:size.height - mapY - 110 }, glucoseMode && storyData.has_glucose);
+      drawExportFooter(ctx);
+    }
+
     function drawPerformanceVariant(ctx, theme) {
       drawBackground(ctx, theme, "performance");
       drawHeader(ctx, theme);
@@ -1183,17 +1305,19 @@
       const clubLogoImage = await getClubLogoImage();
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("Canvas 2D indisponible");
+      const ratio = exportRatios[currentRatioKey] || exportRatios.story;
+      size.width = ratio.width;
+      size.height = ratio.height;
       canvas.width = size.width;
       canvas.height = size.height;
+      canvas.classList.toggle("is-post", currentRatioKey === "post");
       ctx.clearRect(0, 0, size.width, size.height);
 
       const theme = getTheme();
-      if (variantKey === "performance") drawPerformanceVariant(ctx, theme);
-      else if (variantKey === "glucose") drawGlucoseVariant(ctx, theme);
-      else if (variantKey === "sport") drawSportVariant(ctx, theme);
-      else if (variantKey === "route") drawRouteVariant(ctx, theme);
-      else if (variantKey === "profile") drawProfileVariant(ctx, theme);
-      else if (variantKey === "fun") drawFunVariant(ctx, theme);
+      if (variantKey === "summary") drawSummaryExport(ctx, theme);
+      else if (variantKey === "profile") drawProfileExport(ctx, theme);
+      else if (variantKey === "route") drawRouteMapExport(ctx, theme, false);
+      else if (variantKey === "glucose-route") drawRouteMapExport(ctx, theme, true);
       drawClubBadge(ctx, theme, clubLogoImage);
     }
 
@@ -1244,6 +1368,16 @@
       });
     }
 
+    function initRatioButtons() {
+      document.querySelectorAll("[data-ratio-key]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          currentRatioKey = button.getAttribute("data-ratio-key") || "story";
+          document.querySelectorAll("[data-ratio-key]").forEach((entry) => entry.classList.toggle("is-active", entry === button));
+          await renderAll();
+        });
+      });
+    }
+
     function initDownloadButtons() {
       document.querySelectorAll("[data-download-key]").forEach((button) => {
         button.addEventListener("click", async () => {
@@ -1266,6 +1400,7 @@
 
     async function init() {
       initThemeButtons();
+      initRatioButtons();
       initDownloadButtons();
       await renderAll();
     }

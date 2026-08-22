@@ -1026,8 +1026,10 @@ def _build_story_export_data(
     club_data: dict | None = None,
     share_show_club_logo: bool = False,
 ) -> dict | None:
-    if len(glucose_chart_points) < 2:
-        return None
+    # Le partage doit rester disponible sans CGM. Les données glycémiques sont
+    # simplement optionnelles : les visuels de parcours et de performance ont
+    # alors leur propre lecture, sans valeur factice.
+    has_glucose = len(glucose_chart_points) >= 2
 
     sport_norm = (activity.sport or activity.activity_type or "").lower()
     effort_metric_label = None
@@ -1106,6 +1108,7 @@ def _build_story_export_data(
             else "–"
         ),
         "glucose_points": glucose_chart_points,
+        "has_glucose": has_glucose,
         "route_points": route_points or [],
         "altitude_profile_points": altitude_profile_points or [],
         "club_name": club_data.get("name") if club_data else None,
@@ -9615,13 +9618,12 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
             user.settings.share_show_club_logo
         ) if getattr(user, "settings", None) and user.settings.share_show_club_logo is not None else False
 
-        if has_glucose and len(glucose_chart_points) > 1:
-            story_export_data = _build_story_export_data(
-                activity,
-                glucose_chart_points,
-                club_data=club_data,
-                share_show_club_logo=share_show_club_logo,
-            )
+        story_export_data = _build_story_export_data(
+            activity,
+            glucose_chart_points,
+            club_data=club_data,
+            share_show_club_logo=share_show_club_logo,
+        )
 
         # --- 4) GPS simplified + carte 3D colorée selon la glycémie ---
         gps = []
@@ -10614,7 +10616,13 @@ async def ui_user_activity_share(user_id: int, activity_id: int, request: Reques
                     "mgdl": float(point.glucose_mgdl),
                 })
             if point.lat is not None and point.lon is not None:
-                route_points.append([float(point.lat), float(point.lon)])
+                route_points.append({
+                    "lat": float(point.lat),
+                    "lon": float(point.lon),
+                    "altitude_m": float(point.altitude or 0.0),
+                    "elapsed_sec": float(point.elapsed_time) if point.elapsed_time is not None else None,
+                    "glucose_mgdl": float(point.glucose_mgdl) if point.glucose_mgdl is not None else None,
+                })
             if point.distance is not None and point.altitude is not None:
                 altitude_profile_points.append([
                     float(point.distance) / 1000.0,
@@ -10639,12 +10647,6 @@ async def ui_user_activity_share(user_id: int, activity_id: int, request: Reques
             club_data=club_data,
             share_show_club_logo=share_show_club_logo,
         )
-        if not story_export_data:
-            return HTMLResponse(
-                "Pas assez de données glycémie pour proposer un partage.",
-                status_code=404,
-            )
-
         return templates.TemplateResponse(
             "activity_share.html",
             {

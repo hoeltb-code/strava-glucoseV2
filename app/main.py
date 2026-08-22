@@ -543,19 +543,24 @@ def _seo_course_payload(course_id: str) -> dict | None:
     analysis = _seo_course_analysis(route_stops)
     for leg in analysis["legs"]:
         leg["profile_svg"] = _seo_segment_profile_svg(profile, float(leg["from_km"]), float(leg["to_km"]))
-    map_profile = [
-        {
+    map_profile = []
+    cumulative_gain_m = 0.0
+    previous_elevation_m = None
+    for point in profile:
+        if not isinstance(point, dict) or not isinstance(point.get("longitude"), (int, float)) or not isinstance(point.get("latitude"), (int, float)):
+            continue
+        elevation_m = float(point.get("elevation_m") or 0.0)
+        if previous_elevation_m is not None:
+            cumulative_gain_m += max(0.0, elevation_m - previous_elevation_m)
+        previous_elevation_m = elevation_m
+        map_profile.append({
             "longitude": round(float(point["longitude"]), 6),
             "latitude": round(float(point["latitude"]), 6),
-            "elevation_m": round(float(point["elevation_m"])),
+            "elevation_m": round(elevation_m),
             "distance_km": round(float(point["distance_km"]), 3),
             "grade_percent": round(float(point.get("grade_percent") or 0), 1),
-        }
-        for point in profile
-        if isinstance(point, dict)
-        and isinstance(point.get("longitude"), (int, float))
-        and isinstance(point.get("latitude"), (int, float))
-    ]
+            "elevation_gain_cumulative_m": round(cumulative_gain_m),
+        })
     if len(map_profile) > 450:
         step = max(1, math.ceil(len(map_profile) / 450))
         map_profile = map_profile[::step]
@@ -568,6 +573,7 @@ def _seo_course_payload(course_id: str) -> dict | None:
                     "elevation_m": round(float(final_point["elevation_m"])),
                     "distance_km": round(float(final_point["distance_km"]), 3),
                     "grade_percent": round(float(final_point.get("grade_percent") or 0), 1),
+                    "elevation_gain_cumulative_m": round(cumulative_gain_m),
                 })
     editorial = _seo_course_editorial(course, analysis)
     return {

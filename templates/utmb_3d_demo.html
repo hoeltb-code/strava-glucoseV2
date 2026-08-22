@@ -11,12 +11,14 @@
 <main class="three-d-demo">
   <p class="three-d-kicker">Banc d’essai Cesium · MapTiler</p>
   <h1>UTMB 2026 en 3D</h1>
-  <p class="lead">Explore le relief réel, fais tourner la carte librement, puis lance une caméra qui accompagne le parcours. Le bouton vidéo enregistre uniquement la démonstration cartographique dans ton navigateur.</p>
+  <p class="lead">Explore le relief réel, fais tourner la carte librement, puis lance une caméra qui accompagne le parcours. La vidéo affiche le kilomètre, le D+ cumulé et la pente instantanée directement dans la carte.</p>
   <section class="three-d-card">
     <div id="utmb-3d-map" class="three-d-map" aria-label="Cartographie 3D interactive de l’UTMB"></div>
     <div class="three-d-controls">
       <button id="utmb-3d-play" class="three-d-button primary" type="button" disabled>▶ Lancer la caméra</button>
       <button id="utmb-3d-reset" class="three-d-button" type="button" disabled>↺ Vue générale</button>
+      <button class="three-d-button utmb-3d-speed" type="button" data-speed="0.1" aria-pressed="false" disabled>×0,1</button>
+      <button class="three-d-button utmb-3d-speed" type="button" data-speed="0.25" aria-pressed="false" disabled>×0,25</button>
       <button class="three-d-button utmb-3d-speed" type="button" data-speed="0.5" aria-pressed="false" disabled>×0,5</button>
       <button class="three-d-button utmb-3d-speed" type="button" data-speed="1" aria-pressed="true" disabled>×1</button>
       <button class="three-d-button utmb-3d-speed" type="button" data-speed="2" aria-pressed="false" disabled>×2</button>
@@ -80,7 +82,11 @@
   viewer.creditDisplay.addStaticCredit(new C.Credit('<a href="https://www.maptiler.com/copyright/" target="_blank">© MapTiler</a> <a href="https://www.openstreetmap.org/copyright" target="_blank">© OpenStreetMap contributors</a>', true));
 
   const routeEntities = addSlopeColoredRoute(viewer);
-  const runner = viewer.entities.add({ position: positions[0], point: { pixelSize: 12, color: C.Color.WHITE, outlineColor: C.Color.fromCssColorString('#ff5a36'), outlineWidth: 5, heightReference: C.HeightReference.CLAMP_TO_GROUND } });
+  const runner = viewer.entities.add({
+    position: positions[0],
+    point: { pixelSize: 12, color: C.Color.WHITE, outlineColor: C.Color.fromCssColorString('#ff5a36'), outlineWidth: 5, heightReference: C.HeightReference.CLAMP_TO_GROUND },
+    label: { text:'', font:'700 21px sans-serif', fillColor:C.Color.WHITE, outlineColor:C.Color.BLACK, outlineWidth:4, style:C.LabelStyle.FILL_AND_OUTLINE, showBackground:true, backgroundColor:C.Color.fromCssColorString('#17221c').withAlpha(.82), backgroundPadding:new C.Cartesian2(12, 9), pixelOffset:new C.Cartesian2(0, -42), heightReference:C.HeightReference.CLAMP_TO_GROUND, scaleByDistance:new C.NearFarScalar(1000, 1.05, 30000, .62) },
+  });
   let animationFrame = null;
   let playing = false;
   let progress = 0;
@@ -91,6 +97,7 @@
   let smoothCameraTarget = null;
   let speed = 1;
   let lastCameraTime = null;
+  let sequenceStartedAt = null;
 
   const overview = () => viewer.flyTo(routeEntities, { duration: 1.4, offset: new C.HeadingPitchRange(C.Math.toRadians(-24), C.Math.toRadians(-48), 36000) });
   const positionAt = (routeIndex) => {
@@ -106,6 +113,8 @@
     return {
       distance_km: route[index].distance_km + (next.distance_km - route[index].distance_km) * ratio,
       elevation_m: route[index].elevation_m + (next.elevation_m - route[index].elevation_m) * ratio,
+      grade_percent: route[index].grade_percent + (next.grade_percent - route[index].grade_percent) * ratio,
+      elevation_gain_cumulative_m: (route[index].elevation_gain_cumulative_m || 0) + ((next.elevation_gain_cumulative_m || 0) - (route[index].elevation_gain_cumulative_m || 0)) * ratio,
     };
   };
   const updateCamera = (routeIndex, now) => {
@@ -119,7 +128,8 @@
     const travelDirection = C.Cartesian3.normalize(C.Cartesian3.subtract(ahead, behind, new C.Cartesian3()), new C.Cartesian3());
     const localUp = C.Ellipsoid.WGS84.geodeticSurfaceNormal(current, new C.Cartesian3());
     const backwardOffset = C.Cartesian3.multiplyByScalar(travelDirection, -9800, new C.Cartesian3());
-    const altitudeOffset = C.Cartesian3.multiplyByScalar(localUp, 7600, new C.Cartesian3());
+    const introRatio = Math.max(0, 1 - ((now - (sequenceStartedAt || now)) / 3000));
+    const altitudeOffset = C.Cartesian3.multiplyByScalar(localUp, 7600 + 14500 * introRatio * introRatio, new C.Cartesian3());
     const desiredPosition = C.Cartesian3.add(current, C.Cartesian3.add(backwardOffset, altitudeOffset, new C.Cartesian3()), new C.Cartesian3());
     const desiredTarget = C.Cartesian3.add(ahead, C.Cartesian3.multiplyByScalar(localUp, 500, new C.Cartesian3()), new C.Cartesian3());
     if (!smoothCameraPosition) {
@@ -127,8 +137,8 @@
       smoothCameraTarget = C.Cartesian3.clone(desiredTarget);
     } else {
       const elapsed = Math.min(80, Math.max(1, now - (lastCameraTime || now)));
-      const positionSmoothing = 1 - Math.exp(-elapsed / 820);
-      const targetSmoothing = 1 - Math.exp(-elapsed / 620);
+      const positionSmoothing = 1 - Math.exp(-elapsed / 1450);
+      const targetSmoothing = 1 - Math.exp(-elapsed / 1150);
       C.Cartesian3.lerp(smoothCameraPosition, desiredPosition, positionSmoothing, smoothCameraPosition);
       C.Cartesian3.lerp(smoothCameraTarget, desiredTarget, targetSmoothing, smoothCameraTarget);
     }
@@ -138,6 +148,8 @@
     const cameraUp = C.Cartesian3.normalize(C.Cartesian3.cross(right, direction, new C.Cartesian3()), new C.Cartesian3());
     viewer.camera.setView({ destination:smoothCameraPosition, orientation:{ direction, up:cameraUp } });
     const point = dataAt(routeIndex);
+    const signedGrade = `${point.grade_percent >= 0 ? '+' : ''}${point.grade_percent.toFixed(1)}`;
+    runner.label.text = `KM ${point.distance_km.toFixed(1)}  ·  D+ ${Math.round(point.elevation_gain_cumulative_m)} m\nPENTE ${signedGrade} %`;
     status.textContent = `Caméra · km ${point.distance_km.toFixed(1)} · ${Math.round(point.elevation_m)} m · ×${String(speed).replace('.', ',')}`;
   };
   const stop = (finished = false) => {
@@ -158,7 +170,8 @@
     animationFrame = requestAnimationFrame(animate);
   };
   const start = () => {
-    if (progress >= 1) progress = 0;
+    if (progress >= 1) { progress = 0; sequenceStartedAt = null; }
+    if (sequenceStartedAt === null) sequenceStartedAt = performance.now();
     playing = true;
     playButton.textContent = '❚❚ Pause';
     animationFrame = requestAnimationFrame(animate);
@@ -170,7 +183,7 @@
     speed = nextSpeed;
     speedButtons.forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
   }));
-  resetButton.addEventListener('click', () => { stop(); progress = 0; smoothCameraPosition = null; smoothCameraTarget = null; runner.position = positions[0]; overview(); status.textContent = 'Vue générale de l’UTMB.'; });
+  resetButton.addEventListener('click', () => { stop(); progress = 0; sequenceStartedAt = null; smoothCameraPosition = null; smoothCameraTarget = null; runner.position = positions[0]; overview(); status.textContent = 'Vue générale de l’UTMB.'; });
   videoButton.addEventListener('click', () => {
     if (!window.MediaRecorder || !viewer.canvas.captureStream) { status.textContent = 'L’enregistrement vidéo n’est pas disponible sur ce navigateur.'; return; }
     if (recording) { stop(); return; }
@@ -187,7 +200,7 @@
       setTimeout(() => URL.revokeObjectURL(file), 1000);
       status.textContent = 'Vidéo téléchargée.';
     };
-    recording = true; videoButton.textContent = '■ Arrêter l’enregistrement'; progress = 0; startedAt = null; smoothCameraPosition = null; smoothCameraTarget = null;
+    recording = true; videoButton.textContent = '■ Arrêter l’enregistrement'; progress = 0; startedAt = null; sequenceStartedAt = null; smoothCameraPosition = null; smoothCameraTarget = null;
     recorder.start(500); start();
   });
   const activateControls = () => {

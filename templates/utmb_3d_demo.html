@@ -392,7 +392,9 @@
     const lateralOffset = C.Cartesian3.multiplyByScalar(leftDirection, Number(followSettings.lateral || 0) * 1000, new C.Cartesian3());
     const introRatio = Math.max(0, 1 - (introElapsedMs / 3000));
     const outroRatio = outroActive ? Math.min(1, outroElapsedMs / 3000) : 0;
-    const altitudeOffset = C.Cartesian3.multiplyByScalar(localUp, followSettings.altitude + 14500 * Math.max(introRatio * introRatio, outroRatio * outroRatio), new C.Cartesian3());
+    const overviewAltitude = 30000;
+    const overviewRatio = Math.max(introRatio * introRatio, outroRatio * outroRatio);
+    const altitudeOffset = C.Cartesian3.multiplyByScalar(localUp, followSettings.altitude + (overviewAltitude - followSettings.altitude) * overviewRatio, new C.Cartesian3());
     const desiredPosition = C.Cartesian3.add(cameraAnchor, C.Cartesian3.add(lateralOffset, C.Cartesian3.add(backwardOffset, altitudeOffset, new C.Cartesian3()), new C.Cartesian3()), new C.Cartesian3());
     const desiredTarget = C.Cartesian3.add(ahead, C.Cartesian3.multiplyByScalar(localUp, 500, new C.Cartesian3()), new C.Cartesian3());
     if (!smoothCameraPosition) {

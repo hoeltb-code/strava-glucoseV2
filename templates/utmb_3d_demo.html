@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Démo UTMB 3D · Running Data Plan{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="https://cesium.com/downloads/cesiumjs/releases/1.116/Build/Cesium/Widgets/widgets.css">
+<script src="https://cesium.com/downloads/cesiumjs/releases/1.116/Build/Cesium/Cesium.js"></script>
+<style>
+  .three-d-demo{max-width:1180px;margin:0 auto;padding:20px 0 42px}.three-d-demo h1{margin:5px 0 10px;font-size:clamp(2rem,5vw,3.8rem);line-height:1}.three-d-demo .lead{max-width:760px;color:var(--text-muted);line-height:1.65}.three-d-kicker{margin:0;color:var(--accent-dark);font:700 .75rem "DM Mono",monospace;letter-spacing:.12em;text-transform:uppercase}.three-d-card{margin-top:22px;padding:14px;border:1px solid var(--border-soft);border-radius:22px;background:#fff;box-shadow:0 12px 35px rgba(85,58,38,.08)}.three-d-map{height:min(70vh,680px);min-height:430px;border-radius:15px;overflow:hidden;background:linear-gradient(135deg,#d8e8ec,#748b72)}.three-d-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:13px 4px 2px}.three-d-button{border:1px solid #dfcfc5;border-radius:10px;padding:10px 13px;background:#fff;color:var(--text-main);font:700 .78rem "DM Mono",monospace;cursor:pointer}.three-d-button.primary{border-color:#ef684a;background:#ff5a36;color:#fff}.three-d-button:disabled{opacity:.5;cursor:wait}.three-d-status{margin-left:auto;color:var(--text-muted);font-size:.8rem}.three-d-note{margin:10px 4px 2px;color:var(--text-muted);font-size:.78rem;line-height:1.5}.three-d-error{margin:14px 4px 2px;padding:13px;border-radius:12px;background:#fff4e9;color:#9b3d20;line-height:1.5}.cesium-viewer-bottom{display:none!important}@media(max-width:650px){.three-d-map{height:58vh;min-height:390px}.three-d-status{width:100%;margin-left:0;order:2}}
+</style>
+{% endblock %}
+{% block content %}
+<main class="three-d-demo">
+  <p class="three-d-kicker">Banc d’essai Cesium · MapTiler</p>
+  <h1>UTMB 2026 en 3D</h1>
+  <p class="lead">Explore le relief réel, fais tourner la carte librement, puis lance une caméra qui accompagne le parcours. Le bouton vidéo enregistre uniquement la démonstration cartographique dans ton navigateur.</p>
+  <section class="three-d-card">
+    <div id="utmb-3d-map" class="three-d-map" aria-label="Cartographie 3D interactive de l’UTMB"></div>
+    <div class="three-d-controls">
+      <button id="utmb-3d-play" class="three-d-button primary" type="button" disabled>▶ Lancer la caméra</button>
+      <button id="utmb-3d-reset" class="three-d-button" type="button" disabled>↺ Vue générale</button>
+      <button id="utmb-3d-video" class="three-d-button" type="button" disabled>● Enregistrer une vidéo</button>
+      <span id="utmb-3d-status" class="three-d-status">Préparation du relief 3D…</span>
+    </div>
+    <p class="three-d-note">La vidéo est téléchargée au format WebM à la fin de la séquence. Crédit cartographique affiché dans la carte : © MapTiler © OpenStreetMap contributors.</p>
+    {% if not maptiler_api_key %}<p class="three-d-error">Ajoute <code>MAPTILER_API_KEY</code> dans l’environnement local ou Render, puis recharge cette page pour activer le relief et le fond satellite.</p>{% endif %}
+  </section>
+</main>
+<script>
+(() => {
+  const route = {{ course.map_profile|tojson }};
+  const apiKey = {{ maptiler_api_key|tojson }};
+  const status = document.getElementById('utmb-3d-status');
+  const playButton = document.getElementById('utmb-3d-play');
+  const resetButton = document.getElementById('utmb-3d-reset');
+  const videoButton = document.getElementById('utmb-3d-video');
+  if (!apiKey) { status.textContent = 'Clé MapTiler manquante.'; return; }
+  if (!window.Cesium || route.length < 2) { status.textContent = 'Cesium ou la trace UTMB est indisponible.'; return; }
+
+  const C = window.Cesium;
+  const positions = route.map((point) => C.Cartesian3.fromDegrees(point.longitude, point.latitude, Math.max(0, point.elevation_m || 0)));
+  const viewer = new C.Viewer('utmb-3d-map', {
+    animation: false, timeline: false, baseLayerPicker: false, geocoder: false,
+    homeButton: false, sceneModePicker: false, navigationHelpButton: false,
+    fullscreenButton: true, infoBox: false, selectionIndicator: false,
+    terrain: new C.Terrain(C.CesiumTerrainProvider.fromUrl(`https://api.maptiler.com/tiles/terrain-quantized-mesh-v2/?key=${encodeURIComponent(apiKey)}`, { requestVertexNormals: true })),
+    baseLayer: new C.ImageryLayer(new C.UrlTemplateImageryProvider({
+      url: `https://api.maptiler.com/maps/satellite-v4/{z}/{x}/{y}.jpg?key=${encodeURIComponent(apiKey)}`,
+      minimumLevel: 0, maximumLevel: 20, tileWidth: 512, tileHeight: 512,
+    })),
+  });
+  viewer.scene.globe.depthTestAgainstTerrain = true;
+  viewer.scene.requestRenderMode = false;
+  viewer.creditDisplay.addStaticCredit(new C.Credit('<a href="https://www.maptiler.com/copyright/" target="_blank">© MapTiler</a> <a href="https://www.openstreetmap.org/copyright" target="_blank">© OpenStreetMap contributors</a>', true));
+
+  const routeEntity = viewer.entities.add({ polyline: { positions, width: 5, material: C.Color.fromCssColorString('#ff5a36'), clampToGround: true } });
+  const runner = viewer.entities.add({ position: positions[0], point: { pixelSize: 12, color: C.Color.WHITE, outlineColor: C.Color.fromCssColorString('#ff5a36'), outlineWidth: 5, heightReference: C.HeightReference.CLAMP_TO_GROUND } });
+  let animationFrame = null;
+  let playing = false;
+  let progress = 0;
+  let startedAt = null;
+  let recorder = null;
+  let recording = false;
+
+  const overview = () => viewer.flyTo(routeEntity, { duration: 1.4, offset: new C.HeadingPitchRange(C.Math.toRadians(-24), C.Math.toRadians(-48), 36000) });
+  const headingAt = (index) => {
+    const previous = C.Cartographic.fromCartesian(positions[Math.max(0, index - 2)]);
+    const next = C.Cartographic.fromCartesian(positions[Math.min(positions.length - 1, index + 4)]);
+    return Math.atan2(Math.sin(next.longitude - previous.longitude) * Math.cos(next.latitude), Math.cos(previous.latitude) * Math.sin(next.latitude) - Math.sin(previous.latitude) * Math.cos(next.latitude) * Math.cos(next.longitude - previous.longitude));
+  };
+  const updateCamera = (index) => {
+    const current = positions[index];
+    runner.position = current;
+    const heading = headingAt(index);
+    viewer.camera.lookAt(current, new C.HeadingPitchRange(heading + Math.PI, C.Math.toRadians(-34), 6500));
+    viewer.camera.lookAtTransform(C.Matrix4.IDENTITY);
+    status.textContent = `Caméra · km ${route[index].distance_km.toFixed(1)} · ${Math.round(route[index].elevation_m)} m`;
+  };
+  const stop = (finished = false) => {
+    playing = false;
+    startedAt = null;
+    if (animationFrame) cancelAnimationFrame(animationFrame);
+    animationFrame = null;
+    playButton.textContent = finished ? '↻ Rejouer la caméra' : '▶ Reprendre la caméra';
+    if (recording && recorder && recorder.state !== 'inactive') recorder.stop();
+  };
+  const animate = (now) => {
+    if (!playing) return;
+    if (startedAt === null) startedAt = now - progress * 18000;
+    progress = Math.min(1, (now - startedAt) / 18000);
+    updateCamera(Math.min(positions.length - 1, Math.floor(progress * (positions.length - 1))));
+    if (progress >= 1) { stop(true); return; }
+    animationFrame = requestAnimationFrame(animate);
+  };
+  const start = () => {
+    if (progress >= 1) progress = 0;
+    playing = true;
+    playButton.textContent = '❚❚ Pause';
+    animationFrame = requestAnimationFrame(animate);
+  };
+  playButton.addEventListener('click', () => playing ? stop() : start());
+  resetButton.addEventListener('click', () => { stop(); progress = 0; runner.position = positions[0]; overview(); status.textContent = 'Vue générale de l’UTMB.'; });
+  videoButton.addEventListener('click', () => {
+    if (!window.MediaRecorder || !viewer.canvas.captureStream) { status.textContent = 'L’enregistrement vidéo n’est pas disponible sur ce navigateur.'; return; }
+    if (recording) { stop(); return; }
+    const chunks = [];
+    const stream = viewer.canvas.captureStream(30);
+    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
+    recorder = new MediaRecorder(stream, { mimeType });
+    recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
+    recorder.onstop = () => {
+      recording = false; videoButton.textContent = '● Enregistrer une vidéo';
+      if (!chunks.length) return;
+      const file = URL.createObjectURL(new Blob(chunks, { type: mimeType }));
+      const link = document.createElement('a'); link.href = file; link.download = 'utmb-2026-3d.webm'; link.click();
+      setTimeout(() => URL.revokeObjectURL(file), 1000);
+      status.textContent = 'Vidéo téléchargée.';
+    };
+    recording = true; videoButton.textContent = '■ Arrêter l’enregistrement'; progress = 0; startedAt = null;
+    recorder.start(500); start();
+  });
+  const activateControls = () => {
+    if (!playButton.disabled) return;
+    playButton.disabled = false; resetButton.disabled = false; videoButton.disabled = false;
+    overview(); status.textContent = 'Relief 3D prêt · explore ou lance la caméra.';
+  };
+  viewer.scene.globe.tileLoadProgressEvent.addEventListener((remaining) => { if (remaining === 0) activateControls(); });
+  window.setTimeout(activateControls, 1600);
+})();
+</script>
+{% endblock %}

@@ -57,6 +57,10 @@ class Settings(BaseSettings):
     SUPPORT_EMAIL: str | None = Field(default=None)
     APP_BASE_URL: str | None = Field(default=None)
 
+    # === CARTOGRAPHIE (optionnel : démonstration Cesium / MapTiler) ===
+    # La clé est limitée par domaine dans le tableau de bord MapTiler.
+    MAPTILER_API_KEY: str | None = Field(default=None)
+
     # === PAIEMENTS STRIPE (désactivés par défaut) ===
     STRIPE_SECRET_KEY: str | None = Field(default=None)
     STRIPE_WEBHOOK_SECRET: str | None = Field(default=None)

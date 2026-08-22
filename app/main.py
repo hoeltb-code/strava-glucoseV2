@@ -5548,6 +5548,22 @@ def seo_course_detail(request: Request, slug: str):
     ))
 
 
+@app.get("/demo/utmb-3d", response_class=HTMLResponse)
+def utmb_3d_demo(request: Request):
+    """Banc d'essai public Cesium + relief MapTiler pour le GPX UTMB."""
+    course = _seo_course_payload("utmb-2026")
+    if not course or len(course.get("map_profile") or []) < 2:
+        raise HTTPException(status_code=404, detail="Trace GPX UTMB indisponible.")
+    return templates.TemplateResponse(
+        "utmb_3d_demo.html",
+        {
+            "request": request,
+            "course": course,
+            "maptiler_api_key": settings.MAPTILER_API_KEY or "",
+        },
+    )
+
+
 @app.get("/robots.txt", response_class=Response)
 def seo_robots(request: Request):
     return Response(

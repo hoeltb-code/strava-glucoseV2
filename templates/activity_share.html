@@ -251,15 +251,15 @@
     {% if story_export_data.has_glucose %}<article class="share-card">
       <div class="share-card-top">
         <div>
-          <h3>Carte & courbe glycémie</h3>
-          <p>Trace segmentée selon la glycémie et évolution lissée pendant l’effort.</p>
+          <h3>Carte & glycémie</h3>
+          <p>Trace GPS colorée selon la glycémie pendant l’effort.</p>
         </div>
         <button type="button" class="share-download-button" data-download-key="glucose-route">Télécharger</button>
       </div>
       <div class="share-preview">
         <canvas class="share-canvas" data-canvas-key="glucose-route" width="1080" height="1920"></canvas>
       </div>
-      <div class="share-caption">Carte, légende et courbe CGM dans un seul visuel prêt à partager.</div>
+      <div class="share-caption">Carte et légende glycémique dans un visuel simple, prêt à partager.</div>
     </article>{% endif %}
   </div>
 </div>
@@ -1100,14 +1100,9 @@
       const metrics = glucoseMode && storyData.has_glucose ? shareMetricList(["distance", "duration", "tir", "glyAvg"]) : shareMetricList(["distance", "duration", "effort", "dplus"]);
       drawCompactMetricGrid(ctx, metrics, theme, size.height < 1600 ? 220 : 260, 2);
       const mapY = size.height < 1600 ? 510 : 620;
-      const availableHeight = box.bottom - mapY - 52;
-      const hasGlucoseCurve = glucoseMode && storyData.has_glucose;
-      const curveGap = hasGlucoseCurve ? 26 : 0;
-      const mapHeight = hasGlucoseCurve ? availableHeight * .52 : availableHeight;
-      const mapBox = { x:box.x, y:mapY, width:box.width, height:mapHeight };
+      const mapBox = { x:box.x, y:mapY, width:box.width, height:box.bottom - mapY - 52 };
       drawRouteExport(ctx, theme, mapBox, glucoseMode && storyData.has_glucose);
       if (glucoseMode && storyData.has_glucose) drawGlucoseLegend(ctx, mapBox.x + 24, mapBox.y + mapBox.height - 62);
-      if (hasGlucoseCurve) drawGlucoseCurveExport(ctx, theme, { x:box.x, y:mapY + mapHeight + curveGap, width:box.width, height:availableHeight - mapHeight - curveGap });
       drawExportFooter(ctx);
     }
 

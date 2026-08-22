@@ -4,7 +4,7 @@
 <link rel="stylesheet" href="https://cesium.com/downloads/cesiumjs/releases/1.116/Build/Cesium/Widgets/widgets.css">
 <script src="https://cesium.com/downloads/cesiumjs/releases/1.116/Build/Cesium/Cesium.js"></script>
 <style>
-  .three-d-demo{max-width:1180px;margin:0 auto;padding:20px 0 42px}.three-d-demo h1{margin:5px 0 10px;font-size:clamp(2rem,5vw,3.8rem);line-height:1}.three-d-demo .lead{max-width:760px;color:var(--text-muted);line-height:1.65}.three-d-kicker{margin:0;color:var(--accent-dark);font:700 .75rem "DM Mono",monospace;letter-spacing:.12em;text-transform:uppercase}.three-d-card{margin-top:22px;padding:14px;border:1px solid var(--border-soft);border-radius:22px;background:#fff;box-shadow:0 12px 35px rgba(85,58,38,.08)}.three-d-map{height:min(70vh,680px);min-height:430px;border-radius:15px;overflow:hidden;background:linear-gradient(135deg,#d8e8ec,#748b72)}.three-d-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:13px 4px 2px}.three-d-button{border:1px solid #dfcfc5;border-radius:10px;padding:10px 13px;background:#fff;color:var(--text-main);font:700 .78rem "DM Mono",monospace;cursor:pointer}.three-d-button.primary{border-color:#ef684a;background:#ff5a36;color:#fff}.three-d-button:disabled{opacity:.5;cursor:wait}.three-d-status{margin-left:auto;color:var(--text-muted);font-size:.8rem}.three-d-note{margin:10px 4px 2px;color:var(--text-muted);font-size:.78rem;line-height:1.5}.three-d-error{margin:14px 4px 2px;padding:13px;border-radius:12px;background:#fff4e9;color:#9b3d20;line-height:1.5}.cesium-viewer-bottom{display:none!important}@media(max-width:650px){.three-d-map{height:58vh;min-height:390px}.three-d-status{width:100%;margin-left:0;order:2}}
+  .three-d-demo{max-width:1180px;margin:0 auto;padding:20px 0 42px}.three-d-demo h1{margin:5px 0 10px;font-size:clamp(2rem,5vw,3.8rem);line-height:1}.three-d-demo .lead{max-width:760px;color:var(--text-muted);line-height:1.65}.three-d-kicker{margin:0;color:var(--accent-dark);font:700 .75rem "DM Mono",monospace;letter-spacing:.12em;text-transform:uppercase}.three-d-card{margin-top:22px;padding:14px;border:1px solid var(--border-soft);border-radius:22px;background:#fff;box-shadow:0 12px 35px rgba(85,58,38,.08)}.three-d-card h2{margin:3px 4px 6px;font-size:1.3rem}.three-d-map{height:min(70vh,680px);min-height:430px;border-radius:15px;overflow:hidden;background:linear-gradient(135deg,#d8e8ec,#748b72)}.three-d-explorer-map{height:min(62vh,590px);min-height:410px}.three-d-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:13px 4px 2px}.three-d-button{border:1px solid #dfcfc5;border-radius:10px;padding:10px 13px;background:#fff;color:var(--text-main);font:700 .78rem "DM Mono",monospace;cursor:pointer}.three-d-button.primary{border-color:#ef684a;background:#ff5a36;color:#fff}.three-d-button:disabled{opacity:.5;cursor:wait}.three-d-status{margin-left:auto;color:var(--text-muted);font-size:.8rem}.three-d-note{margin:10px 4px 2px;color:var(--text-muted);font-size:.78rem;line-height:1.5}.three-d-error{margin:14px 4px 2px;padding:13px;border-radius:12px;background:#fff4e9;color:#9b3d20;line-height:1.5}.three-d-waypoint{margin:8px 4px 0;color:#9b3d20;font-size:.8rem;font-weight:700}.cesium-viewer-bottom{display:none!important}@media(max-width:650px){.three-d-map{height:58vh;min-height:390px}.three-d-status{width:100%;margin-left:0;order:2}}
 </style>
 {% endblock %}
 {% block content %}
@@ -23,10 +23,18 @@
     <p class="three-d-note">La vidéo est téléchargée au format WebM à la fin de la séquence. Crédit cartographique affiché dans la carte : © MapTiler © OpenStreetMap contributors.</p>
     {% if not maptiler_api_key %}<p class="three-d-error">Ajoute <code>MAPTILER_API_KEY</code> dans l’environnement local ou Render, puis recharge cette page pour activer le relief et le fond satellite.</p>{% endif %}
   </section>
+  <section class="three-d-card">
+    <p class="three-d-kicker">Explorer le parcours</p>
+    <h2>Carte 3D et points importants</h2>
+    <p class="three-d-note">Zoome avec la molette ou deux doigts, fais glisser pour tourner et incline la vue avec le contrôle en haut à droite. Clique un point pour afficher son nom, son kilomètre et son rôle.</p>
+    <div id="utmb-3d-explorer" class="three-d-map three-d-explorer-map" aria-label="Carte 3D UTMB avec ravitaillements et points de passage"></div>
+    <p id="utmb-3d-waypoint" class="three-d-waypoint">Chargement des points de passage…</p>
+  </section>
 </main>
 <script>
 (() => {
   const route = {{ course.map_profile|tojson }};
+  const coursePoints = {{ course.points|tojson }};
   const apiKey = {{ maptiler_api_key|tojson }};
   const status = document.getElementById('utmb-3d-status');
   const playButton = document.getElementById('utmb-3d-play');
@@ -59,19 +67,35 @@
   let startedAt = null;
   let recorder = null;
   let recording = false;
+  let smoothCameraPosition = null;
+  let smoothCameraTarget = null;
 
   const overview = () => viewer.flyTo(routeEntity, { duration: 1.4, offset: new C.HeadingPitchRange(C.Math.toRadians(-24), C.Math.toRadians(-48), 36000) });
-  const headingAt = (index) => {
-    const previous = C.Cartographic.fromCartesian(positions[Math.max(0, index - 2)]);
-    const next = C.Cartographic.fromCartesian(positions[Math.min(positions.length - 1, index + 4)]);
-    return Math.atan2(Math.sin(next.longitude - previous.longitude) * Math.cos(next.latitude), Math.cos(previous.latitude) * Math.sin(next.latitude) - Math.sin(previous.latitude) * Math.cos(next.latitude) * Math.cos(next.longitude - previous.longitude));
-  };
   const updateCamera = (index) => {
     const current = positions[index];
     runner.position = current;
-    const heading = headingAt(index);
-    viewer.camera.lookAt(current, new C.HeadingPitchRange(heading + Math.PI, C.Math.toRadians(-34), 6500));
-    viewer.camera.lookAtTransform(C.Matrix4.IDENTITY);
+    // La caméra ne regarde pas le coureur à la verticale : elle reste en arrière
+    // de sa progression et vise la portion suivante. Les deux positions sont
+    // interpolées afin d'éviter les à-coups dans les virages du GPX.
+    const behind = positions[Math.max(0, index - 10)];
+    const ahead = positions[Math.min(positions.length - 1, index + 18)];
+    const travelDirection = C.Cartesian3.normalize(C.Cartesian3.subtract(ahead, behind, new C.Cartesian3()), new C.Cartesian3());
+    const localUp = C.Ellipsoid.WGS84.geodeticSurfaceNormal(current, new C.Cartesian3());
+    const backwardOffset = C.Cartesian3.multiplyByScalar(travelDirection, -9800, new C.Cartesian3());
+    const altitudeOffset = C.Cartesian3.multiplyByScalar(localUp, 7600, new C.Cartesian3());
+    const desiredPosition = C.Cartesian3.add(current, C.Cartesian3.add(backwardOffset, altitudeOffset, new C.Cartesian3()), new C.Cartesian3());
+    const desiredTarget = C.Cartesian3.add(ahead, C.Cartesian3.multiplyByScalar(localUp, 500, new C.Cartesian3()), new C.Cartesian3());
+    if (!smoothCameraPosition) {
+      smoothCameraPosition = C.Cartesian3.clone(desiredPosition);
+      smoothCameraTarget = C.Cartesian3.clone(desiredTarget);
+    } else {
+      C.Cartesian3.lerp(smoothCameraPosition, desiredPosition, 0.085, smoothCameraPosition);
+      C.Cartesian3.lerp(smoothCameraTarget, desiredTarget, 0.11, smoothCameraTarget);
+    }
+    const direction = C.Cartesian3.normalize(C.Cartesian3.subtract(smoothCameraTarget, smoothCameraPosition, new C.Cartesian3()), new C.Cartesian3());
+    const right = C.Cartesian3.normalize(C.Cartesian3.cross(direction, localUp, new C.Cartesian3()), new C.Cartesian3());
+    const cameraUp = C.Cartesian3.normalize(C.Cartesian3.cross(right, direction, new C.Cartesian3()), new C.Cartesian3());
+    viewer.camera.setView({ destination:smoothCameraPosition, orientation:{ direction, up:cameraUp } });
     status.textContent = `Caméra · km ${route[index].distance_km.toFixed(1)} · ${Math.round(route[index].elevation_m)} m`;
   };
   const stop = (finished = false) => {
@@ -97,7 +121,7 @@
     animationFrame = requestAnimationFrame(animate);
   };
   playButton.addEventListener('click', () => playing ? stop() : start());
-  resetButton.addEventListener('click', () => { stop(); progress = 0; runner.position = positions[0]; overview(); status.textContent = 'Vue générale de l’UTMB.'; });
+  resetButton.addEventListener('click', () => { stop(); progress = 0; smoothCameraPosition = null; smoothCameraTarget = null; runner.position = positions[0]; overview(); status.textContent = 'Vue générale de l’UTMB.'; });
   videoButton.addEventListener('click', () => {
     if (!window.MediaRecorder || !viewer.canvas.captureStream) { status.textContent = 'L’enregistrement vidéo n’est pas disponible sur ce navigateur.'; return; }
     if (recording) { stop(); return; }
@@ -114,7 +138,7 @@
       setTimeout(() => URL.revokeObjectURL(file), 1000);
       status.textContent = 'Vidéo téléchargée.';
     };
-    recording = true; videoButton.textContent = '■ Arrêter l’enregistrement'; progress = 0; startedAt = null;
+    recording = true; videoButton.textContent = '■ Arrêter l’enregistrement'; progress = 0; startedAt = null; smoothCameraPosition = null; smoothCameraTarget = null;
     recorder.start(500); start();
   });
   const activateControls = () => {
@@ -124,6 +148,47 @@
   };
   viewer.scene.globe.tileLoadProgressEvent.addEventListener((remaining) => { if (remaining === 0) activateControls(); });
   window.setTimeout(activateControls, 1600);
+
+  const explorerStatus = document.getElementById('utmb-3d-waypoint');
+  const explorer = new C.Viewer('utmb-3d-explorer', {
+    animation: false, timeline: false, baseLayerPicker: false, geocoder: false,
+    homeButton: false, sceneModePicker: false, navigationHelpButton: false,
+    fullscreenButton: true, infoBox: false, selectionIndicator: false,
+    terrain: new C.Terrain(C.CesiumTerrainProvider.fromUrl(`https://api.maptiler.com/tiles/terrain-quantized-mesh-v2/?key=${encodeURIComponent(apiKey)}`, { requestVertexNormals: true })),
+    baseLayer: new C.ImageryLayer(new C.UrlTemplateImageryProvider({
+      url: `https://api.maptiler.com/maps/satellite-v4/{z}/{x}/{y}.jpg?key=${encodeURIComponent(apiKey)}`,
+      minimumLevel: 0, maximumLevel: 20, tileWidth: 512, tileHeight: 512,
+    })),
+  });
+  explorer.scene.globe.depthTestAgainstTerrain = true;
+  explorer.scene.requestRenderMode = false;
+  explorer.creditDisplay.addStaticCredit(new C.Credit('<a href="https://www.maptiler.com/copyright/" target="_blank">© MapTiler</a> <a href="https://www.openstreetmap.org/copyright" target="_blank">© OpenStreetMap contributors</a>', true));
+  const explorerRoute = explorer.entities.add({ polyline: { positions, width: 5, material: C.Color.fromCssColorString('#ff5a36'), clampToGround: true } });
+  const closestRoutePoint = (km) => route.reduce((closest, point) => Math.abs(point.distance_km - km) < Math.abs(closest.distance_km - km) ? point : closest, route[0]);
+  const pointStyle = (type) => {
+    if (type === 'start') return { color:C.Color.fromCssColorString('#38b876'), label:'Départ' };
+    if (type === 'finish') return { color:C.Color.WHITE, label:'Arrivée' };
+    if (String(type || '').includes('aid_station')) return { color:C.Color.fromCssColorString('#ff5a36'), label:'Ravitaillement' };
+    return { color:C.Color.fromCssColorString('#f6c547'), label:'Point de passage' };
+  };
+  coursePoints.forEach((item) => {
+    const onRoute = closestRoutePoint(Number(item.km || 0));
+    const style = pointStyle(item.type);
+    explorer.entities.add({
+      position: C.Cartesian3.fromDegrees(onRoute.longitude, onRoute.latitude, Math.max(0, Number(onRoute.elevation_m || item.altitude_m || 0))),
+      point: { pixelSize:12, color:style.color, outlineColor:C.Color.fromCssColorString('#17221c'), outlineWidth:3, heightReference:C.HeightReference.CLAMP_TO_GROUND },
+      label: { text:item.name, font:'600 13px sans-serif', fillColor:C.Color.WHITE, outlineColor:C.Color.BLACK, outlineWidth:3, style:C.LabelStyle.FILL_AND_OUTLINE, pixelOffset:new C.Cartesian2(0, -18), heightReference:C.HeightReference.CLAMP_TO_GROUND, distanceDisplayCondition:new C.DistanceDisplayCondition(0, 45000) },
+      properties: { name:item.name, km:Number(item.km || 0), kind:style.label, altitude:Number(item.altitude_m || onRoute.elevation_m || 0) },
+    });
+  });
+  explorer.flyTo(explorerRoute, { duration:1.5, offset:new C.HeadingPitchRange(C.Math.toRadians(-20), C.Math.toRadians(-52), 38000) });
+  explorer.screenSpaceEventHandler.setInputAction((movement) => {
+    const picked = explorer.scene.pick(movement.position);
+    const properties = picked && picked.id && picked.id.properties;
+    if (!properties) return;
+    explorerStatus.textContent = `${properties.kind.getValue()} · ${properties.name.getValue()} · km ${Number(properties.km.getValue()).toFixed(1)} · ${Math.round(Number(properties.altitude.getValue()))} m`;
+  }, C.ScreenSpaceEventType.LEFT_CLICK);
+  window.setTimeout(() => { if (explorerStatus.textContent.includes('Chargement')) explorerStatus.textContent = 'Points orange : ravitaillements · jaune : passages · vert : départ · blanc : arrivée.'; }, 1800);
 })();
 </script>
 {% endblock %}

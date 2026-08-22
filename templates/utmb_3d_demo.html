@@ -123,6 +123,16 @@
   videoMapContainer.appendChild(videoHud);
 
   const routeEntities = addSlopeColoredRoute(viewer);
+  let highlightedRouteSegment = -1;
+  const updateRouteHighlight = (routeIndex) => {
+    const currentSegment = clamp(Math.floor(routeIndex), 0, Math.max(0, routeEntities.length - 1));
+    if (currentSegment === highlightedRouteSegment) return;
+    highlightedRouteSegment = currentSegment;
+    routeEntities.forEach((entity, index) => {
+      const color = C.Color.fromCssColorString(slopeColor(Number(route[index + 1]?.grade_percent || 0))).withAlpha(index === currentSegment ? 1 : .5);
+      entity.polyline.material = color;
+    });
+  };
   const runner = viewer.entities.add({
     position: positions[0],
     point: { pixelSize: 12, color: C.Color.WHITE, outlineColor: C.Color.fromCssColorString('#ff5a36'), outlineWidth: 5, heightReference: C.HeightReference.CLAMP_TO_GROUND },
@@ -291,6 +301,7 @@
     });
   };
   const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
+  updateRouteHighlight(0);
   const resizeVideoHud = () => {
     const width = Math.max(1, Math.round(videoMapContainer.clientWidth));
     const height = Math.max(1, Math.round(videoMapContainer.clientHeight));
@@ -377,6 +388,7 @@
   };
   const updateCamera = (routeIndex, now) => {
     hudRouteIndex = routeIndex;
+    updateRouteHighlight(routeIndex);
     const current = positionAt(routeIndex);
     runner.position = current;
     if (activePoiIndex >= 0) poiEntries[activePoiIndex].entity.position = current;

@@ -4,14 +4,20 @@
 <link rel="stylesheet" href="https://cesium.com/downloads/cesiumjs/releases/1.116/Build/Cesium/Widgets/widgets.css">
 <script src="https://cesium.com/downloads/cesiumjs/releases/1.116/Build/Cesium/Cesium.js"></script>
 <style>
-  .three-d-demo{max-width:1180px;margin:0 auto;padding:20px 0 42px}.three-d-demo h1{margin:5px 0 10px;font-size:clamp(2rem,5vw,3.8rem);line-height:1}.three-d-demo .lead{max-width:760px;color:var(--text-muted);line-height:1.65}.three-d-kicker{margin:0;color:var(--accent-dark);font:700 .75rem "DM Mono",monospace;letter-spacing:.12em;text-transform:uppercase}.three-d-card{margin-top:22px;padding:14px;border:1px solid var(--border-soft);border-radius:22px;background:#fff;box-shadow:0 12px 35px rgba(85,58,38,.08)}.three-d-card h2{margin:3px 4px 6px;font-size:1.3rem}.three-d-map{height:min(70vh,680px);min-height:430px;border-radius:15px;overflow:hidden;background:linear-gradient(135deg,#d8e8ec,#748b72)}.three-d-explorer-map{height:min(62vh,590px);min-height:410px}.three-d-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:13px 4px 2px}.three-d-button{border:1px solid #dfcfc5;border-radius:10px;padding:10px 13px;background:#fff;color:var(--text-main);font:700 .78rem "DM Mono",monospace;cursor:pointer}.three-d-button.primary{border-color:#ef684a;background:#ff5a36;color:#fff}.three-d-button[aria-pressed="true"]{border-color:#5d735d;background:#eaf2eb;color:#31533a}.three-d-button:disabled{opacity:.5;cursor:wait}.three-d-status{margin-left:auto;color:var(--text-muted);font-size:.8rem}.three-d-note{margin:10px 4px 2px;color:var(--text-muted);font-size:.78rem;line-height:1.5}.three-d-error{margin:14px 4px 2px;padding:13px;border-radius:12px;background:#fff4e9;color:#9b3d20;line-height:1.5}.three-d-waypoint{margin:8px 4px 0;color:#9b3d20;font-size:.8rem;font-weight:700}.three-d-legend{display:flex;gap:10px;flex-wrap:wrap;margin:9px 4px 0;color:var(--text-muted);font-size:.72rem}.three-d-legend span{display:inline-flex;align-items:center;gap:5px}.three-d-legend i{display:inline-block;width:10px;height:10px;border-radius:50%}.cesium-viewer-bottom{display:none!important}@media(max-width:650px){.three-d-map{height:58vh;min-height:390px}.three-d-status{width:100%;margin-left:0;order:2}}
+  .three-d-demo{max-width:1180px;margin:0 auto;padding:20px 0 42px}.three-d-demo h1{margin:5px 0 10px;font-size:clamp(2rem,5vw,3.8rem);line-height:1}.three-d-demo .lead{max-width:760px;color:var(--text-muted);line-height:1.65}.three-d-kicker{margin:0;color:var(--accent-dark);font:700 .75rem "DM Mono",monospace;letter-spacing:.12em;text-transform:uppercase}.three-d-picker{margin-top:18px;padding:15px 17px;border:1px solid var(--border-soft);border-radius:16px;background:#fff}.three-d-picker label{display:block;margin-bottom:7px;font-weight:800}.three-d-picker select{width:min(100%,460px);padding:11px 13px;border:1px solid #d8cfc5;border-radius:10px;background:#fff;color:var(--text-main);font:inherit}.three-d-card{margin-top:22px;padding:14px;border:1px solid var(--border-soft);border-radius:22px;background:#fff;box-shadow:0 12px 35px rgba(85,58,38,.08)}.three-d-card h2{margin:3px 4px 6px;font-size:1.3rem}.three-d-map{height:min(70vh,680px);min-height:430px;border-radius:15px;overflow:hidden;background:linear-gradient(135deg,#d8e8ec,#748b72)}.three-d-explorer-map{height:min(62vh,590px);min-height:410px}.three-d-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:13px 4px 2px}.three-d-button{border:1px solid #dfcfc5;border-radius:10px;padding:10px 13px;background:#fff;color:var(--text-main);font:700 .78rem "DM Mono",monospace;cursor:pointer}.three-d-button.primary{border-color:#ef684a;background:#ff5a36;color:#fff}.three-d-button[aria-pressed="true"]{border-color:#5d735d;background:#eaf2eb;color:#31533a}.three-d-button:disabled{opacity:.5;cursor:wait}.three-d-status{margin-left:auto;color:var(--text-muted);font-size:.8rem}.three-d-note{margin:10px 4px 0;color:var(--text-muted);font-size:.78rem;line-height:1.5}.three-d-error{margin:14px 4px 2px;padding:13px;border-radius:12px;background:#fff4e9;color:#9b3d20;line-height:1.5}.three-d-waypoint{margin:8px 4px 0;color:#9b3d20;font-size:.8rem;font-weight:700}.three-d-legend{display:flex;gap:10px;flex-wrap:wrap;margin:9px 4px 0;color:var(--text-muted);font-size:.72rem}.three-d-legend span{display:inline-flex;align-items:center;gap:5px}.three-d-legend i{display:inline-block;width:10px;height:10px;border-radius:50%}.cesium-viewer-bottom{display:none!important}@media(max-width:650px){.three-d-map{height:58vh;min-height:390px}.three-d-status{width:100%;margin-left:0;order:2}}
 </style>
 {% endblock %}
 {% block content %}
 <main class="three-d-demo">
   <p class="three-d-kicker">Banc d’essai Cesium · MapTiler</p>
-  <h1>UTMB 2026 en 3D</h1>
+  <h1>{{ course.name }} en 3D</h1>
   <p class="lead">Explore le relief réel, fais tourner la carte librement, puis lance une caméra qui accompagne le parcours. La vidéo affiche le kilomètre, le D+ cumulé et la pente instantanée directement dans la carte.</p>
+  <form class="three-d-picker" action="/demo/parcours-3d" method="get">
+    <label for="three-d-course">Choisir un parcours</label>
+    <select id="three-d-course" name="course_id" onchange="this.form.submit()">
+      {% for item in course_options %}<option value="{{ item.id }}" {% if item.id == course.id %}selected{% endif %}>{{ item.name }} · {{ '%.1f'|format(item.distance_km) }} km</option>{% endfor %}
+    </select>
+  </form>
   <section class="three-d-card">
     <div id="utmb-3d-map" class="three-d-map" aria-label="Cartographie 3D interactive de l’UTMB"></div>
     <div class="three-d-controls">
@@ -26,7 +32,7 @@
       <button id="utmb-3d-video" class="three-d-button" type="button" disabled>● Enregistrer une vidéo</button>
       <span id="utmb-3d-status" class="three-d-status">Préparation du relief 3D…</span>
     </div>
-    <p class="three-d-note">La vidéo est téléchargée au format WebM à la fin de la séquence. Crédit cartographique affiché dans la carte : © MapTiler © OpenStreetMap contributors.</p>
+    <p class="three-d-note">La vidéo est téléchargée au format WebM HD ×2 à la fin de la séquence. Crédit cartographique affiché dans la carte : © MapTiler © OpenStreetMap contributors.</p>
     <div class="three-d-legend" aria-label="Légende des pentes"><span><i style="background:#4aaed8"></i>descente</span><span><i style="background:#77c990"></i>roulant</span><span><i style="background:#f5c446"></i>montée</span><span><i style="background:#f18a2b"></i>raide</span><span><i style="background:#e94c34"></i>très raide</span></div>
     {% if not maptiler_api_key %}<p class="three-d-error">Ajoute <code>MAPTILER_API_KEY</code> dans l’environnement local ou Render, puis recharge cette page pour activer le relief et le fond satellite.</p>{% endif %}
   </section>
@@ -85,7 +91,7 @@
   const runner = viewer.entities.add({
     position: positions[0],
     point: { pixelSize: 12, color: C.Color.WHITE, outlineColor: C.Color.fromCssColorString('#ff5a36'), outlineWidth: 5, heightReference: C.HeightReference.CLAMP_TO_GROUND },
-    label: { text:'', font:'700 21px sans-serif', fillColor:C.Color.WHITE, outlineColor:C.Color.BLACK, outlineWidth:4, style:C.LabelStyle.FILL_AND_OUTLINE, showBackground:true, backgroundColor:C.Color.fromCssColorString('#17221c').withAlpha(.82), backgroundPadding:new C.Cartesian2(12, 9), pixelOffset:new C.Cartesian2(0, -90), heightReference:C.HeightReference.CLAMP_TO_GROUND, scaleByDistance:new C.NearFarScalar(1000, 1.05, 30000, .62) },
+    label: { text:'', font:'700 17px sans-serif', fillColor:C.Color.WHITE, outlineColor:C.Color.BLACK, outlineWidth:3, style:C.LabelStyle.FILL_AND_OUTLINE, showBackground:true, backgroundColor:C.Color.fromCssColorString('#17221c').withAlpha(.82), backgroundPadding:new C.Cartesian2(10, 7), pixelOffset:new C.Cartesian2(0, -82), heightReference:C.HeightReference.CLAMP_TO_GROUND, scaleByDistance:new C.NearFarScalar(1000, .95, 30000, .56) },
   });
   let animationFrame = null;
   let playing = false;
@@ -102,6 +108,7 @@
   let pauseRemainingMs = 0;
   let activePoiIndex = -1;
   const passedPoiIndexes = new Set();
+  let recordingDisplaySettings = null;
 
   const overview = () => viewer.flyTo(routeEntities, { duration: 1.4, offset: new C.HeadingPitchRange(C.Math.toRadians(-24), C.Math.toRadians(-48), 36000) });
   const positionAt = (routeIndex) => {
@@ -133,20 +140,20 @@
     const routeIndex = routeIndexForKm(Number(item.km || 0));
     const routePoint = route[routeIndex];
     const canvas = document.createElement('canvas');
-    canvas.width = 560; canvas.height = 116;
+    canvas.width = 430; canvas.height = 102;
     const context = canvas.getContext('2d');
-    drawRoundedRectangle(context, 3, 3, 554, 110, 18);
+    drawRoundedRectangle(context, 2, 2, 426, 98, 6);
     context.fillStyle = 'rgba(0,0,0,.50)'; context.fill();
-    context.strokeStyle = '#ff5a36'; context.lineWidth = 4; context.stroke();
-    context.fillStyle = '#ffffff'; context.font = '700 28px sans-serif';
-    context.fillText(String(item.name || 'Point de passage').slice(0, 32), 25, 45);
-    context.fillStyle = '#ffd3c6'; context.font = '700 22px sans-serif';
-    context.fillText(`KM ${Number(item.km || 0).toFixed(1)}  ·  D+ ${Math.round(Number(routePoint.elevation_gain_cumulative_m || 0))} m`, 25, 84);
+    context.strokeStyle = '#ff5a36'; context.lineWidth = 2; context.stroke();
+    context.fillStyle = '#ffffff'; context.font = '700 20px sans-serif';
+    context.fillText(String(item.name || 'Point de passage').slice(0, 26), 21, 40);
+    context.fillStyle = '#ffd3c6'; context.font = '700 16px sans-serif';
+    context.fillText(`KM ${Number(item.km || 0).toFixed(1)}  ·  D+ ${Math.round(Number(routePoint.elevation_gain_cumulative_m || 0))} m`, 21, 75);
     const entity = viewer.entities.add({
       position: positions[routeIndex],
-      billboard: { image:canvas, show:false, verticalOrigin:C.VerticalOrigin.BOTTOM, pixelOffset:new C.Cartesian2(0, -45), heightReference:C.HeightReference.CLAMP_TO_GROUND, scaleByDistance:new C.NearFarScalar(1000, 1, 30000, .64) },
+      billboard: { image:canvas, show:false, verticalOrigin:C.VerticalOrigin.BOTTOM, pixelOffset:new C.Cartesian2(0, -135), heightReference:C.HeightReference.CLAMP_TO_GROUND, scaleByDistance:new C.NearFarScalar(1000, 1, 30000, .64) },
     });
-    return { routeIndex, entity };
+    return { routeIndex, triggerRouteIndex:Math.max(1, routeIndexForKm(Math.max(0, Number(item.km || 0) - 10))), entity };
   });
   const setActivePoi = (poiIndex) => {
     if (poiIndex === activePoiIndex) return;
@@ -211,11 +218,11 @@
     } else {
       progress = Math.min(1, progress + (elapsed * speed / 18000));
       const currentRouteIndex = progress * (positions.length - 1);
-      const poiIndex = poiEntries.findIndex((poi, index) => !passedPoiIndexes.has(index) && poi.routeIndex > previousRouteIndex && poi.routeIndex <= currentRouteIndex);
+      const poiIndex = poiEntries.findIndex((poi, index) => !passedPoiIndexes.has(index) && poi.triggerRouteIndex > previousRouteIndex && poi.triggerRouteIndex <= currentRouteIndex);
       if (poiIndex >= 0) {
         passedPoiIndexes.add(poiIndex);
         setActivePoi(poiIndex);
-        pauseRemainingMs = 1000;
+        pauseRemainingMs = 2000;
       }
     }
     updateCamera(progress * (positions.length - 1), now);
@@ -239,20 +246,33 @@
     if (!window.MediaRecorder || !viewer.canvas.captureStream) { status.textContent = 'L’enregistrement vidéo n’est pas disponible sur ce navigateur.'; return; }
     if (recording) { stop(); return; }
     const chunks = [];
-    const stream = viewer.canvas.captureStream(30);
     const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
-    recorder = new MediaRecorder(stream, { mimeType });
-    recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
-    recorder.onstop = () => {
-      recording = false; videoButton.textContent = '● Enregistrer une vidéo';
-      if (!chunks.length) return;
-      const file = URL.createObjectURL(new Blob(chunks, { type: mimeType }));
-      const link = document.createElement('a'); link.href = file; link.download = 'utmb-2026-3d.webm'; link.click();
-      setTimeout(() => URL.revokeObjectURL(file), 1000);
-      status.textContent = 'Vidéo téléchargée.';
-    };
-    recording = true; videoButton.textContent = '■ Arrêter l’enregistrement'; progress = 0; sequenceElapsedMs = 0; pauseRemainingMs = 0; passedPoiIndexes.clear(); setActivePoi(-1); smoothCameraPosition = null; smoothCameraTarget = null;
-    recorder.start(500); start();
+    recording = true; videoButton.textContent = 'Préparation HD…'; progress = 0; sequenceElapsedMs = 0; pauseRemainingMs = 0; passedPoiIndexes.clear(); setActivePoi(-1); smoothCameraPosition = null; smoothCameraTarget = null;
+    recordingDisplaySettings = { useBrowserRecommendedResolution:viewer.useBrowserRecommendedResolution, resolutionScale:viewer.resolutionScale };
+    viewer.useBrowserRecommendedResolution = false;
+    viewer.resolutionScale = 2;
+    viewer.resize();
+    requestAnimationFrame(() => {
+      const stream = viewer.canvas.captureStream(30);
+      recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 14000000 });
+      recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
+      recorder.onstop = () => {
+        recording = false; videoButton.textContent = '● Enregistrer une vidéo';
+        if (recordingDisplaySettings) {
+          viewer.useBrowserRecommendedResolution = recordingDisplaySettings.useBrowserRecommendedResolution;
+          viewer.resolutionScale = recordingDisplaySettings.resolutionScale;
+          viewer.resize();
+          recordingDisplaySettings = null;
+        }
+        if (!chunks.length) return;
+        const file = URL.createObjectURL(new Blob(chunks, { type: mimeType }));
+        const link = document.createElement('a'); link.href = file; link.download = '{{ course.id }}-3d.webm'; link.click();
+        setTimeout(() => URL.revokeObjectURL(file), 1000);
+        status.textContent = 'Vidéo HD téléchargée.';
+      };
+      videoButton.textContent = '■ Arrêter l’enregistrement';
+      recorder.start(500); start();
+    });
   });
   const activateControls = () => {
     if (!playButton.disabled) return;

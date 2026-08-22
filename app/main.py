@@ -5555,16 +5555,26 @@ def seo_course_detail(request: Request, slug: str):
 
 
 @app.get("/demo/utmb-3d", response_class=HTMLResponse)
-def utmb_3d_demo(request: Request):
-    """Banc d'essai public Cesium + relief MapTiler pour le GPX UTMB."""
-    course = _seo_course_payload("utmb-2026")
+@app.get("/demo/parcours-3d", response_class=HTMLResponse)
+def course_3d_demo(request: Request, course_id: str | None = Query(default=None)):
+    """Banc d'essai public Cesium + relief MapTiler pour les GPX officiels."""
+    available_courses = [
+        item for item in _load_official_course_catalog()
+        if item.get("route_available")
+    ]
+    available_course_ids = {str(item["id"]) for item in available_courses}
+    selected_course_id = str(course_id or "utmb-2026")
+    if selected_course_id not in available_course_ids:
+        selected_course_id = "utmb-2026" if "utmb-2026" in available_course_ids else next(iter(available_course_ids), "")
+    course = _seo_course_payload(selected_course_id)
     if not course or len(course.get("map_profile") or []) < 2:
-        raise HTTPException(status_code=404, detail="Trace GPX UTMB indisponible.")
+        raise HTTPException(status_code=404, detail="Trace GPX indisponible.")
     return templates.TemplateResponse(
         "utmb_3d_demo.html",
         {
             "request": request,
             "course": course,
+            "course_options": sorted(available_courses, key=lambda item: str(item.get("name") or "")),
             "maptiler_api_key": settings.MAPTILER_API_KEY or "",
         },
     )

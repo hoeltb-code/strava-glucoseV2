@@ -310,17 +310,18 @@
     const context = videoHud.getContext('2d');
     context.clearRect(0, 0, width, height);
     const inset = 16 * scale;
+    const topInset = 76 * scale;
     const totalPoint = route[route.length - 1];
     context.fillStyle = '#fff'; context.textAlign = 'left'; context.textBaseline = 'middle';
     context.font = `700 ${22 * scale}px sans-serif`;
-    context.fillText(courseName, inset, inset + 11 * scale);
+    context.fillText(courseName, inset, topInset + 11 * scale);
     context.fillStyle = '#e6e6e6'; context.font = `700 ${11 * scale}px sans-serif`;
-    context.fillText(`${Number(totalPoint.distance_km || 0).toFixed(1)} KM  ·  D+ ${Math.round(Number(totalPoint.elevation_gain_cumulative_m || 0))} M`, inset, inset + 34 * scale);
+    context.fillText(`${Number(totalPoint.distance_km || 0).toFixed(1)} KM  ·  D+ ${Math.round(Number(totalPoint.elevation_gain_cumulative_m || 0))} M`, inset, topInset + 34 * scale);
 
     const profileWidth = Math.min(300 * scale, width - inset * 2);
     const profileHeight = 94 * scale;
-    const profileX = width - inset - profileWidth;
-    const profileY = inset;
+    const profileX = width - inset - profileWidth - 22 * scale;
+    const profileY = topInset;
     drawHudPanel(context, profileX, profileY, profileWidth, profileHeight, 7 * scale, { border:false, fill:'rgba(9,14,12,.68)' });
     const elevations = route.map((item) => Number(item.elevation_m || 0));
     const minElevation = Math.min(...elevations); const maxElevation = Math.max(...elevations);
@@ -357,18 +358,11 @@
       const cardX = clamp(pointX - cardWidth / 2, inset, width - inset - cardWidth);
       const cardY = clamp(pointY - 145 * scale, profileY + profileHeight + 12 * scale, height - inset - cardHeight);
       context.beginPath(); context.moveTo(pointX, pointY - 8 * scale); context.lineTo(cardX + cardWidth / 2, cardY + cardHeight); context.strokeStyle = '#fff'; context.lineWidth = 1.35 * scale; context.stroke();
-      drawHudPanel(context, cardX, cardY, cardWidth, cardHeight, 5 * scale, { fill:'rgba(9,14,12,.84)' });
+      drawHudPanel(context, cardX, cardY, cardWidth, cardHeight, 5 * scale, { fill:'rgba(9,14,12,.84)', stroke:'#f6c547' });
       context.fillStyle = '#fff'; context.font = `700 ${15 * scale}px sans-serif`; context.textAlign = 'center'; context.textBaseline = 'middle';
       context.fillText(String(poi.name || 'Point de passage').slice(0, 28), cardX + cardWidth / 2, cardY + 25 * scale);
       context.fillStyle = '#ffd3c6'; context.font = `700 ${12 * scale}px sans-serif`;
       context.fillText(`KM ${Number(poi.km || point.distance_km).toFixed(1)}  ·  D+ ${Math.round(point.elevation_gain_cumulative_m)} m`, cardX + cardWidth / 2, cardY + 51 * scale);
-    } else {
-      const cardWidth = 132 * scale; const cardHeight = 31 * scale;
-      const cardX = clamp(pointX + 16 * scale, inset, width - inset - cardWidth);
-      const cardY = clamp(pointY - 70 * scale, profileY + profileHeight + 12 * scale, height - inset - cardHeight);
-      drawHudPanel(context, cardX, cardY, cardWidth, cardHeight, 6 * scale);
-      context.fillStyle = '#fff'; context.font = `700 ${12 * scale}px sans-serif`; context.textAlign = 'center'; context.textBaseline = 'middle';
-      context.fillText(`PENTE ${point.grade_percent >= 0 ? '+' : ''}${point.grade_percent.toFixed(1)} %`, cardX + cardWidth / 2, cardY + 16 * scale);
     }
   };
   const setActivePoi = (poiIndex) => {
@@ -420,8 +414,6 @@
     const cameraUp = C.Cartesian3.normalize(C.Cartesian3.cross(right, direction, new C.Cartesian3()), new C.Cartesian3());
     viewer.camera.setView({ destination:smoothCameraPosition, orientation:{ direction, up:cameraUp } });
     const point = dataAt(routeIndex);
-    const signedGrade = `${point.grade_percent >= 0 ? '+' : ''}${point.grade_percent.toFixed(1)}`;
-    runner.label.text = `KM ${point.distance_km.toFixed(1)}  ·  D+ ${Math.round(point.elevation_gain_cumulative_m)} m\nPENTE ${signedGrade} %`;
     renderVideoHud();
     status.textContent = `Caméra · km ${point.distance_km.toFixed(1)} · ${Math.round(point.elevation_m)} m · ×${String(speed).replace('.', ',')}`;
   };

@@ -127,7 +127,7 @@
       minimumLevel: 0, maximumLevel: 20, tileWidth: 512, tileHeight: 512,
     })),
   });
-  viewer.scene.globe.depthTestAgainstTerrain = true;
+  viewer.scene.globe.depthTestAgainstTerrain = false;
   viewer.scene.globe.maximumScreenSpaceError = 1.25;
   viewer.scene.globe.tileCacheSize = 1000;
   viewer.scene.requestRenderMode = false;
@@ -149,7 +149,7 @@
   };
   const runner = viewer.entities.add({
     position: positions[0],
-    point: { pixelSize: 12, color: C.Color.WHITE, outlineColor: C.Color.fromCssColorString('#ff5a36'), outlineWidth: 5, heightReference: C.HeightReference.CLAMP_TO_GROUND },
+    point: { pixelSize: 8, color: C.Color.fromCssColorString('#f6c547'), outlineColor: C.Color.BLACK, outlineWidth: 2, heightReference: C.HeightReference.CLAMP_TO_GROUND, disableDepthTestDistance:Number.POSITIVE_INFINITY },
     label: { text:'', show:false, font:'700 17px sans-serif', fillColor:C.Color.WHITE, outlineColor:C.Color.BLACK, outlineWidth:3, style:C.LabelStyle.FILL_AND_OUTLINE, showBackground:true, backgroundColor:C.Color.fromCssColorString('#17221c').withAlpha(.82), backgroundPadding:new C.Cartesian2(10, 7), pixelOffset:new C.Cartesian2(0, -82), heightReference:C.HeightReference.CLAMP_TO_GROUND, scaleByDistance:new C.NearFarScalar(1000, .95, 30000, .56) },
   });
   let animationFrame = null;
@@ -313,8 +313,8 @@
   });
   const setVideoOverlayScale = (scale = 1) => {
     const roundedScale = Math.max(1, Number(scale) || 1);
-    runner.point.pixelSize = 12 * roundedScale;
-    runner.point.outlineWidth = 5 * roundedScale;
+    runner.point.pixelSize = 8 * roundedScale;
+    runner.point.outlineWidth = 2 * roundedScale;
     runner.label.font = `700 ${17 * roundedScale}px sans-serif`;
     runner.label.outlineWidth = 3 * roundedScale;
     runner.label.backgroundPadding = new C.Cartesian2(10 * roundedScale, 7 * roundedScale);
@@ -380,8 +380,6 @@
     const minElevation = Math.min(...elevations); const maxElevation = Math.max(...elevations);
     const chartX = infoX + 16 * scale; const chartY = infoY + 82 * scale;
     const chartWidth = infoWidth - 32 * scale; const chartHeight = 48 * scale;
-    context.fillStyle = '#f1f1f1'; context.font = `700 ${13 * scale}px "DM Mono", monospace`; context.textAlign = 'left'; context.textBaseline = 'middle';
-    context.fillText('PROFIL GPX', chartX, infoY + 69 * scale);
     context.beginPath();
     const step = Math.max(1, Math.ceil(route.length / 120));
     for (let index = 0; index < route.length; index += step) {
@@ -728,7 +726,7 @@
       minimumLevel: 0, maximumLevel: 20, tileWidth: 512, tileHeight: 512,
     })),
   });
-  explorer.scene.globe.depthTestAgainstTerrain = true;
+  explorer.scene.globe.depthTestAgainstTerrain = false;
   explorer.scene.requestRenderMode = false;
   explorer.creditDisplay.addStaticCredit(new C.Credit('<a href="https://www.maptiler.com/copyright/" target="_blank">© MapTiler</a> <a href="https://www.openstreetmap.org/copyright" target="_blank">© OpenStreetMap contributors</a>', true));
   const explorerRoute = addPoiSegmentedRoute(explorer, .75);

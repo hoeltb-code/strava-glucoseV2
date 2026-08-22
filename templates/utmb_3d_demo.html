@@ -59,6 +59,9 @@
 
   const C = window.Cesium;
   const positions = route.map((point) => C.Cartesian3.fromDegrees(point.longitude, point.latitude, Math.max(0, point.elevation_m || 0)));
+  // Le point GPS reste exact, mais la caméra utilise une spline qui arrondit les
+  // changements d'orientation naturels d'une trace GPX échantillonnée.
+  const cameraSpline = new C.CatmullRomSpline({ times:positions.map((_point, index) => index), points:positions });
   const slopeColor = (grade) => {
     if (grade <= -8) return '#4aaed8';
     if (grade < -2) return '#78cbe5';
@@ -116,6 +119,11 @@
     const index = Math.floor(clamped);
     return C.Cartesian3.lerp(positions[index], positions[Math.min(positions.length - 1, index + 1)], clamped - index, new C.Cartesian3());
   };
+  const cameraPathAt = (routeIndex) => {
+    const clamped = Math.max(0, Math.min(positions.length - 1, routeIndex));
+    if (clamped < 1 || clamped > positions.length - 2) return positionAt(clamped);
+    return cameraSpline.evaluate(clamped, new C.Cartesian3());
+  };
   const dataAt = (routeIndex) => {
     const clamped = Math.max(0, Math.min(route.length - 1, routeIndex));
     const index = Math.floor(clamped);
@@ -166,25 +174,25 @@
     const current = positionAt(routeIndex);
     runner.position = current;
     if (activePoiIndex >= 0) poiEntries[activePoiIndex].entity.position = current;
-    // La caméra ne regarde pas le coureur à la verticale : elle reste en arrière
-    // de sa progression et vise la portion suivante. Les deux positions sont
-    // interpolées afin d'éviter les à-coups dans les virages du GPX.
-    const behind = positionAt(routeIndex - 2.5);
-    const ahead = positionAt(routeIndex + 4.5);
+    // La caméra ne regarde pas le coureur à la verticale : elle parcourt une
+    // version lissée de la trace, reste en arrière et vise la suite du parcours.
+    const cameraAnchor = cameraPathAt(routeIndex);
+    const behind = cameraPathAt(routeIndex - 4.5);
+    const ahead = cameraPathAt(routeIndex + 8);
     const travelDirection = C.Cartesian3.normalize(C.Cartesian3.subtract(ahead, behind, new C.Cartesian3()), new C.Cartesian3());
-    const localUp = C.Ellipsoid.WGS84.geodeticSurfaceNormal(current, new C.Cartesian3());
+    const localUp = C.Ellipsoid.WGS84.geodeticSurfaceNormal(cameraAnchor, new C.Cartesian3());
     const backwardOffset = C.Cartesian3.multiplyByScalar(travelDirection, -9800, new C.Cartesian3());
     const introRatio = Math.max(0, 1 - (sequenceElapsedMs / 3000));
     const altitudeOffset = C.Cartesian3.multiplyByScalar(localUp, 7600 + 14500 * introRatio * introRatio, new C.Cartesian3());
-    const desiredPosition = C.Cartesian3.add(current, C.Cartesian3.add(backwardOffset, altitudeOffset, new C.Cartesian3()), new C.Cartesian3());
+    const desiredPosition = C.Cartesian3.add(cameraAnchor, C.Cartesian3.add(backwardOffset, altitudeOffset, new C.Cartesian3()), new C.Cartesian3());
     const desiredTarget = C.Cartesian3.add(ahead, C.Cartesian3.multiplyByScalar(localUp, 500, new C.Cartesian3()), new C.Cartesian3());
     if (!smoothCameraPosition) {
       smoothCameraPosition = C.Cartesian3.clone(desiredPosition);
       smoothCameraTarget = C.Cartesian3.clone(desiredTarget);
     } else {
       const elapsed = Math.min(80, Math.max(1, now - (lastCameraTime || now)));
-      const positionSmoothing = 1 - Math.exp(-elapsed / 1450);
-      const targetSmoothing = 1 - Math.exp(-elapsed / 1150);
+      const positionSmoothing = 1 - Math.exp(-elapsed / 2600);
+      const targetSmoothing = 1 - Math.exp(-elapsed / 2100);
       C.Cartesian3.lerp(smoothCameraPosition, desiredPosition, positionSmoothing, smoothCameraPosition);
       C.Cartesian3.lerp(smoothCameraTarget, desiredTarget, targetSmoothing, smoothCameraTarget);
     }

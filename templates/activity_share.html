@@ -4,10 +4,10 @@
 {% block extra_head %}
 <style>
   .share-page {
-    --share-border: rgba(77, 226, 255, 0.22);
-    --share-panel: rgba(12, 24, 42, 0.72);
-    --share-panel-strong: rgba(17, 33, 56, 0.88);
-    --share-muted: rgba(221, 234, 250, 0.74);
+    --share-border: #e5d9cf;
+    --share-panel: #fff;
+    --share-panel-strong: #fff;
+    --share-muted: #706d67;
   }
   .share-hero {
     display:flex;
@@ -22,23 +22,23 @@
     gap:8px;
     padding:10px 14px;
     border-radius:12px;
-    border:1px solid var(--share-border);
-    background:rgba(77, 226, 255, 0.08);
-    color:var(--text-main);
+    border:1px solid #f0cfc5;
+    background:#fff3ef;
+    color:var(--accent-dark);
     font-weight:700;
   }
   .share-back-link:hover {
-    color:var(--text-main);
-    border-color:rgba(77, 226, 255, 0.42);
-    background:rgba(77, 226, 255, 0.14);
+    color:var(--accent-dark);
+    border-color:#ebaf9f;
+    background:#ffe8df;
   }
   .share-note,
   .share-theme-panel {
     padding:16px 18px;
     border-radius:18px;
     border:1px solid var(--share-border);
-    background:linear-gradient(180deg, rgba(21, 40, 67, 0.92), rgba(13, 25, 43, 0.98));
-    box-shadow:0 18px 44px rgba(0, 0, 0, 0.2);
+    background:#fff;
+    box-shadow:0 12px 28px rgba(54,43,32,.07);
   }
   .share-note {
     margin-bottom:14px;
@@ -63,9 +63,9 @@
     width:42px;
     height:42px;
     border-radius:999px;
-    border:2px solid rgba(255,255,255,0.14);
+    border:2px solid #e5d9cf;
     background:var(--theme-preview);
-    box-shadow:0 8px 18px rgba(0,0,0,0.2);
+    box-shadow:0 6px 14px rgba(54,43,32,.12);
     cursor:pointer;
     transition:transform .12s ease, border-color .12s ease, box-shadow .12s ease;
   }
@@ -74,11 +74,11 @@
     border-color:rgba(255,255,255,0.32);
   }
   .share-theme-button.is-active {
-    border-color:#fff;
-    box-shadow:0 0 0 4px rgba(255,255,255,0.08), 0 12px 24px rgba(0,0,0,0.25);
+    border-color:var(--accent);
+    box-shadow:0 0 0 4px rgba(255,90,54,.12), 0 8px 18px rgba(54,43,32,.14);
   }
   .share-ratio-button { min-height:38px; padding:8px 12px; border:1px solid var(--share-border); border-radius:999px; background:rgba(255,255,255,.04); color:var(--share-muted); font:700 .76rem "Manrope",sans-serif; cursor:pointer; }
-  .share-ratio-button.is-active { border-color:#fff; background:rgba(255,255,255,.13); color:#fff; }
+  .share-ratio-button.is-active { border-color:var(--accent); background:#fff0eb; color:var(--accent-dark); }
   .share-grid {
     display:grid;
     grid-template-columns:repeat(2, minmax(0, 1fr));
@@ -88,8 +88,8 @@
     padding:18px;
     border-radius:24px;
     border:1px solid var(--share-border);
-    background:linear-gradient(180deg, rgba(21, 40, 67, 0.92), rgba(13, 25, 43, 0.98));
-    box-shadow:0 24px 56px rgba(0, 0, 0, 0.24);
+    background:#fff;
+    box-shadow:0 16px 34px rgba(54,43,32,.08);
   }
   .share-card-top {
     display:flex;
@@ -100,10 +100,11 @@
   }
   .share-card h3 {
     margin:0;
-    font-family:"Orbitron", sans-serif;
+    font-family:"Manrope", sans-serif;
+    color:var(--text-main);
     font-size:1rem;
-    letter-spacing:0.08em;
-    text-transform:uppercase;
+    letter-spacing:-.02em;
+    text-transform:none;
   }
   .share-card p {
     margin:6px 0 0 0;
@@ -117,9 +118,9 @@
     padding:10px 14px;
     min-height:44px;
     border-radius:12px;
-    border:1px solid rgba(77, 226, 255, 0.32);
-    background:linear-gradient(135deg, rgba(77, 226, 255, 0.16), rgba(28, 140, 255, 0.24));
-    color:var(--text-main);
+    border:1px solid transparent;
+    background:var(--grad-accent);
+    color:#fff;
     font-weight:700;
     cursor:pointer;
   }
@@ -130,11 +131,11 @@
   .share-preview {
     padding:14px;
     border-radius:20px;
-    border:1px solid rgba(255, 255, 255, 0.06);
+    border:1px solid #e8ddd3;
     background:
-      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px),
-      rgba(7, 15, 28, 0.82);
+      linear-gradient(rgba(129,109,88,.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(129,109,88,.07) 1px, transparent 1px),
+      #f8f4ed;
     background-size:20px 20px, 20px 20px, auto;
   }
   .share-canvas {
@@ -168,7 +169,7 @@
 <div class="share-page">
   <div class="share-hero">
     <div>
-      <div style="font-family:'Orbitron', sans-serif; font-size:0.78rem; letter-spacing:0.18em; text-transform:uppercase; color:var(--text-dim);">
+      <div style="font-family:'DM Mono', monospace; font-size:0.72rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent);">
         Partage activité
       </div>
       <h1 style="margin:8px 0 6px 0; font-size:1.8rem;">Des visuels de course, avec ou sans glycémie</h1>
@@ -186,7 +187,7 @@
   <div class="share-theme-panel">
     <div class="share-theme-row">
       <div>
-        <div style="font-family:'Orbitron', sans-serif; font-size:0.82rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-dim);">
+        <div style="font-family:'DM Mono', monospace; font-size:0.72rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--accent);">
           Couleur
         </div>
         <div id="shareThemeLabel" style="margin-top:6px; font-size:1rem; font-weight:700;">Cyan glacier</div>

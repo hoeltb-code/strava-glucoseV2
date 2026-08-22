@@ -159,11 +159,13 @@
     if (poiIndex === activePoiIndex) return;
     if (activePoiIndex >= 0) poiEntries[activePoiIndex].entity.billboard.show = false;
     activePoiIndex = poiIndex;
+    runner.label.show = activePoiIndex < 0;
     if (activePoiIndex >= 0) poiEntries[activePoiIndex].entity.billboard.show = true;
   };
   const updateCamera = (routeIndex, now) => {
     const current = positionAt(routeIndex);
     runner.position = current;
+    if (activePoiIndex >= 0) poiEntries[activePoiIndex].entity.position = current;
     // La caméra ne regarde pas le coureur à la verticale : elle reste en arrière
     // de sa progression et vise la portion suivante. Les deux positions sont
     // interpolées afin d'éviter les à-coups dans les virages du GPX.

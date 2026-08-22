@@ -42,7 +42,7 @@
       <button id="utmb-3d-video" class="three-d-button" type="button" disabled>● Enregistrer une vidéo</button>
       <span id="utmb-3d-status" class="three-d-status">Préparation du relief 3D…</span>
     </div>
-    <p class="three-d-note">La vidéo est téléchargée au format WebM HD ×2 à la fin de la séquence. Crédit cartographique affiché dans la carte : © MapTiler © OpenStreetMap contributors.</p>
+    <p class="three-d-note">La vidéo est téléchargée au format Story vertical 9:16 (1080 × 1920 px) à la fin de la séquence. Crédit cartographique affiché dans la carte : © MapTiler © OpenStreetMap contributors.</p>
     <div class="three-d-legend" aria-label="Légende des pentes"><span><i style="background:#4aaed8"></i>descente</span><span><i style="background:#77c990"></i>roulant</span><span><i style="background:#f5c446"></i>montée</span><span><i style="background:#f18a2b"></i>raide</span><span><i style="background:#e94c34"></i>très raide</span></div>
     {% if not maptiler_api_key %}<p class="three-d-error">Ajoute <code>MAPTILER_API_KEY</code> dans l’environnement local ou Render, puis recharge cette page pour activer le relief et le fond satellite.</p>{% endif %}
   </section>
@@ -60,6 +60,7 @@
   const coursePoints = {{ course.points|tojson }};
   const apiKey = {{ maptiler_api_key|tojson }};
   const status = document.getElementById('utmb-3d-status');
+  const videoMapContainer = document.getElementById('utmb-3d-map');
   const playButton = document.getElementById('utmb-3d-play');
   const resetButton = document.getElementById('utmb-3d-reset');
   const videoButton = document.getElementById('utmb-3d-video');
@@ -191,15 +192,15 @@
     const routeIndex = routeIndexForKm(Number(item.km || 0));
     const routePoint = route[routeIndex];
     const canvas = document.createElement('canvas');
-    canvas.width = 430; canvas.height = 102;
+    canvas.width = 340; canvas.height = 84;
     const context = canvas.getContext('2d');
-    drawRoundedRectangle(context, 2, 2, 426, 98, 6);
+    drawRoundedRectangle(context, 2, 2, 336, 80, 5);
     context.fillStyle = 'rgba(0,0,0,.50)'; context.fill();
     context.strokeStyle = '#ff5a36'; context.lineWidth = 2; context.stroke();
-    context.fillStyle = '#ffffff'; context.font = '700 20px sans-serif';
-    context.fillText(String(item.name || 'Point de passage').slice(0, 26), 21, 40);
-    context.fillStyle = '#ffd3c6'; context.font = '700 16px sans-serif';
-    context.fillText(`KM ${Number(item.km || 0).toFixed(1)}  ·  D+ ${Math.round(Number(routePoint.elevation_gain_cumulative_m || 0))} m`, 21, 75);
+    context.fillStyle = '#ffffff'; context.font = '700 17px sans-serif';
+    context.fillText(String(item.name || 'Point de passage').slice(0, 23), 16, 33);
+    context.fillStyle = '#ffd3c6'; context.font = '700 14px sans-serif';
+    context.fillText(`KM ${Number(item.km || 0).toFixed(1)}  ·  D+ ${Math.round(Number(routePoint.elevation_gain_cumulative_m || 0))} m`, 16, 63);
     const entity = viewer.entities.add({
       position: positions[routeIndex],
       billboard: { image:canvas, show:false, verticalOrigin:C.VerticalOrigin.BOTTOM, pixelOffset:new C.Cartesian2(0, -82), heightReference:C.HeightReference.CLAMP_TO_GROUND, scaleByDistance:new C.NearFarScalar(1000, 1, 30000, .64) },
@@ -331,10 +332,11 @@
     if (recording) { stop(); return; }
     const chunks = [];
     const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
-    recording = true; videoButton.textContent = 'Préparation HD…'; progress = 0; introElapsedMs = 0; outroElapsedMs = 0; outroActive = false; pauseRemainingMs = 0; passedPoiIndexes.clear(); setActivePoi(-1); smoothCameraPosition = null; smoothCameraTarget = null;
-    recordingDisplaySettings = { useBrowserRecommendedResolution:viewer.useBrowserRecommendedResolution, resolutionScale:viewer.resolutionScale };
+    recording = true; videoButton.textContent = 'Préparation Story…'; progress = 0; introElapsedMs = 0; outroElapsedMs = 0; outroActive = false; pauseRemainingMs = 0; passedPoiIndexes.clear(); setActivePoi(-1); smoothCameraPosition = null; smoothCameraTarget = null;
+    recordingDisplaySettings = { useBrowserRecommendedResolution:viewer.useBrowserRecommendedResolution, resolutionScale:viewer.resolutionScale, containerStyle:videoMapContainer.style.cssText };
+    videoMapContainer.style.cssText = 'position:fixed;left:-10000px;top:0;width:540px;height:960px;min-height:0;z-index:-1;';
     viewer.useBrowserRecommendedResolution = false;
-    viewer.resolutionScale = 2;
+    viewer.resolutionScale = 2 / Math.max(1, window.devicePixelRatio || 1);
     viewer.resize();
     requestAnimationFrame(() => {
       const stream = viewer.canvas.captureStream(30);
@@ -345,6 +347,7 @@
         if (recordingDisplaySettings) {
           viewer.useBrowserRecommendedResolution = recordingDisplaySettings.useBrowserRecommendedResolution;
           viewer.resolutionScale = recordingDisplaySettings.resolutionScale;
+          videoMapContainer.style.cssText = recordingDisplaySettings.containerStyle;
           viewer.resize();
           recordingDisplaySettings = null;
         }
@@ -352,7 +355,7 @@
         const file = URL.createObjectURL(new Blob(chunks, { type: mimeType }));
         const link = document.createElement('a'); link.href = file; link.download = '{{ course.id }}-3d.webm'; link.click();
         setTimeout(() => URL.revokeObjectURL(file), 1000);
-        status.textContent = 'Vidéo HD téléchargée.';
+        status.textContent = 'Story 1080 × 1920 téléchargée.';
       };
       videoButton.textContent = '■ Arrêter l’enregistrement';
       recorder.start(500); start();

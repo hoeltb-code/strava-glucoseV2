@@ -4,8 +4,8 @@
 <link rel="stylesheet" href="https://cesium.com/downloads/cesiumjs/releases/1.116/Build/Cesium/Widgets/widgets.css">
 <script src="https://cesium.com/downloads/cesiumjs/releases/1.116/Build/Cesium/Cesium.js"></script>
 <style>
-  .three-d-demo{max-width:1180px;margin:0 auto;padding:20px 0 42px}.three-d-demo h1{margin:5px 0 10px;font-size:clamp(2rem,5vw,3.8rem);line-height:1}.three-d-demo .lead{max-width:760px;color:var(--text-muted);line-height:1.65}.three-d-kicker{margin:0;color:var(--accent-dark);font:700 .75rem "DM Mono",monospace;letter-spacing:.12em;text-transform:uppercase}.three-d-picker{margin-top:18px;padding:15px 17px;border:1px solid var(--border-soft);border-radius:16px;background:#fff}.three-d-picker label{display:block;margin-bottom:7px;font-weight:800}.three-d-picker select{width:min(100%,460px);padding:11px 13px;border:1px solid #d8cfc5;border-radius:10px;background:#fff;color:var(--text-main);font:inherit}.three-d-card{max-width:980px;margin:22px auto 0;padding:14px;border:1px solid var(--border-soft);border-radius:22px;background:#fff;box-shadow:0 12px 35px rgba(85,58,38,.08)}.three-d-video-card{width:min(calc(100% - 28px),540px)!important;max-width:540px!important;box-sizing:border-box}.three-d-card h2{margin:3px 4px 6px;font-size:1.3rem}.three-d-camera-settings{margin:4px 4px 13px;padding:13px;border:1px solid #ead7d0;border-radius:13px;background:#fff8f5}.three-d-camera-settings strong{display:block;margin-bottom:8px}.three-d-camera-group+.three-d-camera-group{margin-top:12px;padding-top:12px;border-top:1px solid #ead7d0}.three-d-camera-group span{display:block;margin-bottom:7px;color:var(--text-muted);font-size:.78rem}.three-d-camera-options{display:flex;flex-wrap:wrap;gap:7px}.three-d-camera-options button,.three-d-segment-actions button{border:1px solid #d8cfc5;border-radius:8px;padding:8px 10px;background:#fff;color:var(--text-main);font:700 .75rem "DM Mono",monospace;cursor:pointer}.three-d-camera-options button[aria-pressed="true"]{border-color:#ff5a36;background:#fff0eb;color:#a83e24}.three-d-camera-details{margin:12px 0 0;color:var(--text-muted);font-size:.78rem}.three-d-segments{display:grid;gap:9px;margin-top:10px}.three-d-segment{padding:11px;border:1px solid #e4d5ca;border-radius:10px;background:#fff}.three-d-segment-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px;font-size:.78rem;font-weight:800}.three-d-segment-head button{border:0;background:transparent;color:#b5452b;cursor:pointer;font:700 .72rem "DM Mono",monospace}.three-d-segment-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.three-d-segment-field{min-width:0}.three-d-segment-field label{display:flex;justify-content:space-between;gap:5px;color:var(--text-muted);font-size:.7rem}.three-d-segment-field input{width:100%;accent-color:#ff5a36}.three-d-segment-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}.three-d-segment-note{margin:8px 0 0;color:var(--text-muted);font-size:.72rem;line-height:1.45}.three-d-map{height:min(70vh,680px);min-height:430px;border-radius:15px;overflow:hidden;background:linear-gradient(135deg,#d8e8ec,#748b72)}#utmb-3d-map{display:block!important;width:100%!important;height:auto!important;min-height:0!important;aspect-ratio:9 / 16!important}.three-d-explorer-map{height:min(62vh,590px);min-height:410px}.three-d-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:13px 4px 2px}.three-d-video-format{display:flex;align-items:center;gap:6px;color:var(--text-muted);font-size:.76rem}.three-d-video-format select{border:1px solid #dfcfc5;border-radius:9px;padding:9px;background:#fff;color:var(--text-main);font:inherit}.three-d-button{border:1px solid #dfcfc5;border-radius:10px;padding:10px 13px;background:#fff;color:var(--text-main);font:700 .78rem "DM Mono",monospace;cursor:pointer}.three-d-button.primary{border-color:#ef684a;background:#ff5a36;color:#fff}.three-d-button[aria-pressed="true"]{border-color:#5d735d;background:#eaf2eb;color:#31533a}.three-d-button:disabled{opacity:.5;cursor:wait}.three-d-status{margin-left:auto;color:var(--text-muted);font-size:.8rem}.three-d-note{margin:10px 4px 0;color:var(--text-muted);font-size:.78rem;line-height:1.5}.three-d-error{margin:14px 4px 2px;padding:13px;border-radius:12px;background:#fff4e9;color:#9b3d20;font-size:.8rem;line-height:1.5}.three-d-waypoint{margin:8px 4px 0;color:#9b3d20;font-size:.8rem;font-weight:700}.three-d-legend{display:flex;gap:10px;flex-wrap:wrap;margin:9px 4px 0;color:var(--text-muted);font-size:.72rem}.three-d-legend span{display:inline-flex;align-items:center;gap:5px}.three-d-legend i{display:inline-block;width:10px;height:10px;border-radius:50%}.cesium-viewer-bottom{display:none!important}@media(max-width:650px){.three-d-card{max-width:none}.three-d-video-card{width:100%!important;max-width:none!important}.three-d-segment-grid{grid-template-columns:1fr}.three-d-map{height:58vh;min-height:390px}#utmb-3d-map{height:auto!important;min-height:0!important;aspect-ratio:9 / 16!important}.three-d-status{width:100%;margin-left:0;order:2}}
-  .three-d-production-card{max-width:1180px;display:grid!important;grid-template-columns:minmax(0,1fr) minmax(280px,.85fr)!important;align-items:start;gap:20px}.three-d-production-card .three-d-camera-settings{margin:4px 0 0}.three-d-video-pane{width:100%;max-width:540px;min-width:0;justify-self:end}.three-d-video-pane .three-d-note{margin-left:0;margin-right:0}.three-d-video-pane .three-d-legend{margin-left:0;margin-right:0}@media(max-width:640px){.three-d-production-card{grid-template-columns:1fr!important}.three-d-video-pane{justify-self:center;max-width:none}}
+  .three-d-demo{max-width:1180px;margin:0 auto;padding:20px 0 42px}.three-d-demo h1{margin:5px 0 10px;font-size:clamp(2rem,5vw,3.8rem);line-height:1}.three-d-demo .lead{max-width:760px;color:var(--text-muted);line-height:1.65}.three-d-kicker{margin:0;color:var(--accent-dark);font:700 .75rem "DM Mono",monospace;letter-spacing:.12em;text-transform:uppercase}.three-d-picker{margin-top:18px;padding:15px 17px;border:1px solid var(--border-soft);border-radius:16px;background:#fff}.three-d-picker label{display:block;margin-bottom:7px;font-weight:800}.three-d-picker select{width:min(100%,460px);padding:11px 13px;border:1px solid #d8cfc5;border-radius:10px;background:#fff;color:var(--text-main);font:inherit}.three-d-card{max-width:980px;margin:22px auto 0;padding:14px;border:1px solid var(--border-soft);border-radius:22px;background:#fff;box-shadow:0 12px 35px rgba(85,58,38,.08)}.three-d-video-card{width:min(calc(100% - 28px),540px)!important;max-width:540px!important;box-sizing:border-box}.three-d-card h2{margin:3px 4px 6px;font-size:1.3rem}.three-d-camera-settings{margin:4px 4px 13px;padding:13px;border:1px solid #ead7d0;border-radius:13px;background:#fff8f5}.three-d-camera-settings strong{display:block;margin-bottom:8px}.three-d-camera-group+.three-d-camera-group{margin-top:12px;padding-top:12px;border-top:1px solid #ead7d0}.three-d-camera-group span{display:block;margin-bottom:7px;color:var(--text-muted);font-size:.78rem}.three-d-camera-options{display:flex;flex-wrap:wrap;gap:7px}.three-d-camera-options button,.three-d-segment-actions button{border:1px solid #d8cfc5;border-radius:8px;padding:8px 10px;background:#fff;color:var(--text-main);font:700 .75rem "DM Mono",monospace;cursor:pointer}.three-d-camera-options button[aria-pressed="true"]{border-color:#ff5a36;background:#fff0eb;color:#a83e24}.three-d-camera-details{margin:12px 0 0;color:var(--text-muted);font-size:.78rem}.three-d-segments{display:grid;gap:9px;margin-top:10px}.three-d-segment{padding:11px;border:1px solid #e4d5ca;border-radius:10px;background:#fff}.three-d-segment-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px;font-size:.78rem;font-weight:800}.three-d-segment-head button{border:0;background:transparent;color:#b5452b;cursor:pointer;font:700 .72rem "DM Mono",monospace}.three-d-segment-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.three-d-segment-field{min-width:0}.three-d-segment-field label{display:flex;justify-content:space-between;gap:5px;color:var(--text-muted);font-size:.7rem}.three-d-segment-field input{width:100%;accent-color:#ff5a36}.three-d-segment-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}.three-d-segment-note{margin:8px 0 0;color:var(--text-muted);font-size:.72rem;line-height:1.45}.three-d-map{height:min(70vh,680px);min-height:430px;border-radius:15px;overflow:hidden;background:linear-gradient(135deg,#d8e8ec,#748b72)}#utmb-3d-map{position:relative!important;display:block!important;width:100%!important;height:auto!important;min-height:0!important;aspect-ratio:9 / 16!important}.three-d-explorer-map{height:min(62vh,590px);min-height:410px}.three-d-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:13px 4px 2px}.three-d-video-format{display:flex;align-items:center;gap:6px;color:var(--text-muted);font-size:.76rem}.three-d-video-format select{border:1px solid #dfcfc5;border-radius:9px;padding:9px;background:#fff;color:var(--text-main);font:inherit}.three-d-button{border:1px solid #dfcfc5;border-radius:10px;padding:10px 13px;background:#fff;color:var(--text-main);font:700 .78rem "DM Mono",monospace;cursor:pointer}.three-d-button.primary{border-color:#ef684a;background:#ff5a36;color:#fff}.three-d-button[aria-pressed="true"]{border-color:#5d735d;background:#eaf2eb;color:#31533a}.three-d-button:disabled{opacity:.5;cursor:wait}.three-d-status{margin-left:auto;color:var(--text-muted);font-size:.8rem}.three-d-note{margin:10px 4px 0;color:var(--text-muted);font-size:.78rem;line-height:1.5}.three-d-error{margin:14px 4px 2px;padding:13px;border-radius:12px;background:#fff4e9;color:#9b3d20;font-size:.8rem;line-height:1.5}.three-d-waypoint{margin:8px 4px 0;color:#9b3d20;font-size:.8rem;font-weight:700}.three-d-legend{display:flex;gap:10px;flex-wrap:wrap;margin:9px 4px 0;color:var(--text-muted);font-size:.72rem}.three-d-legend span{display:inline-flex;align-items:center;gap:5px}.three-d-legend i{display:inline-block;width:10px;height:10px;border-radius:50%}.cesium-viewer-bottom{display:none!important}@media(max-width:650px){.three-d-card{max-width:none}.three-d-video-card{width:100%!important;max-width:none!important}.three-d-segment-grid{grid-template-columns:1fr}.three-d-map{height:58vh;min-height:390px}#utmb-3d-map{height:auto!important;min-height:0!important;aspect-ratio:9 / 16!important}.three-d-status{width:100%;margin-left:0;order:2}}
+  .three-d-production-card{max-width:1180px;display:grid!important;grid-template-columns:minmax(0,1fr) minmax(280px,.85fr)!important;align-items:start;gap:20px}.three-d-production-card .three-d-camera-settings{margin:4px 0 0}.three-d-video-pane{width:100%;max-width:540px;min-width:0;justify-self:end}.three-d-video-pane .three-d-note{margin-left:0;margin-right:0}.three-d-video-pane .three-d-legend{margin-left:0;margin-right:0}.three-d-video-hud{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:3}@media(max-width:640px){.three-d-production-card{grid-template-columns:1fr!important}.three-d-video-pane{justify-self:center;max-width:none}}
 </style>
 {% endblock %}
 {% block content %}
@@ -65,6 +65,7 @@
 (() => {
   const route = {{ course.map_profile|tojson }};
   const coursePoints = {{ course.points|tojson }};
+  const courseName = {{ course.name|tojson }};
   const apiKey = {{ maptiler_api_key|tojson }};
   const status = document.getElementById('utmb-3d-status');
   const videoMapContainer = document.getElementById('utmb-3d-map');
@@ -116,12 +117,16 @@
   viewer.scene.globe.depthTestAgainstTerrain = true;
   viewer.scene.requestRenderMode = false;
   viewer.creditDisplay.addStaticCredit(new C.Credit('<a href="https://www.maptiler.com/copyright/" target="_blank">© MapTiler</a> <a href="https://www.openstreetmap.org/copyright" target="_blank">© OpenStreetMap contributors</a>', true));
+  const videoHud = document.createElement('canvas');
+  videoHud.className = 'three-d-video-hud';
+  videoHud.setAttribute('aria-hidden', 'true');
+  videoMapContainer.appendChild(videoHud);
 
   const routeEntities = addSlopeColoredRoute(viewer);
   const runner = viewer.entities.add({
     position: positions[0],
     point: { pixelSize: 12, color: C.Color.WHITE, outlineColor: C.Color.fromCssColorString('#ff5a36'), outlineWidth: 5, heightReference: C.HeightReference.CLAMP_TO_GROUND },
-    label: { text:'', font:'700 17px sans-serif', fillColor:C.Color.WHITE, outlineColor:C.Color.BLACK, outlineWidth:3, style:C.LabelStyle.FILL_AND_OUTLINE, showBackground:true, backgroundColor:C.Color.fromCssColorString('#17221c').withAlpha(.82), backgroundPadding:new C.Cartesian2(10, 7), pixelOffset:new C.Cartesian2(0, -82), heightReference:C.HeightReference.CLAMP_TO_GROUND, scaleByDistance:new C.NearFarScalar(1000, .95, 30000, .56) },
+    label: { text:'', show:false, font:'700 17px sans-serif', fillColor:C.Color.WHITE, outlineColor:C.Color.BLACK, outlineWidth:3, style:C.LabelStyle.FILL_AND_OUTLINE, showBackground:true, backgroundColor:C.Color.fromCssColorString('#17221c').withAlpha(.82), backgroundPadding:new C.Cartesian2(10, 7), pixelOffset:new C.Cartesian2(0, -82), heightReference:C.HeightReference.CLAMP_TO_GROUND, scaleByDistance:new C.NearFarScalar(1000, .95, 30000, .56) },
   });
   let animationFrame = null;
   let playing = false;
@@ -141,6 +146,9 @@
   let activePoiIndex = -1;
   const passedPoiIndexes = new Set();
   let recordingDisplaySettings = null;
+  let hudRouteIndex = 0;
+  let exportCanvas = null;
+  let exportAnimationFrame = null;
   let cameraHeightMode = 'standard';
   let cameraLookAheadKm = 3;
   let cameraRearKm = 10;
@@ -282,14 +290,90 @@
       entry.entity.billboard.pixelOffset = new C.Cartesian2(0, -82 * roundedScale);
     });
   };
+  const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
+  const resizeVideoHud = () => {
+    const width = Math.max(1, Math.round(videoMapContainer.clientWidth));
+    const height = Math.max(1, Math.round(videoMapContainer.clientHeight));
+    if (videoHud.width !== width || videoHud.height !== height) { videoHud.width = width; videoHud.height = height; }
+    return { width, height, scale:width / 540 };
+  };
+  const drawHudPanel = (context, x, y, width, height, radius = 8) => {
+    drawRoundedRectangle(context, x, y, width, height, radius);
+    context.fillStyle = 'rgba(9,14,12,.58)'; context.fill();
+    context.strokeStyle = 'rgba(255,90,54,.88)'; context.lineWidth = 1.25; context.stroke();
+  };
+  const renderVideoHud = () => {
+    const { width, height, scale } = resizeVideoHud();
+    const context = videoHud.getContext('2d');
+    context.clearRect(0, 0, width, height);
+    const inset = 16 * scale;
+    context.font = `700 ${16 * scale}px sans-serif`;
+    const titleWidth = Math.min(width - inset * 2, context.measureText(courseName).width + 28 * scale);
+    drawHudPanel(context, inset, inset, titleWidth, 34 * scale, 7 * scale);
+    context.fillStyle = '#fff'; context.textAlign = 'left'; context.textBaseline = 'middle';
+    context.fillText(courseName, inset + 14 * scale, inset + 17 * scale);
+
+    const profileWidth = Math.min(210 * scale, width - inset * 2);
+    const profileHeight = 74 * scale;
+    const profileX = width - inset - profileWidth;
+    const profileY = inset;
+    drawHudPanel(context, profileX, profileY, profileWidth, profileHeight, 7 * scale);
+    const elevations = route.map((item) => Number(item.elevation_m || 0));
+    const minElevation = Math.min(...elevations); const maxElevation = Math.max(...elevations);
+    const chartX = profileX + 10 * scale; const chartY = profileY + 22 * scale;
+    const chartWidth = profileWidth - 20 * scale; const chartHeight = profileHeight - 31 * scale;
+    context.fillStyle = '#f6d1c6'; context.font = `700 ${9 * scale}px sans-serif`; context.textAlign = 'left'; context.textBaseline = 'middle';
+    context.fillText('PROFIL GPX', chartX, profileY + 11 * scale);
+    context.beginPath();
+    const step = Math.max(1, Math.ceil(route.length / 120));
+    for (let index = 0; index < route.length; index += step) {
+      const point = route[index]; const ratio = index / Math.max(1, route.length - 1);
+      const elevationRatio = (Number(point.elevation_m || 0) - minElevation) / Math.max(1, maxElevation - minElevation);
+      const x = chartX + ratio * chartWidth; const y = chartY + (1 - elevationRatio) * chartHeight;
+      if (index === 0) context.moveTo(x, y); else context.lineTo(x, y);
+    }
+    context.strokeStyle = '#ff6a48'; context.lineWidth = 1.8 * scale; context.stroke();
+    const progressRatio = clamp(hudRouteIndex / Math.max(1, route.length - 1), 0, 1);
+    const activeElevation = Number(route[Math.round(hudRouteIndex)].elevation_m || 0);
+    const markerX = chartX + progressRatio * chartWidth;
+    const markerY = chartY + (1 - ((activeElevation - minElevation) / Math.max(1, maxElevation - minElevation))) * chartHeight;
+    context.beginPath(); context.arc(markerX, markerY, 3.5 * scale, 0, Math.PI * 2); context.fillStyle = '#fff'; context.fill(); context.strokeStyle = '#ff5a36'; context.lineWidth = 1.4 * scale; context.stroke();
+
+    const screenPoint = C.SceneTransforms.wgs84ToWindowCoordinates(viewer.scene, positionAt(hudRouteIndex));
+    if (!screenPoint) return;
+    const pointX = screenPoint.x * (width / Math.max(1, videoMapContainer.clientWidth));
+    const pointY = screenPoint.y * (height / Math.max(1, videoMapContainer.clientHeight));
+    const point = dataAt(hudRouteIndex);
+    if (activePoiIndex >= 0) {
+      const poi = poiEntries[activePoiIndex].item;
+      const cardWidth = 230 * scale; const cardHeight = 70 * scale;
+      const cardX = clamp(pointX - cardWidth / 2, inset, width - inset - cardWidth);
+      const cardY = clamp(pointY - 145 * scale, profileY + profileHeight + 12 * scale, height - inset - cardHeight);
+      context.beginPath(); context.moveTo(pointX, pointY - 8 * scale); context.lineTo(cardX + cardWidth / 2, cardY + cardHeight); context.strokeStyle = '#ff5a36'; context.lineWidth = 1.35 * scale; context.stroke();
+      drawHudPanel(context, cardX, cardY, cardWidth, cardHeight, 5 * scale);
+      context.fillStyle = '#fff'; context.font = `700 ${15 * scale}px sans-serif`; context.textAlign = 'center'; context.textBaseline = 'middle';
+      context.fillText(String(poi.name || 'Point de passage').slice(0, 28), cardX + cardWidth / 2, cardY + 25 * scale);
+      context.fillStyle = '#ffd3c6'; context.font = `700 ${12 * scale}px sans-serif`;
+      context.fillText(`KM ${Number(poi.km || point.distance_km).toFixed(1)}  ·  D+ ${Math.round(point.elevation_gain_cumulative_m)} m`, cardX + cardWidth / 2, cardY + 51 * scale);
+    } else {
+      const cardWidth = 185 * scale; const cardHeight = 49 * scale;
+      const cardX = clamp(pointX + 16 * scale, inset, width - inset - cardWidth);
+      const cardY = clamp(pointY - 70 * scale, profileY + profileHeight + 12 * scale, height - inset - cardHeight);
+      drawHudPanel(context, cardX, cardY, cardWidth, cardHeight, 6 * scale);
+      context.fillStyle = '#fff'; context.font = `700 ${12 * scale}px sans-serif`; context.textAlign = 'center'; context.textBaseline = 'middle';
+      context.fillText(`KM ${point.distance_km.toFixed(1)}  ·  D+ ${Math.round(point.elevation_gain_cumulative_m)} m`, cardX + cardWidth / 2, cardY + 17 * scale);
+      context.fillStyle = '#ffd3c6'; context.font = `700 ${11 * scale}px sans-serif`; context.fillText(`PENTE ${point.grade_percent >= 0 ? '+' : ''}${point.grade_percent.toFixed(1)} %`, cardX + cardWidth / 2, cardY + 35 * scale);
+    }
+  };
   const setActivePoi = (poiIndex) => {
     if (poiIndex === activePoiIndex) return;
     if (activePoiIndex >= 0) poiEntries[activePoiIndex].entity.billboard.show = false;
     activePoiIndex = poiIndex;
-    runner.label.show = activePoiIndex < 0;
-    if (activePoiIndex >= 0) poiEntries[activePoiIndex].entity.billboard.show = true;
+    runner.label.show = false;
+    if (activePoiIndex >= 0) poiEntries[activePoiIndex].entity.billboard.show = false;
   };
   const updateCamera = (routeIndex, now) => {
+    hudRouteIndex = routeIndex;
     const current = positionAt(routeIndex);
     runner.position = current;
     if (activePoiIndex >= 0) poiEntries[activePoiIndex].entity.position = current;
@@ -329,6 +413,7 @@
     const point = dataAt(routeIndex);
     const signedGrade = `${point.grade_percent >= 0 ? '+' : ''}${point.grade_percent.toFixed(1)}`;
     runner.label.text = `KM ${point.distance_km.toFixed(1)}  ·  D+ ${Math.round(point.elevation_gain_cumulative_m)} m\nPENTE ${signedGrade} %`;
+    renderVideoHud();
     status.textContent = `Caméra · km ${point.distance_km.toFixed(1)} · ${Math.round(point.elevation_m)} m · ×${String(speed).replace('.', ',')}`;
   };
   const stop = (finished = false) => {
@@ -422,6 +507,14 @@
   });
   renderCameraKeyframes();
   resetButton.addEventListener('click', () => { stop(); progress = 0; introElapsedMs = 0; outroElapsedMs = 0; outroActive = false; pauseRemainingMs = 0; passedPoiIndexes.clear(); setActivePoi(-1); smoothCameraPosition = null; smoothCameraTarget = null; runner.position = positions[0]; overview(); status.textContent = 'Vue générale de l’UTMB.'; });
+  const renderExportFrame = () => {
+    if (!recording || !exportCanvas) return;
+    const context = exportCanvas.getContext('2d');
+    context.clearRect(0, 0, exportCanvas.width, exportCanvas.height);
+    context.drawImage(viewer.canvas, 0, 0, exportCanvas.width, exportCanvas.height);
+    context.drawImage(videoHud, 0, 0, exportCanvas.width, exportCanvas.height);
+    exportAnimationFrame = requestAnimationFrame(renderExportFrame);
+  };
   videoButton.addEventListener('click', () => {
     if (!window.MediaRecorder || !viewer.canvas.captureStream) { status.textContent = 'L’enregistrement vidéo n’est pas disponible sur ce navigateur.'; return; }
     if (recording) { stop(); return; }
@@ -432,7 +525,7 @@
     const outputScale = outputWidth / 540;
     recording = true; videoButton.textContent = 'Préparation Story…'; progress = 0; introElapsedMs = 0; outroElapsedMs = 0; outroActive = false; pauseRemainingMs = 0; passedPoiIndexes.clear(); setActivePoi(-1); smoothCameraPosition = null; smoothCameraTarget = null;
     recordingDisplaySettings = { useBrowserRecommendedResolution:viewer.useBrowserRecommendedResolution, resolutionScale:viewer.resolutionScale, containerStyle:videoMapContainer.style.cssText };
-    videoMapContainer.style.cssText = `position:fixed;left:-10000px;top:0;width:${outputWidth}px;height:${outputHeight}px;min-height:0;z-index:-1;`;
+    videoMapContainer.style.cssText = `position:fixed!important;left:-10000px!important;top:0!important;width:${outputWidth}px!important;height:${outputHeight}px!important;min-height:0!important;aspect-ratio:auto!important;z-index:-1!important;`;
     viewer.useBrowserRecommendedResolution = false;
     viewer.resolutionScale = 1;
     setVideoOverlayScale(outputScale);
@@ -440,11 +533,17 @@
     viewer.scene.requestRender();
     window.setTimeout(() => {
       viewer.render();
-      const stream = viewer.canvas.captureStream(30);
+      renderVideoHud();
+      exportCanvas = document.createElement('canvas');
+      exportCanvas.width = outputWidth; exportCanvas.height = outputHeight;
+      renderExportFrame();
+      const stream = exportCanvas.captureStream(30);
       recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 14000000 });
       recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
       recorder.onstop = () => {
         recording = false; videoButton.textContent = '● Enregistrer une vidéo';
+        if (exportAnimationFrame) cancelAnimationFrame(exportAnimationFrame);
+        exportAnimationFrame = null; exportCanvas = null;
         if (recordingDisplaySettings) {
           viewer.useBrowserRecommendedResolution = recordingDisplaySettings.useBrowserRecommendedResolution;
           viewer.resolutionScale = recordingDisplaySettings.resolutionScale;
@@ -455,9 +554,9 @@
         }
         if (!chunks.length) return;
         const file = URL.createObjectURL(new Blob(chunks, { type: mimeType }));
-        const link = document.createElement('a'); link.href = file; link.download = '{{ course.id }}-3d.webm'; link.click();
+        const link = document.createElement('a'); link.href = file; link.download = `{{ course.id }}-3d-${outputWidth}x${outputHeight}.webm`; link.click();
         setTimeout(() => URL.revokeObjectURL(file), 1000);
-        status.textContent = 'Story 1080 × 1920 téléchargée.';
+        status.textContent = `Story ${outputWidth} × ${outputHeight} téléchargée.`;
       };
       videoButton.textContent = '■ Arrêter l’enregistrement';
       recorder.start(500); start();
@@ -467,7 +566,7 @@
     if (!playButton.disabled) return;
     playButton.disabled = false; resetButton.disabled = false; videoButton.disabled = false;
     speedButtons.forEach((button) => { button.disabled = false; });
-    overview(); status.textContent = 'Relief 3D prêt · explore ou lance la caméra.';
+    overview(); renderVideoHud(); status.textContent = 'Relief 3D prêt · explore ou lance la caméra.';
   };
   viewer.scene.globe.tileLoadProgressEvent.addEventListener((remaining) => { if (remaining === 0) activateControls(); });
   window.setTimeout(activateControls, 1600);

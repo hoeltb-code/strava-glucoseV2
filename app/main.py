@@ -1775,7 +1775,11 @@ def _slope_band_from_grade(grade_percent: float | None) -> str | None:
     return None
 
 
-def _compute_slope_distribution_from_gpx(content: bytes) -> tuple[dict[str, float], float, list[dict], list[dict]]:
+def _compute_slope_distribution_from_gpx(
+    content: bytes,
+    *,
+    smoothing_radius_m: float = 0.0,
+) -> tuple[dict[str, float], float, list[dict], list[dict]]:
     try:
         root = ET.fromstring(content)
     except ET.ParseError as exc:
@@ -1805,12 +1809,28 @@ def _compute_slope_distribution_from_gpx(content: bytes) -> tuple[dict[str, floa
     if len(points) < 2:
         raise ValueError("GPX nécessite au moins deux points pour calculer la pente.")
 
+    # Certaines traces publiques contiennent un bruit altimétrique très fin. Sans
+    # filtrage, chacune de ces oscillations est comptée comme du D+, ce qui peut
+    # largement gonfler le dénivelé. Le lissage est opt-in, course par course.
+    elevations = [point[2] for point in points]
+    if smoothing_radius_m > 0 and all(elevation is not None for elevation in elevations):
+        cumulative_distances = [0.0]
+        for index in range(1, len(points)):
+            cumulative_distances.append(
+                cumulative_distances[-1]
+                + _haversine_m(points[index - 1][0], points[index - 1][1], points[index][0], points[index][1])
+            )
+        elevations = _smooth_altitudes_by_distance(
+            [(0.0, distance, float(points[index][2])) for index, distance in enumerate(cumulative_distances)],
+            radius_m=smoothing_radius_m,
+        )
+
     dist_by_band: dict[str, float] = {}
     total_distance = 0.0
     prev = points[0]
     elevation_profile = []
-    if prev[2] is not None:
-        elevation_profile.append({"distance_km": 0.0, "elevation_m": prev[2], "grade_percent": 0.0, "latitude": prev[0], "longitude": prev[1]})
+    if elevations[0] is not None:
+        elevation_profile.append({"distance_km": 0.0, "elevation_m": elevations[0], "grade_percent": 0.0, "latitude": prev[0], "longitude": prev[1]})
 
     km_segments: list[dict] = []
 
@@ -1831,8 +1851,10 @@ def _compute_slope_distribution_from_gpx(content: bytes) -> tuple[dict[str, floa
     cumulative_distance = 0.0
 
     for idx in range(1, len(points)):
-        lat1, lon1, ele1 = prev
-        lat2, lon2, ele2 = points[idx]
+        lat1, lon1, _raw_ele1 = prev
+        lat2, lon2, _raw_ele2 = points[idx]
+        ele1 = elevations[idx - 1]
+        ele2 = elevations[idx]
         d = _haversine_m(lat1, lon1, lat2, lon2)
         if d <= 0.5:
             prev = points[idx]
@@ -1907,6 +1929,52 @@ def _compute_slope_distribution_from_gpx(content: bytes) -> tuple[dict[str, floa
             )
 
     return dist_by_band, total_distance, km_segments, elevation_profile
+
+
+def _calibrate_gpx_projection_to_official_course(
+    dist_by_band: dict[str, float],
+    total_distance_m: float,
+    km_segments: list[dict],
+    elevation_profile: list[dict],
+    course: dict | None,
+) -> tuple[dict[str, float], float, list[dict], list[dict]]:
+    """Calibrate a noisy/short GPX to the organiser's published course totals.
+
+    This is deliberately enabled in the course JSON, rather than globally: a
+    runner-uploaded GPX must always keep its own measured characteristics.
+    """
+    if not course or not course.get("calibrate_gpx_to_official"):
+        return dist_by_band, total_distance_m, km_segments, elevation_profile
+
+    try:
+        official_distance_m = float(course.get("distance_km")) * 1000.0
+    except (TypeError, ValueError):
+        official_distance_m = 0.0
+    if total_distance_m > 0 and official_distance_m > 0:
+        distance_ratio = official_distance_m / total_distance_m
+        total_distance_m = official_distance_m
+        dist_by_band = {band: distance * distance_ratio for band, distance in dist_by_band.items()}
+        for segment in km_segments:
+            segment["distance_m"] = float(segment.get("distance_m") or 0.0) * distance_ratio
+            segment["start_distance_m"] = float(segment.get("start_distance_m") or 0.0) * distance_ratio
+        for point in elevation_profile:
+            point["distance_km"] = float(point.get("distance_km") or 0.0) * distance_ratio
+
+    for field, official_field in (("elevation_gain_m", "elevation_gain_m"), ("elevation_loss_m", "elevation_loss_m")):
+        try:
+            target = float(course.get(official_field))
+        except (TypeError, ValueError):
+            continue
+        current = sum(float(segment.get(field) or 0.0) for segment in km_segments)
+        if current <= 0 or target < 0:
+            continue
+        ratio = target / current
+        for segment in km_segments:
+            segment[field] = float(segment.get(field) or 0.0) * ratio
+
+    return dist_by_band, total_distance_m, km_segments, elevation_profile
+
+
 def _get_session_user_id(request: Request) -> int | None:
     if not hasattr(request, "session"):
         return None
@@ -6688,7 +6756,17 @@ async def ui_runner_profile_pace_projection(
             raise HTTPException(status_code=400, detail="Merci de fournir un fichier GPX.")
 
     try:
-        dist_by_band, total_distance, km_segments, elevation_profile = _compute_slope_distribution_from_gpx(file_bytes)
+        dist_by_band, total_distance, km_segments, elevation_profile = _compute_slope_distribution_from_gpx(
+            file_bytes,
+            smoothing_radius_m=float((official_course or {}).get("gpx_elevation_smoothing_m") or 0.0),
+        )
+        dist_by_band, total_distance, km_segments, elevation_profile = _calibrate_gpx_projection_to_official_course(
+            dist_by_band,
+            total_distance,
+            km_segments,
+            elevation_profile,
+            official_course,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 

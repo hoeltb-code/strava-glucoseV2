@@ -9,6 +9,8 @@
   "distance_km": 11.8,
   "elevation_gain_m": 530,
   "elevation_loss_m": 495,
+  "gpx_elevation_smoothing_m": 70,
+  "calibrate_gpx_to_official": true,
   "course_coefficient_percent": 100,
   "course_pace_category": "technical",
   "start_location": "Millau",

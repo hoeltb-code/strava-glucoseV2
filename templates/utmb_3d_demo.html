@@ -107,7 +107,9 @@
   let speed = 1;
   let lastCameraTime = null;
   let lastAnimationFrame = null;
-  let sequenceElapsedMs = 0;
+  let introElapsedMs = 0;
+  let outroElapsedMs = 0;
+  let outroActive = false;
   let pauseRemainingMs = 0;
   let activePoiIndex = -1;
   const passedPoiIndexes = new Set();
@@ -159,9 +161,9 @@
     context.fillText(`KM ${Number(item.km || 0).toFixed(1)}  ·  D+ ${Math.round(Number(routePoint.elevation_gain_cumulative_m || 0))} m`, 21, 75);
     const entity = viewer.entities.add({
       position: positions[routeIndex],
-      billboard: { image:canvas, show:false, verticalOrigin:C.VerticalOrigin.BOTTOM, pixelOffset:new C.Cartesian2(0, -135), heightReference:C.HeightReference.CLAMP_TO_GROUND, scaleByDistance:new C.NearFarScalar(1000, 1, 30000, .64) },
+      billboard: { image:canvas, show:false, verticalOrigin:C.VerticalOrigin.BOTTOM, pixelOffset:new C.Cartesian2(0, -82), heightReference:C.HeightReference.CLAMP_TO_GROUND, scaleByDistance:new C.NearFarScalar(1000, 1, 30000, .64) },
     });
-    return { routeIndex, triggerRouteIndex:Math.max(1, routeIndexForKm(Math.max(0, Number(item.km || 0) - 10))), entity };
+    return { routeIndex, entity };
   });
   const setActivePoi = (poiIndex) => {
     if (poiIndex === activePoiIndex) return;
@@ -182,8 +184,9 @@
     const travelDirection = C.Cartesian3.normalize(C.Cartesian3.subtract(ahead, behind, new C.Cartesian3()), new C.Cartesian3());
     const localUp = C.Ellipsoid.WGS84.geodeticSurfaceNormal(cameraAnchor, new C.Cartesian3());
     const backwardOffset = C.Cartesian3.multiplyByScalar(travelDirection, -9800, new C.Cartesian3());
-    const introRatio = Math.max(0, 1 - (sequenceElapsedMs / 3000));
-    const altitudeOffset = C.Cartesian3.multiplyByScalar(localUp, 7600 + 14500 * introRatio * introRatio, new C.Cartesian3());
+    const introRatio = Math.max(0, 1 - (introElapsedMs / 3000));
+    const outroRatio = outroActive ? Math.min(1, outroElapsedMs / 3000) : 0;
+    const altitudeOffset = C.Cartesian3.multiplyByScalar(localUp, 7600 + 14500 * Math.max(introRatio * introRatio, outroRatio * outroRatio), new C.Cartesian3());
     const desiredPosition = C.Cartesian3.add(cameraAnchor, C.Cartesian3.add(backwardOffset, altitudeOffset, new C.Cartesian3()), new C.Cartesian3());
     const desiredTarget = C.Cartesian3.add(ahead, C.Cartesian3.multiplyByScalar(localUp, 500, new C.Cartesian3()), new C.Cartesian3());
     if (!smoothCameraPosition) {
@@ -191,8 +194,8 @@
       smoothCameraTarget = C.Cartesian3.clone(desiredTarget);
     } else {
       const elapsed = Math.min(80, Math.max(1, now - (lastCameraTime || now)));
-      const positionSmoothing = 1 - Math.exp(-elapsed / 2600);
-      const targetSmoothing = 1 - Math.exp(-elapsed / 2100);
+      const positionSmoothing = 1 - Math.exp(-elapsed / 3600);
+      const targetSmoothing = 1 - Math.exp(-elapsed / 3000);
       C.Cartesian3.lerp(smoothCameraPosition, desiredPosition, positionSmoothing, smoothCameraPosition);
       C.Cartesian3.lerp(smoothCameraTarget, desiredTarget, targetSmoothing, smoothCameraTarget);
     }
@@ -220,7 +223,19 @@
     if (lastAnimationFrame === null) lastAnimationFrame = now;
     const elapsed = Math.min(100, Math.max(0, now - lastAnimationFrame));
     lastAnimationFrame = now;
-    sequenceElapsedMs += elapsed;
+    if (introElapsedMs < 3000) {
+      introElapsedMs = Math.min(3000, introElapsedMs + elapsed);
+      updateCamera(0, now);
+      animationFrame = requestAnimationFrame(animate);
+      return;
+    }
+    if (outroActive) {
+      outroElapsedMs = Math.min(3000, outroElapsedMs + elapsed);
+      updateCamera(positions.length - 1, now);
+      if (outroElapsedMs >= 3000) { stop(true); return; }
+      animationFrame = requestAnimationFrame(animate);
+      return;
+    }
     const previousRouteIndex = progress * (positions.length - 1);
     if (pauseRemainingMs > 0) {
       pauseRemainingMs = Math.max(0, pauseRemainingMs - elapsed);
@@ -228,7 +243,7 @@
     } else {
       progress = Math.min(1, progress + (elapsed * speed / 18000));
       const currentRouteIndex = progress * (positions.length - 1);
-      const poiIndex = poiEntries.findIndex((poi, index) => !passedPoiIndexes.has(index) && poi.triggerRouteIndex > previousRouteIndex && poi.triggerRouteIndex <= currentRouteIndex);
+      const poiIndex = poiEntries.findIndex((poi, index) => !passedPoiIndexes.has(index) && poi.routeIndex > previousRouteIndex && poi.routeIndex <= currentRouteIndex);
       if (poiIndex >= 0) {
         passedPoiIndexes.add(poiIndex);
         setActivePoi(poiIndex);
@@ -236,11 +251,11 @@
       }
     }
     updateCamera(progress * (positions.length - 1), now);
-    if (progress >= 1) { stop(true); return; }
+    if (progress >= 1 && pauseRemainingMs === 0) outroActive = true;
     animationFrame = requestAnimationFrame(animate);
   };
   const start = () => {
-    if (progress >= 1) { progress = 0; sequenceElapsedMs = 0; pauseRemainingMs = 0; passedPoiIndexes.clear(); setActivePoi(-1); }
+    if (progress >= 1) { progress = 0; introElapsedMs = 0; outroElapsedMs = 0; outroActive = false; pauseRemainingMs = 0; passedPoiIndexes.clear(); setActivePoi(-1); smoothCameraPosition = null; smoothCameraTarget = null; }
     playing = true;
     playButton.textContent = '❚❚ Pause';
     animationFrame = requestAnimationFrame(animate);
@@ -251,13 +266,13 @@
     speed = nextSpeed;
     speedButtons.forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
   }));
-  resetButton.addEventListener('click', () => { stop(); progress = 0; sequenceElapsedMs = 0; pauseRemainingMs = 0; passedPoiIndexes.clear(); setActivePoi(-1); smoothCameraPosition = null; smoothCameraTarget = null; runner.position = positions[0]; overview(); status.textContent = 'Vue générale de l’UTMB.'; });
+  resetButton.addEventListener('click', () => { stop(); progress = 0; introElapsedMs = 0; outroElapsedMs = 0; outroActive = false; pauseRemainingMs = 0; passedPoiIndexes.clear(); setActivePoi(-1); smoothCameraPosition = null; smoothCameraTarget = null; runner.position = positions[0]; overview(); status.textContent = 'Vue générale de l’UTMB.'; });
   videoButton.addEventListener('click', () => {
     if (!window.MediaRecorder || !viewer.canvas.captureStream) { status.textContent = 'L’enregistrement vidéo n’est pas disponible sur ce navigateur.'; return; }
     if (recording) { stop(); return; }
     const chunks = [];
     const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
-    recording = true; videoButton.textContent = 'Préparation HD…'; progress = 0; sequenceElapsedMs = 0; pauseRemainingMs = 0; passedPoiIndexes.clear(); setActivePoi(-1); smoothCameraPosition = null; smoothCameraTarget = null;
+    recording = true; videoButton.textContent = 'Préparation HD…'; progress = 0; introElapsedMs = 0; outroElapsedMs = 0; outroActive = false; pauseRemainingMs = 0; passedPoiIndexes.clear(); setActivePoi(-1); smoothCameraPosition = null; smoothCameraTarget = null;
     recordingDisplaySettings = { useBrowserRecommendedResolution:viewer.useBrowserRecommendedResolution, resolutionScale:viewer.resolutionScale };
     viewer.useBrowserRecommendedResolution = false;
     viewer.resolutionScale = 2;

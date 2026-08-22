@@ -22,10 +22,10 @@
     <div class="three-d-camera-settings">
       <strong>Hauteur de suivi caméra</strong>
       <div class="three-d-camera-group"><span>Altitude au-dessus de la trace</span><div class="three-d-camera-options" role="group" aria-label="Hauteur de suivi caméra">
-        <button type="button" data-camera-height="auto" aria-pressed="false">Auto</button><button type="button" data-camera-height="low" aria-pressed="false">Bas · 5 km</button><button type="button" data-camera-height="standard" aria-pressed="true">Standard · 7,6 km</button><button type="button" data-camera-height="high" aria-pressed="false">Haut · 10 km</button><button type="button" data-camera-height="very-high" aria-pressed="false">Très haut · 12 km</button>
+        <button type="button" data-camera-height="auto" aria-pressed="false">Auto</button><button type="button" data-camera-height="ground" aria-pressed="false">0 km</button><button type="button" data-camera-height="low" aria-pressed="false">Bas · 5 km</button><button type="button" data-camera-height="standard" aria-pressed="true">Standard · 7,6 km</button><button type="button" data-camera-height="high" aria-pressed="false">Haut · 10 km</button><button type="button" data-camera-height="very-high" aria-pressed="false">Très haut · 12 km</button>
       </div></div>
-      <div class="three-d-camera-group"><span>Anticipation sur la trace</span><div class="three-d-camera-options" role="group" aria-label="Anticipation de la caméra"><button type="button" data-camera-ahead="1" aria-pressed="false">1 km</button><button type="button" data-camera-ahead="3" aria-pressed="true">3 km</button><button type="button" data-camera-ahead="5" aria-pressed="false">5 km</button></div></div>
-      <div class="three-d-camera-group"><span>Recul derrière le point</span><div class="three-d-camera-options" role="group" aria-label="Recul de la caméra"><button type="button" data-camera-rear="5" aria-pressed="false">5 km</button><button type="button" data-camera-rear="10" aria-pressed="true">10 km</button><button type="button" data-camera-rear="15" aria-pressed="false">15 km</button><button type="button" data-camera-rear="20" aria-pressed="false">20 km</button></div></div>
+      <div class="three-d-camera-group"><span>Anticipation sur la trace</span><div class="three-d-camera-options" role="group" aria-label="Anticipation de la caméra"><button type="button" data-camera-ahead="0" aria-pressed="false">0 km</button><button type="button" data-camera-ahead="1" aria-pressed="false">1 km</button><button type="button" data-camera-ahead="3" aria-pressed="true">3 km</button><button type="button" data-camera-ahead="5" aria-pressed="false">5 km</button></div></div>
+      <div class="three-d-camera-group"><span>Recul derrière le point</span><div class="three-d-camera-options" role="group" aria-label="Recul de la caméra"><button type="button" data-camera-rear="0" aria-pressed="false">0 km</button><button type="button" data-camera-rear="5" aria-pressed="false">5 km</button><button type="button" data-camera-rear="10" aria-pressed="true">10 km</button><button type="button" data-camera-rear="15" aria-pressed="false">15 km</button><button type="button" data-camera-rear="20" aria-pressed="false">20 km</button></div></div>
       <div class="three-d-camera-group"><span>Réglage par tronçon</span><div class="three-d-camera-options" role="group" aria-label="Réglage caméra par tronçon"><button type="button" id="utmb-3d-segment-toggle" aria-pressed="false">Activer les tronçons</button></div><div id="utmb-3d-segments" class="three-d-segments" hidden></div><div id="utmb-3d-segment-actions" class="three-d-segment-actions" hidden><button type="button" id="utmb-3d-add-segment">+ Ajouter un point de réglage</button></div><p class="three-d-segment-note">Chaque point définit les réglages à un kilomètre donné. La transition vers le point suivant est lissée automatiquement.</p></div>
       </div>
       <p id="utmb-3d-camera-details" class="three-d-camera-details">Standard : 7,6 km au-dessus · anticipation 3 km · recul 10 km.</p>
@@ -151,6 +151,7 @@
   ];
 
   const cameraHeightPresets = {
+    ground: { label:'0 km', altitude:0 },
     low: { label:'Bas', altitude:5000 },
     standard: { label:'Standard', altitude:7600 },
     high: { label:'Haut', altitude:10000 },
@@ -221,7 +222,7 @@
   const renderCameraKeyframes = () => {
     sortCameraKeyframes();
     const slider = (frame, index, key, label, min, max, step, suffix, disabled = false) => `<div class="three-d-segment-field"><label>${label}<b>${Number(frame[key]).toLocaleString('fr-FR', { maximumFractionDigits:1 })}${suffix}</b></label><input type="range" min="${min}" max="${max}" step="${step}" value="${frame[key]}" data-frame="${index}" data-key="${key}" ${disabled ? 'disabled' : ''}></div>`;
-    segmentContainer.innerHTML = cameraKeyframes.map((frame, index) => `<article class="three-d-segment"><div class="three-d-segment-head"><span>Point de réglage ${index + 1}${frame.fixed ? ' · borne' : ''}</span>${frame.fixed ? '' : `<button type="button" data-remove-frame="${index}">Supprimer</button>`}</div><div class="three-d-segment-grid">${slider(frame, index, 'km', 'Position', 0, Math.max(1, Math.round(routeDistanceKm)), 1, ' km', Boolean(frame.fixed))}${slider(frame, index, 'altitude', 'Hauteur', 3, 20, .5, ' km')}${slider(frame, index, 'ahead', 'Anticipation', 0, 10, .5, ' km')}${slider(frame, index, 'rear', 'Recul', 2, 25, .5, ' km')}${slider(frame, index, 'lateral', 'Décalage', -10, 10, .5, ' km')}</div></article>`).join('');
+    segmentContainer.innerHTML = cameraKeyframes.map((frame, index) => `<article class="three-d-segment"><div class="three-d-segment-head"><span>Point de réglage ${index + 1}${frame.fixed ? ' · borne' : ''}</span>${frame.fixed ? '' : `<button type="button" data-remove-frame="${index}">Supprimer</button>`}</div><div class="three-d-segment-grid">${slider(frame, index, 'km', 'Position', 0, Math.max(1, Math.round(routeDistanceKm)), 1, ' km', Boolean(frame.fixed))}${slider(frame, index, 'altitude', 'Hauteur', 0, 20, .5, ' km')}${slider(frame, index, 'ahead', 'Anticipation', 0, 10, .5, ' km')}${slider(frame, index, 'rear', 'Recul', 0, 25, .5, ' km')}${slider(frame, index, 'lateral', 'Décalage', -10, 10, .5, ' km')}</div></article>`).join('');
     segmentContainer.querySelectorAll('input[data-frame]').forEach((input) => input.addEventListener('input', () => {
       const frame = cameraKeyframes[Number(input.dataset.frame)];
       frame[input.dataset.key] = Number(input.value);
@@ -374,12 +375,12 @@
     updateCameraDetails(cameraFollowSettings(progress * (positions.length - 1)));
   }));
   cameraAheadButtons.forEach((button) => button.addEventListener('click', () => {
-    cameraLookAheadKm = Number(button.dataset.cameraAhead) || 3;
+    cameraLookAheadKm = Number(button.dataset.cameraAhead);
     cameraAheadButtons.forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
     updateCameraDetails(cameraFollowSettings(progress * (positions.length - 1)));
   }));
   cameraRearButtons.forEach((button) => button.addEventListener('click', () => {
-    cameraRearKm = Number(button.dataset.cameraRear) || 10;
+    cameraRearKm = Number(button.dataset.cameraRear);
     cameraRearButtons.forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
     updateCameraDetails(cameraFollowSettings(progress * (positions.length - 1)));
   }));

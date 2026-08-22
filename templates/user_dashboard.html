@@ -254,8 +254,9 @@
   .target-pacing-summary strong { color:var(--accent-dark); }
   .target-pacing-card .profile-pacing-curve { position:relative; margin-top:12px; }
   .target-pacing-explanation { margin-top:10px !important; }
-  .target-curve-tooltip { position:absolute; z-index:2; padding:6px 8px; border:1px solid #dfdad0; border-radius:8px; background:rgba(255,255,255,.96); box-shadow:0 6px 14px rgba(32,29,24,.12); color:var(--text-main); font-family:"DM Mono",monospace; font-size:.68rem; line-height:1.4; pointer-events:none; transform:translate(8px, -100%); white-space:nowrap; }
-  .terrain-pace-overview { margin-top:16px; padding:10px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
+  .target-curve-tooltip, .terrain-pace-tooltip { position:absolute; z-index:2; padding:6px 8px; border:1px solid #dfdad0; border-radius:8px; background:rgba(255,255,255,.96); box-shadow:0 6px 14px rgba(32,29,24,.12); color:var(--text-main); font-family:"DM Mono",monospace; font-size:.68rem; line-height:1.4; pointer-events:none; transform:translate(8px, -100%); white-space:nowrap; }
+  .target-curve-tooltip.is-left, .terrain-pace-tooltip.is-left { transform:translate(calc(-100% - 8px), -100%); }
+  .terrain-pace-overview { position:relative; margin-top:16px; padding:10px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
   .terrain-pace-overview svg { display:block; width:100%; height:168px; overflow:visible; border-radius:9px; background:#fbfaf7; }
   .cohort-reference-legend { display:flex; align-items:flex-start; gap:7px; margin:0 10px 10px; color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.7rem; line-height:1.4; }
   .cohort-reference-legend i { display:inline-block; flex:0 0 auto; width:18px; height:9px; margin-top:4px; border:1px dashed #718092; border-radius:2px; background:rgba(78,91,108,.18); }
@@ -1586,7 +1587,8 @@
         const pace = paceAtGrade(grade);
         const vam = Math.round((3600 / pace) * 10 * grade);
         tooltip.hidden = false;
-        tooltip.style.left = `${Math.max(4, Math.min(88, ratio * 100))}%`;
+        tooltip.classList.toggle('is-left', ratio > .55);
+        tooltip.style.left = `${Math.max(2, Math.min(98, ratio * 100))}%`;
         tooltip.style.top = `${Math.max(28, Math.min(92, (event.clientY - box.top) / Math.max(1, box.height) * 100))}%`;
         tooltip.textContent = `${grade >= 0 ? '+' : ''}${grade.toFixed(1)} % · ${formatPace(pace)} · ${vam >= 0 ? '+' : '−'}${Math.abs(vam)} m/h`;
       });
@@ -1665,17 +1667,41 @@
       }).join('');
       const paces = segments.map((segment) => segment.seconds / Math.max(.01, segment.distance));
       const { min:fastestPace, max:slowestPace } = paceScaleBounds(paces);
+      const paceTicks = paceScaleTicks(fastestPace, slowestPace);
+      const paceBarHeight = (pace) => {
+        const ratio = Math.max(0, Math.min(1, (pace - fastestPace) / Math.max(1, slowestPace - fastestPace)));
+        return 20 + ratio * (height * .47);
+      };
+      const paceAxisY = (pace) => height - 24 - paceBarHeight(pace);
+      const paceGrid = paceTicks.map((pace) => `<line x1="${padding + 31}" y1="${paceAxisY(pace).toFixed(1)}" x2="${width - padding}" y2="${paceAxisY(pace).toFixed(1)}" stroke="#d9d5cd" stroke-width="1" stroke-dasharray="3 5"/><text x="${padding + 26}" y="${(paceAxisY(pace) + 3).toFixed(1)}" text-anchor="end" fill="#77746d" font-size="10">${formatPace(pace).replace(' /km', '')}</text>`).join('');
       const paceBars = segments.map((segment) => {
         const pace = segment.seconds / Math.max(.01, segment.distance);
-        const ratio = Math.max(0, Math.min(1, (pace - fastestPace) / Math.max(1, slowestPace - fastestPace)));
-        const barHeight = 20 + ratio * (height * .47);
+        const barHeight = paceBarHeight(pace);
         const x = xScale(segment.fromKm); const barWidth = Math.max(1.5, xScale(segment.toKm) - x);
-        const y = height - 10 - barHeight;
+        const y = height - 24 - barHeight;
         const title = `km ${segment.fromKm.toFixed(1)} à ${segment.toKm.toFixed(1)} · ${formatPace(pace)} · ${segment.averageGrade >= 0 ? '+' : ''}${Math.round(segment.averageGrade)} % · D+ ${Math.round(segment.gain)} m`;
-        return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${barHeight.toFixed(1)}" fill="${terrainPaceColor(segment.kind)}" fill-opacity=".62"><title>${title}</title></rect>`;
+        return `<rect data-terrain-pace-index="${segments.indexOf(segment)}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${barHeight.toFixed(1)}" fill="${terrainPaceColor(segment.kind)}" fill-opacity=".62"><title>${title}</title></rect>`;
       }).join('');
       terrainPaceOverviewHost.hidden = false;
-      terrainPaceOverviewHost.innerHTML = `<section class="terrain-pace-overview" aria-label="Profil de course et allures par portions homogènes"><svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="Profil de la course avec colonnes d’allure sur les portions de pente homogène"><path d="${area}" fill="#f2eee6"/>${paceBars}<path d="${outline}" fill="none" stroke="#3d403c" stroke-width="2.2"/>${segmentLines}</svg></section>`;
+      terrainPaceOverviewHost.innerHTML = `<section class="terrain-pace-overview" aria-label="Profil de course et allures par portions homogènes"><svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="Profil de la course avec colonnes d’allure sur les portions de pente homogène"><path d="${area}" fill="#f2eee6"/>${paceGrid}${paceBars}<path d="${outline}" fill="none" stroke="#3d403c" stroke-width="2.2"/>${segmentLines}<text x="${padding + 7}" y="${height / 2}" transform="rotate(-90 ${padding + 7} ${height / 2})" fill="#77746d" font-size="10">Allure</text><text x="${padding + 31}" y="${height - 5}" fill="#77746d" font-size="10">0 km</text><text x="${width - padding - 50}" y="${height - 5}" fill="#77746d" font-size="10">${maxKm.toFixed(1)} km</text><text x="${width / 2}" y="${height - 5}" text-anchor="middle" fill="#77746d" font-size="10">Distance · km</text></svg><span class="terrain-pace-tooltip" hidden></span></section>`;
+      const overview = terrainPaceOverviewHost.querySelector('.terrain-pace-overview');
+      const svg = overview?.querySelector('svg');
+      const tooltip = overview?.querySelector('.terrain-pace-tooltip');
+      svg?.addEventListener('pointermove', (event) => {
+        if (!tooltip) return;
+        const box = svg.getBoundingClientRect();
+        const ratio = Math.max(0, Math.min(1, (event.clientX - box.left) / Math.max(1, box.width)));
+        const km = ratio * maxKm;
+        const segment = segments.find((item) => km >= item.fromKm && km <= item.toKm) || segments[segments.length - 1];
+        const pace = segment.seconds / Math.max(.01, segment.distance);
+        const vam = Math.round((3600 / pace) * 10 * segment.averageGrade);
+        tooltip.hidden = false;
+        tooltip.classList.toggle('is-left', ratio > .55);
+        tooltip.style.left = `${Math.max(2, Math.min(98, ratio * 100))}%`;
+        tooltip.style.top = `${Math.max(28, Math.min(92, (event.clientY - box.top) / Math.max(1, box.height) * 100))}%`;
+        tooltip.textContent = `km ${segment.fromKm.toFixed(1)}–${segment.toKm.toFixed(1)} · ${formatPace(pace)} · ${segment.averageGrade >= 0 ? '+' : ''}${Math.round(segment.averageGrade)} % · ${vam >= 0 ? '+' : '−'}${Math.abs(vam)} m/h`;
+      });
+      svg?.addEventListener('pointerleave', () => { if (tooltip) tooltip.hidden = true; });
     }
 
     function renderAidStations() {

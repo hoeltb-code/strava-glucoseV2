@@ -428,17 +428,18 @@
     const chunks = [];
     const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
     const outputWidth = Number(videoFormat.value) || 1080;
+    const outputHeight = Math.round(outputWidth * 16 / 9);
     const outputScale = outputWidth / 540;
     recording = true; videoButton.textContent = 'Préparation Story…'; progress = 0; introElapsedMs = 0; outroElapsedMs = 0; outroActive = false; pauseRemainingMs = 0; passedPoiIndexes.clear(); setActivePoi(-1); smoothCameraPosition = null; smoothCameraTarget = null;
     recordingDisplaySettings = { useBrowserRecommendedResolution:viewer.useBrowserRecommendedResolution, resolutionScale:viewer.resolutionScale, containerStyle:videoMapContainer.style.cssText };
-    videoMapContainer.style.cssText = 'position:fixed;left:-10000px;top:0;width:540px;height:960px;min-height:0;z-index:-1;';
+    videoMapContainer.style.cssText = `position:fixed;left:-10000px;top:0;width:${outputWidth}px;height:${outputHeight}px;min-height:0;z-index:-1;`;
     viewer.useBrowserRecommendedResolution = false;
-    // useBrowserRecommendedResolution=false neutralise le DPR : ce multiplicateur
-    // correspond donc directement à 540 px ou 1080 px de large dans le fichier.
-    viewer.resolutionScale = outputScale;
+    viewer.resolutionScale = 1;
     setVideoOverlayScale(outputScale);
     viewer.resize();
-    requestAnimationFrame(() => {
+    viewer.scene.requestRender();
+    window.setTimeout(() => {
+      viewer.render();
       const stream = viewer.canvas.captureStream(30);
       recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 14000000 });
       recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };

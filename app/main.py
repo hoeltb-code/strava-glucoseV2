@@ -523,7 +523,8 @@ def _seo_course_payload(course_id: str) -> dict | None:
     course = loaded["course"]
     try:
         _bands, gpx_distance_m, _segments, profile = _compute_slope_distribution_from_gpx(
-            open(loaded["route_path"], "rb").read()
+            open(loaded["route_path"], "rb").read(),
+            max_profile_points=2500,
         )
     except (OSError, ValueError, TypeError):
         gpx_distance_m, profile = 0.0, []
@@ -561,20 +562,17 @@ def _seo_course_payload(course_id: str) -> dict | None:
             "grade_percent": round(float(point.get("grade_percent") or 0), 1),
             "elevation_gain_cumulative_m": round(cumulative_gain_m),
         })
-    if len(map_profile) > 450:
-        step = max(1, math.ceil(len(map_profile) / 450))
-        map_profile = map_profile[::step]
-        if map_profile[-1]["distance_km"] != round(float(profile[-1]["distance_km"]), 3):
-            final_point = profile[-1]
-            if isinstance(final_point.get("longitude"), (int, float)) and isinstance(final_point.get("latitude"), (int, float)):
-                map_profile.append({
-                    "longitude": round(float(final_point["longitude"]), 6),
-                    "latitude": round(float(final_point["latitude"]), 6),
-                    "elevation_m": round(float(final_point["elevation_m"])),
-                    "distance_km": round(float(final_point["distance_km"]), 3),
-                    "grade_percent": round(float(final_point.get("grade_percent") or 0), 1),
-                    "elevation_gain_cumulative_m": round(cumulative_gain_m),
-                })
+    def compact_profile(points: list[dict], max_points: int) -> list[dict]:
+        if len(points) <= max_points:
+            return points
+        step = max(1, math.ceil(len(points) / max_points))
+        compacted = points[::step]
+        if compacted[-1]["distance_km"] != points[-1]["distance_km"]:
+            compacted.append(points[-1])
+        return compacted
+
+    map_profile_3d = compact_profile(map_profile, 2500)
+    map_profile = compact_profile(map_profile, 450)
     editorial = _seo_course_editorial(course, analysis)
     return {
         **course,
@@ -587,6 +585,7 @@ def _seo_course_payload(course_id: str) -> dict | None:
         "analysis": analysis,
         "editorial": editorial,
         "map_profile": map_profile,
+        "map_profile_3d": map_profile_3d,
     }
 
 
@@ -1788,6 +1787,7 @@ def _compute_slope_distribution_from_gpx(
     content: bytes,
     *,
     smoothing_radius_m: float = 0.0,
+    max_profile_points: int = 800,
 ) -> tuple[dict[str, float], float, list[dict], list[dict]]:
     try:
         root = ET.fromstring(content)
@@ -1923,8 +1923,8 @@ def _compute_slope_distribution_from_gpx(
         raise ValueError("Impossible de déterminer les pentes (altitudes manquantes ?).")
 
     # Limite la charge du navigateur tout en gardant le relief lisible.
-    if len(elevation_profile) > 800:
-        step = max(1, len(elevation_profile) // 800)
+    if max_profile_points > 0 and len(elevation_profile) > max_profile_points:
+        step = max(1, len(elevation_profile) // max_profile_points)
         elevation_profile = elevation_profile[::step]
         if elevation_profile[-1]["distance_km"] != total_distance / 1000.0 and points[-1][2] is not None:
             elevation_profile.append(
@@ -5567,7 +5567,7 @@ def course_3d_demo(request: Request, course_id: str | None = Query(default=None)
     if selected_course_id not in available_course_ids:
         selected_course_id = "utmb-2026" if "utmb-2026" in available_course_ids else next(iter(available_course_ids), "")
     course = _seo_course_payload(selected_course_id)
-    if not course or len(course.get("map_profile") or []) < 2:
+    if not course or len(course.get("map_profile_3d") or []) < 2:
         raise HTTPException(status_code=404, detail="Trace GPX indisponible.")
     return templates.TemplateResponse(
         "utmb_3d_demo.html",

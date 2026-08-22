@@ -24,13 +24,13 @@
     <div class="three-d-camera-settings">
       <strong>Hauteur de suivi caméra</strong>
       <div class="three-d-camera-group"><span>Altitude au-dessus de la trace</span><div class="three-d-camera-options" role="group" aria-label="Hauteur de suivi caméra">
-        <button type="button" data-camera-height="auto" aria-pressed="false">Auto</button><button type="button" data-camera-height="ground" aria-pressed="false">0 km</button><button type="button" data-camera-height="low" aria-pressed="false">Bas · 5 km</button><button type="button" data-camera-height="standard" aria-pressed="true">Standard · 7,6 km</button><button type="button" data-camera-height="high" aria-pressed="false">Haut · 10 km</button><button type="button" data-camera-height="very-high" aria-pressed="false">Très haut · 12 km</button>
+        <button type="button" data-camera-height="auto" aria-pressed="false">Auto</button><button type="button" data-camera-height="ground" aria-pressed="false">0 km</button><button type="button" data-camera-height="low" aria-pressed="false">Bas · 5 km</button><button type="button" data-camera-height="standard" aria-pressed="false">Standard · 7,6 km</button><button type="button" data-camera-height="high" aria-pressed="false">Haut · 10 km</button><button type="button" data-camera-height="very-high" aria-pressed="false">Très haut · 12 km</button>
       </div></div>
-      <div class="three-d-camera-group"><span>Anticipation sur la trace</span><div class="three-d-camera-options" role="group" aria-label="Anticipation de la caméra"><button type="button" data-camera-ahead="0" aria-pressed="false">0 km</button><button type="button" data-camera-ahead="1" aria-pressed="false">1 km</button><button type="button" data-camera-ahead="3" aria-pressed="true">3 km</button><button type="button" data-camera-ahead="5" aria-pressed="false">5 km</button></div></div>
-      <div class="three-d-camera-group"><span>Recul derrière le point</span><div class="three-d-camera-options" role="group" aria-label="Recul de la caméra"><button type="button" data-camera-rear="0" aria-pressed="false">0 km</button><button type="button" data-camera-rear="5" aria-pressed="false">5 km</button><button type="button" data-camera-rear="10" aria-pressed="true">10 km</button><button type="button" data-camera-rear="15" aria-pressed="false">15 km</button><button type="button" data-camera-rear="20" aria-pressed="false">20 km</button></div></div>
-      <div class="three-d-camera-group"><span>Réglage précis</span><div class="three-d-global-sliders"><div class="three-d-global-slider"><label for="utmb-3d-height-range">Hauteur <b id="utmb-3d-height-value">7,6 km</b></label><input id="utmb-3d-height-range" type="range" min="0" max="20" step=".5" value="7.6"></div><div class="three-d-global-slider"><label for="utmb-3d-ahead-range">Anticipation <b id="utmb-3d-ahead-value">3 km</b></label><input id="utmb-3d-ahead-range" type="range" min="0" max="10" step=".5" value="3"></div><div class="three-d-global-slider"><label for="utmb-3d-rear-range">Recul <b id="utmb-3d-rear-value">10 km</b></label><input id="utmb-3d-rear-range" type="range" min="0" max="25" step=".5" value="10"></div></div></div>
+      <div class="three-d-camera-group"><span>Anticipation sur la trace</span><div class="three-d-camera-options" role="group" aria-label="Anticipation de la caméra"><button type="button" data-camera-ahead="0" aria-pressed="false">0 km</button><button type="button" data-camera-ahead="1" aria-pressed="true">1 km</button><button type="button" data-camera-ahead="3" aria-pressed="false">3 km</button><button type="button" data-camera-ahead="5" aria-pressed="false">5 km</button></div></div>
+      <div class="three-d-camera-group"><span>Recul derrière le point</span><div class="three-d-camera-options" role="group" aria-label="Recul de la caméra"><button type="button" data-camera-rear="0" aria-pressed="false">0 km</button><button type="button" data-camera-rear="1.5" aria-pressed="true">1,5 km</button><button type="button" data-camera-rear="5" aria-pressed="false">5 km</button><button type="button" data-camera-rear="10" aria-pressed="false">10 km</button><button type="button" data-camera-rear="15" aria-pressed="false">15 km</button><button type="button" data-camera-rear="20" aria-pressed="false">20 km</button></div></div>
+      <div class="three-d-camera-group"><span>Réglage précis</span><div class="three-d-global-sliders"><div class="three-d-global-slider"><label for="utmb-3d-height-range">Hauteur <b id="utmb-3d-height-value">2,5 km</b></label><input id="utmb-3d-height-range" type="range" min="0" max="20" step=".5" value="2.5"></div><div class="three-d-global-slider"><label for="utmb-3d-ahead-range">Anticipation <b id="utmb-3d-ahead-value">1 km</b></label><input id="utmb-3d-ahead-range" type="range" min="0" max="10" step=".5" value="1"></div><div class="three-d-global-slider"><label for="utmb-3d-rear-range">Recul <b id="utmb-3d-rear-value">1,5 km</b></label><input id="utmb-3d-rear-range" type="range" min="0" max="25" step=".5" value="1.5"></div></div></div>
       <div class="three-d-camera-group"><span>Réglage par tronçon</span><div class="three-d-camera-options" role="group" aria-label="Réglage caméra par tronçon"><button type="button" id="utmb-3d-segment-toggle" aria-pressed="false">Activer les tronçons</button></div><div id="utmb-3d-segments" class="three-d-segments" hidden></div><div id="utmb-3d-segment-actions" class="three-d-segment-actions" hidden><button type="button" id="utmb-3d-add-segment">+ Ajouter un point de réglage</button></div><p class="three-d-segment-note">Chaque point définit les réglages à un kilomètre donné. La transition vers le point suivant est lissée automatiquement.</p></div>
-      <p id="utmb-3d-camera-details" class="three-d-camera-details">Standard : 7,6 km au-dessus · anticipation 3 km · recul 10 km.</p>
+      <p id="utmb-3d-camera-details" class="three-d-camera-details">Personnalisé : 2,5 km au-dessus · anticipation 1 km · recul 1,5 km.</p>
     </div>
     <div class="three-d-video-pane">
     <p class="three-d-kicker">Aperçu vidéo</p>
@@ -39,6 +39,7 @@
     <div id="utmb-3d-map" class="three-d-map" aria-label="Cartographie 3D interactive de l’UTMB"></div>
     <div class="three-d-controls">
       <button id="utmb-3d-play" class="three-d-button primary" type="button" disabled>▶ Lancer la caméra</button>
+      <button id="utmb-3d-rewind" class="three-d-button" type="button" disabled>⏮ Début vidéo</button>
       <button id="utmb-3d-reset" class="three-d-button" type="button" disabled>↺ Vue générale</button>
       <button class="three-d-button utmb-3d-speed" type="button" data-speed="0.1" aria-pressed="false" disabled>×0,1</button>
       <button class="three-d-button utmb-3d-speed" type="button" data-speed="0.25" aria-pressed="false" disabled>×0,25</button>
@@ -70,13 +71,14 @@
 </main>
 <script>
 (() => {
-  const route = {{ course.map_profile|tojson }};
+  const route = {{ course.map_profile_3d|default(course.map_profile)|tojson }};
   const coursePoints = {{ course.points|tojson }};
   const courseName = {{ course.name|tojson }};
   const apiKey = {{ maptiler_api_key|tojson }};
   const status = document.getElementById('utmb-3d-status');
   const videoMapContainer = document.getElementById('utmb-3d-map');
   const playButton = document.getElementById('utmb-3d-play');
+  const rewindButton = document.getElementById('utmb-3d-rewind');
   const resetButton = document.getElementById('utmb-3d-reset');
   const videoButton = document.getElementById('utmb-3d-video');
   const videoFormat = document.getElementById('utmb-3d-video-format');
@@ -174,16 +176,16 @@
   let hudRouteIndex = 0;
   let exportCanvas = null;
   let exportAnimationFrame = null;
-  let cameraHeightMode = 'standard';
-  let cameraHeightCustomKm = 7.6;
-  let cameraLookAheadKm = 3;
-  let cameraRearKm = 10;
+  let cameraHeightMode = 'custom';
+  let cameraHeightCustomKm = 2.5;
+  let cameraLookAheadKm = 1;
+  let cameraRearKm = 1.5;
   let segmentCameraEnabled = false;
   const routeDistanceKm = Number(route[route.length - 1].distance_km || 0);
   let cameraKeyframes = [
-    { km:0, altitude:7.6, ahead:3, rear:10, lateral:0, fixed:true },
-    { km:Math.round(routeDistanceKm / 2), altitude:7.6, ahead:3, rear:10, lateral:0 },
-    { km:routeDistanceKm, altitude:7.6, ahead:3, rear:10, lateral:0, fixed:true },
+    { km:0, altitude:2.5, ahead:1, rear:1.5, lateral:0, fixed:true },
+    { km:Math.round(routeDistanceKm / 2), altitude:2.5, ahead:1, rear:1.5, lateral:0 },
+    { km:routeDistanceKm, altitude:2.5, ahead:1, rear:1.5, lateral:0, fixed:true },
   ];
 
   const cameraHeightPresets = {
@@ -362,27 +364,24 @@
     const context = videoHud.getContext('2d');
     context.clearRect(0, 0, width, height);
     const inset = 16 * scale;
-    const titleLeftInset = inset + 25 * scale;
-    const titleTopInset = 63 * scale;
-    const topInset = 101 * scale;
+    const infoX = inset + 25 * scale;
+    const infoY = 63 * scale;
+    const infoWidth = width - infoX - inset;
+    const infoHeight = 168 * scale;
     const totalPoint = route[route.length - 1];
+    drawHudPanel(context, infoX, infoY, infoWidth, infoHeight, 8 * scale, { border:false, fill:'rgba(0,0,0,.70)' });
     context.fillStyle = '#fff'; context.textAlign = 'left'; context.textBaseline = 'middle';
     context.font = `700 ${26 * scale}px sans-serif`;
-    context.fillText(courseName, titleLeftInset, titleTopInset + 11 * scale);
+    context.fillText(courseName, infoX + 16 * scale, infoY + 23 * scale);
     context.fillStyle = '#e6e6e6'; context.font = `700 ${15 * scale}px sans-serif`;
-    context.fillText(`${Number(totalPoint.distance_km || 0).toFixed(1)} KM  ·  D+ ${Math.round(Number(totalPoint.elevation_gain_cumulative_m || 0))} M`, titleLeftInset, titleTopInset + 34 * scale);
+    context.fillText(`${Number(totalPoint.distance_km || 0).toFixed(1)} KM  ·  D+ ${Math.round(Number(totalPoint.elevation_gain_cumulative_m || 0))} M`, infoX + 16 * scale, infoY + 49 * scale);
 
-    const profileWidth = Math.min(300 * scale, width - inset * 2);
-    const profileHeight = 94 * scale;
-    const profileX = width - inset - profileWidth - 22 * scale;
-    const profileY = topInset;
-    drawHudPanel(context, profileX, profileY, profileWidth, profileHeight, 7 * scale, { border:false, fill:'rgba(9,14,12,.68)' });
     const elevations = route.map((item) => Number(item.elevation_m || 0));
     const minElevation = Math.min(...elevations); const maxElevation = Math.max(...elevations);
-    const chartX = profileX + 10 * scale; const chartY = profileY + 22 * scale;
-    const chartWidth = profileWidth - 20 * scale; const chartHeight = profileHeight - 45 * scale;
+    const chartX = infoX + 16 * scale; const chartY = infoY + 82 * scale;
+    const chartWidth = infoWidth - 32 * scale; const chartHeight = 48 * scale;
     context.fillStyle = '#f1f1f1'; context.font = `700 ${13 * scale}px sans-serif`; context.textAlign = 'left'; context.textBaseline = 'middle';
-    context.fillText('PROFIL GPX', chartX, profileY + 11 * scale);
+    context.fillText('PROFIL GPX', chartX, infoY + 69 * scale);
     context.beginPath();
     const step = Math.max(1, Math.ceil(route.length / 120));
     for (let index = 0; index < route.length; index += step) {
@@ -399,7 +398,7 @@
     context.beginPath(); context.arc(markerX, markerY, 3.5 * scale, 0, Math.PI * 2); context.fillStyle = '#f6c547'; context.fill(); context.strokeStyle = '#17221c'; context.lineWidth = 1.4 * scale; context.stroke();
     const profilePoint = dataAt(hudRouteIndex);
     context.fillStyle = '#fff'; context.font = `700 ${14 * scale}px sans-serif`; context.textAlign = 'center'; context.textBaseline = 'middle';
-    context.fillText(`KM ${profilePoint.distance_km.toFixed(1)}  ·  D+ ${Math.round(profilePoint.elevation_gain_cumulative_m)} m`, profileX + profileWidth / 2, profileY + profileHeight - 12 * scale);
+    context.fillText(`KM ${profilePoint.distance_km.toFixed(1)}  ·  D+ ${Math.round(profilePoint.elevation_gain_cumulative_m)} m`, infoX + infoWidth / 2, infoY + infoHeight - 17 * scale);
 
     const screenPoint = C.SceneTransforms.wgs84ToWindowCoordinates(viewer.scene, positionAt(hudRouteIndex));
     if (!screenPoint) return;
@@ -410,7 +409,7 @@
       const poi = poiEntries[activePoiIndex].item;
       const cardWidth = 230 * scale; const cardHeight = 70 * scale;
       const cardX = clamp(pointX - cardWidth / 2, inset, width - inset - cardWidth);
-      const cardY = clamp(pointY - 145 * scale, profileY + profileHeight + 12 * scale, height - inset - cardHeight);
+      const cardY = clamp(pointY - 145 * scale, infoY + infoHeight + 12 * scale, height - inset - cardHeight);
       context.beginPath(); context.moveTo(pointX, pointY - 8 * scale); context.lineTo(cardX + cardWidth / 2, cardY + cardHeight); context.strokeStyle = '#fff'; context.lineWidth = 1.35 * scale; context.stroke();
       drawHudPanel(context, cardX, cardY, cardWidth, cardHeight, 5 * scale, { fill:'rgba(9,14,12,.84)', stroke:'#f6c547' });
       context.fillStyle = '#fff'; context.font = `700 ${23 * scale}px sans-serif`; context.textAlign = 'center'; context.textBaseline = 'middle';
@@ -612,6 +611,12 @@
   });
   renderCameraKeyframes();
   rebuildPoiTimeline();
+  const rewindVideo = () => {
+    stop(); progress = 0; timelineElapsedMs = 0; introElapsedMs = 0; outroElapsedMs = 0; outroActive = false; pauseRemainingMs = 0;
+    passedPoiIndexes.clear(); setActivePoi(-1); smoothCameraPosition = null; smoothCameraTarget = null; runner.position = positions[0];
+    updateCamera(0, performance.now()); status.textContent = 'Début de la vidéo.';
+  };
+  rewindButton.addEventListener('click', rewindVideo);
   resetButton.addEventListener('click', () => { stop(); progress = 0; timelineElapsedMs = 0; introElapsedMs = 0; outroElapsedMs = 0; outroActive = false; pauseRemainingMs = 0; passedPoiIndexes.clear(); setActivePoi(-1); smoothCameraPosition = null; smoothCameraTarget = null; runner.position = positions[0]; overview(); status.textContent = 'Vue générale de l’UTMB.'; });
   const renderExportFrame = () => {
     if (!recording || !exportCanvas) return;
@@ -692,7 +697,7 @@
   });
   const activateControls = () => {
     if (!playButton.disabled) return;
-    playButton.disabled = false; resetButton.disabled = false; videoButton.disabled = false; timingToggle.disabled = false;
+    playButton.disabled = false; rewindButton.disabled = false; resetButton.disabled = false; videoButton.disabled = false; timingToggle.disabled = false;
     speedButtons.forEach((button) => { button.disabled = false; });
     overview(); renderVideoHud(); status.textContent = 'Relief 3D prêt · explore ou lance la caméra.';
   };

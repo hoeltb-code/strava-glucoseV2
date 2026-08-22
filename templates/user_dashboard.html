@@ -252,20 +252,11 @@
   .target-pacing-summary { display:flex; flex-wrap:wrap; gap:7px; margin:12px 0 2px; }
   .target-pacing-summary span { padding:6px 8px; border:1px solid #dfdad0; border-radius:999px; background:#fbfaf7; color:var(--text-main); font-size:.72rem; }
   .target-pacing-summary strong { color:var(--accent-dark); }
-  .target-pacing-card .profile-pacing-curve { margin-top:12px; }
+  .target-pacing-card .profile-pacing-curve { position:relative; margin-top:12px; }
   .target-pacing-explanation { margin-top:10px !important; }
-  .terrain-pace-overview { margin-top:16px; padding:16px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
-  .terrain-pace-overview h3 { margin:0; color:var(--text-main); font-size:1rem; }
-  .terrain-pace-overview > p { margin:5px 0 12px; color:var(--text-muted); font-size:.8rem; line-height:1.45; }
-  .terrain-pace-profile { overflow:hidden; border:1px solid #e4dfd6; border-radius:11px 11px 0 0; background:#fbfaf7; }
-  .terrain-pace-profile svg { display:block; width:100%; height:112px; }
-  .terrain-pace-columns { display:flex; align-items:stretch; min-width:max-content; border:1px solid #e4dfd6; border-top:0; border-radius:0 0 11px 11px; overflow:hidden; background:#fff; }
-  .terrain-pace-scroll { overflow-x:auto; padding-bottom:2px; }
-  .terrain-pace-column { min-width:98px; padding:9px 8px; border-right:1px solid #e8e2d9; background:#fff; }
-  .terrain-pace-column:last-child { border-right:0; }
-  .terrain-pace-column.is-descent { border-top:3px solid #5bb9e6; }.terrain-pace-column.is-flat { border-top:3px solid #dfe68d; }.terrain-pace-column.is-climb { border-top:3px solid #f4c446; }.terrain-pace-column.is-steep { border-top:3px solid #e94c34; }
-  .terrain-pace-column small { display:block; color:var(--text-muted); font-size:.65rem; line-height:1.3; }.terrain-pace-column strong { display:block; margin:5px 0 3px; color:var(--text-main); font-family:"DM Mono",monospace; font-size:.86rem; letter-spacing:-.04em; }.terrain-pace-column span { display:block; color:var(--accent-dark); font-size:.68rem; font-weight:700; }
-  .terrain-pace-note { margin:10px 0 0 !important; font-size:.74rem !important; }
+  .target-curve-tooltip { position:absolute; z-index:2; padding:6px 8px; border:1px solid #dfdad0; border-radius:8px; background:rgba(255,255,255,.96); box-shadow:0 6px 14px rgba(32,29,24,.12); color:var(--text-main); font-family:"DM Mono",monospace; font-size:.68rem; line-height:1.4; pointer-events:none; transform:translate(8px, -100%); white-space:nowrap; }
+  .terrain-pace-overview { margin-top:16px; padding:10px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
+  .terrain-pace-overview svg { display:block; width:100%; height:168px; overflow:visible; border-radius:9px; background:#fbfaf7; }
   .cohort-reference-legend { display:flex; align-items:flex-start; gap:7px; margin:0 10px 10px; color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.7rem; line-height:1.4; }
   .cohort-reference-legend i { display:inline-block; flex:0 0 auto; width:18px; height:9px; margin-top:4px; border:1px dashed #718092; border-radius:2px; background:rgba(78,91,108,.18); }
   .cohort-reference-legend b { color:#5e6874; font-weight:700; }
@@ -1414,6 +1405,27 @@
       return `${Math.floor(rounded / 60)}:${String(rounded % 60).padStart(2, '0')} /km`;
     }
 
+    function paceScaleBounds(paces) {
+      const valid = (paces || []).filter((pace) => Number.isFinite(pace) && pace > 0);
+      if (!valid.length) return { min:120, max:7200 };
+      const slowest = Math.max(...valid);
+      const fastest = Math.min(...valid);
+      const min = Math.max(60, Math.floor((fastest * .90) / 30) * 30);
+      const max = Math.max(min + 60, Math.ceil((slowest * 1.08) / 30) * 30);
+      return { min, max };
+    }
+
+    function paceScaleTicks(min, max, count = 5) {
+      const ticks = [];
+      for (let index = 0; index < count; index += 1) {
+        const ratio = index / Math.max(1, count - 1);
+        const value = Math.exp(Math.log(min) + (Math.log(max) - Math.log(min)) * ratio);
+        const rounded = Math.max(30, Math.round(value / 15) * 15);
+        if (!ticks.includes(rounded)) ticks.push(rounded);
+      }
+      return ticks;
+    }
+
     function renderArchivedProfileTable() {
       if (!archivedProfileBody || !archivedProfileNote) return;
       const zone = zoneInput.value;
@@ -1466,9 +1478,9 @@
         return;
       }
       const width = 680; const height = 250; const pad = { left:52, right:16, top:18, bottom:36 };
-      // Échelle fixe (logarithmique) : modifier la VAM ne déplace pas
-      // visuellement la partie descente, qui ne dépend pas de ce réglage.
-      const yMin = 120; const yMax = 7200;
+      // Échelle logarithmique ajustée aux allures réellement calculées : les
+      // écarts restent lisibles, y compris sur les pentes très raides.
+      const { min:yMin, max:yMax } = paceScaleBounds(points.map((point) => point.pace));
       const xScale = (x) => pad.left + ((x + 45) / 90) * (width - pad.left - pad.right);
       const yScale = (pace) => {
         const bounded = Math.max(yMin, Math.min(yMax, pace));
@@ -1476,7 +1488,7 @@
       };
       const path = points.map((point, index) => `${index ? 'L' : 'M'} ${xScale(point.x).toFixed(1)} ${yScale(point.pace).toFixed(1)}`).join(' ');
       const xTicks = [-40, -20, 0, 20, 40];
-      const yTicks = [120, 180, 300, 600, 1200, 2400, 4800, 7200];
+      const yTicks = paceScaleTicks(yMin, yMax);
       const grid = [
         ...xTicks.map((tick) => `<line class="curve-grid" x1="${xScale(tick)}" y1="${pad.top}" x2="${xScale(tick)}" y2="${height - pad.bottom}"/><text class="curve-axis-label" x="${xScale(tick)}" y="${height - 12}" text-anchor="middle">${tick > 0 ? '+' : ''}${tick}%</text>`),
         ...yTicks.map((tick) => `<line class="curve-grid" x1="${pad.left}" y1="${yScale(tick)}" x2="${width - pad.right}" y2="${yScale(tick)}"/><text class="curve-axis-label" x="${pad.left - 7}" y="${yScale(tick) + 4}" text-anchor="end">${formatPace(tick).replace(' /km', '')}</text>`),
@@ -1538,7 +1550,7 @@
       if (!points.length) return;
 
       const width = 680; const height = 220; const pad = { left:52, right:16, top:18, bottom:36 };
-      const yMin = 120; const yMax = 7200;
+      const { min:yMin, max:yMax } = paceScaleBounds(points.map((point) => point.pace));
       const xScale = (x) => pad.left + ((x + 45) / 90) * (width - pad.left - pad.right);
       const yScale = (pace) => {
         const bounded = Math.max(yMin, Math.min(yMax, pace));
@@ -1546,7 +1558,7 @@
       };
       const path = points.map((point, index) => `${index ? 'L' : 'M'} ${xScale(point.x).toFixed(1)} ${yScale(point.pace).toFixed(1)}`).join(' ');
       const xTicks = [-40, -20, 0, 20, 40];
-      const yTicks = [120, 180, 300, 600, 1200, 2400, 4800, 7200];
+      const yTicks = paceScaleTicks(yMin, yMax);
       const grid = [
         ...xTicks.map((tick) => `<line class="curve-grid" x1="${xScale(tick)}" y1="${pad.top}" x2="${xScale(tick)}" y2="${height - pad.bottom}"/><text class="curve-axis-label" x="${xScale(tick)}" y="${height - 12}" text-anchor="middle">${tick > 0 ? '+' : ''}${tick}%</text>`),
         ...yTicks.map((tick) => `<line class="curve-grid" x1="${pad.left}" y1="${yScale(tick)}" x2="${width - pad.right}" y2="${yScale(tick)}"/><text class="curve-axis-label" x="${pad.left - 7}" y="${yScale(tick) + 4}" text-anchor="end">${formatPace(tick).replace(' /km', '')}</text>`),
@@ -1554,7 +1566,31 @@
       const dots = points.map((point) => `<circle class="curve-point" cx="${xScale(point.x)}" cy="${yScale(point.pace)}" r="3"><title>${slopeLabels[point.slopeId]} · ${formatPace(point.pace)}</title></circle>`).join('');
       const targetSeconds = requestedTargetSeconds();
       targetPacingCurveHost.hidden = false;
-      targetPacingCurveHost.innerHTML = `<section class="target-pacing-card" aria-label="Allures retenues pour le chrono cible"><h3>Allures retenues pour le chrono cible</h3><p>Cette courbe est appliquée aux pentes du parcours pour calculer le chrono de chaque tronçon.</p><div class="target-pacing-summary"><span>Objectif total <strong>${formatDuration(targetSeconds || movingSeconds + stopSeconds)}</strong></span><span>En mouvement <strong>${formatDuration(movingSeconds)}</strong></span><span>Ravitos <strong>${formatDuration(stopSeconds)}</strong></span></div><div class="profile-pacing-curve" role="img" aria-label="Allures retenues selon la pente pour atteindre le chrono cible"><svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">${grid}<path class="curve-line" d="${path}"/>${dots}<text class="curve-axis-label" x="${width / 2}" y="${height - 1}" text-anchor="middle">Pente</text><text class="curve-axis-label" x="12" y="${height / 2}" transform="rotate(-90 12 ${height / 2})" text-anchor="middle">Allure</text></svg></div><p class="target-pacing-explanation">Si tu augmentes les pauses aux ravitos, le temps en mouvement se réduit et toute la courbe s’ajuste pour conserver le chrono total visé.</p></section>`;
+      targetPacingCurveHost.innerHTML = `<section class="target-pacing-card" aria-label="Allures retenues pour le chrono cible"><h3>Allures retenues pour le chrono cible</h3><p>Cette courbe est appliquée aux pentes du parcours pour calculer le chrono de chaque tronçon.</p><div class="target-pacing-summary"><span>Objectif total <strong>${formatDuration(targetSeconds || movingSeconds + stopSeconds)}</strong></span><span>En mouvement <strong>${formatDuration(movingSeconds)}</strong></span><span>Ravitos <strong>${formatDuration(stopSeconds)}</strong></span></div><div class="profile-pacing-curve" role="img" aria-label="Allures retenues selon la pente pour atteindre le chrono cible"><svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">${grid}<path class="curve-line" d="${path}"/>${dots}<text class="curve-axis-label" x="${width / 2}" y="${height - 1}" text-anchor="middle">Pente</text><text class="curve-axis-label" x="12" y="${height / 2}" transform="rotate(-90 12 ${height / 2})" text-anchor="middle">Allure</text></svg><span class="target-curve-tooltip" hidden></span></div><p class="target-pacing-explanation">Survole la courbe pour lire l’allure et la VAM à la pente choisie. Si tu augmentes les pauses aux ravitos, le temps en mouvement se réduit et toute la courbe s’ajuste pour conserver le chrono total visé.</p></section>`;
+      const curveBox = targetPacingCurveHost.querySelector('.profile-pacing-curve');
+      const svg = curveBox?.querySelector('svg');
+      const tooltip = curveBox?.querySelector('.target-curve-tooltip');
+      const paceAtGrade = (grade) => {
+        const rightIndex = points.findIndex((point) => point.x >= grade);
+        if (rightIndex <= 0) return points[0].pace;
+        if (rightIndex < 0) return points[points.length - 1].pace;
+        const left = points[rightIndex - 1]; const right = points[rightIndex];
+        const ratio = (grade - left.x) / Math.max(.001, right.x - left.x);
+        return left.pace + (right.pace - left.pace) * ratio;
+      };
+      svg?.addEventListener('pointermove', (event) => {
+        if (!tooltip) return;
+        const box = svg.getBoundingClientRect();
+        const ratio = Math.max(0, Math.min(1, (event.clientX - box.left) / Math.max(1, box.width)));
+        const grade = -45 + ratio * 90;
+        const pace = paceAtGrade(grade);
+        const vam = Math.round((3600 / pace) * 10 * grade);
+        tooltip.hidden = false;
+        tooltip.style.left = `${Math.max(4, Math.min(88, ratio * 100))}%`;
+        tooltip.style.top = `${Math.max(28, Math.min(92, (event.clientY - box.top) / Math.max(1, box.height) * 100))}%`;
+        tooltip.textContent = `${grade >= 0 ? '+' : ''}${grade.toFixed(1)} % · ${formatPace(pace)} · ${vam >= 0 ? '+' : '−'}${Math.abs(vam)} m/h`;
+      });
+      svg?.addEventListener('pointerleave', () => { if (tooltip) tooltip.hidden = true; });
     }
 
     function terrainPaceKind(grade) {
@@ -1585,8 +1621,8 @@
         const current = segments[segments.length - 1];
         const canJoin = current
           && current.kind === kind
-          && Math.abs(current.averageGrade - grade) <= 6
-          && current.distance < 8;
+          && Math.abs(current.averageGrade - grade) <= 4
+          && current.distance < 2.8;
         if (canJoin) {
           const nextDistance = current.distance + distance;
           current.toKm = toKm;
@@ -1612,30 +1648,34 @@
         terrainPaceOverviewHost.innerHTML = '';
         return;
       }
-      const width = 900; const height = 112; const padding = 12;
+      const width = 900; const height = 168; const padding = 12;
       const maxKm = Math.max(...segments.map((segment) => segment.toKm), .1);
       const elevations = profile.map((point) => Number(point.elevation_m)).filter(Number.isFinite);
       const minElevation = Math.min(...elevations); const maxElevation = Math.max(...elevations);
       const elevationRange = Math.max(1, maxElevation - minElevation);
       const xScale = (km) => padding + (Math.max(0, Math.min(maxKm, km)) / maxKm) * (width - padding * 2);
-      const yScale = (elevation) => 8 + ((maxElevation - elevation) / elevationRange) * (height - 28);
+      const yScale = (elevation) => 10 + ((maxElevation - elevation) / elevationRange) * (height - 24);
       const profilePoints = profile.filter((point) => Number.isFinite(Number(point.distance_km)) && Number.isFinite(Number(point.elevation_m)));
       const outline = profilePoints.map((point, index) => `${index ? 'L' : 'M'} ${xScale(Number(point.distance_km)).toFixed(1)} ${yScale(Number(point.elevation_m)).toFixed(1)}`).join(' ');
-      const area = `${outline} L ${xScale(maxKm).toFixed(1)} ${height - 16} L ${xScale(0).toFixed(1)} ${height - 16} Z`;
+      const area = `${outline} L ${xScale(maxKm).toFixed(1)} ${height - 10} L ${xScale(0).toFixed(1)} ${height - 10} Z`;
       const segmentLines = segments.map((segment) => {
         const points = profilePoints.filter((point) => Number(point.distance_km) >= segment.fromKm && Number(point.distance_km) <= segment.toKm);
         const line = points.map((point, index) => `${index ? 'L' : 'M'} ${xScale(Number(point.distance_km)).toFixed(1)} ${yScale(Number(point.elevation_m)).toFixed(1)}`).join(' ');
         return line ? `<path d="${line}" fill="none" stroke="${terrainPaceColor(segment.kind)}" stroke-width="4" stroke-linecap="round"/>` : '';
       }).join('');
-      const markers = segments.slice(0, -1).map((segment) => `<line x1="${xScale(segment.toKm).toFixed(1)}" y1="8" x2="${xScale(segment.toKm).toFixed(1)}" y2="${height - 16}" stroke="#fff" stroke-opacity=".75" stroke-width="1"/>`).join('');
-      const columns = segments.map((segment) => {
+      const paces = segments.map((segment) => segment.seconds / Math.max(.01, segment.distance));
+      const { min:fastestPace, max:slowestPace } = paceScaleBounds(paces);
+      const paceBars = segments.map((segment) => {
         const pace = segment.seconds / Math.max(.01, segment.distance);
-        const grade = `${segment.averageGrade >= 0 ? '+' : ''}${Math.round(segment.averageGrade)} %`;
-        return `<article class="terrain-pace-column is-${segment.kind}" style="flex:${Math.max(1, segment.distance).toFixed(2)} 0 98px"><small>km ${segment.fromKm.toFixed(1)} → ${segment.toKm.toFixed(1)} · ${grade}</small><strong>${formatPace(pace)}</strong><span>${segment.distance.toFixed(1)} km · D+ ${Math.round(segment.gain)} m</span></article>`;
+        const ratio = Math.max(0, Math.min(1, (pace - fastestPace) / Math.max(1, slowestPace - fastestPace)));
+        const barHeight = 20 + ratio * (height * .47);
+        const x = xScale(segment.fromKm); const barWidth = Math.max(1.5, xScale(segment.toKm) - x);
+        const y = height - 10 - barHeight;
+        const title = `km ${segment.fromKm.toFixed(1)} à ${segment.toKm.toFixed(1)} · ${formatPace(pace)} · ${segment.averageGrade >= 0 ? '+' : ''}${Math.round(segment.averageGrade)} % · D+ ${Math.round(segment.gain)} m`;
+        return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${barHeight.toFixed(1)}" fill="${terrainPaceColor(segment.kind)}" fill-opacity=".62"><title>${title}</title></rect>`;
       }).join('');
-      const targetNote = isTargetTimeMode() ? 'Ces allures intègrent ton chrono cible et les pauses renseignées aux ravitos.' : 'Ces allures découlent de ta base d’allures et du relief de la course.';
       terrainPaceOverviewHost.hidden = false;
-      terrainPaceOverviewHost.innerHTML = `<section class="terrain-pace-overview" aria-label="Allures par portions homogènes"><h3>Allures sur le parcours</h3><p>Chaque colonne regroupe une portion où la pente reste comparable. Sa largeur représente la distance : tu lis ainsi l’allure réellement retenue, sans découpage artificiel.</p><div class="terrain-pace-profile"><svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="Profil de la course découpé en portions homogènes"><path d="${area}" fill="#f2eee6"/><path d="${outline}" fill="none" stroke="#a9a298" stroke-width="2"/>${segmentLines}${markers}<text x="${padding}" y="${height - 2}" fill="#77746d" font-size="10">0 km</text><text x="${width - padding - 42}" y="${height - 2}" fill="#77746d" font-size="10">${maxKm.toFixed(1)} km</text></svg></div><div class="terrain-pace-scroll"><div class="terrain-pace-columns">${columns}</div></div><p class="terrain-pace-note">${targetNote}</p></section>`;
+      terrainPaceOverviewHost.innerHTML = `<section class="terrain-pace-overview" aria-label="Profil de course et allures par portions homogènes"><svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="Profil de la course avec colonnes d’allure sur les portions de pente homogène"><path d="${area}" fill="#f2eee6"/>${paceBars}<path d="${outline}" fill="none" stroke="#3d403c" stroke-width="2.2"/>${segmentLines}</svg></section>`;
     }
 
     function renderAidStations() {

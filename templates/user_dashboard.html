@@ -1790,20 +1790,33 @@
       renderProfilePacingTable();
     }
 
-    function officialCoursePoints(course) {
+    function officialCoursePoints(course, routePoints = []) {
       const typeMap = {
         aid_station: 'aid',
         aid_station_assistance: 'aid_assistance',
         checkpoint: 'control',
       };
       const stopOverrides = new Map(Array.from(aidStationList.querySelectorAll('[data-course-km]')).map((input) => [input.dataset.courseKm, Number(input.value || 0) * 60]));
-      return (course?.points || []).map((point) => ({
-        label: point.name || 'Point de course',
-        type: typeMap[point.type],
-        km: Number(point.km),
-        stopSeconds: stopOverrides.get(String(point.km)) || 0,
-        cutoffLabel: point.cutoff_label || '',
-      })).filter((point) => point.type && Number.isFinite(point.km) && point.km > 0).sort((a, b) => a.km - b.km);
+      return (course?.points || []).map((point) => {
+        const officialKm = Number(point.km);
+        const latitude = Number(point.latitude); const longitude = Number(point.longitude);
+        let routeKm = officialKm;
+        if (Number.isFinite(latitude) && Number.isFinite(longitude) && routePoints.length) {
+          const latitudeScale = Math.cos(latitude * Math.PI / 180);
+          const nearest = routePoints.reduce((best, candidate) => {
+            const dx = (Number(candidate.longitude) - longitude) * latitudeScale;
+            const dy = Number(candidate.latitude) - latitude;
+            const bestDx = (Number(best.longitude) - longitude) * latitudeScale;
+            const bestDy = Number(best.latitude) - latitude;
+            return dx * dx + dy * dy < bestDx * bestDx + bestDy * bestDy ? candidate : best;
+          }, routePoints[0]);
+          if (Number.isFinite(Number(nearest?.distance_km))) routeKm = Number(nearest.distance_km);
+        }
+        return {
+          label: point.name || 'Point de course', type: typeMap[point.type], km: officialKm, routeKm,
+          stopSeconds: stopOverrides.get(String(point.km)) || 0, cutoffLabel: point.cutoff_label || '',
+        };
+      }).filter((point) => point.type && Number.isFinite(point.km) && point.km > 0).sort((a, b) => a.km - b.km);
     }
 
     manualMode.addEventListener('change', () => {
@@ -2217,7 +2230,8 @@
       if (!(finishKm > 0)) return { html: '', segments: [] };
       const boundaries = [{ label: 'Départ', km: 0 }];
       (coursePoints || []).filter((point) => ['aid', 'aid_assistance'].includes(point.type) && Number(point.km) > .001 && Number(point.km) < finishKm - .001).forEach((point) => {
-        if (!boundaries.some((existing) => Math.abs(existing.km - Number(point.km)) < .001)) boundaries.push({ label: point.label || 'Point de course', km: Number(point.km) });
+        const routeKm = Number.isFinite(Number(point.routeKm)) ? Number(point.routeKm) : Number(point.km);
+        if (!boundaries.some((existing) => Math.abs(existing.km - routeKm) < .001)) boundaries.push({ label: point.label || 'Point de course', km: routeKm, officialKm:Number(point.km) });
       });
       boundaries.push({ label: 'Arrivée', km: finishKm });
       if (boundaries.length < 2) return { html: '', segments: [] };
@@ -2776,7 +2790,7 @@
         setGenerationStage(2);
 
         status.textContent = '';
-        const aidStations = (data.official_course ? officialCoursePoints(data.official_course) : getAidStations()).filter((aid) => aid.km <= Number(data.total_distance_km || 0));
+        const aidStations = (data.official_course ? officialCoursePoints(data.official_course, data.elevation_profile) : getAidStations()).filter((aid) => aid.km <= Number(data.total_distance_km || 0));
         const restoredStops = activeCoursePlanSettings?.stops || [];
         restoredStops.forEach((savedStop) => {
           const point = aidStations.find((item) => Math.abs(Number(item.km) - Number(savedStop.km)) < 0.001);

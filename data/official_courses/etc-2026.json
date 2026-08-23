@@ -15,11 +15,8 @@
   "finish_location": "Courmayeur",
   "timezone": "Europe/Paris",
   "points": [
-    {"order": 1, "km": 0.0, "segment_km": 0.0, "name": "Courmayeur", "altitude_m": 1222, "elevation_gain_m": 0, "elevation_loss_m": 0, "type": "start", "fastest_label": "Mar. 14:00", "slowest_label": "Mar. 14:40", "services_count": 3},
-    {"order": 2, "km": 1.5, "segment_km": 1.5, "name": "Verrand", "altitude_m": 1268, "elevation_gain_m": 59, "elevation_loss_m": 10, "type": "checkpoint", "fastest_label": "Mar. 14:06", "slowest_label": "Mar. 14:57"},
-    {"order": 3, "km": 5.5, "segment_km": 3.9, "name": "Tirecorne", "altitude_m": 1951, "elevation_gain_m": 798, "elevation_loss_m": 75, "type": "checkpoint", "fastest_label": "Mar. 14:40", "slowest_label": "Mar. 16:40"},
-    {"order": 4, "km": 6.5, "segment_km": 0.9, "name": "La Suche", "altitude_m": 1817, "elevation_gain_m": 807, "elevation_loss_m": 206, "type": "aid_station", "fastest_label": "Mar. 14:44", "slowest_label": "Mar. 16:52", "cutoff_label": "Mar. 16:55", "services_count": 2},
-    {"order": 5, "km": 13.0, "segment_km": 6.4, "name": "Villair", "altitude_m": 1310, "elevation_gain_m": 1006, "elevation_loss_m": 923, "type": "checkpoint", "fastest_label": "Mar. 15:18", "slowest_label": "Mar. 18:35"},
-    {"order": 6, "km": 15.0, "segment_km": 2.0, "name": "Courmayeur", "altitude_m": 1240, "elevation_gain_m": 1103, "elevation_loss_m": 1083, "type": "finish", "fastest_label": "Mar. 15:30", "slowest_label": "Mar. 19:11", "cutoff_label": "Mar. 19:10", "services_count": 5}
+    {"order": 1, "km": 0.0, "segment_km": 0.0, "name": "Courmayeur", "altitude_m": 1222, "elevation_gain_m": 0, "elevation_loss_m": 0, "type": "start", "fastest_label": "Mar. 14:00", "slowest_label": "Mar. 14:40", "services_count": 3, "latitude": 45.79292, "longitude": 6.97154},
+    {"order": 2, "km": 6.5, "segment_km": 6.5, "name": "La Suche", "altitude_m": 1817, "elevation_gain_m": 807, "elevation_loss_m": 206, "type": "aid_station", "fastest_label": "Mar. 14:44", "slowest_label": "Mar. 16:52", "cutoff_label": "Mar. 16:55", "services_count": 2, "latitude": 45.79741, "longitude": 6.99188},
+    {"order": 3, "km": 15.0, "segment_km": 8.5, "name": "Courmayeur", "altitude_m": 1240, "elevation_gain_m": 1103, "elevation_loss_m": 1083, "type": "finish", "fastest_label": "Mar. 15:30", "slowest_label": "Mar. 19:11", "cutoff_label": "Mar. 19:10", "services_count": 5, "latitude": 45.79452, "longitude": 6.97195}
   ]
 }

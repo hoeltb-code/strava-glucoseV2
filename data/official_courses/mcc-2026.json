@@ -15,11 +15,11 @@
   "finish_location": "Chamonix",
   "timezone": "Europe/Paris",
   "points": [
-    {"order": 1, "km": 0.0, "segment_km": 0.0, "name": "Martigny Combe", "altitude_m": 506, "elevation_gain_m": 0, "elevation_loss_m": 0, "type": "start"},
-    {"order": 2, "km": 7.6, "segment_km": 7.6, "name": "Col de la Forclaz", "altitude_m": 1536, "elevation_gain_m": 1041, "elevation_loss_m": 13, "type": "aid_station", "cutoff_label": "Lun. 12:30", "services_count": 1},
-    {"order": 3, "km": 16.9, "segment_km": 9.3, "name": "Col de Balme", "altitude_m": 2206, "elevation_gain_m": 1972, "elevation_loss_m": 272, "type": "aid_station", "cutoff_label": "Lun. 15:45", "services_count": 1},
-    {"order": 4, "km": 27.8, "segment_km": 10.9, "name": "Argentière", "altitude_m": 1255, "elevation_gain_m": 2109, "elevation_loss_m": 1359, "type": "aid_station", "cutoff_label": "Lun. 18:00", "services_count": 1},
-    {"order": 5, "km": 32.1, "segment_km": 4.3, "name": "La Joux", "altitude_m": 1171, "elevation_gain_m": 2170, "elevation_loss_m": 1503, "type": "checkpoint"},
-    {"order": 6, "km": 38.5, "segment_km": 6.5, "name": "Chamonix", "altitude_m": 1035, "elevation_gain_m": 2298, "elevation_loss_m": 1768, "type": "finish", "cutoff_label": "Lun. 20:30", "services_count": 1}
+    {"order": 1, "km": 0.0, "segment_km": 0.0, "name": "Martigny Combe", "altitude_m": 506, "elevation_gain_m": 0, "elevation_loss_m": 0, "type": "start", "latitude": 46.08651, "longitude": 7.05591},
+    {"order": 2, "km": 7.6, "segment_km": 7.6, "name": "Col de la Forclaz", "altitude_m": 1536, "elevation_gain_m": 1041, "elevation_loss_m": 13, "type": "aid_station", "cutoff_label": "Lun. 12:30", "services_count": 1, "latitude": 46.05761, "longitude": 7.00173},
+    {"order": 3, "km": 16.9, "segment_km": 9.3, "name": "Col de Balme", "altitude_m": 2206, "elevation_gain_m": 1972, "elevation_loss_m": 272, "type": "aid_station", "cutoff_label": "Lun. 15:45", "services_count": 1, "latitude": 46.02631, "longitude": 6.97039},
+    {"order": 4, "km": 27.8, "segment_km": 10.9, "name": "Argentière", "altitude_m": 1255, "elevation_gain_m": 2109, "elevation_loss_m": 1359, "type": "aid_station", "cutoff_label": "Lun. 18:00", "services_count": 1, "latitude": 45.98413, "longitude": 6.92769},
+    {"order": 5, "km": 32.1, "segment_km": 4.3, "name": "La Joux", "altitude_m": 1171, "elevation_gain_m": 2170, "elevation_loss_m": 1503, "type": "checkpoint", "latitude": 45.9634, "longitude": 6.91096},
+    {"order": 6, "km": 38.5, "segment_km": 6.5, "name": "Chamonix", "altitude_m": 1035, "elevation_gain_m": 2298, "elevation_loss_m": 1768, "type": "finish", "cutoff_label": "Lun. 20:30", "services_count": 1, "latitude": 45.92359, "longitude": 6.86915}
   ]
 }

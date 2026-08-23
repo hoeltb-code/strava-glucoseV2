@@ -114,7 +114,19 @@
   // changements d'orientation naturels d'une trace GPX échantillonnée.
   const cameraSpline = new C.CatmullRomSpline({ times:positions.map((_point, index) => index), points:positions });
   const routeIndexForPoiKm = (km) => route.reduce((best, point, index) => Math.abs(Number(point.distance_km || 0) - km) < Math.abs(Number(route[best].distance_km || 0) - km) ? index : best, 0);
-  const poiRouteBreaks = [...new Set([0, ...coursePoints.map((point) => routeIndexForPoiKm(Number(point.km || 0))), route.length - 1])].sort((left, right) => left - right);
+  const routeIndexForPoi = (poi) => {
+    const latitude = Number(poi?.latitude); const longitude = Number(poi?.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return routeIndexForPoiKm(Number(poi?.km || 0));
+    const latitudeScale = Math.cos(latitude * Math.PI / 180);
+    return route.reduce((best, point, index) => {
+      const dx = (Number(point.longitude) - longitude) * latitudeScale;
+      const dy = Number(point.latitude) - latitude;
+      const bestDx = (Number(route[best].longitude) - longitude) * latitudeScale;
+      const bestDy = Number(route[best].latitude) - latitude;
+      return dx * dx + dy * dy < bestDx * bestDx + bestDy * bestDy ? index : best;
+    }, 0);
+  };
+  const poiRouteBreaks = [...new Set([0, ...coursePoints.map(routeIndexForPoi), route.length - 1])].sort((left, right) => left - right);
   const poiRouteSegments = poiRouteBreaks.slice(1).map((end, index) => ({ start:poiRouteBreaks[index], end }));
   const routeYellow = C.Color.fromCssColorString('#f6c547');
   const addPoiSegmentedRoute = (map, opacity = .5) => poiRouteSegments.map((segment) => map.entities.add({
@@ -293,7 +305,7 @@
     return canvas;
   };
   const poiEntries = coursePoints.map((item) => {
-    const routeIndex = routeIndexForKm(Number(item.km || 0));
+    const routeIndex = routeIndexForPoi(item);
     const routePoint = route[routeIndex];
     const entity = viewer.entities.add({
       position: positions[routeIndex],
@@ -718,7 +730,6 @@
   explorer.scene.requestRenderMode = false;
   explorer.creditDisplay.addStaticCredit(new C.Credit('<a href="https://www.maptiler.com/copyright/" target="_blank">© MapTiler</a> <a href="https://www.openstreetmap.org/copyright" target="_blank">© OpenStreetMap contributors</a>', true));
   const explorerRoute = addPoiSegmentedRoute(explorer, .75);
-  const closestRoutePoint = (km) => route.reduce((closest, point) => Math.abs(point.distance_km - km) < Math.abs(closest.distance_km - km) ? point : closest, route[0]);
   const pointStyle = (type) => {
     if (type === 'start') return { color:C.Color.fromCssColorString('#38b876'), label:'Départ' };
     if (type === 'finish') return { color:C.Color.WHITE, label:'Arrivée' };
@@ -726,7 +737,7 @@
     return { color:C.Color.fromCssColorString('#f6c547'), label:'Point de passage' };
   };
   coursePoints.forEach((item) => {
-    const onRoute = closestRoutePoint(Number(item.km || 0));
+    const onRoute = route[routeIndexForPoi(item)];
     const style = pointStyle(item.type);
     explorer.entities.add({
       position: C.Cartesian3.fromDegrees(onRoute.longitude, onRoute.latitude, Math.max(0, Number(onRoute.elevation_m || item.altitude_m || 0))),

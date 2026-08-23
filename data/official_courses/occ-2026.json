@@ -15,15 +15,15 @@
   "finish_location": "Chamonix",
   "timezone": "Europe/Paris",
   "points": [
-    {"order": 1, "km": 0.0, "segment_km": 0.0, "name": "Orsières", "altitude_m": 915, "elevation_gain_m": 0, "elevation_loss_m": 0, "type": "start"},
-    {"order": 2, "km": 7.3, "segment_km": 7.3, "name": "Champex-Lac sortie", "altitude_m": 1472, "elevation_gain_m": 654, "elevation_loss_m": 98, "type": "aid_station", "services_count": 1},
-    {"order": 3, "km": 12.2, "segment_km": 4.9, "name": "Plan de l'Au", "altitude_m": 1342, "elevation_gain_m": 727, "elevation_loss_m": 303, "type": "checkpoint", "cutoff_label": "Jeu. 11:15"},
-    {"order": 4, "km": 18.8, "segment_km": 6.6, "name": "La Giète", "altitude_m": 1884, "elevation_gain_m": 1464, "elevation_loss_m": 496, "type": "checkpoint"},
-    {"order": 5, "km": 23.9, "segment_km": 5.1, "name": "Trient", "altitude_m": 1303, "elevation_gain_m": 1531, "elevation_loss_m": 1144, "type": "aid_station", "cutoff_label": "Jeu. 14:15", "services_count": 1},
-    {"order": 6, "km": 33.5, "segment_km": 9.6, "name": "Col de Balme", "altitude_m": 2206, "elevation_gain_m": 2614, "elevation_loss_m": 1324, "type": "aid_station", "cutoff_label": "Jeu. 17:30", "services_count": 1},
-    {"order": 7, "km": 41.1, "segment_km": 7.6, "name": "Télécabine Vallorcine", "altitude_m": 1934, "elevation_gain_m": 2971, "elevation_loss_m": 1954, "type": "checkpoint"},
-    {"order": 8, "km": 50.2, "segment_km": 9.1, "name": "Argentière", "altitude_m": 1255, "elevation_gain_m": 3158, "elevation_loss_m": 2818, "type": "aid_station", "cutoff_label": "Jeu. 21:15", "services_count": 1},
-    {"order": 9, "km": 54.5, "segment_km": 4.3, "name": "La Joux", "altitude_m": 1171, "elevation_gain_m": 3219, "elevation_loss_m": 2962, "type": "checkpoint"},
-    {"order": 10, "km": 61.0, "segment_km": 6.5, "name": "Chamonix", "altitude_m": 1035, "elevation_gain_m": 3347, "elevation_loss_m": 3227, "type": "finish", "cutoff_label": "Jeu. 23:30", "services_count": 1}
+    {"order": 1, "km": 0.0, "segment_km": 0.0, "name": "Orsières", "latitude": 46.02398, "longitude": 7.14513, "altitude_m": 915, "elevation_gain_m": 0, "elevation_loss_m": 0, "type": "start"},
+    {"order": 2, "km": 7.3, "segment_km": 7.3, "name": "Champex-Lac sortie", "latitude": 46.02559, "longitude": 7.12246, "altitude_m": 1472, "elevation_gain_m": 654, "elevation_loss_m": 98, "type": "aid_station", "services_count": 1},
+    {"order": 3, "km": 12.2, "segment_km": 4.9, "name": "Plan de l'Au", "latitude": 46.04984, "longitude": 7.07969, "altitude_m": 1342, "elevation_gain_m": 727, "elevation_loss_m": 303, "type": "checkpoint", "cutoff_label": "Jeu. 11:15"},
+    {"order": 4, "km": 18.8, "segment_km": 6.6, "name": "La Giète", "latitude": 46.05501, "longitude": 7.03363, "altitude_m": 1884, "elevation_gain_m": 1464, "elevation_loss_m": 496, "type": "checkpoint"},
+    {"order": 5, "km": 23.9, "segment_km": 5.1, "name": "Trient", "latitude": 46.05567, "longitude": 6.99487, "altitude_m": 1303, "elevation_gain_m": 1531, "elevation_loss_m": 1144, "type": "aid_station", "cutoff_label": "Jeu. 14:15", "services_count": 1},
+    {"order": 6, "km": 33.5, "segment_km": 9.6, "name": "Col de Balme", "latitude": 46.02645, "longitude": 6.9702, "altitude_m": 2206, "elevation_gain_m": 2614, "elevation_loss_m": 1324, "type": "aid_station", "cutoff_label": "Jeu. 17:30", "services_count": 1},
+    {"order": 7, "km": 41.1, "segment_km": 7.6, "name": "Télécabine Vallorcine", "latitude": 46.02984, "longitude": 6.94967, "altitude_m": 1934, "elevation_gain_m": 2971, "elevation_loss_m": 1954, "type": "checkpoint"},
+    {"order": 8, "km": 50.2, "segment_km": 9.1, "name": "Argentière", "latitude": 45.98413, "longitude": 6.92776, "altitude_m": 1255, "elevation_gain_m": 3158, "elevation_loss_m": 2818, "type": "aid_station", "cutoff_label": "Jeu. 21:15", "services_count": 1},
+    {"order": 9, "km": 54.5, "segment_km": 4.3, "name": "La Joux", "latitude": 45.96334, "longitude": 6.91079, "altitude_m": 1171, "elevation_gain_m": 3219, "elevation_loss_m": 2962, "type": "checkpoint"},
+    {"order": 10, "km": 61.0, "segment_km": 6.5, "name": "Chamonix", "latitude": 45.92359, "longitude": 6.86915, "altitude_m": 1035, "elevation_gain_m": 3347, "elevation_loss_m": 3227, "type": "finish", "cutoff_label": "Jeu. 23:30", "services_count": 1}
   ]
 }

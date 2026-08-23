@@ -351,6 +351,14 @@
       renderPoiTimeline();
     }));
   };
+  const syncPoiTimelineInputs = () => {
+    timingList.querySelectorAll('[data-timeline-poi]').forEach((input) => {
+      const index = Number(input.dataset.timelinePoi);
+      if (!poiTimeline[index]) return;
+      const previousTime = index ? poiTimeline[index - 1].timeMs + 2000 : videoStartMs();
+      poiTimeline[index].timeMs = Math.max(previousTime + 500, Number(input.value || 0) * 1000);
+    });
+  };
   const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
   updateRouteHighlight(0);
   const resizeVideoHud = () => {
@@ -464,7 +472,13 @@
     const altitudeOffset = C.Cartesian3.multiplyByScalar(localUp, cameraAltitude, new C.Cartesian3());
     const desiredPosition = C.Cartesian3.add(cameraAnchor, C.Cartesian3.add(lateralOffset, C.Cartesian3.add(backwardOffset, altitudeOffset, new C.Cartesian3()), new C.Cartesian3()), new C.Cartesian3());
     const desiredTarget = C.Cartesian3.add(ahead, C.Cartesian3.multiplyByScalar(localUp, 500, new C.Cartesian3()), new C.Cartesian3());
-    if (!smoothCameraPosition) {
+    if (timingEnabled) {
+      // Le timing des POI pilote directement la position. La spline du tracé
+      // assure déjà la fluidité spatiale ; un lissage temporel supplémentaire
+      // ferait prendre du retard à la caméra sur les heures de passage saisies.
+      smoothCameraPosition = C.Cartesian3.clone(desiredPosition, smoothCameraPosition || new C.Cartesian3());
+      smoothCameraTarget = C.Cartesian3.clone(desiredTarget, smoothCameraTarget || new C.Cartesian3());
+    } else if (!smoothCameraPosition) {
       smoothCameraPosition = C.Cartesian3.clone(desiredPosition);
       smoothCameraTarget = C.Cartesian3.clone(desiredTarget);
     } else {
@@ -659,6 +673,9 @@
   videoButton.addEventListener('click', () => {
     if (!window.MediaRecorder || !viewer.canvas.captureStream) { status.textContent = 'L’enregistrement vidéo n’est pas disponible sur ce navigateur.'; return; }
     if (recording) { stop(); return; }
+    // Une valeur encore active dans un champ doit être prise en compte avant
+    // de figer la timeline utilisée par l'enregistrement.
+    syncPoiTimelineInputs();
     const chunks = [];
     const mimeType = ['video/mp4;codecs=avc1.42E01E', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'].find((type) => MediaRecorder.isTypeSupported(type)) || 'video/webm';
     const fileExtension = mimeType.startsWith('video/mp4') ? 'mp4' : 'webm';

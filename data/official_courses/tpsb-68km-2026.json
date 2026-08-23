@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "id": "tpsb-68km-2026",
+  "name": "TPSB 68 km 2026",
+  "short_name": "TPSB 68 km",
+  "event_name": "Trail du Petit Saint-Bernard",
+  "edition_year": 2026,
+  "sport": "trail",
+  "route_file": "tpsb-68km-2026.gpx",
+  "distance_km": 68.0,
+  "elevation_gain_m": 4000,
+  "elevation_loss_m": 4000,
+  "course_coefficient_percent": 100,
+  "course_pace_category": "technical",
+  "calibrate_gpx_to_official": true,
+  "gpx_elevation_smoothing_m": 50,
+  "start_location": "Les Chapieux",
+  "finish_location": "Les Chapieux",
+  "timezone": "Europe/Paris",
+  "points": [
+    {"order": 1, "km": 0.0, "segment_km": 0.0, "name": "Les Chapieux", "latitude": 45.69561, "longitude": 6.73379, "altitude_m": 1546, "type": "start"},
+    {"order": 2, "km": 22.0, "segment_km": 22.0, "name": "Hospice du Petit Saint-Bernard", "latitude": 45.66889, "longitude": 6.86857, "altitude_m": 2146, "type": "aid_station", "cutoff_label": "11h15", "services_count": 1},
+    {"order": 3, "km": 41.0, "segment_km": 19.0, "name": "Bério Blanc du dessus", "latitude": 45.74833, "longitude": 6.87738, "altitude_m": 2433, "type": "aid_station", "cutoff_label": "15h15", "services_count": 1},
+    {"order": 4, "km": 52.0, "segment_km": 11.0, "name": "Refuge Elisabetta", "latitude": 45.76535, "longitude": 6.83897, "altitude_m": 2147, "type": "aid_station", "cutoff_label": "17h45", "services_count": 1},
+    {"order": 5, "km": 68.0, "segment_km": 16.0, "name": "Les Chapieux", "latitude": 45.69561, "longitude": 6.73379, "altitude_m": 1546, "type": "finish", "cutoff_label": "21h15"}
+  ]
+}

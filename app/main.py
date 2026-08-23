@@ -250,7 +250,7 @@ def _load_official_course_catalog() -> list[dict]:
             route_file = os.path.basename(str(course.get("route_file") or ""))
             if not course_id or not route_file.lower().endswith(".gpx"):
                 continue
-            event_name = "Festival des Templiers" if course_id in TEMPLIERS_2026_DEPARTURES else ""
+            event_name = str(course.get("event_name") or ("Festival des Templiers" if course_id in TEMPLIERS_2026_DEPARTURES else ""))
             courses.append(
                 {
                     "id": course_id,
@@ -451,6 +451,8 @@ def _course_event_name(course_id: str) -> str:
         return "Grand Raid de la Réunion"
     if normalized_id in {"utmb-2026", "ccc-2026", "occ-2026", "tds-2026", "mcc-2026", "etc-2026"}:
         return "UTMB Mont-Blanc"
+    if normalized_id == "tpsb-68km-2026":
+        return "Trail du Petit Saint-Bernard"
     return "Running Data Plan"
 
 

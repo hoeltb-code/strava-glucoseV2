@@ -479,8 +479,8 @@
       const elapsed = Math.min(80, Math.max(1, now - (lastCameraTime || now)));
       // En mode POI, un lissage court absorbe les vibrations de la trace sans
       // recréer le retard de plusieurs secondes de l'ancien suivi caméra.
-      const positionSmoothing = 1 - Math.exp(-elapsed / (timingEnabled ? 180 : 3600));
-      const targetSmoothing = 1 - Math.exp(-elapsed / (timingEnabled ? 140 : 3000));
+      const positionSmoothing = 1 - Math.exp(-elapsed / (timingEnabled ? 480 : 3600));
+      const targetSmoothing = 1 - Math.exp(-elapsed / (timingEnabled ? 380 : 3000));
       C.Cartesian3.lerp(smoothCameraPosition, desiredPosition, positionSmoothing, smoothCameraPosition);
       C.Cartesian3.lerp(smoothCameraTarget, desiredTarget, targetSmoothing, smoothCameraTarget);
     }

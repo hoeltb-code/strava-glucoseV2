@@ -270,6 +270,21 @@
     if (nextValue !== cameraDetailsValue) { cameraDetails.textContent = nextValue; cameraDetailsValue = nextValue; }
   };
   const routeIndexForKm = (km) => route.reduce((best, point, index) => Math.abs(point.distance_km - km) < Math.abs(route[best].distance_km - km) ? index : best, 0);
+  const routePositionForKm = (km) => {
+    const targetKm = Math.max(Number(route[0].distance_km || 0), Math.min(routeDistanceKm, Number(km) || 0));
+    let low = 0; let high = route.length - 1;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      if (Number(route[middle].distance_km || 0) < targetKm) low = middle + 1;
+      else high = middle;
+    }
+    const afterIndex = low;
+    const beforeIndex = Math.max(0, afterIndex - 1);
+    const beforeKm = Number(route[beforeIndex].distance_km || 0);
+    const afterKm = Number(route[afterIndex].distance_km || beforeKm);
+    const ratio = afterKm > beforeKm ? (targetKm - beforeKm) / (afterKm - beforeKm) : 0;
+    return beforeIndex + Math.max(0, Math.min(1, ratio));
+  };
   const renderCameraKeyframes = () => {
     sortCameraKeyframes();
     const slider = (frame, index, key, label, min, max, step, suffix, disabled = false) => `<div class="three-d-segment-field"><label>${label}<b>${Number(frame[key]).toLocaleString('fr-FR', { maximumFractionDigits:1 })}${suffix}</b></label><input type="range" min="${min}" max="${max}" step="${step}" value="${frame[key]}" data-frame="${index}" data-key="${key}" ${disabled ? 'disabled' : ''}></div>`;
@@ -548,7 +563,10 @@
       const endIndex = nextTimeline ? nextTimeline.entry.routeIndex : positions.length - 1;
       const endTime = nextTimeline ? nextTimeline.timeMs : videoFinishMs();
       const segmentRatio = Math.max(0, Math.min(1, (timelineElapsedMs - startTime) / Math.max(250, endTime - startTime)));
-      progress = Math.min(1, (startIndex + (endIndex - startIndex) * segmentRatio) / Math.max(1, positions.length - 1));
+      const startKm = Number(route[startIndex].distance_km || 0);
+      const endKm = Number(route[endIndex].distance_km || startKm);
+      const routePosition = routePositionForKm(startKm + (endKm - startKm) * segmentRatio);
+      progress = Math.min(1, routePosition / Math.max(1, positions.length - 1));
       if (nextTimeline && timelineElapsedMs >= nextTimeline.timeMs) {
         progress = nextTimeline.entry.routeIndex / Math.max(1, positions.length - 1);
         const poiIndex = poiEntries.indexOf(nextTimeline.entry);

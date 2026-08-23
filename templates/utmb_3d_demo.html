@@ -24,13 +24,9 @@
   <section class="three-d-card three-d-production-card">
     <div class="three-d-camera-settings">
       <strong>Hauteur de suivi caméra</strong>
-      <div class="three-d-camera-group"><span>Altitude au-dessus de la trace</span><div class="three-d-camera-options" role="group" aria-label="Hauteur de suivi caméra">
-        <button type="button" data-camera-height="auto" aria-pressed="false">Auto</button><button type="button" data-camera-height="ground" aria-pressed="false">0 km</button><button type="button" data-camera-height="low" aria-pressed="false">Bas · 5 km</button><button type="button" data-camera-height="standard" aria-pressed="false">Standard · 7,6 km</button><button type="button" data-camera-height="high" aria-pressed="false">Haut · 10 km</button><button type="button" data-camera-height="very-high" aria-pressed="false">Très haut · 12 km</button>
-      </div></div>
-      <div class="three-d-camera-group"><span>Anticipation sur la trace</span><div class="three-d-camera-options" role="group" aria-label="Anticipation de la caméra"><button type="button" data-camera-ahead="0" aria-pressed="false">0 km</button><button type="button" data-camera-ahead="1" aria-pressed="true">1 km</button><button type="button" data-camera-ahead="3" aria-pressed="false">3 km</button><button type="button" data-camera-ahead="5" aria-pressed="false">5 km</button></div></div>
-      <div class="three-d-camera-group"><span>Recul derrière le point</span><div class="three-d-camera-options" role="group" aria-label="Recul de la caméra"><button type="button" data-camera-rear="0" aria-pressed="false">0 km</button><button type="button" data-camera-rear="1.5" aria-pressed="true">1,5 km</button><button type="button" data-camera-rear="5" aria-pressed="false">5 km</button><button type="button" data-camera-rear="10" aria-pressed="false">10 km</button><button type="button" data-camera-rear="15" aria-pressed="false">15 km</button><button type="button" data-camera-rear="20" aria-pressed="false">20 km</button></div></div>
       <div class="three-d-camera-group"><span>Réglage précis</span><div class="three-d-global-sliders"><div class="three-d-global-slider"><label for="utmb-3d-height-range">Hauteur <b id="utmb-3d-height-value">2,5 km</b></label><input id="utmb-3d-height-range" type="range" min="0" max="20" step=".5" value="2.5"></div><div class="three-d-global-slider"><label for="utmb-3d-ahead-range">Anticipation <b id="utmb-3d-ahead-value">1 km</b></label><input id="utmb-3d-ahead-range" type="range" min="0" max="10" step=".5" value="1"></div><div class="three-d-global-slider"><label for="utmb-3d-rear-range">Recul <b id="utmb-3d-rear-value">1,5 km</b></label><input id="utmb-3d-rear-range" type="range" min="0" max="25" step=".5" value="1.5"></div></div></div>
       <div class="three-d-camera-group"><span>Altitude de l’introduction et de la fin</span><div class="three-d-global-sliders"><div class="three-d-global-slider"><label for="utmb-3d-video-start-altitude">Départ vidéo <b id="utmb-3d-video-start-altitude-value">30 km</b></label><input id="utmb-3d-video-start-altitude" type="range" min="0" max="50" step=".5" value="30"></div><div class="three-d-global-slider"><label for="utmb-3d-video-finish-altitude">Fin vidéo <b id="utmb-3d-video-finish-altitude-value">30 km</b></label><input id="utmb-3d-video-finish-altitude" type="range" min="0" max="50" step=".5" value="30"></div></div></div>
+      <div class="three-d-camera-group"><span>Cadrage au départ</span><div class="three-d-global-sliders"><div class="three-d-global-slider"><label for="utmb-3d-video-start-rear">Recul <b id="utmb-3d-video-start-rear-value">1,5 km</b></label><input id="utmb-3d-video-start-rear" type="range" min="0" max="25" step=".5" value="1.5"></div><div class="three-d-global-slider"><label for="utmb-3d-video-start-lateral">Décalage <b id="utmb-3d-video-start-lateral-value">0 km</b></label><input id="utmb-3d-video-start-lateral" type="range" min="-10" max="10" step=".5" value="0"></div></div></div>
       <div class="three-d-camera-group"><span>Réglage par tronçon</span><div class="three-d-camera-options" role="group" aria-label="Réglage caméra par tronçon"><button type="button" id="utmb-3d-segment-toggle" aria-pressed="false">Activer les tronçons</button></div><div id="utmb-3d-segments" class="three-d-segments" hidden></div><div id="utmb-3d-segment-actions" class="three-d-segment-actions" hidden><button type="button" id="utmb-3d-add-segment">+ Ajouter un point de réglage</button></div><p class="three-d-segment-note">Chaque point définit les réglages à un kilomètre donné. La transition vers le point suivant est lissée automatiquement.</p></div>
       <p id="utmb-3d-camera-details" class="three-d-camera-details">Personnalisé : 2,5 km au-dessus · anticipation 1 km · recul 1,5 km.</p>
     </div>
@@ -50,14 +46,11 @@
       <button class="three-d-button utmb-3d-speed" type="button" data-speed="2" aria-pressed="false" disabled>×2</button>
       <button class="three-d-button utmb-3d-speed" type="button" data-speed="4" aria-pressed="false" disabled>×4</button>
       <label class="three-d-video-format" for="utmb-3d-duration">Durée <input id="utmb-3d-duration" type="number" min="20" max="300" step="1" value="60"> s</label>
-      <label class="three-d-video-format" for="utmb-3d-start">Départ <input id="utmb-3d-start" type="number" min="3" max="294" step=".5" value="3"> s</label>
-      <label class="three-d-video-format" for="utmb-3d-finish">Arrivée <input id="utmb-3d-finish" type="number" min="6" max="297" step=".5" value="57"> s</label>
-      <button id="utmb-3d-timing-toggle" class="three-d-button" type="button" aria-pressed="false" disabled>Rythme par POI</button>
       <label class="three-d-video-format" for="utmb-3d-video-format">Format <select id="utmb-3d-video-format"><option value="540">Story · 540 × 960</option><option value="720">Story · 720 × 1280</option><option value="1080" selected>Story HD · 1080 × 1920</option></select></label>
       <button id="utmb-3d-video" class="three-d-button" type="button" disabled>● Enregistrer une vidéo</button>
       <span id="utmb-3d-status" class="three-d-status">Préparation du relief 3D…</span>
     </div>
-    <details class="three-d-timing"><summary>Timing des points de passage</summary><div id="utmb-3d-timing-list" class="three-d-timing-grid"></div><p class="three-d-timing-note">Les secondes indiquent l’arrivée à chaque POI dans la vidéo. La vitesse s’adapte automatiquement entre deux POI ; une pause de 2 s est conservée à chaque point. Les instants avant le départ et après l’arrivée restent dans la durée totale.</p></details>
+    <details class="three-d-timing"><summary>Timing des points de passage</summary><div class="three-d-timing-grid"><label class="three-d-timing-row"><span>Départ de la course</span><span><input id="utmb-3d-start" type="number" min="3" max="294" step=".5" value="3"> s</span></label><label class="three-d-timing-row"><span>Arrivée de la course</span><span><input id="utmb-3d-finish" type="number" min="6" max="297" step=".5" value="57"> s</span></label></div><button id="utmb-3d-timing-toggle" class="three-d-button" type="button" aria-pressed="true" disabled>Timing POI actif</button><div id="utmb-3d-timing-list" class="three-d-timing-grid"></div><p class="three-d-timing-note">Les secondes indiquent le départ, l’arrivée et les passages dans la vidéo. La vitesse s’adapte automatiquement entre deux POI ; une pause de 2 s est conservée à chaque point.</p></details>
     <p class="three-d-note">La vidéo est téléchargée au format Story vertical 9:16 (1080 × 1920 px) à la fin de la séquence. Crédit cartographique affiché dans la carte : © MapTiler © OpenStreetMap contributors.</p>
     <div class="three-d-legend" aria-label="Légende de la trace"><span><i style="background:#f6c547"></i>tronçon POI à POI actif</span><span><i style="background:rgba(246,197,71,.5)"></i>autres tronçons</span></div>
     {% if not maptiler_api_key %}<p class="three-d-error">Ajoute <code>MAPTILER_API_KEY</code> dans l’environnement local ou Render, puis recharge cette page pour activer le relief et le fond satellite.</p>{% endif %}
@@ -93,19 +86,20 @@
   const timingToggle = document.getElementById('utmb-3d-timing-toggle');
   const timingList = document.getElementById('utmb-3d-timing-list');
   const speedButtons = Array.from(document.querySelectorAll('.utmb-3d-speed'));
-  const cameraHeightButtons = Array.from(document.querySelectorAll('[data-camera-height]'));
-  const cameraAheadButtons = Array.from(document.querySelectorAll('[data-camera-ahead]'));
-  const cameraRearButtons = Array.from(document.querySelectorAll('[data-camera-rear]'));
   const heightRange = document.getElementById('utmb-3d-height-range');
   const aheadRange = document.getElementById('utmb-3d-ahead-range');
   const rearRange = document.getElementById('utmb-3d-rear-range');
   const videoStartAltitudeRange = document.getElementById('utmb-3d-video-start-altitude');
   const videoFinishAltitudeRange = document.getElementById('utmb-3d-video-finish-altitude');
+  const videoStartRearRange = document.getElementById('utmb-3d-video-start-rear');
+  const videoStartLateralRange = document.getElementById('utmb-3d-video-start-lateral');
   const heightRangeValue = document.getElementById('utmb-3d-height-value');
   const aheadRangeValue = document.getElementById('utmb-3d-ahead-value');
   const rearRangeValue = document.getElementById('utmb-3d-rear-value');
   const videoStartAltitudeValue = document.getElementById('utmb-3d-video-start-altitude-value');
   const videoFinishAltitudeValue = document.getElementById('utmb-3d-video-finish-altitude-value');
+  const videoStartRearValue = document.getElementById('utmb-3d-video-start-rear-value');
+  const videoStartLateralValue = document.getElementById('utmb-3d-video-start-lateral-value');
   const cameraDetails = document.getElementById('utmb-3d-camera-details');
   const segmentToggle = document.getElementById('utmb-3d-segment-toggle');
   const segmentContainer = document.getElementById('utmb-3d-segments');
@@ -179,18 +173,19 @@
   let activePoiIndex = -1;
   const passedPoiIndexes = new Set();
   let recordingDisplaySettings = null;
-  let timingEnabled = false;
+  let timingEnabled = true;
   let timelineElapsedMs = 0;
   let poiTimeline = [];
   let hudRouteIndex = 0;
   let exportCanvas = null;
   let exportAnimationFrame = null;
-  let cameraHeightMode = 'custom';
   let cameraHeightCustomKm = 2.5;
   let cameraLookAheadKm = 1;
   let cameraRearKm = 1.5;
   let videoStartAltitudeKm = 30;
   let videoFinishAltitudeKm = 30;
+  let videoStartRearKm = 1.5;
+  let videoStartLateralKm = 0;
   let segmentCameraEnabled = false;
   const routeDistanceKm = Number(route[route.length - 1].distance_km || 0);
   let cameraKeyframes = [
@@ -199,13 +194,6 @@
     { km:routeDistanceKm, altitude:2.5, ahead:1, rear:1.5, lateral:0, fixed:true },
   ];
 
-  const cameraHeightPresets = {
-    ground: { label:'0 km', altitude:0 },
-    low: { label:'Bas', altitude:5000 },
-    standard: { label:'Standard', altitude:7600 },
-    high: { label:'Haut', altitude:10000 },
-    'very-high': { label:'Très haut', altitude:12000 },
-  };
   const syncGlobalSliders = () => {
     heightRange.value = String(cameraHeightCustomKm); aheadRange.value = String(cameraLookAheadKm); rearRange.value = String(cameraRearKm);
     heightRangeValue.textContent = `${cameraHeightCustomKm.toLocaleString('fr-FR', { maximumFractionDigits:1 })} km`;
@@ -256,16 +244,7 @@
   };
   const cameraFollowSettings = (routeIndex) => {
     if (segmentCameraEnabled) return segmentCameraSettings(dataAt(routeIndex).distance_km);
-    if (cameraHeightMode !== 'auto') {
-      const preset = cameraHeightMode === 'custom' ? { label:'Personnalisé', altitude:cameraHeightCustomKm * 1000 } : (cameraHeightPresets[cameraHeightMode] || cameraHeightPresets.standard);
-      return { ...preset, ahead:cameraLookAheadKm, rear:Math.round(cameraRearKm * 1000), lateral:0 };
-    }
-    const center = Math.round(routeIndex);
-    const nearby = route.slice(Math.max(0, center - 8), Math.min(route.length, center + 9));
-    const altitudes = nearby.map((point) => Number(point.elevation_m || 0));
-    const amplitude = Math.max(...altitudes) - Math.min(...altitudes);
-    const altitude = amplitude >= 1000 ? 12000 : amplitude >= 600 ? 10000 : amplitude >= 250 ? 7600 : 5500;
-    return { label:'Auto', altitude, ahead:cameraLookAheadKm, rear:Math.round(cameraRearKm * 1000), lateral:0 };
+    return { label:'Personnalisé', altitude:cameraHeightCustomKm * 1000, ahead:cameraLookAheadKm, rear:Math.round(cameraRearKm * 1000), lateral:0 };
   };
   const updateCameraDetails = (settings) => {
     const lateral = Number(settings.lateral || 0);
@@ -336,6 +315,8 @@
     });
   };
   const timelinePoiEntries = poiEntries.filter((entry) => entry.routeIndex > 1 && entry.routeIndex < positions.length - 2);
+  const startPoiIndex = poiEntries.length ? poiEntries.reduce((best, entry, index) => entry.routeIndex < poiEntries[best].routeIndex ? index : best, 0) : -1;
+  const finishPoiIndex = poiEntries.length ? poiEntries.reduce((best, entry, index) => entry.routeIndex > poiEntries[best].routeIndex ? index : best, 0) : -1;
   const videoDurationMs = () => Math.max(20000, Number(videoDurationInput.value || 60) * 1000);
   const videoStartMs = () => Math.max(3000, Number(videoStartInput.value || 3) * 1000);
   const videoFinishMs = () => Math.min(videoDurationMs() - 3000, Math.max(videoStartMs() + 1000, Number(videoFinishInput.value || 0) * 1000));
@@ -396,7 +377,7 @@
     context.fillStyle = '#fff'; context.font = `800 ${20 * scale}px "Open Sans", sans-serif`;
     context.strokeText(eventTitle, textX, infoY + 57 * scale);
     context.fillText(eventTitle, textX, infoY + 57 * scale);
-    const elevationLabel = `D+ ${Math.round(Number(courseElevationGain || 0)).toLocaleString('fr-FR')} M  ·  D− ${Math.round(Number(courseElevationLoss || 0)).toLocaleString('fr-FR')} M`;
+    const elevationLabel = `${Math.round(routeDistanceKm).toLocaleString('fr-FR')}km - ${Math.round(Number(courseElevationGain || 0)).toLocaleString('fr-FR')}m D+`;
     context.fillStyle = '#f3f3f3'; context.font = `700 ${16 * scale}px "Open Sans", sans-serif`;
     context.strokeText(elevationLabel, textX, infoY + 84 * scale);
     context.fillText(elevationLabel, textX, infoY + 84 * scale);
@@ -456,10 +437,12 @@
     const travelDirection = C.Cartesian3.normalize(C.Cartesian3.subtract(ahead, behind, new C.Cartesian3()), new C.Cartesian3());
     const localUp = C.Ellipsoid.WGS84.geodeticSurfaceNormal(cameraAnchor, new C.Cartesian3());
     const leftDirection = C.Cartesian3.normalize(C.Cartesian3.cross(localUp, travelDirection, new C.Cartesian3()), new C.Cartesian3());
-    const backwardOffset = C.Cartesian3.multiplyByScalar(travelDirection, -followSettings.rear, new C.Cartesian3());
-    const lateralOffset = C.Cartesian3.multiplyByScalar(leftDirection, Number(followSettings.lateral || 0) * 1000, new C.Cartesian3());
     const introRatio = Math.max(0, 1 - (introElapsedMs / 3000));
     const outroRatio = outroActive ? Math.min(1, outroElapsedMs / 3000) : 0;
+    const cameraRear = followSettings.rear + ((videoStartRearKm * 1000) - followSettings.rear) * introRatio;
+    const cameraLateral = Number(followSettings.lateral || 0) + (videoStartLateralKm - Number(followSettings.lateral || 0)) * introRatio;
+    const backwardOffset = C.Cartesian3.multiplyByScalar(travelDirection, -cameraRear, new C.Cartesian3());
+    const lateralOffset = C.Cartesian3.multiplyByScalar(leftDirection, cameraLateral * 1000, new C.Cartesian3());
     const startAltitude = videoStartAltitudeKm * 1000;
     const finishAltitude = videoFinishAltitudeKm * 1000;
     const introAltitude = followSettings.altitude + (startAltitude - followSettings.altitude) * introRatio * introRatio;
@@ -503,18 +486,21 @@
     lastAnimationFrame = now;
     timelineElapsedMs += elapsed;
     if (introElapsedMs < 3000) {
+      setActivePoi(startPoiIndex);
       introElapsedMs = Math.min(3000, introElapsedMs + elapsed);
       updateCamera(0, now);
       animationFrame = requestAnimationFrame(animate);
       return;
     }
     if (outroActive) {
+      setActivePoi(finishPoiIndex);
       outroElapsedMs = Math.min(3000, outroElapsedMs + elapsed);
       updateCamera(positions.length - 1, now);
       if (outroElapsedMs >= 3000) { stop(true); return; }
       animationFrame = requestAnimationFrame(animate);
       return;
     }
+    if (activePoiIndex === startPoiIndex && pauseRemainingMs === 0) setActivePoi(-1);
     const previousRouteIndex = progress * (positions.length - 1);
     if (pauseRemainingMs > 0) {
       pauseRemainingMs = Math.max(0, pauseRemainingMs - elapsed);
@@ -575,38 +561,16 @@
     timingToggle.textContent = timingEnabled ? 'Timing POI actif' : 'Rythme par POI';
     if (timingEnabled) rebuildPoiTimeline();
   });
-  cameraHeightButtons.forEach((button) => button.addEventListener('click', () => {
-    cameraHeightMode = button.dataset.cameraHeight || 'standard';
-    if (cameraHeightMode !== 'auto') cameraHeightCustomKm = (cameraHeightPresets[cameraHeightMode] || cameraHeightPresets.standard).altitude / 1000;
-    cameraHeightButtons.forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
-    syncGlobalSliders();
-    updateCameraDetails(cameraFollowSettings(progress * (positions.length - 1)));
-  }));
-  cameraAheadButtons.forEach((button) => button.addEventListener('click', () => {
-    cameraLookAheadKm = Number(button.dataset.cameraAhead);
-    cameraAheadButtons.forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
-    syncGlobalSliders();
-    updateCameraDetails(cameraFollowSettings(progress * (positions.length - 1)));
-  }));
-  cameraRearButtons.forEach((button) => button.addEventListener('click', () => {
-    cameraRearKm = Number(button.dataset.cameraRear);
-    cameraRearButtons.forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
-    syncGlobalSliders();
-    updateCameraDetails(cameraFollowSettings(progress * (positions.length - 1)));
-  }));
   heightRange.addEventListener('input', () => {
-    cameraHeightCustomKm = Number(heightRange.value); cameraHeightMode = 'custom';
-    cameraHeightButtons.forEach((item) => item.setAttribute('aria-pressed', 'false'));
+    cameraHeightCustomKm = Number(heightRange.value);
     syncGlobalSliders(); updateCameraDetails(cameraFollowSettings(progress * (positions.length - 1)));
   });
   aheadRange.addEventListener('input', () => {
     cameraLookAheadKm = Number(aheadRange.value);
-    cameraAheadButtons.forEach((item) => item.setAttribute('aria-pressed', String(Number(item.dataset.cameraAhead) === cameraLookAheadKm)));
     syncGlobalSliders(); updateCameraDetails(cameraFollowSettings(progress * (positions.length - 1)));
   });
   rearRange.addEventListener('input', () => {
     cameraRearKm = Number(rearRange.value);
-    cameraRearButtons.forEach((item) => item.setAttribute('aria-pressed', String(Number(item.dataset.cameraRear) === cameraRearKm)));
     syncGlobalSliders(); updateCameraDetails(cameraFollowSettings(progress * (positions.length - 1)));
   });
   videoStartAltitudeRange.addEventListener('input', () => {
@@ -616,6 +580,15 @@
   videoFinishAltitudeRange.addEventListener('input', () => {
     videoFinishAltitudeKm = Number(videoFinishAltitudeRange.value);
     videoFinishAltitudeValue.textContent = `${videoFinishAltitudeKm.toLocaleString('fr-FR', { maximumFractionDigits:1 })} km`;
+  });
+  videoStartRearRange.addEventListener('input', () => {
+    videoStartRearKm = Number(videoStartRearRange.value);
+    videoStartRearValue.textContent = `${videoStartRearKm.toLocaleString('fr-FR', { maximumFractionDigits:1 })} km`;
+  });
+  videoStartLateralRange.addEventListener('input', () => {
+    videoStartLateralKm = Number(videoStartLateralRange.value);
+    const direction = videoStartLateralKm > 0 ? ' à gauche' : videoStartLateralKm < 0 ? ' à droite' : '';
+    videoStartLateralValue.textContent = `${Math.abs(videoStartLateralKm).toLocaleString('fr-FR', { maximumFractionDigits:1 })} km${direction}`;
   });
   segmentToggle.addEventListener('click', () => {
     segmentCameraEnabled = !segmentCameraEnabled;

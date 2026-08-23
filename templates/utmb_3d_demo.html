@@ -518,22 +518,24 @@
     timelineElapsedMs += elapsed;
     const introDurationMs = videoStartMs();
     if (introElapsedMs < introDurationMs) {
-      setActivePoi(startPoiIndex);
+      if (activePoiIndex === startPoiIndex) setActivePoi(-1);
       introElapsedMs = Math.min(introDurationMs, introElapsedMs + elapsed);
       updateCamera(0, now);
       animationFrame = requestAnimationFrame(animate);
       return;
     }
     if (outroActive) {
-      setActivePoi(finishPoiIndex);
       const outroDurationMs = videoOutroDurationMs();
       outroElapsedMs = Math.min(outroDurationMs, outroElapsedMs + elapsed);
+      if (outroElapsedMs <= 2000) setActivePoi(finishPoiIndex);
+      else if (activePoiIndex === finishPoiIndex) setActivePoi(-1);
       updateCamera(positions.length - 1, now);
       if (outroElapsedMs >= outroDurationMs) { stop(true); return; }
       animationFrame = requestAnimationFrame(animate);
       return;
     }
-    if (activePoiIndex === startPoiIndex && pauseRemainingMs === 0) setActivePoi(-1);
+    if (timelineElapsedMs < videoStartMs() + 2000 && activePoiIndex < 0) setActivePoi(startPoiIndex);
+    else if (activePoiIndex === startPoiIndex && pauseRemainingMs === 0) setActivePoi(-1);
     const previousRouteIndex = progress * (positions.length - 1);
     if (pauseRemainingMs > 0) {
       pauseRemainingMs = Math.max(0, pauseRemainingMs - elapsed);

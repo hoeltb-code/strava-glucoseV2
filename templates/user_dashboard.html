@@ -2904,6 +2904,20 @@
         const distanceDetailOutput = result.querySelector('#home-projection-distance-detail');
         let departureTime = `${String(Math.max(0, Math.min(23, Number(activeCoursePlanSettings?.departure_hour) || 7))).padStart(2, '0')}:${String(Math.max(0, Math.min(59, Number(activeCoursePlanSettings?.departure_minute) || 0))).padStart(2, '0')}`;
         let departureDate = /^\d{4}-\d{2}-\d{2}$/.test(activeCoursePlanSettings?.departure_date || '') ? activeCoursePlanSettings.departure_date : new Date().toISOString().slice(0, 10);
+        const refreshRaceSettingsSummary = () => {
+          if (!raceSettings) return;
+          const currentStopSeconds = aidStations.reduce((sum, point) => sum + point.stopSeconds, 0);
+          const currentTotalSeconds = movingSeconds + currentStopSeconds;
+          const targetSeconds = requestedTargetSeconds();
+          const targetOutput = raceSettings.querySelector('[data-race-summary="target"]');
+          const totalOutput = raceSettings.querySelector('[data-race-summary="total"]');
+          const movingOutput = raceSettings.querySelector('[data-race-summary="moving"]');
+          const stopsOutput = raceSettings.querySelector('[data-race-summary="stops"]');
+          if (targetOutput) targetOutput.textContent = formatDuration(targetSeconds || currentTotalSeconds);
+          if (totalOutput) totalOutput.textContent = formatDuration(currentTotalSeconds);
+          if (movingOutput) movingOutput.textContent = formatDuration(movingSeconds);
+          if (stopsOutput) stopsOutput.textContent = currentStopSeconds ? formatDuration(currentStopSeconds) : '0 min';
+        };
         const renderRaceSettings = () => {
           if (!raceSettings) return;
           const [hours, minutes] = departureTime.split(':').map((value) => Number(value) || 0);
@@ -2911,7 +2925,7 @@
           const targetSeconds = requestedTargetSeconds();
           const totalSeconds = movingSeconds + stopSeconds;
           const targetLabel = targetSeconds ? 'Chrono cible' : 'Chrono estimé';
-          raceSettings.innerHTML = `<h3>Départ et ravitos</h3><p>Ces réglages sont pris en compte dans les heures de passage et le chrono final.</p><div class="race-settings-times"><div class="race-settings-time"><span>${targetLabel}</span><strong>${formatDuration(targetSeconds || totalSeconds)}</strong></div><div class="race-settings-time"><span>Temps total</span><strong>${formatDuration(totalSeconds)}</strong></div><div class="race-settings-time"><span>En mouvement</span><strong>${formatDuration(movingSeconds)}</strong></div><div class="race-settings-time"><span>Aux ravitos</span><strong>${formatDuration(stopSeconds)}</strong></div></div><div class="race-settings-departure"><label>Date de départ<input class="race-setting-date" type="date" value="${departureDate}"></label><label>Heure<input class="race-setting-hour" type="number" min="0" max="23" step="1" value="${hours}"></label><label>Minutes<input class="race-setting-minute" type="number" min="0" max="59" step="1" value="${minutes}"></label></div><div class="race-settings-stops">${aidStations.filter((point) => ['aid', 'aid_assistance'].includes(point.type)).map((point) => `<div class="race-settings-stop"><div><strong>${escapeHtml(point.label)}</strong><small>km ${point.km.toFixed(1)} · ${point.type === 'aid_assistance' ? 'avec assistance' : 'ravito'}</small></div><label>Arrêt <input class="race-setting-stop" data-stop-km="${point.km}" type="number" min="0" max="120" step="1" value="${Math.round(point.stopSeconds / 60)}"> min</label></div>`).join('') || '<p>Aucun ravito renseigné sur cette trace.</p>'}</div>`;
+          raceSettings.innerHTML = `<h3>Départ et ravitos</h3><p>Ces réglages sont pris en compte dans les heures de passage et le chrono final.</p><div class="race-settings-times"><div class="race-settings-time"><span>${targetLabel}</span><strong data-race-summary="target">${formatDuration(targetSeconds || totalSeconds)}</strong></div><div class="race-settings-time"><span>Temps total</span><strong data-race-summary="total">${formatDuration(totalSeconds)}</strong></div><div class="race-settings-time"><span>En mouvement</span><strong data-race-summary="moving">${formatDuration(movingSeconds)}</strong></div><div class="race-settings-time"><span>Aux ravitos</span><strong data-race-summary="stops">${stopSeconds ? formatDuration(stopSeconds) : '0 min'}</strong></div></div><div class="race-settings-departure"><label>Date de départ<input class="race-setting-date" type="date" value="${departureDate}"></label><label>Heure<input class="race-setting-hour" type="number" min="0" max="23" step="1" value="${hours}"></label><label>Minutes<input class="race-setting-minute" type="number" min="0" max="59" step="1" value="${minutes}"></label></div><div class="race-settings-stops">${aidStations.filter((point) => ['aid', 'aid_assistance'].includes(point.type)).map((point) => `<div class="race-settings-stop"><div><strong>${escapeHtml(point.label)}</strong><small>km ${point.km.toFixed(1)} · ${point.type === 'aid_assistance' ? 'avec assistance' : 'ravito'}</small></div><label>Arrêt <input class="race-setting-stop" data-stop-km="${point.km}" type="number" min="0" max="120" step="1" value="${Math.round(point.stopSeconds / 60)}"> min</label></div>`).join('') || '<p>Aucun ravito renseigné sur cette trace.</p>'}</div>`;
           raceSettings.hidden = false;
           raceSettings.oninput = (event) => {
             const target = event.target;
@@ -2935,7 +2949,7 @@
             point.stopSeconds = Math.max(0, Math.min(120, Number(target.value) || 0)) * 60;
             syncStopToCourseSettings(km, point.stopSeconds / 60);
             if (requestedTargetSeconds() && refreshLiveProjection) refreshLiveProjection();
-            else { refreshProjectionSummary(); renderTimeline(); renderFuelingSchedule(); }
+            else { refreshProjectionSummary(); refreshRaceSettingsSummary(); renderTimeline(); renderFuelingSchedule(); }
           };
         };
         const refreshProjectionSummary = () => {
@@ -3311,6 +3325,7 @@
             return;
           }
           refreshProjectionSummary();
+          refreshRaceSettingsSummary();
           renderTimeline();
           renderFuelingSchedule();
           const refreshedInput = timelineHost.querySelector(`.timeline-stop-input[data-stop-km="${km}"]`);

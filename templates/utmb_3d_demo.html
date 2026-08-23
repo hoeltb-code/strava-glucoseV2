@@ -25,7 +25,7 @@
   <section class="three-d-card three-d-production-card">
     <div class="three-d-camera-settings">
       <strong>Hauteur de suivi caméra</strong>
-      <div class="three-d-camera-group"><span>Réglage précis</span><div class="three-d-global-sliders"><div class="three-d-global-slider"><label for="utmb-3d-height-range">Hauteur <b id="utmb-3d-height-value">2,5 km</b></label><input id="utmb-3d-height-range" type="range" min="0" max="20" step=".5" value="2.5"></div><div class="three-d-global-slider"><label for="utmb-3d-ahead-range">Anticipation <b id="utmb-3d-ahead-value">1 km</b></label><input id="utmb-3d-ahead-range" type="range" min="0" max="10" step=".5" value="1"></div><div class="three-d-global-slider"><label for="utmb-3d-rear-range">Recul <b id="utmb-3d-rear-value">1,5 km</b></label><input id="utmb-3d-rear-range" type="range" min="0" max="25" step=".5" value="1.5"></div></div></div>
+      <div class="three-d-camera-group"><span>Réglage précis</span><div class="three-d-global-sliders"><div class="three-d-global-slider"><label for="utmb-3d-height-range">Hauteur <b id="utmb-3d-height-value">2,5 km</b></label><input id="utmb-3d-height-range" type="range" min="0" max="20" step=".5" value="2.5"></div><div class="three-d-global-slider"><label for="utmb-3d-ahead-range">Anticipation <b id="utmb-3d-ahead-value">1 km</b></label><input id="utmb-3d-ahead-range" type="range" min="0" max="10" step=".5" value="1"></div><div class="three-d-global-slider"><label for="utmb-3d-rear-range">Recul <b id="utmb-3d-rear-value">1,5 km</b></label><input id="utmb-3d-rear-range" type="range" min="0" max="25" step=".5" value="1.5"></div><div class="three-d-global-slider"><label for="utmb-3d-smoothing-range">Fluidité <b id="utmb-3d-smoothing-value">1,2 s</b></label><input id="utmb-3d-smoothing-range" type="range" min="0" max="3" step=".1" value="1.2"></div></div></div>
       <div class="three-d-camera-group"><span>Altitude de l’introduction et de la fin</span><div class="three-d-global-sliders"><div class="three-d-global-slider"><label for="utmb-3d-video-start-altitude">Départ vidéo <b id="utmb-3d-video-start-altitude-value">30 km</b></label><input id="utmb-3d-video-start-altitude" type="range" min="0" max="150" step=".5" value="30"></div><div class="three-d-global-slider"><label for="utmb-3d-video-finish-altitude">Fin vidéo <b id="utmb-3d-video-finish-altitude-value">30 km</b></label><input id="utmb-3d-video-finish-altitude" type="range" min="0" max="50" step=".5" value="30"></div></div></div>
       <div class="three-d-camera-group"><span>Cadrage au départ</span><div class="three-d-global-sliders"><div class="three-d-global-slider"><label for="utmb-3d-video-start-rear">Position sur la trace <b id="utmb-3d-video-start-rear-value">1,5 km derrière</b></label><input id="utmb-3d-video-start-rear" type="range" min="-25" max="25" step=".5" value="1.5"></div><div class="three-d-global-slider"><label for="utmb-3d-video-start-lateral">Décalage <b id="utmb-3d-video-start-lateral-value">0 km</b></label><input id="utmb-3d-video-start-lateral" type="range" min="-10" max="10" step=".5" value="0"></div></div></div>
       <div class="three-d-camera-group"><span>Réglage par tronçon</span><div class="three-d-camera-options" role="group" aria-label="Réglage caméra par tronçon"><button type="button" id="utmb-3d-segment-toggle" aria-pressed="false">Activer les tronçons</button></div><div id="utmb-3d-segments" class="three-d-segments" hidden></div><div id="utmb-3d-segment-actions" class="three-d-segment-actions" hidden><button type="button" id="utmb-3d-add-segment">+ Ajouter un point de réglage</button></div><p class="three-d-segment-note">Chaque point définit les réglages à un kilomètre donné. La transition vers le point suivant est lissée automatiquement.</p></div>
@@ -90,6 +90,7 @@
   const heightRange = document.getElementById('utmb-3d-height-range');
   const aheadRange = document.getElementById('utmb-3d-ahead-range');
   const rearRange = document.getElementById('utmb-3d-rear-range');
+  const smoothingRange = document.getElementById('utmb-3d-smoothing-range');
   const videoStartAltitudeRange = document.getElementById('utmb-3d-video-start-altitude');
   const videoFinishAltitudeRange = document.getElementById('utmb-3d-video-finish-altitude');
   const videoStartRearRange = document.getElementById('utmb-3d-video-start-rear');
@@ -97,6 +98,7 @@
   const heightRangeValue = document.getElementById('utmb-3d-height-value');
   const aheadRangeValue = document.getElementById('utmb-3d-ahead-value');
   const rearRangeValue = document.getElementById('utmb-3d-rear-value');
+  const smoothingRangeValue = document.getElementById('utmb-3d-smoothing-value');
   const videoStartAltitudeValue = document.getElementById('utmb-3d-video-start-altitude-value');
   const videoFinishAltitudeValue = document.getElementById('utmb-3d-video-finish-altitude-value');
   const videoStartRearValue = document.getElementById('utmb-3d-video-start-rear-value');
@@ -195,6 +197,7 @@
   let cameraHeightCustomKm = 2.5;
   let cameraLookAheadKm = 1;
   let cameraRearKm = 1.5;
+  let cameraSmoothingSeconds = 1.2;
   let videoStartAltitudeKm = 30;
   let videoFinishAltitudeKm = 30;
   let videoStartRearKm = 1.5;
@@ -479,8 +482,9 @@
       const elapsed = Math.min(80, Math.max(1, now - (lastCameraTime || now)));
       // En mode POI, un lissage court absorbe les vibrations de la trace sans
       // recréer le retard de plusieurs secondes de l'ancien suivi caméra.
-      const positionSmoothing = 1 - Math.exp(-elapsed / (timingEnabled ? 480 : 3600));
-      const targetSmoothing = 1 - Math.exp(-elapsed / (timingEnabled ? 380 : 3000));
+      const smoothingMs = Math.max(1, cameraSmoothingSeconds * 1000);
+      const positionSmoothing = 1 - Math.exp(-elapsed / (timingEnabled ? smoothingMs : 3600));
+      const targetSmoothing = 1 - Math.exp(-elapsed / (timingEnabled ? Math.max(1, smoothingMs * .75) : 3000));
       C.Cartesian3.lerp(smoothCameraPosition, desiredPosition, positionSmoothing, smoothCameraPosition);
       C.Cartesian3.lerp(smoothCameraTarget, desiredTarget, targetSmoothing, smoothCameraTarget);
     }
@@ -595,6 +599,10 @@
   rearRange.addEventListener('input', () => {
     cameraRearKm = Number(rearRange.value);
     syncGlobalSliders(); updateCameraDetails(cameraFollowSettings(progress * (positions.length - 1)));
+  });
+  smoothingRange.addEventListener('input', () => {
+    cameraSmoothingSeconds = Number(smoothingRange.value);
+    smoothingRangeValue.textContent = `${cameraSmoothingSeconds.toLocaleString('fr-FR', { minimumFractionDigits:1, maximumFractionDigits:1 })} s`;
   });
   videoStartAltitudeRange.addEventListener('input', () => {
     videoStartAltitudeKm = Number(videoStartAltitudeRange.value);

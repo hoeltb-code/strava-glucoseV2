@@ -20,7 +20,7 @@
     {"order": 1, "km": 0.0, "segment_km": 0.0, "name": "Millau", "altitude_m": 360, "elevation_gain_m": 0, "elevation_loss_m": 0, "type": "start", "fastest_label": "Vague 1 · 05:10", "slowest_label": "Vague 3 · 05:50"},
     {"order": 2, "km": 8.2, "segment_km": 8.2, "name": "Carbassas (P10)", "altitude_m": 830, "elevation_gain_m": 521, "elevation_loss_m": 53, "type": "checkpoint", "fastest_label": "Dim. 05:50", "slowest_label": "Dim. 07:40"},
     {"order": 3, "km": 23.4, "segment_km": 15.2, "name": "Peyreleau", "altitude_m": 420, "elevation_gain_m": 695, "elevation_loss_m": 638, "type": "aid_station", "fastest_label": "Dim. 06:45", "slowest_label": "Dim. 09:40", "cutoff_label": "Dim. 09:35", "services_count": 1},
-    {"order": 4, "km": 36.7, "segment_km": 13.3, "name": "Saint-André-de-Vézines", "altitude_m": 869, "elevation_gain_m": 1414, "elevation_loss_m": 912, "type": "aid_station", "fastest_label": "Dim. 07:55", "slowest_label": "Dim. 12:10", "cutoff_label": "Dim. 12:05", "services_count": 1},
+    {"order": 4, "km": 36.7, "segment_km": 13.3, "name": "Saint-André", "altitude_m": 869, "elevation_gain_m": 1414, "elevation_loss_m": 912, "type": "aid_station", "fastest_label": "Dim. 07:55", "slowest_label": "Dim. 12:10", "cutoff_label": "Dim. 12:05", "services_count": 1},
     {"order": 5, "km": 48.2, "segment_km": 11.5, "name": "La Roque Sainte-Marguerite", "altitude_m": 401, "elevation_gain_m": 1706, "elevation_loss_m": 1673, "type": "aid_station", "fastest_label": "Dim. 08:50", "slowest_label": "Dim. 15:10", "services_count": 1},
     {"order": 6, "km": 50.7, "segment_km": 2.5, "name": "Pierrefiche", "altitude_m": 674, "elevation_gain_m": 1981, "elevation_loss_m": 1676, "type": "checkpoint", "fastest_label": "Dim. 09:05", "slowest_label": "Dim. 15:45"},
     {"order": 7, "km": 55.8, "segment_km": 5.1, "name": "La Salvage", "altitude_m": 732, "elevation_gain_m": 2188, "elevation_loss_m": 1826, "type": "aid_station", "fastest_label": "Dim. 09:30", "slowest_label": "Dim. 16:50", "cutoff_label": "Dim. 16:35", "services_count": 1},
@@ -28,7 +28,7 @@
     {"order": 9, "km": 69.8, "segment_km": 5.4, "name": "Massebiau", "altitude_m": 367, "elevation_gain_m": 2611, "elevation_loss_m": 2615, "type": "aid_station", "fastest_label": "Dim. 10:35", "slowest_label": "Dim. 19:55", "cutoff_label": "Dim. 19:30", "services_count": 1},
     {"order": 10, "km": 73.0, "segment_km": 3.2, "name": "Le Cade", "altitude_m": 837, "elevation_gain_m": 3089, "elevation_loss_m": 2626, "type": "aid_station", "fastest_label": "Dim. 11:00", "slowest_label": "Dim. 20:40", "services_count": 1},
     {"order": 11, "km": 74.8, "segment_km": 1.8, "name": "Ravin du Caf", "altitude_m": 773, "elevation_gain_m": 3115, "elevation_loss_m": 2716, "type": "checkpoint", "fastest_label": "Dim. 11:10", "slowest_label": "Dim. 20:55"},
-    {"order": 12, "km": 77.6, "segment_km": 2.8, "name": "La Roque", "altitude_m": 826, "elevation_gain_m": 3414, "elevation_loss_m": 2963, "type": "checkpoint", "fastest_label": "Dim. 11:30", "slowest_label": "Dim. 22:10"},
+    {"order": 12, "km": 77.6, "segment_km": 2.8, "name": "La Pouncho", "altitude_m": 826, "elevation_gain_m": 3414, "elevation_loss_m": 2963, "type": "checkpoint", "fastest_label": "Dim. 11:30", "slowest_label": "Dim. 22:10"},
     {"order": 13, "km": 80.4, "segment_km": 2.8, "name": "Arrivée · Millau", "altitude_m": 392, "elevation_gain_m": 3429, "elevation_loss_m": 3412, "type": "finish", "fastest_label": "Dim. 11:50", "slowest_label": "Dim. 23:05", "services_count": 1}
   ]
 }

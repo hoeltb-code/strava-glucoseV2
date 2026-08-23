@@ -453,6 +453,8 @@ def _course_event_name(course_id: str) -> str:
         return "UTMB Mont-Blanc"
     if normalized_id == "tpsb-68km-2026":
         return "Trail du Petit Saint-Bernard"
+    if normalized_id == "marathon-de-la-meije-2026":
+        return "Trail de la Meije"
     return "Running Data Plan"
 
 

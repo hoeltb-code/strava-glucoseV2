@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "id": "marathon-de-la-meije-2026",
+  "name": "Marathon de la Meije 2026",
+  "short_name": "Marathon de la Meije",
+  "event_name": "Trail de la Meije",
+  "edition_year": 2026,
+  "sport": "trail",
+  "route_file": "marathon-de-la-meije-2026.gpx",
+  "distance_km": 45.0,
+  "elevation_gain_m": 2650,
+  "elevation_loss_m": 2650,
+  "course_coefficient_percent": 100,
+  "course_pace_category": "technical",
+  "calibrate_gpx_to_official": true,
+  "gpx_elevation_smoothing_m": 30,
+  "start_location": "La Grave",
+  "finish_location": "La Grave",
+  "timezone": "Europe/Paris",
+  "points": [
+    {"order": 1, "km": 0.0, "segment_km": 0.0, "name": "La Grave", "latitude": 45.04406, "longitude": 6.30121, "altitude_m": 1452, "type": "start"},
+    {"order": 2, "km": 3.5, "segment_km": 3.5, "name": "Villar-d’Arène", "latitude": 45.04263, "longitude": 6.336223, "altitude_m": 1646, "type": "aid_station", "services_count": 1},
+    {"order": 3, "km": 13.0, "segment_km": 9.5, "name": "Refuge du Goléon", "latitude": 45.081213, "longitude": 6.356434, "altitude_m": 2463, "type": "aid_station", "services_count": 1},
+    {"order": 4, "km": 27.0, "segment_km": 14.0, "name": "Refuge du Pic du Mas de La Grave", "latitude": 45.086308, "longitude": 6.260127, "altitude_m": 1931, "type": "aid_station", "services_count": 1},
+    {"order": 5, "km": 32.0, "segment_km": 5.0, "name": "Point d’eau · Col du Souchet", "latitude": 45.060131, "longitude": 6.238563, "altitude_m": 2363, "type": "aid_station", "services_count": 1},
+    {"order": 6, "km": 42.0, "segment_km": 10.0, "name": "Hameau du Chazelet", "latitude": 45.05377, "longitude": 6.284477, "altitude_m": 1789, "type": "aid_station", "services_count": 1},
+    {"order": 7, "km": 45.0, "segment_km": 3.0, "name": "La Grave", "latitude": 45.0441, "longitude": 6.30122, "altitude_m": 1453, "type": "finish", "services_count": 1}
+  ]
+}

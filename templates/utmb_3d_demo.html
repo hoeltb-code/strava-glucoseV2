@@ -338,6 +338,7 @@
   const videoDurationMs = () => Math.max(20000, Number(videoDurationInput.value || 60) * 1000);
   const videoStartMs = () => Math.max(3000, Number(videoStartInput.value || 3) * 1000);
   const videoFinishMs = () => Math.min(videoDurationMs() - 3000, Math.max(videoStartMs() + 1000, Number(videoFinishInput.value || 0) * 1000));
+  const videoOutroDurationMs = () => Math.max(3000, videoDurationMs() - videoFinishMs());
   const rebuildPoiTimeline = () => {
     const travelStart = videoStartMs(); const travelEnd = videoFinishMs();
     const entries = timelinePoiEntries();
@@ -352,7 +353,7 @@
   const renderPoiTimeline = () => {
     timingList.innerHTML = poiTimeline.map((item, index) => `<label class="three-d-timing-row"><span>${String(item.entry.item.name || 'POI').slice(0, 28)}</span><span><input type="number" min="3" max="300" step=".5" value="${(item.timeMs / 1000).toFixed(1)}" data-timeline-poi="${index}"> s</span></label>`).join('') || '<span class="three-d-timing-note">Aucun POI intermédiaire sur ce parcours.</span>';
     timingList.querySelectorAll('[data-timeline-poi]').forEach((input) => input.addEventListener('change', () => {
-      const index = Number(input.dataset.timelinePoi); const previous = index ? poiTimeline[index - 1].timeMs + 2000 : 3000;
+      const index = Number(input.dataset.timelinePoi); const previous = index ? poiTimeline[index - 1].timeMs + 2000 : videoStartMs();
       poiTimeline[index].timeMs = Math.max(previous + 500, Number(input.value || 0) * 1000);
       renderPoiTimeline();
     }));
@@ -464,8 +465,8 @@
     const travelDirection = C.Cartesian3.normalize(C.Cartesian3.subtract(ahead, behind, new C.Cartesian3()), new C.Cartesian3());
     const localUp = C.Ellipsoid.WGS84.geodeticSurfaceNormal(cameraAnchor, new C.Cartesian3());
     const leftDirection = C.Cartesian3.normalize(C.Cartesian3.cross(localUp, travelDirection, new C.Cartesian3()), new C.Cartesian3());
-    const introRatio = Math.max(0, 1 - (introElapsedMs / 3000));
-    const outroRatio = outroActive ? Math.min(1, outroElapsedMs / 3000) : 0;
+    const introRatio = Math.max(0, 1 - (introElapsedMs / videoStartMs()));
+    const outroRatio = outroActive ? Math.min(1, outroElapsedMs / videoOutroDurationMs()) : 0;
     const cameraRear = followSettings.rear + ((videoStartRearKm * 1000) - followSettings.rear) * introRatio;
     const cameraLateral = Number(followSettings.lateral || 0) + (videoStartLateralKm - Number(followSettings.lateral || 0)) * introRatio;
     const backwardOffset = C.Cartesian3.multiplyByScalar(travelDirection, -cameraRear, new C.Cartesian3());
@@ -515,18 +516,20 @@
     const elapsed = Math.min(100, Math.max(0, now - lastAnimationFrame));
     lastAnimationFrame = now;
     timelineElapsedMs += elapsed;
-    if (introElapsedMs < 3000) {
+    const introDurationMs = videoStartMs();
+    if (introElapsedMs < introDurationMs) {
       setActivePoi(startPoiIndex);
-      introElapsedMs = Math.min(3000, introElapsedMs + elapsed);
+      introElapsedMs = Math.min(introDurationMs, introElapsedMs + elapsed);
       updateCamera(0, now);
       animationFrame = requestAnimationFrame(animate);
       return;
     }
     if (outroActive) {
       setActivePoi(finishPoiIndex);
-      outroElapsedMs = Math.min(3000, outroElapsedMs + elapsed);
+      const outroDurationMs = videoOutroDurationMs();
+      outroElapsedMs = Math.min(outroDurationMs, outroElapsedMs + elapsed);
       updateCamera(positions.length - 1, now);
-      if (outroElapsedMs >= 3000) { stop(true); return; }
+      if (outroElapsedMs >= outroDurationMs) { stop(true); return; }
       animationFrame = requestAnimationFrame(animate);
       return;
     }
@@ -560,7 +563,7 @@
       }
     }
     updateCamera(progress * (positions.length - 1), now);
-    if (progress >= 1 && pauseRemainingMs === 0 && (!timingEnabled || timelineElapsedMs >= videoDurationMs() - 3000)) outroActive = true;
+    if (progress >= 1 && pauseRemainingMs === 0 && (!timingEnabled || timelineElapsedMs >= videoFinishMs())) outroActive = true;
     animationFrame = requestAnimationFrame(animate);
   };
   const start = () => {

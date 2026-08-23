@@ -472,19 +472,15 @@
     const altitudeOffset = C.Cartesian3.multiplyByScalar(localUp, cameraAltitude, new C.Cartesian3());
     const desiredPosition = C.Cartesian3.add(cameraAnchor, C.Cartesian3.add(lateralOffset, C.Cartesian3.add(backwardOffset, altitudeOffset, new C.Cartesian3()), new C.Cartesian3()), new C.Cartesian3());
     const desiredTarget = C.Cartesian3.add(ahead, C.Cartesian3.multiplyByScalar(localUp, 500, new C.Cartesian3()), new C.Cartesian3());
-    if (timingEnabled) {
-      // Le timing des POI pilote directement la position. La spline du tracé
-      // assure déjà la fluidité spatiale ; un lissage temporel supplémentaire
-      // ferait prendre du retard à la caméra sur les heures de passage saisies.
-      smoothCameraPosition = C.Cartesian3.clone(desiredPosition, smoothCameraPosition || new C.Cartesian3());
-      smoothCameraTarget = C.Cartesian3.clone(desiredTarget, smoothCameraTarget || new C.Cartesian3());
-    } else if (!smoothCameraPosition) {
+    if (!smoothCameraPosition) {
       smoothCameraPosition = C.Cartesian3.clone(desiredPosition);
       smoothCameraTarget = C.Cartesian3.clone(desiredTarget);
     } else {
       const elapsed = Math.min(80, Math.max(1, now - (lastCameraTime || now)));
-      const positionSmoothing = 1 - Math.exp(-elapsed / 3600);
-      const targetSmoothing = 1 - Math.exp(-elapsed / 3000);
+      // En mode POI, un lissage court absorbe les vibrations de la trace sans
+      // recréer le retard de plusieurs secondes de l'ancien suivi caméra.
+      const positionSmoothing = 1 - Math.exp(-elapsed / (timingEnabled ? 180 : 3600));
+      const targetSmoothing = 1 - Math.exp(-elapsed / (timingEnabled ? 140 : 3000));
       C.Cartesian3.lerp(smoothCameraPosition, desiredPosition, positionSmoothing, smoothCameraPosition);
       C.Cartesian3.lerp(smoothCameraTarget, desiredTarget, targetSmoothing, smoothCameraTarget);
     }

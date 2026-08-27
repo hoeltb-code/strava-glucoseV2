@@ -58,7 +58,6 @@
   }
   .runner-intro::after { content:""; position:absolute; left:18px; right:18px; bottom:0; height:3px; background:linear-gradient(90deg,transparent,#ff5a36,transparent); }
   .runner-eyebrow { margin:0 0 6px; color:var(--accent-2); font-size:.74rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
-  .runner-profile-orb { width:72px; height:72px; flex:0 0 auto; display:grid; place-items:center; border-radius:50%; background:var(--grad-accent); color:#fff; font-family:"DM Mono",monospace; font-size:1.45rem; font-weight:700; box-shadow:0 0 0 6px rgba(255,90,54,.10), 0 12px 24px rgba(32,29,24,.12); }
   .runner-intro h2 {
     margin:0 0 8px 0;
     font-family:"Manrope", sans-serif;
@@ -416,15 +415,79 @@
   .pace-curve-canvas { height:260px; }
   .pace-curve-head { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
   .pace-zone-select { width:auto; min-width:100px; padding:5px 7px; font-size:.72rem; }
+  /* Cockpit data — nouvelle hiérarchie visuelle */
+  .runner-page { --runner-ink:#272620; --runner-paper:#f7f4ee; --runner-orange:#ff5a36; --runner-green:#6d8d57; }
+  .runner-topbar { display:none; }
+  .runner-intro { display:grid; grid-template-columns:minmax(0,1fr) minmax(220px,280px); gap:36px; align-items:end; min-height:280px; padding:40px; border-radius:28px; background:linear-gradient(145deg,#fff 0 58%,#fff0e8); }
+  .runner-intro::before { content:""; position:absolute; right:-8%; bottom:-80%; width:48%; aspect-ratio:1; border-radius:50%; background:radial-gradient(circle,rgba(255,90,54,.18),transparent 68%); }
+  .runner-intro::after { left:40px; right:auto; bottom:28px; width:38px; height:8px; transform:skew(-14deg); background:var(--runner-orange); }
+  .runner-intro > * { position:relative; z-index:1; }
+  .runner-eyebrow { display:inline-block; margin:0 0 22px; padding:9px 23px 9px 17px; clip-path:polygon(4% 0,100% 0,94% 100%,0 100%); background:linear-gradient(90deg,#ff8a3d,#d94327); color:#fff; font:800 .7rem "DM Mono",monospace; }
+  .runner-intro h2 { max-width:14ch; margin:0 0 16px; font-size:clamp(2.4rem,5vw,4.7rem); font-weight:800; line-height:.94; letter-spacing:-.06em; text-transform:uppercase; }
+  .runner-intro p { max-width:680px; font-size:.94rem; line-height:1.62; }
+  .runner-filter-form { display:grid; gap:7px; align-self:end; padding:17px; border-radius:16px; box-shadow:0 10px 25px rgba(38,36,31,.08); }
+  .runner-filter-form label { color:var(--text-muted); font:700 .66rem "DM Mono",monospace; letter-spacing:.1em; text-transform:uppercase; }
+  .runner-filter-form select { width:100%; min-width:0!important; }
+  .runner-data-strip { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1px; margin:16px 0; border:1px solid var(--runner-panel-border); border-radius:18px; background:var(--runner-panel-border); overflow:hidden; }
+  .runner-data-kpi { min-height:108px; padding:17px; background:#fff; }
+  .runner-data-kpi-label { display:block; color:var(--text-muted); font:700 .63rem "DM Mono",monospace; letter-spacing:.09em; text-transform:uppercase; }
+  .runner-data-kpi-value { display:block; margin-top:10px; color:var(--runner-ink); font-size:clamp(1.2rem,2.2vw,1.7rem); font-weight:800; letter-spacing:-.04em; }
+  .runner-data-kpi-note { display:block; margin-top:4px; color:var(--text-muted); font-size:.68rem; }
+  .runner-data-kpi:first-child { box-shadow:inset 0 4px var(--runner-orange); }.runner-data-kpi:nth-child(2){box-shadow:inset 0 4px #3487a3}.runner-data-kpi:nth-child(3){box-shadow:inset 0 4px var(--runner-green)}.runner-data-kpi:nth-child(4){box-shadow:inset 0 4px #e0a52d}
+  .runner-layout { grid-template-columns:230px minmax(0,1fr); gap:16px; }
+  .runner-sidebar { padding:10px!important; border-radius:18px; box-shadow:none; }
+  .runner-sidebar-title { padding:8px 10px 10px; color:var(--text-muted); font-size:.64rem; }
+  .runner-sidebar a { margin:0 0 4px; padding:12px; border-radius:10px; font-size:.78rem; font-weight:700; line-height:1.35; }
+  .runner-nav-link.is-active { border-color:var(--runner-orange); background:linear-gradient(100deg,#ff713f,#d94327); color:#fff!important; }
+  .runner-nav-link.is-active * { color:#fff!important; }
+  .runner-section { border-radius:18px; box-shadow:none; }
+  .runner-section::before { height:3px; }
+  .runner-section h3 { font-size:1.25rem!important; color:var(--runner-ink)!important; text-shadow:none; letter-spacing:-.035em; }
+  .runner-page .card .card,.runner-page .projection-card,.pace-curve-card { background:#f8f6f1!important; }
+  .glucose-dashboard { background:#fff!important; }
+  .glucose-disclaimer { border-color:#ead69f; background:#fff8df; color:#725b22!important; }
+  .glucose-now-card,.glucose-now-card.is-current { border-color:#dfdad0; background:#f8f6f1; }
+  .glucose-now-card.is-current { border-top:3px solid var(--runner-green); background:#f5faef; }
+  .glucose-now-label,.glucose-now-value,.glucose-zone-row strong,.glucose-chart-legend b,.glucose-activity-chart-title { color:var(--runner-ink); }
+  .glucose-period { border-color:#dfdad0; background:#f8f6f1; }.glucose-zone-row span:last-child { color:var(--runner-ink); }
+  .glucose-chart-card { border-color:#dfdad0; background:#f8f6f1; box-shadow:none; }.glucose-chart-legend span { border-color:#dfdad0; background:#fff; }.glucose-chart-frame { border-color:#e5e0d7; background:#fff; }
+  .glucose-activity-chart-card,.glucose-activity-chart-card:nth-child(2),.glucose-activity-chart-card:nth-child(3) { border-color:#dfdad0!important; background:#f8f6f1!important; box-shadow:none; }
+  .effort-glucose-card { margin-top:14px; padding:22px!important; }
+  .effort-glucose-head { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; margin-bottom:20px; }
+  .effort-glucose-head h3 { margin:0 0 5px!important; }.effort-glucose-head p { max-width:700px; margin:0!important; }
+  .effort-glucose-scale { display:flex; flex:0 0 auto; gap:12px; color:var(--text-muted); font-size:.65rem; }
+  .effort-glucose-scale span::before { content:""; display:inline-block; width:7px; height:7px; margin-right:5px; border-radius:50%; background:var(--scale-color); }
+  .effort-glucose-list { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+  .effort-glucose-item { padding:16px; border:1px solid #dfdad0; border-radius:15px; background:#f8f6f1; }
+  .effort-glucose-item-head { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .effort-glucose-item h4 { margin:0; font-size:.86rem; }.effort-glucose-count { color:var(--text-muted); font-size:.66rem; }
+  .effort-glucose-value { display:flex; align-items:baseline; gap:5px; margin-top:15px; color:var(--runner-ink); font-size:1.8rem; font-weight:800; letter-spacing:-.05em; }
+  .effort-glucose-value small { color:var(--text-muted); font-size:.62rem; font-weight:700; letter-spacing:0; }
+  .effort-glucose-track { position:relative; height:10px; margin-top:14px; border-radius:999px; background:linear-gradient(90deg,#cde5f4 0 28%,#dcebd5 28% 72%,#f7dfba 72%); overflow:hidden; }
+  .effort-glucose-fill { position:absolute; inset:0 auto 0 0; width:var(--glucose-width); border-right:3px solid var(--runner-ink); background:linear-gradient(90deg,rgba(255,255,255,.1),rgba(255,255,255,.48)); }
+  .effort-glucose-zone { display:block; margin-top:8px; color:var(--text-muted); font-size:.68rem; }
   @media (max-width: 900px) {
     .pace-curve-grid { grid-template-columns:1fr; }
     .pace-curve-card { min-width:0; }
+  }
+  @media (max-width:900px) {
+    .runner-layout { display:block; }
+    .runner-sidebar { position:static; display:flex; gap:7px; margin:0 0 14px; overflow-x:auto; border-radius:14px; scrollbar-width:none; }
+    .runner-sidebar::-webkit-scrollbar { display:none; }.runner-sidebar-title { display:none; }
+    .runner-sidebar a { flex:0 0 auto; margin:0; white-space:nowrap; }
+    .runner-section { display:none!important; }.runner-section.is-active { display:block!important; }
+  }
+  @media (max-width:700px) {
+    .runner-page { margin:0 -12px; }.runner-intro { grid-template-columns:1fr; min-height:0; padding:34px 20px 58px; border-left:0; border-right:0; border-radius:0; }
+    .runner-intro::after { left:20px; }.runner-intro h2 { font-size:clamp(2.45rem,13vw,4rem); }.runner-filter-form { width:100%; box-sizing:border-box; }
+    .runner-data-strip { grid-template-columns:1fr 1fr; margin:14px 12px; }.runner-data-kpi { min-height:94px; padding:14px; }
+    .runner-sidebar { margin:0 12px 14px; }.runner-layout main { padding:0 12px; }.glucose-now,.glucose-periods { grid-template-columns:1fr; }.glucose-now-card.is-current { grid-column:auto; }
+    .effort-glucose-head { display:block; }.effort-glucose-scale { margin-top:12px; }.effort-glucose-list { grid-template-columns:1fr; }
   }
 </style>
 {% set needs_chart_js = (profile.zones and profile.zones|length > 0) or (show_glucose_tabs and (
   (glucose_chart_24h and glucose_chart_24h|length > 1)
   or (glucose_activity_chart.labels and glucose_activity_chart.labels|length > 0)
-  or (glucose_activity_profile_radar and glucose_activity_profile_radar.has_data)
 )) %}
 {% if needs_chart_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -460,18 +523,14 @@
 <!-- ╚══════════════════════════════╝ -->
 <div class="runner-intro">
   {% set runner_name = user.first_name or user.email.split('@')[0] %}
-  <div style="flex:1;">
-    <div>
-      <p class="runner-eyebrow">Ton cockpit de course</p>
-      <h2>
-        Bonjour {{ runner_name }} 👋
-      </h2>
-      <p>
-        Voici ton profil {% if sport|lower == 'run' %}running & trail{% else %}{{ sport }}{% endif %}. Il agrège tes sorties pour estimer VAM, allures selon la pente et zones cardio, puis affiner tes projections. Si tu utilises un CGM, il ajoute aussi les analyses glycémie. Pense à renseigner ta FC max dans ton profil pour des zones plus précises.
-      </p>
-    </div>
-
-    <form method="get"
+  <div>
+    <p class="runner-eyebrow">Performance data</p>
+    <h2>Ton profil de course</h2>
+    <p>
+      {{ runner_name }}, retrouve ici ce que tes sorties disent réellement de ton niveau : cardio, allure, verticalité, cadence, segments et projections{% if show_glucose_tabs %}, avec la glycémie replacée dans le contexte de l’effort{% endif %}.
+    </p>
+  </div>
+  <form method="get"
           action="{{ request.url.path }}"
           class="runner-filter-form">
 
@@ -498,10 +557,16 @@
           1 dernier mois
         </option>
       </select>
-    </form>
-  </div>
-  <div class="runner-profile-orb" aria-label="{{ runner_name }}">{{ runner_name[0]|upper }}</div>
+  </form>
 </div>
+
+{% set available_projections = distance_projections|selectattr('available')|list if distance_projections else [] %}
+<section class="runner-data-strip" aria-label="Synthèse du profil coureur">
+  <article class="runner-data-kpi"><span class="runner-data-kpi-label">Charge récente</span><strong class="runner-data-kpi-value">{% if volume_weekly_summary and volume_weekly_summary.latest_weekly_km %}{{ volume_weekly_summary.latest_weekly_km|round(1) }} km{% else %}—{% endif %}</strong><span class="runner-data-kpi-note">volume hebdomadaire calculé</span></article>
+  <article class="runner-data-kpi"><span class="runner-data-kpi-label">Cardio × terrain</span><strong class="runner-data-kpi-value">{{ profile.zones|length if profile.zones else 0 }} zones</strong><span class="runner-data-kpi-note">allure, VAM et cadence par pente</span></article>
+  <article class="runner-data-kpi"><span class="runner-data-kpi-label">Projections</span><strong class="runner-data-kpi-value">{{ available_projections|length }}</strong><span class="runner-data-kpi-note">chronos route exploitables</span></article>
+  <article class="runner-data-kpi"><span class="runner-data-kpi-label">{% if show_glucose_tabs %}Glycémie · 24 h{% else %}Plus forte montée{% endif %}</span><strong class="runner-data-kpi-value">{% if show_glucose_tabs and glucose_dashboard_metrics.has_data %}{{ glucose_dashboard_metrics.time_in_range_pct }} %{% elif best_dplus_windows and best_dplus_windows[0].gain_m %}+{{ best_dplus_windows[0].gain_m|round|int }} m{% else %}—{% endif %}</strong><span class="runner-data-kpi-note">{% if show_glucose_tabs %}temps dans la cible{% else %}meilleure fenêtre analysée{% endif %}</span></article>
+</section>
 
 <!-- ╔══════════════════════════════╗ -->
 <!--   ⬅️ Menu latéral / contenu     -->
@@ -511,7 +576,7 @@
   <!-- 🧭 Colonne gauche : menu onglets -->
   <aside class="card runner-sidebar" style="padding:12px; font-size:0.9rem;">
     <div class="runner-sidebar-title">
-      Profil coureur
+      Explorer les données
     </div>
 
     {% set base_url = request.url.path %}
@@ -519,44 +584,44 @@
     <!-- Onglet Allure + projections -->
     <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=pace"
        class="runner-nav-link {% if tab == 'pace' %}is-active{% endif %}">
-      Allure par pente × cardio & <span style="color:#dc2626; font-weight:600;">projections Chrono (GPX)</span>
+      Allures & cardio
     </a>
 
     <!-- Onglet Projection chrono route -->
     <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=series"
        class="runner-nav-link {% if tab == 'series' %}is-active{% endif %}">
-      <span style="color:#dc2626; font-weight:600;">Projection Chrono Route</span> & séances clef
+      Segments & projections
     </a>
 
     <!-- Onglet D+ -->
     <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=ascent"
        class="runner-nav-link {% if tab == 'ascent' %}is-active{% endif %}">
-      D+ max (fenêtres)
+      Puissance en montée
     </a>
 
     <!-- Onglet VAM -->
     <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=vam"
        class="runner-nav-link {% if tab == 'vam' %}is-active{% endif %}">
-      VAM par pente × cardio
+      VAM & terrain
     </a>
 
     <!-- Onglet Cadence -->
     <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=cadence"
        class="runner-nav-link {% if tab == 'cadence' %}is-active{% endif %}">
-      Cadence par pente × cardio
+      Cadence & efficacité
     </a>
 
     {% if show_glucose_tabs %}
       <!-- Onglet Glycémie -->
       <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=glucose"
          class="runner-nav-link {% if tab == 'glucose' %}is-active{% endif %}">
-        Glycémie (temps dans la zone)
+        Glycémie · synthèse
       </a>
 
       <!-- Onglet Glycémie + activités -->
       <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=glucose_activities"
          class="runner-nav-link {% if tab == 'glucose_activities' %}is-active{% endif %}">
-        Glycémie & activités
+        Glycémie · historique
       </a>
     {% endif %}
   </aside>
@@ -669,7 +734,7 @@
                 min_percent: Math.round(min * 100), max_percent: Math.round(max * 100),
               }]));
               const slopesOrder = {{ slopes_order | tojson | safe }};
-              const colors = ['#60a5fa', '#4de2ff', '#b8ff45', '#fbbf24', '#f97316'];
+              const colors = ['#3487a3', '#5d735d', '#ff8a3d', '#d94327', '#7962a8'];
               const slopeCenters = {
                 Sneg40p: -45, Sneg30_40: -35, Sneg25_30: -27.5, Sneg20_25: -22.5,
                 Sneg15_20: -17.5, Sneg10_15: -12.5, Sneg5_10: -7.5, Sneg0_5: -2.5,
@@ -739,7 +804,7 @@
                 const datasets = datasetsFor();
                 const chart = new Chart(canvas.getContext('2d'), {
                   type:'line', data:{ datasets },
-                  options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'x', intersect:false, axis:'x' }, plugins:{ legend:coloredTextLegend, tooltip:{ filter:item => { const selected = select.value; return selected ? item.dataset.label === selected : !item.dataset.label.startsWith('_'); }, callbacks:{ label:item => { const pace = Math.round(item.parsed.y * 60); return `${item.dataset.label.replace('_','')} · ${Math.floor(pace / 60)}:${String(pace % 60).padStart(2,'0')}/km`; } } } }, scales:{ x:{ type:'linear', title:{ display:true, text:'Pente (%)', color:'#d6e4f8' }, ticks:{ color:'#d6e4f8' }, grid:{ color:'rgba(148,174,214,.16)' } }, y:{ reverse:true, title:{ display:true, text:'Allure (min/km) · haut = plus rapide', color:'#d6e4f8' }, ticks:{ color:'#d6e4f8', callback:value => { const pace = Math.round(value * 60); return `${Math.floor(pace / 60)}:${String(pace % 60).padStart(2,'0')}`; } }, grid:{ color:'rgba(148,174,214,.16)' } } } }
+                  options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'x', intersect:false, axis:'x' }, plugins:{ legend:coloredTextLegend, tooltip:{ filter:item => { const selected = select.value; return selected ? item.dataset.label === selected : !item.dataset.label.startsWith('_'); }, callbacks:{ label:item => { const pace = Math.round(item.parsed.y * 60); return `${item.dataset.label.replace('_','')} · ${Math.floor(pace / 60)}:${String(pace % 60).padStart(2,'0')}/km`; } } } }, scales:{ x:{ type:'linear', title:{ display:true, text:'Pente (%)', color:'#5f5b53' }, ticks:{ color:'#5f5b53' }, grid:{ color:'rgba(95,91,83,.12)' } }, y:{ reverse:true, title:{ display:true, text:'Allure (min/km) · haut = plus rapide', color:'#5f5b53' }, ticks:{ color:'#5f5b53', callback:value => { const pace = Math.round(value * 60); return `${Math.floor(pace / 60)}:${String(pace % 60).padStart(2,'0')}`; } }, grid:{ color:'rgba(95,91,83,.12)' } } } }
                 });
                 const applyZoneFocus = () => {
                   const selected = select.value;
@@ -782,7 +847,7 @@
                 const datasets = datasetsForVam();
                 const chart = new Chart(canvas.getContext('2d'), {
                   type:'line', data:{ datasets },
-                  options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'x', intersect:false, axis:'x' }, plugins:{ legend:coloredTextLegend, tooltip:{ filter:item => { const selected = select.value; return selected ? item.dataset.label === selected : !item.dataset.label.startsWith('_'); }, callbacks:{ label:item => `${item.dataset.label.replace('_','')} · ${item.parsed.y >= 0 ? '+' : ''}${Math.round(item.parsed.y)} m/h` } } }, scales:{ x:{ type:'linear', title:{ display:true, text:'Pente (%)', color:'#d6e4f8' }, ticks:{ color:'#d6e4f8' }, grid:{ color:'rgba(148,174,214,.16)' } }, y:{ title:{ display:true, text:'VAM (m/h)', color:'#d6e4f8' }, ticks:{ color:'#d6e4f8', callback:value => `${value >= 0 ? '+' : ''}${value}` }, grid:{ color:'rgba(148,174,214,.16)' } } } }
+                  options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'x', intersect:false, axis:'x' }, plugins:{ legend:coloredTextLegend, tooltip:{ filter:item => { const selected = select.value; return selected ? item.dataset.label === selected : !item.dataset.label.startsWith('_'); }, callbacks:{ label:item => `${item.dataset.label.replace('_','')} · ${item.parsed.y >= 0 ? '+' : ''}${Math.round(item.parsed.y)} m/h` } } }, scales:{ x:{ type:'linear', title:{ display:true, text:'Pente (%)', color:'#5f5b53' }, ticks:{ color:'#5f5b53' }, grid:{ color:'rgba(95,91,83,.12)' } }, y:{ title:{ display:true, text:'VAM (m/h)', color:'#5f5b53' }, ticks:{ color:'#5f5b53', callback:value => `${value >= 0 ? '+' : ''}${value}` }, grid:{ color:'rgba(95,91,83,.12)' } } } }
                 });
                 const applyZoneFocus = () => {
                   const selected = select.value;
@@ -1219,7 +1284,7 @@
                 datasets: [{
                   label: 'Glycémie (mg/dL)',
                   data: series,
-                  borderColor: '#b8ff45',
+                  borderColor: '#6d8d57',
                   backgroundColor: curveGradient,
                   tension: 0.28,
                   pointRadius: 0,
@@ -1232,8 +1297,8 @@
                   pointRadius: 5,
                   pointHoverRadius: 7,
                   pointBorderWidth: 3,
-                  pointBackgroundColor: '#b8ff45',
-                  pointBorderColor: '#102237',
+                  pointBackgroundColor: '#6d8d57',
+                  pointBorderColor: '#ffffff',
                 }]
               },
               plugins: [glucoseBands],
@@ -1247,7 +1312,7 @@
                     displayColors: false,
                     backgroundColor: 'rgba(7,17,31,.96)',
                     titleColor: '#d8e4f2',
-                    bodyColor: '#b8ff45',
+                    bodyColor: '#ffffff',
                     padding: 10,
                     cornerRadius: 9,
                     callbacks: {
@@ -1268,18 +1333,18 @@
                         hour: 'HH:mm',
                       },
                     },
-                    ticks: { color: '#b9c7d8', maxTicksLimit: 8 },
+                    ticks: { color: '#5f5b53', maxTicksLimit: 8 },
                     grid: { display: false },
                   },
                   y: {
                     suggestedMin: 60,
                     suggestedMax: 220,
-                    ticks: { color: '#b9c7d8' },
-                    grid: { color: 'rgba(148,174,214,.16)' },
+                    ticks: { color: '#5f5b53' },
+                    grid: { color: 'rgba(95,91,83,.12)' },
                     title: {
                       display: true,
                       text: 'mg/dL',
-                      color: '#d8e4f2',
+                      color: '#5f5b53',
                     },
                   }
                 }
@@ -1325,18 +1390,19 @@
       </div>
 
       {% if glucose_activity_profile_radar and glucose_activity_profile_radar.has_data %}
-        <div class="card" style="padding:14px; margin-top:14px;">
-          <h3 style="margin:0 0 6px 0; font-size:0.95rem;">Glycémie moyenne par type d'effort</h3>
-          <p class="muted" style="margin:0 0 12px 0; font-size:0.8rem;">
-            Classement automatique Endurance / Seuil / Fractionné selon le temps passé dans chaque zone cardio, puis moyenne des glycémies sur ces sorties.
-          </p>
-          <div style="max-width:420px; margin:0 auto;">
-            <canvas id="glucoseProfileRadar" height="260"></canvas>
-          </div>
-          <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; font-size:0.75rem; color:#0f172a;">
-            <div>Endurance : {{ glucose_activity_profile_radar.counts[0] }} act.</div>
-            <div>Seuil : {{ glucose_activity_profile_radar.counts[1] }} act.</div>
-            <div>Fractionné : {{ glucose_activity_profile_radar.counts[2] }} act.</div>
+        <div class="card effort-glucose-card">
+          <div class="effort-glucose-head"><div><h3>Glycémie moyenne par type d’effort</h3><p class="muted">Compare directement la réponse glycémique moyenne de tes sorties d’endurance, de seuil et de fractionné.</p></div><div class="effort-glucose-scale" aria-label="Repères glycémiques"><span style="--scale-color:#6aaed6">Bas</span><span style="--scale-color:#77a866">Cible</span><span style="--scale-color:#dfa94f">Élevé</span></div></div>
+          <div class="effort-glucose-list">
+            {% for effort_label in glucose_activity_profile_radar['labels'] %}
+              {% set effort_value = glucose_activity_profile_radar['values'][loop.index0]|default(none, true) %}
+              {% set effort_count = glucose_activity_profile_radar['counts'][loop.index0]|default(0, true) %}
+              <article class="effort-glucose-item">
+                <div class="effort-glucose-item-head"><h4>{{ effort_label }}</h4><span class="effort-glucose-count">{{ effort_count }} sortie{% if effort_count != 1 %}s{% endif %}</span></div>
+                <strong class="effort-glucose-value">{% if effort_value is number %}{{ effort_value|round|int }} <small>mg/dL</small>{% else %}—{% endif %}</strong>
+                {% if effort_value is number %}<div class="effort-glucose-track" aria-label="{{ effort_value|round|int }} milligrammes par décilitre"><span class="effort-glucose-fill" style="--glucose-width:{{ [100, [0, effort_value / 250 * 100]|max]|min }}%"></span></div>{% endif %}
+                <span class="effort-glucose-zone">{% if effort_value is not number %}Données insuffisantes{% elif effort_value < 70 %}Sous la cible{% elif effort_value <= 180 %}Dans la cible 70–180{% else %}Au-dessus de la cible{% endif %}</span>
+              </article>
+            {% endfor %}
           </div>
         </div>
       {% endif %}
@@ -1422,7 +1488,7 @@
                 },
                 scales: {
                   x: {
-                    ticks: { maxRotation: 0, color:'#b9c7d8', font:{ size:10 } },
+                    ticks: { maxRotation: 0, color:'#5f5b53', font:{ size:10 } },
                     grid: { display: false },
                   },
                 },
@@ -1458,8 +1524,8 @@
                 scales: {
                   ...baseConfig.options.scales,
                   y: {
-                    ticks: { color:'#b9c7d8' }, title: { display: true, text: 'mg/dL', color:'#d8e4f2' },
-                    grid: { color: 'rgba(148,174,214,.15)' },
+                    ticks: { color:'#5f5b53' }, title: { display: true, text: 'mg/dL', color:'#5f5b53' },
+                    grid: { color: 'rgba(95,91,83,.12)' },
                   },
                 },
               },
@@ -1472,7 +1538,7 @@
                 datasets: [{
                   label: 'Moyenne',
                   data: chartData.avg,
-                  borderColor: '#b8ff45',
+                  borderColor: '#6d8d57',
                   backgroundColor: 'rgba(184,255,69,0.13)',
                   tension: 0.3,
                   fill: true,
@@ -1484,8 +1550,8 @@
                 scales: {
                   ...baseConfig.options.scales,
                   y: {
-                    ticks: { color:'#b9c7d8' }, title: { display: true, text: 'mg/dL', color:'#d8e4f2' },
-                    grid: { color: 'rgba(148,174,214,.15)' },
+                    ticks: { color:'#5f5b53' }, title: { display: true, text: 'mg/dL', color:'#5f5b53' },
+                    grid: { color: 'rgba(95,91,83,.12)' },
                   },
                 },
               },
@@ -1498,7 +1564,7 @@
                 datasets: [{
                   label: 'Temps dans la cible',
                   data: chartData.tir,
-                  borderColor: '#4de2ff',
+                  borderColor: '#ff5a36',
                   backgroundColor: 'rgba(77,226,255,0.13)',
                   tension: 0.3,
                   fill: true,
@@ -1510,84 +1576,15 @@
                 scales: {
                   ...baseConfig.options.scales,
                   y: {
-                    ticks: { color:'#b9c7d8' }, title: { display: true, text: '%', color:'#d8e4f2' },
+                    ticks: { color:'#5f5b53' }, title: { display: true, text: '%', color:'#5f5b53' },
                     min: 0,
                     max: 100,
-                    grid: { color: 'rgba(148,174,214,.15)' },
+                    grid: { color: 'rgba(95,91,83,.12)' },
                   },
                 },
               },
             });
 
-            const radarCanvas = document.getElementById('glucoseProfileRadar');
-            const radarPayload = {{ glucose_activity_profile_radar | tojson | safe }};
-            if (radarCanvas && radarPayload && radarPayload.has_data) {
-              const radarCtx = radarCanvas.getContext('2d');
-              const bandConfig = [
-                { from: 60, to: 70, color: 'rgba(220,38,38,0.2)' },
-                { from: 70, to: 180, color: 'rgba(34,197,94,0.18)' },
-                { from: 180, to: 250, color: 'rgba(234,179,8,0.18)' },
-              ];
-
-              const radarBandsPlugin = {
-                id: 'radarBands',
-                beforeDraw(chart) {
-                  const scale = chart.scales.r;
-                  if (!scale) return;
-                  const { ctx } = chart;
-                  bandConfig.forEach((band) => {
-                    const innerR = scale.getDistanceFromCenterForValue(Math.max(band.from, scale.min));
-                    const outerR = scale.getDistanceFromCenterForValue(Math.min(band.to, scale.max));
-                    if (!isFinite(innerR) || !isFinite(outerR)) return;
-                    ctx.save();
-                    ctx.beginPath();
-                    ctx.arc(scale.xCenter, scale.yCenter, outerR, 0, Math.PI * 2);
-                    ctx.arc(scale.xCenter, scale.yCenter, innerR, 0, Math.PI * 2, true);
-                    ctx.closePath();
-                    ctx.fillStyle = band.color;
-                    ctx.fill();
-                    ctx.restore();
-                  });
-                },
-              };
-
-              new Chart(radarCtx, {
-                type: 'radar',
-                data: {
-                  labels: radarPayload.labels,
-                  datasets: [{
-                    label: 'Glycémie moyenne (mg/dL)',
-                    data: radarPayload.values,
-                    backgroundColor: 'rgba(59,130,246,0.15)',
-                    borderColor: '#2563eb',
-                    borderWidth: 2,
-                    pointBackgroundColor: '#2563eb',
-                  }],
-                },
-                options: {
-                  responsive: true,
-                  maintainAspectRatio: true,
-                  scales: {
-                    r: {
-                      min: 60,
-                      max: 250,
-                      beginAtZero: false,
-                      grid: { color: '#d1d5db' },
-                      angleLines: { color: '#d1d5db' },
-                      pointLabels: { font: { size: 12 } },
-                      ticks: {
-                        display: false,
-                        showLabelBackdrop: false,
-                      },
-                    },
-                  },
-                  plugins: {
-                    legend: { display: false },
-                  },
-                },
-                plugins: [radarBandsPlugin],
-              });
-            }
           })();
         </script>
       {% endif %}

@@ -164,18 +164,35 @@
     .header-actions {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 12px;
     }
 
-    .nav-label { display: inline; }
-    .icon-img {
-      width: 21px;
-      height: 21px;
-      display: block;
-      object-fit: contain;
-      filter: none;
-      opacity: 0.74;
+    .primary-nav {
+      display:flex;
+      align-items:center;
+      gap:3px;
+      padding:4px;
+      border:1px solid var(--border-soft);
+      border-radius:14px;
+      background:rgba(255,255,255,.78);
+      box-shadow:0 6px 18px rgba(32,29,24,.05);
     }
+    .primary-nav .nav-link {
+      min-height:38px;
+      padding:9px 13px;
+      border:0;
+      border-radius:10px;
+      color:var(--text-muted);
+      font-size:.77rem;
+      letter-spacing:.01em;
+    }
+    .primary-nav .nav-link::after { display:none; }
+    .primary-nav .nav-link:hover { border:0; background:#f5f1e9; transform:none; }
+    .primary-nav .nav-link.is-active { background:var(--grad-accent); color:#fff; box-shadow:0 5px 13px rgba(217,70,42,.19); }
+    .header-logout { min-height:38px; padding:9px 12px!important; border:1px solid var(--border-soft)!important; border-radius:10px!important; background:#fff!important; color:var(--text-muted)!important; font-size:.75rem!important; }
+    .header-logout::after { display:none; }.header-logout:hover { color:var(--text-main)!important; background:#fff5f1!important; transform:none!important; }
+
+    .nav-label { display: inline; }
     .logout-link {
       color: var(--text-main);
       font-weight: 600;
@@ -228,13 +245,11 @@
         justify-content: center;
         line-height: 1;
       }
-      .header-actions .icon-img {
-        width: 23px;
-        height: 23px;
-      }
       .nav-link.home-link { display:none; }
       .header-actions .nav-label { display:none; }
       nav { display: none; }
+      .header-logout { display:inline-flex!important; min-height:34px; padding:7px 10px!important; }
+      .header-logout .nav-label { display:inline!important; }
     }
   
     /* ===== Layout ===== */
@@ -559,22 +574,25 @@
       display: none;
     }
 
-    @media (max-width: 640px) {
-      body { padding-bottom: 70px; }
+    @media (max-width: 860px) {
+      body { padding-bottom: 82px; }
+      body > header.is-authenticated { display:none; }
 
       .mobile-bottom-nav {
         position: fixed;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        left: 10px;
+        right: 10px;
+        bottom: max(10px, env(safe-area-inset-bottom));
         display: flex;
-        justify-content: space-around;
+        justify-content: stretch;
         align-items: center;
-        padding: 10px 16px;
-        background: var(--bg-header);
-        border-top: 1px solid var(--border);
-        box-shadow: 0 -10px 26px rgba(0, 0, 0, 0.3);
-        backdrop-filter: blur(16px);
+        gap:2px;
+        padding:5px;
+        background:rgba(255,255,255,.94);
+        border:1px solid #ded8cd;
+        border-radius:16px;
+        box-shadow:0 12px 36px rgba(32,29,24,.17);
+        backdrop-filter:blur(18px) saturate(1.15);
         z-index: 1001;
       }
 
@@ -582,17 +600,23 @@
         color: var(--text-muted);
         text-decoration: none;
         display: inline-flex;
-        flex-direction: column;
+        flex:1 1 0;
+        flex-direction:row;
+        justify-content:center;
         align-items: center;
-        gap: 0;
-        padding: 4px 6px;
-        border-radius: 12px;
+        min-width:0;
+        min-height:48px;
+        padding:9px 3px 7px;
+        border-radius:11px;
+        position:relative;
+        transition:background-color .15s ease,color .15s ease;
       }
 
-      .mobile-bottom-nav a:hover { color: var(--text-main); background: rgba(255, 139, 106, 0.07); }
-
-      .mobile-bottom-nav .icon-img { width: 21px; height: 21px; }
-      .mobile-bottom-nav .label { display: block; font-size: .66rem; font-weight: 700; }
+      .mobile-bottom-nav a::after { content:""; position:absolute; top:3px; left:50%; width:16px; height:3px; border-radius:999px; background:var(--accent); opacity:0; transform:translateX(-50%) scaleX(.4); transition:.16s ease; }
+      .mobile-bottom-nav a:hover { color:var(--text-main); background:#faf6ef; }
+      .mobile-bottom-nav a.is-active { background:#fff1eb; color:var(--accent-dark); }
+      .mobile-bottom-nav a.is-active::after { opacity:1; transform:translateX(-50%) scaleX(1); }
+      .mobile-bottom-nav .label { display:block; min-width:0; overflow:hidden; font-size:clamp(.57rem,2.6vw,.68rem); font-weight:800; letter-spacing:-.02em; text-overflow:ellipsis; white-space:nowrap; }
     }
   
     .leaflet-control-container,
@@ -610,7 +634,8 @@
 
 <body>
   {% set session_user_id = request.session.get('user_id') %}
-  <header>
+  {% set current_path = request.url.path %}
+  <header class="{% if session_user_id %}is-authenticated{% endif %}">
     {% set home_href = '/ui/user/' ~ session_user_id if session_user_id else '/' %}
     <div class="brand">
       <a href="{{ home_href }}">
@@ -621,35 +646,27 @@
     </div>
     <div class="header-actions">
       {% if session_user_id %}
-      <nav>
-        <a class="nav-link home-link" href="/ui/user/{{ session_user_id }}">
-          <img class="icon-img" src="{{ url_for('static', path='icons/home.svg') }}" alt="Home">
-          <span class="nav-label">Accueil</span>
+      <nav class="primary-nav" aria-label="Navigation principale">
+        <a class="nav-link home-link {% if current_path == '/ui/user/' ~ session_user_id %}is-active{% endif %}" href="/ui/user/{{ session_user_id }}">
+          <span class="nav-label">Planifier</span>
         </a>
-        <a class="nav-link" href="/ui/user/{{ session_user_id }}/activities">
-          <img class="icon-img" src="{{ url_for('static', path='icons/activities.svg') }}" alt="Activités">
+        <a class="nav-link {% if '/activities' in current_path or '/activity/' in current_path %}is-active{% endif %}" href="/ui/user/{{ session_user_id }}/activities">
           <span class="nav-label">Activités</span>
         </a>
-        <a class="nav-link" href="/ui/user/{{ session_user_id }}/profile">
-          <img class="icon-img" src="{{ url_for('static', path='icons/profile.svg') }}" alt="Profil">
-          <span class="nav-label">Profil</span>
+        <a class="nav-link {% if current_path.endswith('/profile') and not current_path.endswith('/runner-profile') %}is-active{% endif %}" href="/ui/user/{{ session_user_id }}/profile">
+          <span class="nav-label">Compte</span>
         </a>
-        <a class="nav-link" href="/ui/user/{{ session_user_id }}/runner-profile">
-          <img class="icon-img" src="{{ url_for('static', path='icons/stat.svg') }}" alt="Performance">
-          <span class="nav-label">Performance</span>
+        <a class="nav-link {% if current_path.endswith('/runner-profile') %}is-active{% endif %}" href="/ui/user/{{ session_user_id }}/runner-profile">
+          <span class="nav-label">Mes données</span>
         </a>
         {% if session_user_id == 1 %}
-        <a class="nav-link" href="/ui">
-          <img class="icon-img" src="{{ url_for('static', path='icons/admin.svg') }}" alt="Admin">
+        <a class="nav-link {% if current_path == '/ui' %}is-active{% endif %}" href="/ui">
           <span class="nav-label">Admin</span>
-        </a>
-        <a class="nav-link" href="/docs" target="_blank">
-          <img class="icon-img" src="{{ url_for('static', path='icons/api.svg') }}" alt="API Docs">
         </a>
         {% endif %}
       </nav>
-      <a class="nav-link" href="/logout" aria-label="Déconnexion">
-        <img class="icon-img" src="{{ url_for('static', path='icons/logout.svg') }}" alt="Déconnexion">
+      <a class="nav-link header-logout" href="/logout" aria-label="Déconnexion">
+        <span class="nav-label">Quitter</span>
       </a>
       {% endif %}
     </div>
@@ -674,25 +691,20 @@
 
   {% if session_user_id %}
   <nav class="mobile-bottom-nav" aria-label="Navigation principale mobile">
-    <a href="/ui/user/{{ session_user_id }}" aria-label="Home">
-      <img class="icon-img" src="{{ url_for('static', path='icons/home.svg') }}" alt="Home">
-      <span class="label">Home</span>
+    <a class="{% if current_path == '/ui/user/' ~ session_user_id %}is-active{% endif %}" href="/ui/user/{{ session_user_id }}">
+      <span class="label">Plan</span>
     </a>
-    <a href="/ui/user/{{ session_user_id }}/activities" aria-label="Activités">
-      <img class="icon-img" src="{{ url_for('static', path='icons/activities.svg') }}" alt="Activités">
-      <span class="label">Activités</span>
+    <a class="{% if '/activities' in current_path or '/activity/' in current_path %}is-active{% endif %}" href="/ui/user/{{ session_user_id }}/activities">
+      <span class="label">Sorties</span>
     </a>
-    <a href="/ui/user/{{ session_user_id }}/profile" aria-label="Profil">
-      <img class="icon-img" src="{{ url_for('static', path='icons/profile.svg') }}" alt="Profil">
-      <span class="label">Profil</span>
+    <a class="{% if current_path.endswith('/profile') and not current_path.endswith('/runner-profile') %}is-active{% endif %}" href="/ui/user/{{ session_user_id }}/profile">
+      <span class="label">Compte</span>
     </a>
-    <a href="/ui/user/{{ session_user_id }}/runner-profile" aria-label="Profil coureur">
-      <img class="icon-img" src="{{ url_for('static', path='icons/stat.svg') }}" alt="Performance">
-      <span class="label">Performance</span>
+    <a class="{% if current_path.endswith('/runner-profile') %}is-active{% endif %}" href="/ui/user/{{ session_user_id }}/runner-profile">
+      <span class="label">Data</span>
     </a>
     {% if session_user_id == 1 %}
-    <a href="/ui" aria-label="Admin">
-      <img class="icon-img" src="{{ url_for('static', path='icons/admin.svg') }}" alt="Admin">
+    <a class="{% if current_path == '/ui' %}is-active{% endif %}" href="/ui">
       <span class="label">Admin</span>
     </a>
     {% endif %}

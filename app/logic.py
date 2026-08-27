@@ -1325,7 +1325,7 @@ def backfill_signed_vertical_speed_for_activity(
         if existing is not None and not needs_signed_descent:
             continue
         signed = signed_series[index] if index < len(signed_series) else None
-        if signed is None and slope is not None and point.velocity is not None:
+        if (signed is None or abs(signed) > 4000.0) and slope is not None and point.velocity is not None:
             signed = float(point.velocity) * slope * 36.0
         if signed is None:
             continue

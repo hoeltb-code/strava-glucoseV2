@@ -6241,6 +6241,7 @@ def ui_runner_profile(
         .filter(sport_column_condition(models.Activity.sport, sport))
         .filter(models.ActivityStreamPoint.slope_percent < -1)
         .filter(models.ActivityStreamPoint.velocity.isnot(None))
+        .filter(func.abs(models.ActivityStreamPoint.velocity * models.ActivityStreamPoint.slope_percent * 36.0) <= 4000)
         .filter(
             (models.ActivityStreamPoint.vertical_speed_m_per_h.is_(None))
             | (models.ActivityStreamPoint.vertical_speed_m_per_h >= 0)
@@ -6834,6 +6835,99 @@ def ui_runner_profile(
             profile_period[key] = value.isoformat()
     profile_for_template["period"] = profile_period
 
+    # Synthèse lisible du profil : les métriques les plus utiles sont extraites
+    # des mêmes cellules que les tableaux détaillés, avec leur couverture.
+    profile_zones = profile_for_template.get("zones") or {}
+    all_cells = [
+        (zone_name, slope_id, cell)
+        for zone_name, slopes in profile_zones.items()
+        for slope_id, cell in (slopes or {}).items()
+        if isinstance(cell, dict)
+    ]
+    coverage_seconds = sum(float(cell.get("duration_sec") or 0) for _, _, cell in all_cells)
+
+    def _weighted_cell_value(zone_name: str, slope_ids: tuple[str, ...], value_key: str):
+        values = []
+        for slope_id in slope_ids:
+            cell = (profile_zones.get(zone_name) or {}).get(slope_id) or {}
+            value = cell.get(value_key)
+            duration = float(cell.get("pace_duration_sec") or cell.get("duration_sec") or 0)
+            if isinstance(value, (int, float)) and duration > 0:
+                values.append((float(value), duration))
+        total = sum(duration for _, duration in values)
+        return (sum(value * duration for value, duration in values) / total, total) if total else (None, 0)
+
+    endurance_pace, endurance_seconds = _weighted_cell_value(
+        "Zone 2", ("Sneg0_5", "S0_5"), "avg_pace_s_per_km"
+    )
+    endurance_cadence, _ = _weighted_cell_value(
+        "Zone 2", ("Sneg0_5", "S0_5"), "avg_cadence_spm"
+    )
+    climb_cells = [
+        (slope_id, float(cell["avg_vam_m_per_h"]), float(cell.get("duration_sec") or 0))
+        for zone_name, slope_id, cell in all_cells
+        if zone_name in {"Zone 2", "Zone 3", "Zone 4"}
+        and slope_id.startswith("S") and not slope_id.startswith("Sneg") and slope_id != "S0_5"
+        and isinstance(cell.get("avg_vam_m_per_h"), (int, float))
+        and float(cell.get("avg_vam_m_per_h") or 0) > 0
+    ]
+    descent_cells = [
+        (slope_id, float(cell["avg_vam_m_per_h"]), float(cell.get("duration_sec") or 0))
+        for zone_name, slope_id, cell in all_cells
+        if zone_name in {"Zone 2", "Zone 3", "Zone 4"}
+        and slope_id.startswith("Sneg")
+        and isinstance(cell.get("avg_vam_m_per_h"), (int, float))
+        and float(cell.get("avg_vam_m_per_h") or 0) < 0
+    ]
+    best_climb = max(climb_cells, key=lambda row: row[1], default=None)
+    best_descent = min(descent_cells, key=lambda row: row[1], default=None)
+    slope_labels = dict(SLOPE_ORDER)
+
+    def _pace_label(seconds):
+        if not seconds:
+            return None
+        rounded = int(round(seconds))
+        return f"{rounded // 60}:{rounded % 60:02d}/km"
+
+    volume_delta_pct = None
+    volume_history = (volume_weekly_summary or {}).get("history") or []
+    if len(volume_history) >= 2:
+        previous_volume = float(volume_history[-2].get("weekly_km") or 0)
+        latest_volume = float(volume_history[-1].get("weekly_km") or 0)
+        if previous_volume > 0:
+            volume_delta_pct = round((latest_volume - previous_volume) / previous_volume * 100)
+
+    confidence = "élevée" if coverage_seconds >= 20 * 3600 else ("moyenne" if coverage_seconds >= 6 * 3600 else "à consolider")
+    analytics_insights = []
+    if best_climb:
+        analytics_insights.append({"tone": "strength", "label": "Point fort", "text": f"Ton meilleur rendement vertical observé se situe sur {slope_labels.get(best_climb[0], best_climb[0])}, à {round(best_climb[1])} m/h."})
+    if cardiac_drift_history.get("available"):
+        drift_average = cardiac_drift_history["average"]
+        analytics_insights.append({
+            "tone": "positive" if drift_average < 5 else "watch",
+            "label": "Endurance",
+            "text": f"Ta dérive cardiaque récente est de {drift_average:+.1f} % : " + ("le rendement reste stable sur la durée." if drift_average < 5 else "la stabilité en fin d’effort reste un axe de travail."),
+        })
+    if volume_delta_pct is not None:
+        analytics_insights.append({"tone": "neutral", "label": "Charge", "text": f"Ton volume récent évolue de {volume_delta_pct:+d} % par rapport au calcul précédent."})
+    if not analytics_insights:
+        analytics_insights.append({"tone": "neutral", "label": "Données", "text": "Continue à enregistrer tes sorties avec GPS et cardio pour faire émerger des tendances fiables."})
+
+    runner_analytics = {
+        "coverage_hours": round(coverage_seconds / 3600, 1),
+        "confidence": confidence,
+        "endurance_pace": _pace_label(endurance_pace),
+        "endurance_hours": round(endurance_seconds / 3600, 1),
+        "endurance_cadence": round(endurance_cadence * 2) if endurance_cadence else None,
+        "best_climb_vam": round(best_climb[1]) if best_climb else None,
+        "best_climb_slope": slope_labels.get(best_climb[0]) if best_climb else None,
+        "best_climb_hours": round(best_climb[2] / 3600, 1) if best_climb else None,
+        "best_descent_vam": round(best_descent[1]) if best_descent else None,
+        "best_descent_slope": slope_labels.get(best_descent[0]) if best_descent else None,
+        "volume_delta_pct": volume_delta_pct,
+        "insights": analytics_insights[:3],
+    }
+
     return templates.TemplateResponse(
         "runner_profile.html",
         {
@@ -6858,6 +6952,7 @@ def ui_runner_profile(
             "volume_weekly_summary": volume_weekly_summary,
             "distance_projections": distance_projections,
             "cardiac_drift_history": cardiac_drift_history,
+            "runner_analytics": runner_analytics,
         },
     )
 

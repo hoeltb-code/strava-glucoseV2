@@ -242,7 +242,7 @@
   .glucose-period h4 { margin:0; font-family:Inter,sans-serif; font-size:.91rem; letter-spacing:0; text-transform:none; }
   .glucose-period-total { color:var(--text-muted); font-size:.68rem; }
   .glucose-range-bar { display:flex; overflow:hidden; height:8px; margin:12px 0 10px; border-radius:999px; background:rgba(255,255,255,.08); }
-  .glucose-range-bar span { min-width:2px; } .glucose-zone-g1 { background:#60a5fa; } .glucose-zone-g2 { background:#38bdf8; } .glucose-zone-g3 { background:#b8ff45; } .glucose-zone-g4 { background:#facc15; } .glucose-zone-g5 { background:#f87171; }
+  .glucose-range-bar span { min-width:2px; } .glucose-zone-g1 { background:#6c91a4; } .glucose-zone-g2 { background:#8db5c1; } .glucose-zone-g3 { background:#6f925f; } .glucose-zone-g4 { background:#d39a42; } .glucose-zone-g5 { background:#c45a49; }
   .glucose-zone-list { display:grid; gap:6px; }
   .glucose-zone-row { display:grid; grid-template-columns:10px minmax(0,1fr) auto; align-items:center; gap:7px; color:var(--text-muted); font-size:.7rem; }
   .glucose-zone-dot { width:8px; height:8px; border-radius:50%; }.glucose-zone-row strong { color:#fff; font-size:.72rem; font-weight:700; }.glucose-zone-row span:last-child { color:#d8e4f2; }
@@ -496,6 +496,54 @@
     .runner-sidebar { margin:0 12px 14px; }.runner-layout main { padding:0 12px; }.glucose-now,.glucose-periods { grid-template-columns:1fr; }.glucose-now-card.is-current { grid-column:auto; }
     .effort-glucose-head { display:block; }.effort-glucose-scale { margin-top:12px; }.effort-glucose-list { grid-template-columns:1fr; }
   }
+  /* Data system — couche finale commune à tous les modules */
+  .runner-page { --data-orange:#f4512c; --data-orange-soft:#fff0e9; --data-blue:#347f96; --data-green:#54784f; --data-amber:#bd7a21; --data-red:#ba4435; --data-ink:#24231f; --data-muted:#706d65; }
+  .runner-page, .runner-page button, .runner-page select { font-family:"Manrope",system-ui,sans-serif; }
+  .runner-page h2,.runner-page h3,.runner-page h4,.runner-data-kpi-value,.drift-history-value { font-family:"Manrope",system-ui,sans-serif; }
+  .runner-data-kpi-label,.runner-sidebar-title,.analysis-label,.data-confidence { font-family:"DM Mono",monospace; }
+  .runner-data-strip { grid-template-columns:repeat(6,minmax(0,1fr)); }
+  .runner-data-kpi { min-height:126px; padding:18px 16px; }
+  .runner-data-kpi-value { margin-top:15px; font-size:clamp(1.25rem,2vw,1.75rem); font-variant-numeric:tabular-nums; }
+  .runner-data-kpi-note { line-height:1.45; }
+  .runner-data-kpi:nth-child(5){box-shadow:inset 0 4px #7962a8}.runner-data-kpi:nth-child(6){box-shadow:inset 0 4px #bd7a21}
+  .analytics-panel { display:grid; grid-template-columns:minmax(210px,.7fr) minmax(0,2fr); gap:24px; margin:16px 0; padding:24px; border:1px solid var(--runner-panel-border); border-radius:18px; background:#fff; }
+  .analytics-panel h3 { margin:6px 0 8px; color:var(--data-ink); font-size:1.35rem; letter-spacing:-.04em; }
+  .data-confidence { display:inline-flex; margin-top:10px; padding:6px 9px; border-radius:999px; background:#f2efe9; color:var(--data-muted); font-size:.62rem; letter-spacing:.06em; text-transform:uppercase; }
+  .analytics-list { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+  .analytics-item { min-height:112px; padding:16px; border:1px solid #e3ded4; border-radius:14px; background:#faf8f4; }
+  .analytics-item[data-tone="strength"]{border-top:3px solid var(--data-blue)}.analytics-item[data-tone="positive"]{border-top:3px solid var(--data-green)}.analytics-item[data-tone="watch"]{border-top:3px solid var(--data-amber)}.analytics-item[data-tone="neutral"]{border-top:3px solid #a39d91}
+  .analysis-label { display:block; color:var(--data-muted); font-size:.62rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
+  .analytics-item p { margin:12px 0 0; color:var(--data-ink); font-size:.78rem; line-height:1.55; }
+  .drift-history-track { position:relative; overflow:visible; background:linear-gradient(90deg,#e7f0e3 0 50%,#f7e5dc 50%); }
+  .drift-history-track::after { content:""; position:absolute; left:50%; top:-3px; bottom:-3px; width:1px; background:#817c72; }
+  .drift-history-bar { position:absolute; top:0; width:var(--drift-width); background:var(--drift-color); }
+  .drift-history-bar.is-positive { left:50%; border-radius:0 8px 8px 0; }
+  .drift-history-bar.is-negative { right:50%; border-radius:8px 0 0 8px; }
+  .runner-section { padding:22px!important; }
+  .runner-section h3 { margin-bottom:7px!important; font-size:1.25rem!important; color:var(--data-ink)!important; }
+  .runner-section p,.runner-section .muted { line-height:1.55; }
+  .pace-curve-card { padding:18px; border-color:#e2ddd4; background:#fbfaf7; }
+  .pace-curve-card h4 { font-size:.9rem; }.pace-curve-canvas { height:320px; }
+  .runner-section table thead { background:#f4f1eb; }.runner-section table th { color:#615e56; font-family:"DM Mono",monospace; font-size:.66rem!important; letter-spacing:.04em; text-transform:uppercase; }
+  .runner-section table td { padding-top:8px!important; padding-bottom:8px!important; font-variant-numeric:tabular-nums; }
+  .runner-section[data-section="cardio"] { --section-accent:var(--data-orange); }
+  .drift-hero { display:grid; grid-template-columns:minmax(230px,.75fr) minmax(0,1.5fr); gap:28px; margin-top:20px; padding:24px; border-radius:18px; background:#f8f6f1; border:1px solid #e2ddd4; }
+  .drift-score { display:flex; align-items:baseline; gap:8px; margin:13px 0 5px; color:var(--data-ink); font-size:3.2rem; font-weight:800; line-height:1; letter-spacing:-.08em; }
+  .drift-score small { color:var(--data-muted); font-size:.85rem; letter-spacing:0; }
+  .drift-verdict { display:inline-flex; padding:6px 9px; border-radius:999px; font-size:.68rem; font-weight:800; }
+  .drift-verdict.is-good { background:#e5efe1;color:#3f653a}.drift-verdict.is-watch{background:#f8ead2;color:#8b5a18}.drift-verdict.is-alert{background:#f6dfda;color:#9a392c}
+  .drift-explain h4 { margin:0 0 7px; font-size:1rem; }.drift-explain p { margin:0 0 12px!important; font-size:.82rem!important; }
+  .drift-example { padding:12px 14px; border-left:3px solid var(--data-orange); border-radius:0 10px 10px 0; background:#fff; color:var(--data-ink); font-size:.76rem; line-height:1.5; }
+  .drift-gauge-wrap { margin:22px 0 8px; padding:0 8px; }
+  .drift-gauge { position:relative; display:grid; grid-template-columns:30fr 20fr 30fr 20fr; height:15px; border-radius:999px; background:#eee; }
+  .drift-gauge span:first-child{background:#6f925f;border-radius:999px 0 0 999px}.drift-gauge span:nth-child(2){background:#d3b44e}.drift-gauge span:nth-child(3){background:#d98743}.drift-gauge span:nth-child(4){background:#c45a49;border-radius:0 999px 999px 0}
+  .drift-gauge-marker { position:absolute; z-index:2; left:var(--drift-position); top:50%; width:19px; height:19px; transform:translate(-50%,-50%); border:4px solid #fff; border-radius:50%; background:#24231f; box-shadow:0 2px 7px rgba(0,0,0,.24); }
+  .drift-scale { display:grid; grid-template-columns:30fr 20fr 30fr 20fr; margin-top:8px; color:var(--data-muted); font-size:.62rem; }.drift-scale span:not(:first-child){text-align:center}.drift-scale span:last-child{text-align:right}
+  .drift-thresholds { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:18px 0; }
+  .drift-threshold { padding:14px; border:1px solid #e2ddd4; border-radius:13px; }.drift-threshold strong{display:block;margin-bottom:5px;font-size:.78rem}.drift-threshold span{color:var(--data-muted);font-size:.7rem;line-height:1.4}
+  .drift-runs { display:grid; gap:8px; margin-top:14px; }.drift-run { display:grid; grid-template-columns:85px minmax(120px,1fr) 100px 60px; gap:12px; align-items:center; padding:11px 12px; border:1px solid #e5e0d7; border-radius:12px; color:var(--data-ink)!important; background:#fff; font-size:.72rem; text-decoration:none; }.drift-run:hover{background:#fff7f3}.drift-run-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.drift-run-status{padding:4px 7px;border-radius:999px;text-align:center;background:#f1eee8;font-size:.62rem;font-weight:700}.drift-run-value{text-align:right;font-weight:800;font-variant-numeric:tabular-nums}
+  @media(max-width:1180px){.runner-data-strip{grid-template-columns:repeat(3,1fr)}.analytics-list{grid-template-columns:1fr}}
+  @media(max-width:700px){.runner-data-strip{grid-template-columns:1fr 1fr}.runner-data-kpi{min-height:112px}.analytics-panel{grid-template-columns:1fr;margin:14px 12px;padding:18px}.runner-section{padding:18px!important}.pace-curve-canvas{height:270px}.drift-hero{grid-template-columns:1fr;padding:18px}.drift-thresholds{grid-template-columns:1fr}.drift-run{grid-template-columns:68px 1fr 55px}.drift-run-status{display:none}}
 </style>
 {% set needs_chart_js = (profile.zones and profile.zones|length > 0) or (show_glucose_tabs and (
   (glucose_chart_24h and glucose_chart_24h|length > 1)
@@ -504,6 +552,17 @@
 {% if needs_chart_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+<script>
+  window.addEventListener('DOMContentLoaded', () => {
+    if (typeof Chart === 'undefined') return;
+    Chart.defaults.font.family = 'Manrope, system-ui, sans-serif';
+    Chart.defaults.font.size = 11;
+    Chart.defaults.color = '#706d65';
+    Chart.defaults.borderColor = 'rgba(112,109,101,.14)';
+    Chart.defaults.plugins.legend.labels.usePointStyle = true;
+    Chart.defaults.plugins.legend.labels.boxWidth = 7;
+  });
+</script>
 {% endif %}
 {% endblock %}
 
@@ -574,38 +633,28 @@
 
 {% set available_projections = distance_projections|selectattr('available')|list if distance_projections else [] %}
 <section class="runner-data-strip" aria-label="Synthèse du profil coureur">
-  <article class="runner-data-kpi"><span class="runner-data-kpi-label">Charge récente</span><strong class="runner-data-kpi-value">{% if volume_weekly_summary and volume_weekly_summary.latest_weekly_km %}{{ volume_weekly_summary.latest_weekly_km|round(1) }} km{% else %}—{% endif %}</strong><span class="runner-data-kpi-note">volume hebdomadaire calculé</span></article>
-  <article class="runner-data-kpi"><span class="runner-data-kpi-label">Cardio × terrain</span><strong class="runner-data-kpi-value">{{ profile.zones|length if profile.zones else 0 }} zones</strong><span class="runner-data-kpi-note">allure, VAM et cadence par pente</span></article>
-  <article class="runner-data-kpi"><span class="runner-data-kpi-label">Projections</span><strong class="runner-data-kpi-value">{{ available_projections|length }}</strong><span class="runner-data-kpi-note">chronos route exploitables</span></article>
-  <article class="runner-data-kpi"><span class="runner-data-kpi-label">{% if show_glucose_tabs %}Glycémie · 24 h{% else %}Plus forte montée{% endif %}</span><strong class="runner-data-kpi-value">{% if show_glucose_tabs and glucose_dashboard_metrics.has_data %}{{ glucose_dashboard_metrics.time_in_range_pct }} %{% elif best_dplus_windows and best_dplus_windows[0].gain_m %}+{{ best_dplus_windows[0].gain_m|round|int }} m{% else %}—{% endif %}</strong><span class="runner-data-kpi-note">{% if show_glucose_tabs %}temps dans la cible{% else %}meilleure fenêtre analysée{% endif %}</span></article>
+  <article class="runner-data-kpi"><span class="runner-data-kpi-label">Volume récent</span><strong class="runner-data-kpi-value">{% if volume_weekly_summary and volume_weekly_summary.latest_weekly_km %}{{ volume_weekly_summary.latest_weekly_km|round(1) }} km{% else %}—{% endif %}</strong><span class="runner-data-kpi-note">par semaine{% if runner_analytics.volume_delta_pct is not none %} · {{ '%+d'|format(runner_analytics.volume_delta_pct) }} %{% endif %}</span></article>
+  <article class="runner-data-kpi"><span class="runner-data-kpi-label">Endurance roulante</span><strong class="runner-data-kpi-value">{{ runner_analytics.endurance_pace or '—' }}</strong><span class="runner-data-kpi-note">Zone 2 · pente ±5 % · {{ runner_analytics.endurance_hours }} h observées</span></article>
+  <article class="runner-data-kpi"><span class="runner-data-kpi-label">Meilleur rendement</span><strong class="runner-data-kpi-value">{% if runner_analytics.best_climb_vam %}+{{ runner_analytics.best_climb_vam }} m/h{% else %}—{% endif %}</strong><span class="runner-data-kpi-note">{{ runner_analytics.best_climb_slope or 'montée à consolider' }}</span></article>
+  <article class="runner-data-kpi"><span class="runner-data-kpi-label">Descente observée</span><strong class="runner-data-kpi-value">{% if runner_analytics.best_descent_vam %}{{ runner_analytics.best_descent_vam }} m/h{% else %}—{% endif %}</strong><span class="runner-data-kpi-note">vitesse verticale · {{ runner_analytics.best_descent_slope or 'données à consolider' }}</span></article>
+  <article class="runner-data-kpi"><span class="runner-data-kpi-label">Dérive cardiaque</span><strong class="runner-data-kpi-value">{% if cardiac_drift_history.available %}{{ '%+.1f'|format(cardiac_drift_history.average) }} %{% else %}—{% endif %}</strong><span class="runner-data-kpi-note">{{ cardiac_drift_history.trend if cardiac_drift_history.available else 'sorties comparables requises' }}</span></article>
+  <article class="runner-data-kpi"><span class="runner-data-kpi-label">{% if show_glucose_tabs %}Stabilité glycémique{% else %}Cadence endurance{% endif %}</span><strong class="runner-data-kpi-value">{% if show_glucose_tabs and glucose_dashboard_metrics.has_data %}{{ glucose_dashboard_metrics.time_in_range_pct }} %{% elif runner_analytics.endurance_cadence %}{{ runner_analytics.endurance_cadence }} ppm{% else %}—{% endif %}</strong><span class="runner-data-kpi-note">{% if show_glucose_tabs %}temps dans la cible · 24 h{% else %}Zone 2 · pente ±5 %{% endif %}</span></article>
 </section>
 
-<section class="drift-history" aria-label="Historique de dérive cardiaque">
+<section class="analytics-panel" aria-label="Lecture analytique du profil">
   <div>
-    <span class="runner-data-kpi-label">Cardio · rendement</span>
-    <h3>Dérive ajustée au terrain</h3>
-    {% if cardiac_drift_history.available %}
-      <strong class="drift-history-value">{{ '%+.1f'|format(cardiac_drift_history.average) }} %</strong>
-      <span class="runner-data-kpi-note">moyenne récente · {{ cardiac_drift_history.trend }}</span>
-      <p class="drift-history-note">{{ cardiac_drift_history.stable_pct }} % des sorties sous 5 % de dérive.</p>
-    {% else %}
-      <strong class="drift-history-value">—</strong>
-      <p class="drift-history-note">Aucune sortie suffisamment comparable pour le moment.</p>
-    {% endif %}
+    <span class="runner-data-kpi-label">À retenir</span>
+    <h3>Ce que tes données racontent</h3>
+    <p class="drift-history-note">Une lecture synthétique de la période sélectionnée, avant les tableaux détaillés.</p>
+    <span class="data-confidence">Confiance {{ runner_analytics.confidence }} · {{ runner_analytics.coverage_hours }} h analysées</span>
   </div>
-  <div>
-    {% if cardiac_drift_history.available %}
-      <div class="drift-history-list">
-        {% for row in cardiac_drift_history.rows[:6] %}
-          <a class="drift-history-row" href="/ui/user/{{ user.id }}/activity/{{ row.activity_id }}">
-            <span>{{ row.date.strftime('%d/%m/%Y') if row.date else '—' }}</span>
-            <span class="drift-history-track"><i class="drift-history-bar" style="width:{{ [[row.percent|abs * 8, 3]|max, 100]|min }}%"></i></span>
-            <strong>{{ '%+.1f'|format(row.percent) }} %</strong>
-          </a>
-        {% endfor %}
-      </div>
-    {% endif %}
-    <p class="drift-history-note">Sorties ≥ 45 min. Comparaison à pente et intensité similaires : vitesse/FC sur le roulant, VAM/FC en montée.</p>
+  <div class="analytics-list">
+    {% for insight in runner_analytics.insights %}
+      <article class="analytics-item" data-tone="{{ insight.tone }}">
+        <span class="analysis-label">{{ insight.label }}</span>
+        <p>{{ insight.text }}</p>
+      </article>
+    {% endfor %}
   </div>
 </section>
 
@@ -621,6 +670,11 @@
     </div>
 
     {% set base_url = request.url.path %}
+
+    <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=cardio"
+       class="runner-nav-link {% if tab == 'cardio' %}is-active{% endif %}">
+      Cardio & endurance
+    </a>
 
     <!-- Onglet Allure + projections -->
     <a href="{{ base_url }}?sport={{ sport }}&period={{ period }}&tab=pace"
@@ -669,6 +723,61 @@
 
   <!-- 🧩 Colonne droite : contenu -->
   <main>
+
+    <div class="card runner-section {% if tab == 'cardio' %}is-active{% endif %}" data-section="cardio">
+      <span class="runner-data-kpi-label">Comprendre mon endurance</span>
+      <h3>Est-ce que mon cœur reste efficace avec la durée ?</h3>
+      <p class="muted">La dérive cardiaque indique si ton cœur doit progressivement battre plus vite pour produire le même effort. Plus elle est faible, plus ton endurance est stable.</p>
+
+      {% if cardiac_drift_history.available %}
+        {% set drift_value = cardiac_drift_history.average %}
+        {% set drift_position = [[drift_value * 10, 0]|max, 100]|min %}
+        <section class="drift-hero">
+          <div>
+            <span class="runner-data-kpi-label">Ta moyenne récente</span>
+            <strong class="drift-score">{{ '%+.1f'|format(drift_value) }}<small>% de dérive</small></strong>
+            <span class="drift-verdict {% if drift_value < 3 %}is-good{% elif drift_value < 5 %}is-watch{% else %}is-alert{% endif %}">
+              {% if drift_value < 0 %}Rendement en amélioration{% elif drift_value < 3 %}Endurance très stable{% elif drift_value < 5 %}Dérive modérée{% elif drift_value < 8 %}Dérive marquée{% else %}Dérive importante{% endif %}
+            </span>
+            <p class="drift-history-note">{{ cardiac_drift_history.stable_pct }} % de tes sorties analysées restent sous 5 %.</p>
+          </div>
+          <div class="drift-explain">
+            <h4>Concrètement, qu’est-ce que ça veut dire ?</h4>
+            <p>Nous comparons le début et la fin de ta sortie sur des portions qui se ressemblent : même pente et vitesse proche. En montée, nous comparons la VAM ; sur le roulant, la vitesse.</p>
+            <div class="drift-example">Exemple : si tu avances à la même vitesse mais que ta fréquence cardiaque passe de 140 à 150 bpm, ton organisme dépense davantage pour le même résultat. C’est cette perte de rendement que mesure la dérive.</div>
+          </div>
+        </section>
+
+        <div class="drift-gauge-wrap" aria-label="Échelle de dérive cardiaque">
+          <div class="drift-gauge"><span></span><span></span><span></span><span></span><i class="drift-gauge-marker" style="--drift-position:{{ drift_position }}%"></i></div>
+          <div class="drift-scale"><span>0 %</span><span>3 %</span><span>5 %</span><span>8 % et +</span></div>
+        </div>
+
+        <div class="drift-thresholds">
+          <article class="drift-threshold"><strong>0 à 3 % · Très stable</strong><span>Ton rendement cardio se maintient bien avec la durée.</span></article>
+          <article class="drift-threshold"><strong>3 à 5 % · À observer</strong><span>Une fatigue apparaît, mais elle reste généralement maîtrisée.</span></article>
+          <article class="drift-threshold"><strong>Plus de 5 % · À travailler</strong><span>Hydratation, chaleur, allure ou endurance peuvent expliquer cette hausse.</span></article>
+        </div>
+
+        <h4>Mes dernières sorties comparables</h4>
+        <div class="drift-runs">
+          {% for row in cardiac_drift_history.rows[:8] %}
+            <a class="drift-run" href="/ui/user/{{ user.id }}/activity/{{ row.activity_id }}">
+              <span>{{ row.date.strftime('%d/%m/%Y') if row.date else '—' }}</span>
+              <span class="drift-run-name">{{ row.name }}</span>
+              <span class="drift-run-status">{% if row.percent < 3 %}Stable{% elif row.percent < 5 %}Modérée{% else %}À surveiller{% endif %}</span>
+              <span class="drift-run-value">{{ '%+.1f'|format(row.percent) }} %</span>
+            </a>
+          {% endfor %}
+        </div>
+        <p class="drift-history-note">Seules les sorties d’au moins 45 minutes avec suffisamment de portions comparables sont retenues. Cet indicateur décrit une tendance sportive, pas un diagnostic médical.</p>
+      {% else %}
+        <section class="drift-hero">
+          <div><strong class="drift-score">—</strong><span class="drift-verdict is-watch">Données insuffisantes</span></div>
+          <div class="drift-explain"><h4>Comment obtenir cet indicateur ?</h4><p>Enregistre une sortie d’au moins 45 minutes avec GPS et fréquence cardiaque. Il faut suffisamment de portions à pente et allure comparables entre le début et la fin.</p></div>
+        </section>
+      {% endif %}
+    </div>
 
     <div class="card runner-section {% if tab == 'ascent' %}is-active{% endif %}" style="padding:14px;" data-section="ascent">
         <h3 style="margin:0 0 6px 0; font-size:0.95rem;">Meilleurs D+ par fenêtre glissante</h3>
@@ -893,7 +1002,7 @@
                   .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y) && point.y !== 0)
                   .sort((a, b) => a.x - b.x);
                 const observed = Object.entries((profileData.zones || {})[zone] || {})
-                  .map(([slopeId, cell]) => ({ x:slopeCenters[slopeId], y:Number(cell.avg_vam_m_per_h) }))
+                  .map(([slopeId, cell]) => ({ x:slopeCenters[slopeId], y:Number(cell.avg_vam_m_per_h), duration:Number(cell.duration_sec || 0), estimated:Boolean(cell.vam_is_estimated) }))
                   .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y) && point.y !== 0)
                   .sort((a, b) => a.x - b.x);
                 if (!modeled.length) return [];
@@ -906,7 +1015,7 @@
                 const datasets = datasetsForVam();
                 const chart = new Chart(canvas.getContext('2d'), {
                   type:'line', data:{ datasets },
-                  options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'x', intersect:false, axis:'x' }, plugins:{ legend:coloredTextLegend, tooltip:{ filter:item => { const selected = select.value; return selected ? item.dataset.label === selected : !item.dataset.label.startsWith('_'); }, callbacks:{ label:item => `${item.dataset.label.replace('_','')} · ${item.parsed.y >= 0 ? '+' : ''}${Math.round(item.parsed.y)} m/h` } } }, scales:{ x:{ type:'linear', title:{ display:true, text:'Pente (%)', color:'#5f5b53' }, ticks:{ color:'#5f5b53' }, grid:{ color:'rgba(95,91,83,.12)' } }, y:{ title:{ display:true, text:'VAM (m/h)', color:'#5f5b53' }, ticks:{ color:'#5f5b53', callback:value => `${value >= 0 ? '+' : ''}${value}` }, grid:{ color:'rgba(95,91,83,.12)' } } } }
+                  options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'x', intersect:false, axis:'x' }, plugins:{ legend:coloredTextLegend, tooltip:{ filter:item => { const selected = select.value; return !selected || item.dataset.label.replace('_','') === selected; }, callbacks:{ label:item => { const observed = item.dataset.label.startsWith('_'); const minutes = Math.round(Number(item.raw.duration || 0) / 60); return `${observed ? 'Observée' : 'Modélisée'} · ${item.parsed.y >= 0 ? '+' : ''}${Math.round(item.parsed.y)} m/h${observed && minutes ? ` · ${minutes} min` : ''}`; } } } }, scales:{ x:{ type:'linear', title:{ display:true, text:'Pente (%)', color:'#5f5b53' }, ticks:{ color:'#5f5b53' }, grid:{ color:'rgba(95,91,83,.12)' } }, y:{ title:{ display:true, text:'Vitesse verticale (m/h)', color:'#5f5b53' }, ticks:{ color:'#5f5b53', callback:value => `${value >= 0 ? '+' : ''}${value}` }, grid:{ color:context => context.tick.value === 0 ? 'rgba(36,35,31,.65)' : 'rgba(95,91,83,.12)', lineWidth:context => context.tick.value === 0 ? 2 : 1 } } } }
                 });
                 const applyZoneFocus = () => {
                   const selected = select.value;
@@ -1291,7 +1400,7 @@
         <div class="glucose-chart-card">
           <h4>Évolution sur les dernières 24 heures</h4>
           <p class="muted">Les bandes de couleur aident à situer la courbe : bas, cible et élevé.</p>
-          <div class="glucose-chart-legend"><span><i style="background:#60a5fa"></i>Bas &lt; 70</span><span><i style="background:#b8ff45"></i><b>Cible 70–180 mg/dL</b></span><span><i style="background:#f87171"></i>Élevé &gt; 180</span></div>
+          <div class="glucose-chart-legend"><span><i style="background:#6c91a4"></i>Bas &lt; 70</span><span><i style="background:#6f925f"></i><b>Cible 70–180 mg/dL</b></span><span><i style="background:#c45a49"></i>Élevé &gt; 180</span></div>
           {% if glucose_chart_24h and glucose_chart_24h|length > 1 %}
             <div class="glucose-chart-frame" style="height:290px;"><canvas id="glucose24hChart" height="260"></canvas></div>
           {% else %}
@@ -1313,9 +1422,9 @@
 
             const ctx = document.getElementById('glucose24hChart').getContext('2d');
             const curveGradient = ctx.createLinearGradient(0, 0, 0, 280);
-            curveGradient.addColorStop(0, 'rgba(184,255,69,.32)');
-            curveGradient.addColorStop(.7, 'rgba(77,226,255,.07)');
-            curveGradient.addColorStop(1, 'rgba(77,226,255,0)');
+            curveGradient.addColorStop(0, 'rgba(111,146,95,.30)');
+            curveGradient.addColorStop(.7, 'rgba(111,146,95,.06)');
+            curveGradient.addColorStop(1, 'rgba(111,146,95,0)');
             const glucoseBands = {
               id: 'glucoseBands',
               beforeDraw(chart) {
@@ -1324,7 +1433,7 @@
                 if (!chartArea || !y) return;
                 const bands = [
                   { from: y.min, to: 70, color: 'rgba(96,165,250,.12)' },
-                  { from: 70, to: 180, color: 'rgba(184,255,69,.09)' },
+                  { from: 70, to: 180, color: 'rgba(111,146,95,.09)' },
                   { from: 180, to: y.max, color: 'rgba(248,113,113,.11)' },
                 ];
                 ctx.save();
@@ -1586,8 +1695,8 @@
                 datasets: [{
                   label: 'Départ',
                   data: chartData.start,
-                  borderColor: '#60a5fa',
-                  backgroundColor: 'rgba(96,165,250,0.14)',
+                  borderColor: '#347f96',
+                  backgroundColor: 'rgba(52,127,150,0.12)',
                   tension: 0.3,
                   fill: true,
                   spanGaps: true,
@@ -1613,7 +1722,7 @@
                   label: 'Moyenne',
                   data: chartData.avg,
                   borderColor: '#6d8d57',
-                  backgroundColor: 'rgba(184,255,69,0.13)',
+                  backgroundColor: 'rgba(111,146,95,0.13)',
                   tension: 0.3,
                   fill: true,
                   spanGaps: true,
@@ -1639,7 +1748,7 @@
                   label: 'Temps dans la cible',
                   data: chartData.tir,
                   borderColor: '#ff5a36',
-                  backgroundColor: 'rgba(77,226,255,0.13)',
+                  backgroundColor: 'rgba(244,81,44,0.11)',
                   tension: 0.3,
                   fill: true,
                   spanGaps: true,

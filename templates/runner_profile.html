@@ -466,6 +466,9 @@
   .effort-glucose-track { position:relative; height:10px; margin-top:14px; border-radius:999px; background:linear-gradient(90deg,#cde5f4 0 28%,#dcebd5 28% 72%,#f7dfba 72%); overflow:hidden; }
   .effort-glucose-fill { position:absolute; inset:0 auto 0 0; width:var(--glucose-width); border-right:3px solid var(--runner-ink); background:linear-gradient(90deg,rgba(255,255,255,.1),rgba(255,255,255,.48)); }
   .effort-glucose-zone { display:block; margin-top:8px; color:var(--text-muted); font-size:.68rem; }
+  .vam-reference-note { margin:10px 0 12px!important; padding:11px 13px; border-left:3px solid var(--runner-orange); border-radius:0 10px 10px 0; background:#fff3ef; color:#704134!important; line-height:1.5; }
+  .vam-efficiency-card { display:grid; grid-template-columns:auto 1fr; gap:13px; align-items:center; margin:12px 0; padding:14px; border:1px solid #d5dfce; border-radius:14px; background:#f5faef; }
+  .vam-efficiency-value { min-width:88px; color:#3f603c; font-size:1.5rem; font-weight:800; letter-spacing:-.04em; }.vam-efficiency-value small { display:block; color:#648060; font-size:.62rem; letter-spacing:.06em; text-transform:uppercase; }.vam-efficiency-copy strong { display:block; font-size:.86rem; }.vam-efficiency-copy span { color:var(--text-muted); font-size:.72rem; line-height:1.4; }
   @media (max-width: 900px) {
     .pace-curve-grid { grid-template-columns:1fr; }
     .pace-curve-card { min-width:0; }
@@ -693,17 +696,18 @@
           </h3>
           <p class="muted" style="margin:0 0 10px 0; font-size:0.8rem;">
             Compare la réponse verticale par zone cardio, aussi bien en montée qu’en descente.
-            En descente, le signe ≈ indique une VAM reconstituée depuis l’allure et la pente lorsque la mesure native est absente ou trop courte.
           </p>
+          <p class="vam-reference-note">La <strong>VAM modélisée</strong>, calculée depuis la courbe d’allure lissée et le centre de chaque tranche de pente, est la base de référence utilisée pour les projections de course. La VAM observée reste affichée pour comparer le modèle à ton historique brut.</p>
           <label class="pace-zone-select" style="display:inline-flex; align-items:center; gap:8px; margin-bottom:2px;">
             Zone cardio affichée
             <select id="vamZone" aria-label="Zone cardio affichée pour la VAM">{% for z in hr_zones %}<option value="{{ z }}" {% if z == "Zone 2" %}selected{% endif %}>{{ z }}</option>{% endfor %}</select>
           </label>
           <p id="vamZoneHeartRate" class="muted" style="margin:2px 0 8px; font-size:.75rem;"></p>
+          <div class="vam-efficiency-card" id="vamBestEfficiency" aria-live="polite"></div>
 
           <article class="pace-curve-card pace-curve-card-wide">
-            <div class="pace-curve-head"><h4>Courbe VAM par pente</h4></div>
-            <p>Une lecture continue, des descentes aux montées.</p>
+            <div class="pace-curve-head"><h4>Courbe de VAM modélisée par pente</h4></div>
+            <p>La ligne constitue la référence des projections ; les points atténués représentent les observations historiques.</p>
             <div class="pace-curve-canvas"><canvas id="vamSlopeChart"></canvas></div>
           </article>
 
@@ -712,7 +716,8 @@
               <thead>
               <tr style="border-bottom:1px solid #e5e7eb;">
                 <th style="text-align:left; padding:4px 2px;">Pente</th>
-                <th id="vamZoneTableTitle" style="text-align:right; padding:4px 2px;">Zone 2 · VAM (m/h)</th>
+                <th id="vamZoneTableTitle" style="text-align:right; padding:4px 2px;">Zone 2 · modélisée</th>
+                <th style="text-align:right; padding:4px 2px;">Observée</th>
               </tr>
             </thead>
             <tbody id="vamZoneTable"></tbody>
@@ -789,6 +794,25 @@
                   return { x, y:Math.max(2, Math.min(60, y)) };
                 });
               };
+              const modeledPaceFor = (zone, slopeId) => {
+                const historicalZone = (profileData.zones || {})[zone] || {};
+                const rawPace = Number((historicalZone[slopeId] || {}).avg_pace_s_per_km);
+                const points = Object.entries(historicalZone)
+                  .map(([id, cell]) => ({ x:slopeCenters[id], y:Number(cell.avg_pace_s_per_km) }))
+                  .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y) && point.y > 0)
+                  .sort((a, b) => a.x - b.x);
+                const coefficients = points.length >= 5 ? solveQuadratic(points) : null;
+                if (coefficients && coefficients.a > 0) {
+                  const pace = coefficients.a * slopeCenters[slopeId] ** 2 + coefficients.b * slopeCenters[slopeId] + coefficients.c;
+                  if (pace >= 120 && pace <= 7200) return pace;
+                }
+                return rawPace > 0 ? rawPace : null;
+              };
+              const modeledVamFor = (zone, slopeId) => {
+                const pace = modeledPaceFor(zone, slopeId);
+                const grade = slopeCenters[slopeId];
+                return pace > 0 && Number.isFinite(grade) ? (3600 / pace) * 10 * grade : null;
+              };
               const datasetsFor = () => zones.flatMap((zone, index) => {
                 const raw = Object.entries((profileData.zones || {})[zone] || {})
                   .map(([slopeId, cell]) => ({ x:slopeCenters[slopeId], y:Number(cell.avg_pace_s_per_km) / 60, duration:Number(cell.pace_duration_sec || cell.duration_sec || 0) }))
@@ -826,19 +850,16 @@
               };
               renderPaceCurve('paceSlopeChart', 'paceZone');
               const datasetsForVam = () => zones.flatMap((zone, index) => {
-                const raw = Object.entries((profileData.zones || {})[zone] || {})
-                  .map(([slopeId, cell]) => ({ x:slopeCenters[slopeId], y:Number(cell.avg_vam_m_per_h), estimated:Boolean(cell.vam_is_estimated) }))
-                  // Même règle que le tableau : toute VAM calculée doit être visible,
-                  // y compris les données très spécifiques d'une zone 5.
+                const modeled = slopesOrder
+                  .map(([slopeId]) => ({ x:slopeCenters[slopeId], y:modeledVamFor(zone, slopeId) }))
                   .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y) && point.y !== 0)
                   .sort((a, b) => a.x - b.x);
-                if (!raw.length) return [];
-                const coefficients = solveQuadratic(raw);
-                const curve = coefficients ? Array.from({ length:25 }, (_, item) => {
-                  const x = raw[0].x + (raw[raw.length - 1].x - raw[0].x) * item / 24;
-                  return { x, y:Math.max(-5000, Math.min(5000, coefficients.a * x * x + coefficients.b * x + coefficients.c)) };
-                }) : raw;
-                return [{ label:zone, data:curve, borderColor:colors[index], backgroundColor:colors[index], borderWidth:2.5, pointRadius:0, tension:.35, fill:false }, { label:`_${zone}`, data:raw, borderColor:colors[index], backgroundColor:colors[index], pointRadius:2, pointHoverRadius:3.5, showLine:false }];
+                const observed = Object.entries((profileData.zones || {})[zone] || {})
+                  .map(([slopeId, cell]) => ({ x:slopeCenters[slopeId], y:Number(cell.avg_vam_m_per_h) }))
+                  .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y) && point.y !== 0)
+                  .sort((a, b) => a.x - b.x);
+                if (!modeled.length) return [];
+                return [{ label:zone, data:modeled, borderColor:colors[index], backgroundColor:colors[index], borderWidth:2.8, pointRadius:2, tension:.32, fill:false }, { label:`_${zone}`, data:observed, borderColor:`${colors[index]}66`, backgroundColor:`${colors[index]}66`, pointRadius:2, pointHoverRadius:3.5, showLine:false }];
               });
               const renderVamCurve = (canvasId, selectId) => {
                 const canvas = document.getElementById(canvasId);
@@ -876,24 +897,39 @@
                 if (!select || !table || !title) return;
                 const update = () => {
                   const zone = select.value;
-                  title.textContent = `${zone} · ${metric === 'pace' ? 'allure (min/km)' : 'VAM (m/h)'}`;
+                  title.textContent = `${zone} · ${metric === 'pace' ? 'allure (min/km)' : 'VAM modélisée'}`;
                   const range = zoneHeartRates[zone];
                   if (heartRate && range) {
                     heartRate.textContent = `${zone} · ${range.min_bpm}–${range.max_bpm} bpm (${range.min_percent}–${range.max_percent}% de FC max ${fcMax} bpm)`;
                   }
-                  table.innerHTML = slopesOrder.map(([slopeId, slopeLabel]) => {
+                  const modeledRows = slopesOrder.map(([slopeId, slopeLabel]) => {
                     const cell = ((profileData.zones || {})[zone] || {})[slopeId];
                     let value = '–';
+                    let observedValue = '–';
                     if (metric === 'pace' && Number(cell?.avg_pace_s_per_km) > 0) {
                       const seconds = Math.round(Number(cell.avg_pace_s_per_km));
                       value = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
                     }
-                    if (metric === 'vam' && Number.isFinite(Number(cell?.avg_vam_m_per_h)) && Number(cell?.avg_vam_m_per_h) !== 0) {
-                      const vam = Math.round(Number(cell.avg_vam_m_per_h));
-                      value = `${cell.vam_is_estimated ? '≈' : ''}${vam >= 0 ? '+' : ''}${vam}`;
+                    if (metric === 'vam') {
+                      const modeledVam = modeledVamFor(zone, slopeId);
+                      if (Number.isFinite(modeledVam) && modeledVam !== 0) {
+                        const vam = Math.round(modeledVam);
+                        value = `${vam >= 0 ? '+' : ''}${vam}`;
+                      }
+                      const observedVam = Number(cell?.avg_vam_m_per_h);
+                      if (Number.isFinite(observedVam) && observedVam !== 0) {
+                        const observed = Math.round(observedVam);
+                        observedValue = `${cell?.vam_is_estimated ? '≈' : ''}${observed >= 0 ? '+' : ''}${observed}`;
+                      }
                     }
-                    return `<tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:4px 2px;">${slopeLabel}</td><td style="text-align:right; padding:4px 2px;">${value}</td></tr>`;
-                  }).join('');
+                    return { slopeId, slopeLabel, modeledVam:metric === 'vam' ? modeledVamFor(zone, slopeId) : null, html:`<tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:4px 2px;">${slopeLabel}</td><td style="text-align:right; padding:4px 2px;">${value}</td>${metric === 'vam' ? `<td style="text-align:right; padding:4px 2px; color:var(--text-muted);">${observedValue}</td>` : ''}</tr>` };
+                  });
+                  table.innerHTML = modeledRows.map((row) => row.html).join('');
+                  if (metric === 'vam') {
+                    const best = modeledRows.filter((row) => slopeCenters[row.slopeId] > 0 && Number.isFinite(row.modeledVam)).sort((a, b) => b.modeledVam - a.modeledVam)[0];
+                    const efficiency = document.getElementById('vamBestEfficiency');
+                    if (efficiency) efficiency.innerHTML = best ? `<div class="vam-efficiency-value">+${Math.round(best.modeledVam)}<small>m/h</small></div><div class="vam-efficiency-copy"><strong>Meilleur rendement modélisé · ${best.slopeLabel}</strong><span>Pente représentative ${slopeCenters[best.slopeId]} % · ${zone}. Ce maximum sert de repère de rendement vertical, pas d’allure cible à maintenir en permanence.</span></div>` : '<div class="vam-efficiency-copy"><strong>Rendement non disponible</strong><span>Pas encore assez de données d’allure pour modéliser cette zone.</span></div>';
+                  }
                 };
                 select.addEventListener('change', update);
                 update();

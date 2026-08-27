@@ -3324,6 +3324,76 @@ def ensure_activity_contributions(
         rebuild_activity_contributions(db, activity=activity, stats=stats)
 
 
+def ensure_activity_meta_contribution(db: Session, activity: models.Activity) -> bool:
+    """Archive les totaux d'une activité sans recalculer ses analyses détaillées."""
+    if not activity or not activity.strava_activity_id or not activity.start_date:
+        return False
+    exists = (
+        db.query(models.RunnerProfileActivityContribution.id)
+        .filter(
+            models.RunnerProfileActivityContribution.user_id == activity.user_id,
+            models.RunnerProfileActivityContribution.strava_activity_id == activity.strava_activity_id,
+            models.RunnerProfileActivityContribution.metric_scope == "activity_meta",
+        )
+        .first()
+    )
+    if exists:
+        return False
+    sport = canonicalize_sport_label(activity.sport or normalize_activity_type(activity.activity_type))
+    _add_activity_contribution(
+        db,
+        user_id=int(activity.user_id),
+        sport=sport,
+        strava_activity_id=int(activity.strava_activity_id),
+        activity_start_date=_safe_dt(activity.start_date),
+        activity_name=activity.name,
+        metric_scope="activity_meta",
+        total_duration_sec=float(activity.elapsed_time or 0.0),
+        total_distance_m=float(activity.distance or 0.0),
+        total_elevation_gain_m=float(activity.total_elevation_gain or 0.0),
+        total_points=1,
+        extra={"activity_id": activity.id, "name": activity.name},
+    )
+    return True
+
+
+def get_archived_training_summary(
+    db: Session,
+    *,
+    user_id: int,
+    sport: str,
+    date_from: dt.datetime | None = None,
+    date_to: dt.datetime | None = None,
+) -> dict:
+    """Retourne les volumes sportifs archivés, indépendamment des streams conservés."""
+    sport = canonicalize_sport_label(sport)
+    query = db.query(
+        func.sum(models.RunnerProfileActivityContribution.total_duration_sec),
+        func.sum(models.RunnerProfileActivityContribution.total_distance_m),
+        func.sum(models.RunnerProfileActivityContribution.total_elevation_gain_m),
+        func.sum(models.RunnerProfileActivityContribution.total_points),
+        func.min(models.RunnerProfileActivityContribution.activity_start_date),
+        func.max(models.RunnerProfileActivityContribution.activity_start_date),
+    ).filter(
+        models.RunnerProfileActivityContribution.user_id == user_id,
+        sport_column_condition(models.RunnerProfileActivityContribution.sport, sport),
+        models.RunnerProfileActivityContribution.metric_scope == "activity_meta",
+    )
+    if date_from is not None:
+        query = query.filter(models.RunnerProfileActivityContribution.activity_start_date >= _safe_dt(date_from))
+    if date_to is not None:
+        query = query.filter(models.RunnerProfileActivityContribution.activity_start_date < _safe_dt(date_to))
+    duration, distance, elevation, count, first_date, last_date = query.one()
+    return {
+        "duration_hours": round(float(duration or 0.0) / 3600.0, 1),
+        "distance_km": round(float(distance or 0.0) / 1000.0, 1),
+        "elevation_gain_m": round(float(elevation or 0.0)),
+        "activities_count": int(count or 0),
+        "first_date": first_date,
+        "last_date": last_date,
+    }
+
+
 def _compute_recent_volume_metrics_from_contributions(
     db: Session,
     *,

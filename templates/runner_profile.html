@@ -633,7 +633,7 @@
 
 {% set available_projections = distance_projections|selectattr('available')|list if distance_projections else [] %}
 <section class="runner-data-strip" aria-label="Synthèse du profil coureur">
-  <article class="runner-data-kpi"><span class="runner-data-kpi-label">Volume récent</span><strong class="runner-data-kpi-value">{% if volume_weekly_summary and volume_weekly_summary.latest_weekly_km %}{{ volume_weekly_summary.latest_weekly_km|round(1) }} km{% else %}—{% endif %}</strong><span class="runner-data-kpi-note">par semaine{% if runner_analytics.volume_delta_pct is not none %} · {{ '%+d'|format(runner_analytics.volume_delta_pct) }} %{% endif %}</span></article>
+  <article class="runner-data-kpi"><span class="runner-data-kpi-label">Volume récent</span><strong class="runner-data-kpi-value">{% if volume_weekly_summary and volume_weekly_summary.latest_weekly_km %}{{ volume_weekly_summary.latest_weekly_km|round(1) }} km{% else %}—{% endif %}</strong><span class="runner-data-kpi-note">par semaine{% if runner_analytics.volume_delta_pct is not none %} · {{ '%+d'|format(runner_analytics.volume_delta_pct) }} %{% endif %}<br>{{ runner_analytics.training_hours }} h sportives archivées</span></article>
   <article class="runner-data-kpi"><span class="runner-data-kpi-label">Endurance roulante</span><strong class="runner-data-kpi-value">{{ runner_analytics.endurance_pace or '—' }}</strong><span class="runner-data-kpi-note">Zone 2 · pente ±5 % · {{ runner_analytics.endurance_hours }} h observées</span></article>
   <article class="runner-data-kpi"><span class="runner-data-kpi-label">Meilleur rendement</span><strong class="runner-data-kpi-value">{% if runner_analytics.best_climb_vam %}+{{ runner_analytics.best_climb_vam }} m/h{% else %}—{% endif %}</strong><span class="runner-data-kpi-note">{{ runner_analytics.best_climb_slope or 'montée à consolider' }}</span></article>
   <article class="runner-data-kpi"><span class="runner-data-kpi-label">Descente observée</span><strong class="runner-data-kpi-value">{% if runner_analytics.best_descent_vam %}{{ runner_analytics.best_descent_vam }} m/h{% else %}—{% endif %}</strong><span class="runner-data-kpi-note">vitesse verticale · {{ runner_analytics.best_descent_slope or 'données à consolider' }}</span></article>
@@ -646,7 +646,8 @@
     <span class="runner-data-kpi-label">À retenir</span>
     <h3>Ce que tes données racontent</h3>
     <p class="drift-history-note">Une lecture synthétique de la période sélectionnée, avant les tableaux détaillés.</p>
-    <span class="data-confidence">Confiance {{ runner_analytics.confidence }} · {{ runner_analytics.coverage_hours }} h analysées</span>
+    <span class="data-confidence">Fiabilité {{ runner_analytics.confidence }}</span>
+    <p class="drift-history-note"><strong>{{ runner_analytics.coverage_hours }} h</strong> de terrain × cardio exploitables sur <strong>{{ runner_analytics.training_hours }} h</strong> sportives archivées{% if runner_analytics.coverage_pct is not none %} ({{ runner_analytics.coverage_pct }} %){% endif %}. {{ runner_analytics.activities_count }} activités composent ce total.</p>
   </div>
   <div class="analytics-list">
     {% for insight in runner_analytics.insights %}

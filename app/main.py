@@ -157,6 +157,8 @@ from .logic import (
     compute_km_highlights_from_streams,
     compute_terrain_adjusted_cardiac_drift,
     backfill_signed_vertical_speed_for_activity,
+    ensure_activity_meta_contribution,
+    get_archived_training_summary,
     purge_old_user_activities,
     purge_old_activities_for_all_users,
     delete_activity_live_data,
@@ -6229,6 +6231,27 @@ def ui_runner_profile(
         date_from = now_utc - dt.timedelta(days=days_window)
         # date_to reste None => jusqu’à maintenant
 
+    # Les totaux sportifs sont archivés séparément des streams détaillés. Ce
+    # rattrapage léger protège également les activités créées avant ce système.
+    activities_to_archive = (
+        db.query(models.Activity)
+        .filter(models.Activity.user_id == user_id)
+        .filter(sport_column_condition(models.Activity.sport, sport))
+        .all()
+    )
+    archived_any = False
+    for activity_to_archive in activities_to_archive:
+        archived_any = ensure_activity_meta_contribution(db, activity_to_archive) or archived_any
+    if archived_any:
+        db.commit()
+    archived_training_summary = get_archived_training_summary(
+        db,
+        user_id=user_id,
+        sport=sport,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
     # Migration progressive des anciennes activités : six sorties sont
     # corrigées à chaque ouverture, sans bloquer longtemps le tableau de bord.
     legacy_signed_vam_ids = (
@@ -6915,6 +6938,9 @@ def ui_runner_profile(
 
     runner_analytics = {
         "coverage_hours": round(coverage_seconds / 3600, 1),
+        "training_hours": archived_training_summary["duration_hours"],
+        "activities_count": archived_training_summary["activities_count"],
+        "coverage_pct": round(min(100, coverage_seconds / (archived_training_summary["duration_hours"] * 3600) * 100)) if archived_training_summary["duration_hours"] > 0 else None,
         "confidence": confidence,
         "endurance_pace": _pace_label(endurance_pace),
         "endurance_hours": round(endurance_seconds / 3600, 1),
@@ -6953,6 +6979,7 @@ def ui_runner_profile(
             "distance_projections": distance_projections,
             "cardiac_drift_history": cardiac_drift_history,
             "runner_analytics": runner_analytics,
+            "archived_training_summary": archived_training_summary,
         },
     )
 

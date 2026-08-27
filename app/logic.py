@@ -61,6 +61,172 @@ def _safe_avg(val_sum: float | None, duration: float | None) -> float | None:
         return None
     return val_sum / duration
 
+
+def compute_terrain_adjusted_cardiac_drift(points, min_duration_sec: int = 2700) -> dict:
+    """Mesure la perte de rendement cardio entre le début et la fin à terrain comparable.
+
+    Sur le roulant, le rendement est la vitesse / FC. En montée, il s'agit de la
+    VAM / FC. Les pentes sont comparées par classes afin qu'une fin plus raide ne
+    soit pas interprétée comme une dérive cardiaque.
+    """
+    empty = {
+        "available": False,
+        "percent": None,
+        "label": "Non calculable",
+        "tone": "neutral",
+        "reason": "Il faut au moins 45 minutes et des portions de terrain comparables.",
+        "comparable_minutes": 0,
+        "confidence": "insuffisante",
+        "terrain_rows": [],
+    }
+
+    def value(point, name, default=None):
+        if isinstance(point, dict):
+            return point.get(name, default)
+        return getattr(point, name, default)
+
+    def number(raw):
+        try:
+            parsed = float(raw)
+            return parsed if math.isfinite(parsed) else None
+        except (TypeError, ValueError):
+            return None
+
+    usable = []
+    for point in points or []:
+        elapsed = number(value(point, "elapsed_time"))
+        if elapsed is not None:
+            usable.append((elapsed, point))
+    usable.sort(key=lambda item: item[0])
+    if len(usable) < 3:
+        return empty
+
+    start_t, end_t = usable[0][0], usable[-1][0]
+    duration = end_t - start_t
+    if duration < min_duration_sec:
+        result = dict(empty)
+        result["reason"] = f"Sortie trop courte ({int(duration // 60)} min) : minimum 45 minutes."
+        return result
+
+    # On écarte échauffement, pauses de départ et retour au calme.
+    early_bounds = (start_t + duration * 0.15, start_t + duration * 0.48)
+    late_bounds = (start_t + duration * 0.57, start_t + duration * 0.90)
+    bins = [
+        ("steep_descent", "Descente > 10 %", -999.0, -10.0),
+        ("descent", "Descente 3–10 %", -10.0, -3.0),
+        ("rolling", "Roulant ±3 %", -3.0, 3.0),
+        ("climb", "Montée 3–10 %", 3.0, 10.0),
+        ("steep_climb", "Montée > 10 %", 10.0, 999.0),
+    ]
+    samples = {key: {"early": [], "late": []} for key, *_ in bins}
+
+    for (t0, previous), (t1, current) in zip(usable, usable[1:]):
+        dt_sec = t1 - t0
+        if dt_sec <= 0 or dt_sec > 30 or value(current, "moving", True) is False:
+            continue
+        d0, d1 = number(value(previous, "distance")), number(value(current, "distance"))
+        h0, h1 = number(value(previous, "heartrate")), number(value(current, "heartrate"))
+        if None in (d0, d1, h0, h1) or d1 <= d0:
+            continue
+        hr = (h0 + h1) / 2.0
+        if not 50 <= hr <= 230:
+            continue
+        distance_delta = d1 - d0
+        alt0, alt1 = number(value(previous, "altitude")), number(value(current, "altitude"))
+        slope0 = number(value(previous, "slope_percent"))
+        slope1 = number(value(current, "slope_percent"))
+        if slope0 is None:
+            slope0 = number(value(previous, "grade"))
+        if slope1 is None:
+            slope1 = number(value(current, "grade"))
+        if slope0 is not None and slope1 is not None:
+            slope = (slope0 + slope1) / 2.0
+        elif alt0 is not None and alt1 is not None:
+            slope = (alt1 - alt0) / distance_delta * 100.0
+        else:
+            continue
+        slope = max(-60.0, min(60.0, slope))
+        midpoint = (t0 + t1) / 2.0
+        phase = "early" if early_bounds[0] <= midpoint <= early_bounds[1] else (
+            "late" if late_bounds[0] <= midpoint <= late_bounds[1] else None
+        )
+        if phase is None:
+            continue
+        bin_key = next((key for key, _label, low, high in bins if low <= slope < high), None)
+        if bin_key is None:
+            continue
+        if slope >= 3.0:
+            vam = number(value(current, "vertical_speed_m_per_h"))
+            if vam is None or vam <= 0:
+                vam = ((alt1 - alt0) * 3600.0 / dt_sec) if alt0 is not None and alt1 is not None else None
+            output = vam
+        else:
+            output = distance_delta * 3600.0 / dt_sec
+        if output is None or output <= 0:
+            continue
+        samples[bin_key][phase].append((output, hr, dt_sec))
+
+    rows = []
+    weighted_drift = weighted_early_hr = weighted_late_hr = total_weight = 0.0
+    labels = {key: label for key, label, _low, _high in bins}
+    for key, phases in samples.items():
+        early_duration = sum(row[2] for row in phases["early"])
+        late_duration = sum(row[2] for row in phases["late"])
+        if min(early_duration, late_duration) < 90:
+            continue
+
+        def weighted_average(index, rows_, duration_):
+            return sum(row[index] * row[2] for row in rows_) / duration_
+
+        early_output = weighted_average(0, phases["early"], early_duration)
+        late_output = weighted_average(0, phases["late"], late_duration)
+        # Un changement d'intensité trop important n'est pas une dérive comparable.
+        output_ratio = late_output / early_output if early_output else 0
+        if not 0.75 <= output_ratio <= 1.25:
+            continue
+        early_hr = weighted_average(1, phases["early"], early_duration)
+        late_hr = weighted_average(1, phases["late"], late_duration)
+        early_efficiency = early_output / early_hr
+        late_efficiency = late_output / late_hr
+        drift = (early_efficiency - late_efficiency) / early_efficiency * 100.0
+        weight = min(early_duration, late_duration)
+        total_weight += weight
+        weighted_drift += drift * weight
+        weighted_early_hr += early_hr * weight
+        weighted_late_hr += late_hr * weight
+        rows.append({"key": key, "label": labels[key], "percent": round(drift, 1), "minutes": round(weight / 60)})
+
+    if total_weight < 300:
+        result = dict(empty)
+        result["comparable_minutes"] = round(total_weight / 60)
+        result["reason"] = "Pas assez de temps à pente et intensité comparables entre le début et la fin."
+        return result
+
+    drift = weighted_drift / total_weight
+    if drift < 0:
+        label, tone = "Rendement en hausse", "positive"
+    elif drift < 3:
+        label, tone = "Très stable", "positive"
+    elif drift < 5:
+        label, tone = "Dérive modérée", "warning"
+    elif drift < 8:
+        label, tone = "Dérive marquée", "warning"
+    else:
+        label, tone = "Dérive importante", "danger"
+    comparable_minutes = round(total_weight / 60)
+    return {
+        "available": True,
+        "percent": round(drift, 1),
+        "label": label,
+        "tone": tone,
+        "reason": "Rendement vitesse/FC sur le roulant et VAM/FC en montée, à pente comparable.",
+        "comparable_minutes": comparable_minutes,
+        "confidence": "bonne" if comparable_minutes >= 15 and len(rows) >= 2 else "indicative",
+        "early_hr": round(weighted_early_hr / total_weight),
+        "late_hr": round(weighted_late_hr / total_weight),
+        "terrain_rows": rows,
+    }
+
 # Zones cardio en % de FC max
 HR_ZONES = [
     ("Zone 1", 0.10, 0.60),
@@ -1124,6 +1290,58 @@ def compute_vertical_speed_series(
     return out
 
 
+def backfill_signed_vertical_speed_for_activity(
+    db: Session,
+    activity: models.Activity,
+) -> int:
+    """Reconstruit et persiste la vitesse verticale signée des anciens streams.
+
+    Le calcul principal utilise une fenêtre glissante sur l'altitude. Pour les
+    rares points où la fenêtre n'est pas exploitable, vitesse × pente fournit
+    un repli signé cohérent. Les valeurs positives existantes sont conservées,
+    sauf lorsqu'elles sont incompatibles avec une pente franchement négative.
+    """
+    points = (
+        db.query(models.ActivityStreamPoint)
+        .filter(models.ActivityStreamPoint.activity_id == activity.id)
+        .order_by(models.ActivityStreamPoint.idx.asc())
+        .all()
+    )
+    if len(points) < 3:
+        return 0
+    signed_series = compute_vertical_speed_series(
+        [float(point.elapsed_time) if point.elapsed_time is not None else None for point in points],
+        [float(point.altitude) if point.altitude is not None else None for point in points],
+        window_pts=5,
+        min_dt=10.0,
+        only_ascent=False,
+        clamp_abs_mph=4000.0,
+    )
+    updated = 0
+    for index, point in enumerate(points):
+        slope = float(point.slope_percent) if point.slope_percent is not None else None
+        existing = point.vertical_speed_m_per_h
+        needs_signed_descent = slope is not None and slope < -1.0 and (existing is None or existing >= 0)
+        if existing is not None and not needs_signed_descent:
+            continue
+        signed = signed_series[index] if index < len(signed_series) else None
+        if signed is None and slope is not None and point.velocity is not None:
+            signed = float(point.velocity) * slope * 36.0
+        if signed is None:
+            continue
+        # La classe de pente reste l'arbitre du signe en cas de bruit d'altitude local.
+        if slope is not None and slope < -1.0:
+            signed = -abs(signed)
+        elif slope is not None and slope > 1.0:
+            signed = abs(signed)
+        if abs(signed) <= 4000.0:
+            point.vertical_speed_m_per_h = signed
+            updated += 1
+    if updated:
+        db.flush()
+    return updated
+
+
 # Centre représentatif de chaque bande négative, utilisé uniquement quand les
 # archives anciennes ne contiennent pas de vitesse verticale descendante.
 _NEGATIVE_SLOPE_BAND_CENTERS = {
@@ -1602,6 +1820,15 @@ def compute_and_store_zone_slope_aggs(db: Session, activity: models.Activity, us
     )
     if not points:
         return
+
+    # Rend les archives compatibles avec la VAM signée avant l'agrégation.
+    if any(
+        point.slope_percent is not None
+        and point.slope_percent < -1
+        and (point.vertical_speed_m_per_h is None or point.vertical_speed_m_per_h >= 0)
+        for point in points
+    ):
+        backfill_signed_vertical_speed_for_activity(db, activity)
 
     # 🎯 NOUVELLES BANDES : NEGATIVES + POSITIVES (symétriques)
     slope_bands = [

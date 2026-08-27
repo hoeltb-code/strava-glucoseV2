@@ -434,6 +434,14 @@
   .runner-data-kpi-value { display:block; margin-top:10px; color:var(--runner-ink); font-size:clamp(1.2rem,2.2vw,1.7rem); font-weight:800; letter-spacing:-.04em; }
   .runner-data-kpi-note { display:block; margin-top:4px; color:var(--text-muted); font-size:.68rem; }
   .runner-data-kpi:first-child { box-shadow:inset 0 4px var(--runner-orange); }.runner-data-kpi:nth-child(2){box-shadow:inset 0 4px #3487a3}.runner-data-kpi:nth-child(3){box-shadow:inset 0 4px var(--runner-green)}.runner-data-kpi:nth-child(4){box-shadow:inset 0 4px #e0a52d}
+  .drift-history { display:grid; grid-template-columns:230px 1fr; gap:28px; margin:16px 0; padding:24px; border:1px solid var(--runner-panel-border); border-radius:18px; background:#fff; box-shadow:inset 5px 0 var(--runner-orange); }
+  .drift-history h3 { margin:5px 0 6px; font-size:1.15rem; }
+  .drift-history-value { display:block; margin:12px 0 2px; font-size:2.2rem; font-weight:800; letter-spacing:-.06em; }
+  .drift-history-note { color:var(--text-muted); font-size:.72rem; line-height:1.5; }
+  .drift-history-list { display:grid; gap:9px; }
+  .drift-history-row { display:grid; grid-template-columns:minmax(120px,1fr) minmax(100px,2fr) 55px; gap:12px; align-items:center; font-size:.72rem; }
+  .drift-history-track { height:8px; border-radius:8px; background:#eeeae2; overflow:hidden; }
+  .drift-history-bar { display:block; height:100%; min-width:3px; border-radius:8px; background:linear-gradient(90deg,#6d8d57,#e0a52d,#d94327); }
   .runner-layout { grid-template-columns:230px minmax(0,1fr); gap:16px; }
   .runner-sidebar { padding:10px!important; border-radius:18px; box-shadow:none; }
   .runner-sidebar-title { padding:8px 10px 10px; color:var(--text-muted); font-size:.64rem; }
@@ -484,6 +492,7 @@
     .runner-page { margin:0 -12px; }.runner-intro { grid-template-columns:1fr; min-height:0; padding:34px 20px 58px; border-left:0; border-right:0; border-radius:0; }
     .runner-intro::after { left:20px; }.runner-intro h2 { font-size:clamp(2.45rem,13vw,4rem); }.runner-filter-form { width:100%; box-sizing:border-box; }
     .runner-data-strip { grid-template-columns:1fr 1fr; margin:14px 12px; }.runner-data-kpi { min-height:94px; padding:14px; }
+    .drift-history { grid-template-columns:1fr; margin:14px 12px; padding:18px; }.drift-history-row { grid-template-columns:minmax(95px,1fr) minmax(75px,1.4fr) 48px; gap:8px; }
     .runner-sidebar { margin:0 12px 14px; }.runner-layout main { padding:0 12px; }.glucose-now,.glucose-periods { grid-template-columns:1fr; }.glucose-now-card.is-current { grid-column:auto; }
     .effort-glucose-head { display:block; }.effort-glucose-scale { margin-top:12px; }.effort-glucose-list { grid-template-columns:1fr; }
   }
@@ -569,6 +578,35 @@
   <article class="runner-data-kpi"><span class="runner-data-kpi-label">Cardio × terrain</span><strong class="runner-data-kpi-value">{{ profile.zones|length if profile.zones else 0 }} zones</strong><span class="runner-data-kpi-note">allure, VAM et cadence par pente</span></article>
   <article class="runner-data-kpi"><span class="runner-data-kpi-label">Projections</span><strong class="runner-data-kpi-value">{{ available_projections|length }}</strong><span class="runner-data-kpi-note">chronos route exploitables</span></article>
   <article class="runner-data-kpi"><span class="runner-data-kpi-label">{% if show_glucose_tabs %}Glycémie · 24 h{% else %}Plus forte montée{% endif %}</span><strong class="runner-data-kpi-value">{% if show_glucose_tabs and glucose_dashboard_metrics.has_data %}{{ glucose_dashboard_metrics.time_in_range_pct }} %{% elif best_dplus_windows and best_dplus_windows[0].gain_m %}+{{ best_dplus_windows[0].gain_m|round|int }} m{% else %}—{% endif %}</strong><span class="runner-data-kpi-note">{% if show_glucose_tabs %}temps dans la cible{% else %}meilleure fenêtre analysée{% endif %}</span></article>
+</section>
+
+<section class="drift-history" aria-label="Historique de dérive cardiaque">
+  <div>
+    <span class="runner-data-kpi-label">Cardio · rendement</span>
+    <h3>Dérive ajustée au terrain</h3>
+    {% if cardiac_drift_history.available %}
+      <strong class="drift-history-value">{{ '%+.1f'|format(cardiac_drift_history.average) }} %</strong>
+      <span class="runner-data-kpi-note">moyenne récente · {{ cardiac_drift_history.trend }}</span>
+      <p class="drift-history-note">{{ cardiac_drift_history.stable_pct }} % des sorties sous 5 % de dérive.</p>
+    {% else %}
+      <strong class="drift-history-value">—</strong>
+      <p class="drift-history-note">Aucune sortie suffisamment comparable pour le moment.</p>
+    {% endif %}
+  </div>
+  <div>
+    {% if cardiac_drift_history.available %}
+      <div class="drift-history-list">
+        {% for row in cardiac_drift_history.rows[:6] %}
+          <a class="drift-history-row" href="/ui/user/{{ user.id }}/activity/{{ row.activity_id }}">
+            <span>{{ row.date.strftime('%d/%m/%Y') if row.date else '—' }}</span>
+            <span class="drift-history-track"><i class="drift-history-bar" style="width:{{ [[row.percent|abs * 8, 3]|max, 100]|min }}%"></i></span>
+            <strong>{{ '%+.1f'|format(row.percent) }} %</strong>
+          </a>
+        {% endfor %}
+      </div>
+    {% endif %}
+    <p class="drift-history-note">Sorties ≥ 45 min. Comparaison à pente et intensité similaires : vitesse/FC sur le roulant, VAM/FC en montée.</p>
+  </div>
 </section>
 
 <!-- ╔══════════════════════════════╗ -->

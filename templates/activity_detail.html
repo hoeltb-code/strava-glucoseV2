@@ -30,6 +30,15 @@
   .activity-stats-grid > div:nth-child(n)::after { background:var(--accent); }
   .tile-k { color:var(--text-muted); font-family:"DM Mono",monospace; font-size:.66rem; font-weight:700; letter-spacing:.10em; text-transform:uppercase; }
   .tile-v { margin-top:3px; color:var(--text-main); font-family:"DM Mono",monospace; font-size:1.05rem; font-weight:700; text-shadow:none; }
+  .cardiac-drift-card { display:grid; grid-template-columns:180px 1fr auto; gap:22px; align-items:center; margin:16px 0; padding:20px 22px; border:1px solid var(--activity-border); border-radius:18px; background:#fff; }
+  .cardiac-drift-card[data-tone="positive"] { box-shadow:inset 5px 0 #6d8d57; }
+  .cardiac-drift-card[data-tone="warning"] { box-shadow:inset 5px 0 #e0a52d; }
+  .cardiac-drift-card[data-tone="danger"] { box-shadow:inset 5px 0 #d94327; }
+  .cardiac-drift-card[data-tone="neutral"] { box-shadow:inset 5px 0 #c8c2b7; }
+  .cardiac-drift-value { display:block; margin-top:5px; font-size:2rem; font-weight:800; letter-spacing:-.06em; }
+  .cardiac-drift-copy strong { display:block; margin-bottom:4px; font-size:1rem; }
+  .cardiac-drift-copy p,.cardiac-drift-meta { margin:0; color:var(--text-muted); font-size:.76rem; line-height:1.5; }
+  .cardiac-drift-meta { text-align:right; }
   .activity-layout {
     display:grid;
     grid-template-columns:210px minmax(0,1fr);
@@ -376,6 +385,7 @@
   .activity-sidebar{position:sticky;top:84px;padding:10px;border-radius:17px;box-shadow:none}.activity-tab-link{margin:0 0 4px;padding:11px 12px;font-size:.78rem;font-weight:700}.activity-tab-link.is-active{border-color:var(--detail-orange);background:linear-gradient(100deg,#ff713f,#d94327);color:#fff;box-shadow:none}
   .activity-tab>.card,.activity-section-panel,.activity-inline-panel{border-radius:17px!important;box-shadow:none!important}.activity-tab h2,.activity-tab h3{letter-spacing:-.03em}
   @media(max-width:720px){.activity-page{margin:0 -12px}.activity-header{align-items:flex-start!important;padding:24px 20px 18px!important}.activity-header h1{font-size:clamp(2rem,10vw,3rem)}.activity-header-actions{width:auto;justify-content:flex-end;gap:8px}.activity-story-button{min-height:38px;padding:8px 13px}.activity-delete-button{padding:7px 2px}.activity-summary-hero{min-height:0;padding:28px 20px!important;border-right:0;border-left:0;border-radius:0}.activity-summary-hero h2{font-size:clamp(2rem,10vw,3.2rem)!important}.activity-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.activity-layout{display:block}.activity-sidebar{display:none!important}.activity-tab,.activity-tab.is-active{display:block!important;margin:0 12px 14px}}
+  @media(max-width:720px){.cardiac-drift-card{grid-template-columns:1fr;margin:14px 12px;padding:18px;gap:10px}.cardiac-drift-meta{text-align:left}}
   @media(max-width:480px){.activity-header{display:block!important}.activity-header-actions{margin-top:17px;justify-content:flex-start}}
 </style>
 {% endblock %}
@@ -424,6 +434,24 @@
 
   </div>
 </div>
+
+<section class="cardiac-drift-card" data-tone="{{ cardiac_drift.tone }}" aria-label="Dérive cardiaque ajustée au terrain">
+  <div>
+    <span class="tile-k">Dérive cardiaque</span>
+    <strong class="cardiac-drift-value">{% if cardiac_drift.available %}{{ '%+.1f'|format(cardiac_drift.percent) }} %{% else %}—{% endif %}</strong>
+  </div>
+  <div class="cardiac-drift-copy">
+    <strong>{{ cardiac_drift.label }}</strong>
+    <p>{{ cardiac_drift.reason }}</p>
+  </div>
+  <div class="cardiac-drift-meta">
+    {% if cardiac_drift.available %}
+      {{ cardiac_drift.comparable_minutes }} min comparées<br>Confiance {{ cardiac_drift.confidence }}
+    {% else %}
+      Seuil : 45 min<br>Terrain comparable requis
+    {% endif %}
+  </div>
+</section>
 
 <!-- ╔══════════════════════════════╗ -->
 <!--      🏃 Informations activité    -->

@@ -155,6 +155,8 @@ from .logic import (
     canonicalize_sport_label,
     normalize_activity_type,
     compute_km_highlights_from_streams,
+    compute_terrain_adjusted_cardiac_drift,
+    backfill_signed_vertical_speed_for_activity,
     purge_old_user_activities,
     purge_old_activities_for_all_users,
     delete_activity_live_data,
@@ -6227,6 +6229,42 @@ def ui_runner_profile(
         date_from = now_utc - dt.timedelta(days=days_window)
         # date_to reste None => jusqu’à maintenant
 
+    # Migration progressive des anciennes activités : six sorties sont
+    # corrigées à chaque ouverture, sans bloquer longtemps le tableau de bord.
+    legacy_signed_vam_ids = (
+        db.query(models.Activity.id)
+        .join(
+            models.ActivityStreamPoint,
+            models.ActivityStreamPoint.activity_id == models.Activity.id,
+        )
+        .filter(models.Activity.user_id == user_id)
+        .filter(sport_column_condition(models.Activity.sport, sport))
+        .filter(models.ActivityStreamPoint.slope_percent < -1)
+        .filter(models.ActivityStreamPoint.velocity.isnot(None))
+        .filter(
+            (models.ActivityStreamPoint.vertical_speed_m_per_h.is_(None))
+            | (models.ActivityStreamPoint.vertical_speed_m_per_h >= 0)
+        )
+        .distinct()
+        .limit(6)
+        .all()
+    )
+    for (legacy_activity_id,) in legacy_signed_vam_ids:
+        legacy_activity = db.query(models.Activity).get(legacy_activity_id)
+        if legacy_activity is None:
+            continue
+        try:
+            updated_points = backfill_signed_vertical_speed_for_activity(db, legacy_activity)
+            if updated_points:
+                compute_and_store_zone_slope_aggs(db, legacy_activity, user_id)
+                update_runner_profile_monthly_from_activity(db=db, activity=legacy_activity)
+        except Exception:
+            db.rollback()
+            logger.exception(
+                "[RUNNER_PROFILE][signed_vam_backfill] activity_id=%s",
+                legacy_activity_id,
+            )
+
     # 3) Profil coureur (zones × pente)
     profile_start = time.perf_counter()
     profile = get_cached_runner_profile(
@@ -6739,6 +6777,52 @@ def ui_runner_profile(
     )
     distance_projections = compute_distance_projections(series_matrix, distance_efforts)
 
+    drift_activities = (
+        db.query(models.Activity)
+        .filter(models.Activity.user_id == user_id)
+        .filter(models.Activity.elapsed_time >= 2700)
+        .filter(sport_column_condition(models.Activity.sport, sport))
+        .order_by(models.Activity.start_date.desc())
+        .limit(24)
+        .all()
+    )
+    cardiac_drift_rows = []
+    for drift_activity in drift_activities:
+        drift_points = (
+            db.query(models.ActivityStreamPoint)
+            .filter(models.ActivityStreamPoint.activity_id == drift_activity.id)
+            .order_by(models.ActivityStreamPoint.idx.asc())
+            .all()
+        )
+        drift_metric = compute_terrain_adjusted_cardiac_drift(drift_points)
+        if drift_metric.get("available"):
+            cardiac_drift_rows.append({
+                "activity_id": drift_activity.id,
+                "name": drift_activity.name or "Sortie sans nom",
+                "date": drift_activity.start_date,
+                **drift_metric,
+            })
+
+    cardiac_drift_history = {"available": False, "rows": [], "count": 0}
+    if cardiac_drift_rows:
+        recent_rows = cardiac_drift_rows[:10]
+        average = sum(row["percent"] for row in recent_rows) / len(recent_rows)
+        stable_count = sum(1 for row in recent_rows if row["percent"] < 5)
+        trend = None
+        if len(recent_rows) >= 6:
+            newest = sum(row["percent"] for row in recent_rows[:3]) / 3
+            older = sum(row["percent"] for row in recent_rows[3:6]) / 3
+            delta = newest - older
+            trend = "En amélioration" if delta < -1 else ("À surveiller" if delta > 1 else "Stable")
+        cardiac_drift_history = {
+            "available": True,
+            "rows": recent_rows,
+            "count": len(cardiac_drift_rows),
+            "average": round(average, 1),
+            "stable_pct": round(stable_count / len(recent_rows) * 100),
+            "trend": trend or "Première tendance",
+        }
+
     # Le profil est aussi injecté dans un graphique JavaScript avec `tojson`.
     # Les filtres de période ajoutent des datetime Python dans `profile.period`,
     # qui ne sont pas sérialisables directement par Jinja.
@@ -6773,6 +6857,7 @@ def ui_runner_profile(
             "series_matrix": series_matrix,
             "volume_weekly_summary": volume_weekly_summary,
             "distance_projections": distance_projections,
+            "cardiac_drift_history": cardiac_drift_history,
         },
     )
 
@@ -9423,6 +9508,7 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
             .all()
         )
         has_streams = len(points) > 1
+        cardiac_drift = compute_terrain_adjusted_cardiac_drift(points)
 
         hr_zones = ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"]
 
@@ -10616,6 +10702,7 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
             "split_km_options": split_km_options,
             "splits_rows": splits_rows,
             "is_running_activity": is_running_activity,
+            "cardiac_drift": cardiac_drift,
 
         }
     )

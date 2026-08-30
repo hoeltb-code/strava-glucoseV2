@@ -544,6 +544,91 @@
   .drift-runs { display:grid; gap:8px; margin-top:14px; }.drift-run { display:grid; grid-template-columns:85px minmax(120px,1fr) 100px 60px; gap:12px; align-items:center; padding:11px 12px; border:1px solid #e5e0d7; border-radius:12px; color:var(--data-ink)!important; background:#fff; font-size:.72rem; text-decoration:none; }.drift-run:hover{background:#fff7f3}.drift-run-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.drift-run-status{padding:4px 7px;border-radius:999px;text-align:center;background:#f1eee8;font-size:.62rem;font-weight:700}.drift-run-value{text-align:right;font-weight:800;font-variant-numeric:tabular-nums}
   @media(max-width:1180px){.runner-data-strip{grid-template-columns:repeat(3,1fr)}.analytics-list{grid-template-columns:1fr}}
   @media(max-width:700px){.runner-data-strip{grid-template-columns:1fr 1fr}.runner-data-kpi{min-height:112px}.analytics-panel{grid-template-columns:1fr;margin:14px 12px;padding:18px}.runner-section{padding:18px!important}.pace-curve-canvas{height:270px}.drift-hero{grid-template-columns:1fr;padding:18px}.drift-thresholds{grid-template-columns:1fr}.drift-run{grid-template-columns:68px 1fr 55px}.drift-run-status{display:none}}
+
+  /* Résumé lisible : une carte = une idée, puis tous les détails en continu. */
+  .runner-page { max-width:1120px; margin:0 auto; }
+  .runner-intro {
+    min-height:0;
+    padding:32px;
+    background:#fff;
+    border-radius:24px;
+    box-shadow:none;
+  }
+  .runner-intro::before,.runner-intro::after { display:none; }
+  .runner-intro h2 { max-width:none; font-size:clamp(2rem,4vw,3.4rem); text-transform:none; }
+  .runner-eyebrow { padding:0; clip-path:none; background:none; color:var(--data-orange); }
+  .runner-data-strip { gap:12px; border:0; background:transparent; overflow:visible; }
+  .runner-data-kpi {
+    position:relative;
+    min-height:138px;
+    padding:20px 18px 30px;
+    border:1px solid #e7e3dc;
+    border-radius:18px;
+    box-shadow:none!important;
+    overflow:hidden;
+  }
+  .runner-data-kpi::after {
+    content:"";
+    position:absolute;
+    left:18px;
+    bottom:15px;
+    width:36px;
+    height:5px;
+    border-radius:99px;
+    background:var(--visual-color,var(--data-orange));
+  }
+  .runner-data-kpi:nth-child(2){--visual-color:#347f96}.runner-data-kpi:nth-child(3){--visual-color:#54784f}.runner-data-kpi:nth-child(4){--visual-color:#bd7a21}.runner-data-kpi:nth-child(5){--visual-color:#7962a8}.runner-data-kpi:nth-child(6){--visual-color:#347f96}
+  .runner-data-kpi-value { font-size:clamp(1.55rem,2.5vw,2.15rem); }
+  .analytics-panel,.runner-section,.drift-history { box-shadow:none; }
+
+  @media(max-width:900px){
+    body:has(.runner-page) { padding-top:0!important; padding-bottom:24px!important; background:#f3f2f6; }
+    body:has(.runner-page) > header,
+    body:has(.runner-page) .mobile-bottom-nav { display:none!important; }
+    body:has(.runner-page) > .container { width:100%; padding:0 0 24px; }
+    body:has(.runner-page) .site-footer { display:none; }
+    .runner-page { width:100%; }
+    .runner-intro {
+      display:block;
+      margin:0;
+      padding:26px 20px 20px;
+      border:0;
+      border-bottom:1px solid #dedce3;
+      border-radius:0;
+      background:rgba(243,242,246,.96);
+    }
+    .runner-intro h2 { margin-bottom:9px; font-size:2rem; text-align:center; }
+    .runner-intro p { font-size:.9rem; }
+    .runner-eyebrow { display:block; margin-bottom:8px; text-align:center; }
+    .runner-filter-form { margin-top:18px; padding:13px 15px; border:0; border-radius:18px; box-shadow:none; }
+    .runner-data-strip { display:grid; grid-template-columns:1fr; gap:12px; margin:14px 12px; }
+    .runner-data-kpi { min-height:116px; padding:18px 18px 30px; border:0; border-radius:24px; }
+    .runner-data-kpi-label { color:var(--data-orange); font-size:.7rem; }
+    .runner-data-kpi-value { margin-top:9px; font-size:2rem; }
+    .runner-data-kpi-note { font-size:.76rem; }
+    .analytics-panel { display:block; margin:18px 12px; padding:22px 18px; border:0; border-radius:24px; }
+    .analytics-panel h3 { font-size:1.45rem; }
+    .analytics-list { display:grid; grid-template-columns:1fr; margin-top:18px; }
+    .analytics-item { min-height:0; padding:16px; border:0; border-radius:16px; background:#f5f3ef; }
+    .runner-layout { display:block; }
+    .runner-sidebar { display:none!important; }
+    .runner-layout main { padding:0 12px; }
+    .runner-section {
+      display:block!important;
+      margin:14px 0!important;
+      padding:20px 18px!important;
+      border:0!important;
+      border-radius:24px!important;
+      background:#fff!important;
+      box-shadow:none!important;
+    }
+    .runner-section::before { display:none; }
+    .runner-section h3 { padding:0; font-size:1.35rem!important; }
+    .runner-section p,.runner-section .muted { font-size:.82rem!important; }
+    .pace-curve-card,.drift-hero,.drift-history,.glucose-chart-card,.glucose-now-card,.glucose-period { border-radius:17px!important; box-shadow:none!important; }
+    .pace-curve-canvas { height:235px; }
+    .runner-table-scroll { margin-left:-2px; margin-right:-2px; }
+  }
 </style>
 {% set needs_chart_js = (profile.zones and profile.zones|length > 0) or (show_glucose_tabs and (
   (glucose_chart_24h and glucose_chart_24h|length > 1)

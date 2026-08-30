@@ -243,7 +243,8 @@
   .glucose-elevation-card p { margin:0 0 12px; }
   .glucose-elevation-canvas { display:block; width:100%; height:210px; }
   .glucose-elevation-legend { display:flex; align-items:center; gap:10px; margin-top:7px; color:var(--activity-text-muted); font-size:.68rem; }
-  .glucose-elevation-gradient { flex:1; height:7px; border-radius:99px; background:linear-gradient(90deg,#7f1d1d 0%,#ef4444 18%,#22c55e 42%,#70a84f 65%,#facc15 82%,#f59e0b 100%); }
+  .glucose-elevation-bins { display:flex; flex:1; height:8px; overflow:hidden; border-radius:99px; }
+  .glucose-elevation-bins i { flex:1; min-width:8px; }
   .activity-legend-note {
     margin-top:10px;
     font-size:0.7rem;
@@ -1341,25 +1342,29 @@
       {% if has_activity_map %}
       <section class="glucose-elevation-card" aria-labelledby="glucose-elevation-title">
         <h3 id="glucose-elevation-title">Profil du parcours coloré par la glycémie</h3>
-        <p class="muted">La couleur du trait correspond à la glycémie mesurée au même moment sur le profil altimétrique.</p>
+        <p class="muted">Chaque bande verticale correspond à la glycémie mesurée au même moment, par paliers de 20 mg/dL environ, avec des seuils précis à 70 et 180 mg/dL.</p>
         <canvas id="glucoseElevationProfile" class="glucose-elevation-canvas" role="img" aria-label="Profil altimétrique dont la ligne varie du rouge au jaune selon la glycémie"></canvas>
-        <div class="glucose-elevation-legend" aria-label="Échelle des couleurs de glycémie"><span>&lt; 70</span><span class="glucose-elevation-gradient"></span><span>&gt; 180 mg/dL</span></div>
+        <div class="glucose-elevation-legend" aria-label="Échelle des couleurs de glycémie par tranches"><span>&lt;70</span><span class="glucose-elevation-bins" aria-hidden="true"><i style="background:#991b1b"></i><i style="background:#dc2626"></i><i style="background:#ea580c"></i><i style="background:#65a30d"></i><i style="background:#22a45d"></i><i style="background:#6f9f45"></i><i style="background:#d4ad28"></i><i style="background:#facc15"></i><i style="background:#f5b914"></i><i style="background:#eaa20e"></i></span><span>&gt;180 mg/dL</span></div>
       </section>
       <script>
         (() => {
           const points = {{ activity_map_js|safe }}.filter(point => Number.isFinite(Number(point.altitude_m)));
           const canvas = document.getElementById('glucoseElevationProfile');
           if (!canvas || points.length < 2) return;
-          const mix = (start, end, ratio) => start.map((value, index) => Math.round(value + (end[index] - value) * ratio));
-          const rgb = color => `rgb(${color.join(',')})`;
           const glucoseColor = rawValue => {
             const value = Number(rawValue);
             if (!Number.isFinite(value)) return '#aaa7a0';
-            if (value < 70) return rgb(mix([127,29,29], [239,68,68], Math.max(0, Math.min(1, (value - 40) / 30))));
-            if (value < 100) return rgb(mix([239,68,68], [34,197,94], (value - 70) / 30));
-            if (value < 140) return rgb(mix([34,197,94], [112,168,79], (value - 100) / 40));
-            if (value <= 180) return rgb(mix([112,168,79], [250,204,21], (value - 140) / 40));
-            return rgb(mix([250,204,21], [245,158,11], Math.max(0, Math.min(1, (value - 180) / 70))));
+            if (value < 50) return '#7f1d1d';
+            if (value < 70) return '#dc2626';
+            if (value < 90) return '#ea580c';
+            if (value < 110) return '#65a30d';
+            if (value < 130) return '#22a45d';
+            if (value < 150) return '#6f9f45';
+            if (value < 170) return '#d4ad28';
+            if (value < 180) return '#e6bd20';
+            if (value < 200) return '#facc15';
+            if (value < 220) return '#f5b914';
+            return '#eaa20e';
           };
           const draw = () => {
             const ratio = Math.min(window.devicePixelRatio || 1, 2);
@@ -1373,12 +1378,13 @@
             const minAltitude = Math.min(...altitudes), maxAltitude = Math.max(...altitudes), altitudeSpan = Math.max(1, maxAltitude - minAltitude);
             const minDistance = Math.min(...distances), maxDistance = Math.max(...distances), distanceSpan = Math.max(1e-6, maxDistance - minDistance);
             const coordinate = index => ({x:padding.left + (distances[index] - minDistance) / distanceSpan * (width - padding.left - padding.right), y:padding.top + (maxAltitude - altitudes[index]) / altitudeSpan * (height - padding.top - padding.bottom)});
-            context.beginPath(); const first = coordinate(0); context.moveTo(first.x, height - padding.bottom); context.lineTo(first.x, first.y);
-            for (let index=1; index<points.length; index++){const point=coordinate(index);context.lineTo(point.x,point.y)}
-            const last=coordinate(points.length-1); context.lineTo(last.x,height-padding.bottom); context.closePath();
-            const fill=context.createLinearGradient(0,padding.top,0,height);fill.addColorStop(0,'rgba(214,106,67,.16)');fill.addColorStop(1,'rgba(214,106,67,.02)');context.fillStyle=fill;context.fill();
-            context.lineWidth=3;context.lineCap='round';context.lineJoin='round';
-            for(let index=1;index<points.length;index++){const previous=coordinate(index-1),current=coordinate(index);context.beginPath();context.moveTo(previous.x,previous.y);context.lineTo(current.x,current.y);const a=points[index-1].glucose_mgdl,b=points[index].glucose_mgdl;context.strokeStyle=glucoseColor(a == null ? b : b == null ? a : (Number(a)+Number(b))/2);context.stroke()}
+            const baseline=height-padding.bottom;
+            for(let index=1;index<points.length;index++){
+              const previous=coordinate(index-1),current=coordinate(index),a=points[index-1].glucose_mgdl,b=points[index].glucose_mgdl;
+              const glucose=a == null ? b : b == null ? a : (Number(a)+Number(b))/2;
+              context.beginPath();context.moveTo(previous.x,baseline);context.lineTo(previous.x,previous.y);context.lineTo(current.x,current.y);context.lineTo(current.x,baseline);context.closePath();context.fillStyle=glucoseColor(glucose);context.globalAlpha=.82;context.fill();context.globalAlpha=1;
+            }
+            context.beginPath();const first=coordinate(0);context.moveTo(first.x,first.y);for(let index=1;index<points.length;index++){const current=coordinate(index);context.lineTo(current.x,current.y)}context.strokeStyle='rgba(55,52,47,.42)';context.lineWidth=1.25;context.lineJoin='round';context.stroke();
           };
           draw(); new ResizeObserver(draw).observe(canvas);
         })();

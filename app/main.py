@@ -5551,8 +5551,10 @@ def _seo_course_event(course: dict | None) -> dict | None:
 
 def _seo_event_courses(event_slug: str) -> list[dict]:
     courses = [
-        course for course in (_seo_course_payload(str(row["id"])) for row in _load_official_course_catalog())
-        if course and (event := _seo_course_event(course)) and event["slug"] == event_slug
+        course
+        for row in _load_official_course_catalog()
+        if (event := _seo_course_event(row)) and event["slug"] == event_slug
+        if (course := _seo_course_payload(str(row["id"])))
     ]
     courses.sort(key=lambda item: float(item.get("distance_km") or 0), reverse=True)
     return courses
@@ -5693,11 +5695,20 @@ def seo_guide_detail(request: Request, slug: str):
 
 @app.get("/courses", response_class=HTMLResponse)
 def seo_courses_index(request: Request):
-    courses = []
-    for item in _load_official_course_catalog():
-        course = _seo_course_payload(str(item["id"]))
-        if course:
-            courses.append(course)
+    # L'index n'a besoin que des métadonnées des fiches. Ne pas analyser ici
+    # chaque GPX : cela rendrait le clic vers /courses inutilement lent.
+    courses = [
+        {**item, "slug": _seo_course_slug(str(item["id"]))}
+        for item in _load_official_course_catalog()
+    ]
+    event_counts = {
+        event_slug: sum(
+            1
+            for course in courses
+            if (event := _seo_course_event(course)) and event["slug"] == event_slug
+        )
+        for event_slug in SEO_EVENT_REGISTRY
+    }
     return templates.TemplateResponse("seo_index.html", _seo_page_context(
         request,
         title="Courses trail : profils GPX, ravitos et plan de course",
@@ -5710,10 +5721,10 @@ def seo_courses_index(request: Request):
                 "name": f"{event['name']} {event['year']}",
                 "slug": event_slug,
                 "description": f"Toutes les courses : parcours GPX, ravitaillements, pacing, nutrition et plans de course.",
-                "count": len(_seo_event_courses(event_slug)),
+                "count": event_counts[event_slug],
             }
             for event_slug, event in SEO_EVENT_REGISTRY.items()
-            if _seo_event_courses(event_slug)
+            if event_counts[event_slug]
         ],
     ))
 

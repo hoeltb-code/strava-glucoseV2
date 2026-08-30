@@ -8,13 +8,13 @@
   .activity-page {
     --activity-surface: #ffffff;
     --activity-surface-strong: #ffffff;
-    --activity-surface-soft: #fff3ef;
+    --activity-surface-soft: #fff9ee;
     --activity-border: #dfdad0;
-    --activity-border-strong: #f0c9bc;
+    --activity-border-strong: rgba(248, 184, 88, 0.62);
     --activity-text: var(--text-main);
     --activity-text-muted: var(--text-muted);
     --activity-text-dim: var(--text-dim);
-    --activity-row-hover: #fff7f3;
+    --activity-row-hover: #fff9ee;
   }
   .activity-header-actions {
     display:flex;
@@ -172,13 +172,13 @@
   }
   .activity-tab-link:hover {
     color:var(--activity-text);
-    background:#fff7f3;
+    background:#fff9ee;
     border-color:var(--activity-border-strong);
     transform:translateY(-1px);
   }
   .activity-tab-link.is-active {
     color:var(--activity-text);
-    background:#fff0eb;
+    background:#fff9ee;
     border-color:var(--activity-border-strong);
     font-weight:700;
     box-shadow:inset 3px 0 var(--accent);
@@ -371,6 +371,24 @@
     }
   }
   .activity-map-3d { height:300px; border-radius:12px; overflow:hidden; background:linear-gradient(145deg,#dfe8df,#a8c0ad); }
+  .activity-page .maplibregl-ctrl-group {
+    overflow:hidden;
+    border:1px solid rgba(248,184,88,.72);
+    border-radius:11px;
+    background:#17243e;
+    box-shadow:0 6px 16px rgba(17,29,53,.22);
+  }
+  .activity-page .maplibregl-ctrl-group button {
+    width:32px;
+    height:32px;
+    border:0;
+    background-color:#17243e;
+  }
+  .activity-page .maplibregl-ctrl-group button + button { border-top:1px solid rgba(248,184,88,.34); }
+  .activity-page .maplibregl-ctrl-group button:hover { background-color:#26395d; }
+  .activity-page .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+    filter:invert(78%) sepia(73%) saturate(590%) hue-rotate(341deg) brightness(103%) contrast(95%);
+  }
   .activity-map-legend { display:flex; flex-wrap:wrap; gap:9px; margin:9px 0 0; color:var(--activity-text-muted); font-size:.72rem; }
   .activity-map-legend span { display:inline-flex; align-items:center; gap:5px; }
   .activity-map-legend i { width:10px; height:10px; border-radius:50%; display:inline-block; }
@@ -388,13 +406,13 @@
     }
   }
   /* Nouvelle enveloppe data, cohérente avec l'accueil et le profil coureur */
-  .activity-page{--detail-orange:#ff5a36;--detail-paper:#f7f4ee;--detail-ink:#272620}
+  .activity-page{--detail-orange:#f8b858;--detail-orange-dark:#b96b08;--detail-paper:#f7f4ee;--detail-ink:#111d35}
   .activity-header{position:relative;display:flex;align-items:flex-end!important;justify-content:space-between;padding:30px 4px 20px!important;border-bottom:1px solid var(--activity-border)!important}.activity-heading-kicker{display:block;margin-bottom:7px;color:var(--detail-orange);font:800 .66rem "DM Mono",monospace;letter-spacing:.1em;text-transform:uppercase}.activity-header h1{margin:0;font-size:clamp(2rem,4vw,3.3rem);font-weight:800;line-height:.95;letter-spacing:-.055em;text-transform:uppercase}
   .activity-header-actions form{margin:0}.activity-story-button,.activity-delete-button{min-height:40px;padding:9px 15px;font-size:.7rem;text-transform:uppercase;letter-spacing:.04em}.activity-story-button{border-radius:0;clip-path:polygon(7% 0,100% 0,93% 100%,0 100%)}.activity-delete-button{min-height:auto;padding:8px 4px;border:0;border-bottom:1px solid #c97869;border-radius:0;background:transparent;color:#a63d2e}
-  .activity-summary-hero{min-height:245px;padding:38px!important;border-radius:26px;background:linear-gradient(145deg,#fff 0 62%,#fff0e8)!important;box-shadow:0 18px 44px rgba(32,29,24,.08)}.activity-summary-hero:before{background:radial-gradient(circle at 90% 110%,rgba(255,90,54,.18),transparent 38%)}
+  .activity-summary-hero{min-height:245px;padding:38px!important;border-radius:26px;background:linear-gradient(145deg,#fff 0 62%,#fff8e9)!important;box-shadow:0 18px 44px rgba(32,29,24,.08)}.activity-summary-hero:before{background:radial-gradient(circle at 90% 110%,rgba(248,184,88,.22),transparent 38%)}
   .activity-summary-hero h2{max-width:16ch;margin:4px 0 10px!important;font-size:clamp(2rem,4vw,3.55rem)!important;font-weight:800!important;line-height:.98;letter-spacing:-.055em;text-transform:uppercase}.activity-summary-hero>a{font-size:.72rem;text-decoration:none!important}
   .activity-stats-grid{gap:1px;margin-top:23px;border:1px solid var(--activity-border);border-radius:15px;background:var(--activity-border);overflow:hidden}.activity-stats-grid>div{min-height:78px;border:0;border-radius:0;background:#fff}.activity-stats-grid>div:after{inset:0 0 auto;width:100%;height:3px}.tile-v{margin-top:8px;font-family:"Manrope",sans-serif;font-size:1rem;font-weight:800;letter-spacing:-.03em}
-  .activity-sidebar{position:sticky;top:84px;padding:10px;border-radius:17px;box-shadow:none}.activity-tab-link{margin:0 0 4px;padding:11px 12px;font-size:.78rem;font-weight:700}.activity-tab-link.is-active{border-color:var(--detail-orange);background:linear-gradient(100deg,#ff713f,#d94327);color:#fff;box-shadow:none}
+  .activity-sidebar{position:sticky;top:84px;padding:10px;border-radius:17px;box-shadow:none}.activity-tab-link{margin:0 0 4px;padding:11px 12px;font-size:.78rem;font-weight:700}.activity-tab-link.is-active{border-color:var(--detail-orange);background:linear-gradient(100deg,#ffc76b,#e5a13c);color:var(--detail-ink);box-shadow:none}
   .activity-tab>.card,.activity-section-panel,.activity-inline-panel{border-radius:17px!important;box-shadow:none!important}.activity-tab h2,.activity-tab h3{letter-spacing:-.03em}
   @media(max-width:720px){.activity-page{margin:0 -12px}.activity-header{align-items:flex-start!important;padding:24px 20px 18px!important}.activity-header h1{font-size:clamp(2rem,10vw,3rem)}.activity-header-actions{width:auto;justify-content:flex-end;gap:8px}.activity-story-button{min-height:38px;padding:8px 13px}.activity-delete-button{padding:7px 2px}.activity-summary-hero{min-height:0;padding:28px 20px!important;border-right:0;border-left:0;border-radius:0}.activity-summary-hero h2{font-size:clamp(2rem,10vw,3.2rem)!important}.activity-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.activity-layout{display:block}.activity-sidebar{display:none!important}.activity-tab,.activity-tab.is-active{display:block!important;margin:0 12px 14px}}
   @media(max-width:720px){.cardiac-drift-card{grid-template-columns:1fr;margin:14px 12px;padding:18px;gap:10px}.cardiac-drift-meta{text-align:left}}
@@ -403,10 +421,10 @@
   /* Analyse continue : même langage visuel que le profil coureur. */
   .activity-page{max-width:1120px;margin:0 auto}.activity-header h1{text-transform:none}.activity-summary-hero{min-height:0;padding:32px!important;border-radius:24px;background:#fff!important;box-shadow:none}.activity-summary-hero:before{display:none}.activity-summary-hero h2{max-width:none;text-transform:none!important}.activity-stats-grid{gap:12px;border:0;background:transparent;overflow:visible}.activity-stats-grid>div{min-height:82px;padding:15px;border:1px solid #e7e3dc;border-radius:16px}.activity-stats-grid>div:after{left:15px;top:auto;bottom:10px;width:34px;height:4px;border-radius:99px}.activity-tab>.card,.activity-section-panel,.activity-inline-panel{border-color:#e7e3dc!important}.activity-tab h2,.activity-tab h3{text-transform:none}
   @media(max-width:860px){
-    body:has(.activity-page){padding-bottom:24px!important;background:#f3f2f6}
+    body:has(.activity-page){padding-bottom:24px!important;background:#f5f3ee}
     body:has(.activity-page)>.container{width:100%;padding:0 0 24px}
     .activity-page{width:100%;margin:0}
-    .activity-header{display:flex!important;margin:0!important;padding:22px 18px 16px!important;border:0!important;background:#f3f2f6}.activity-heading-kicker{margin-bottom:5px}.activity-header h1{font-size:1.75rem!important;text-transform:none}
+    .activity-header{display:flex!important;margin:0!important;padding:22px 18px 16px!important;border:0!important;background:#f5f3ee}.activity-heading-kicker{margin-bottom:5px}.activity-header h1{font-size:1.75rem!important;text-transform:none}
     .activity-header-actions{width:auto}.activity-story-button{clip-path:none;border-radius:12px}.activity-delete-button{font-size:.68rem}
     .cardiac-drift-card{grid-template-columns:1fr;margin:0 12px 14px;padding:20px 18px;border:0;border-radius:24px;background:#fff;box-shadow:none!important}.cardiac-drift-value{font-size:2.4rem}.cardiac-drift-meta{text-align:left}
     .activity-summary-hero{margin:0 0 14px!important;padding:22px 18px!important;border:0!important;border-radius:0!important;background:#fff!important}.activity-summary-hero h2{font-size:1.8rem!important}

@@ -29,4 +29,39 @@
 
   <section class="cgm-card cgm-sources"><h2>Documentation officielle</h2><p><a href="https://www.dexcom.com/fr-FR/dexcom-one-plus" target="_blank" rel="noopener noreferrer">Présentation du Dexcom ONE+</a> · <a href="https://www.dexcom.com/fr-FR/faqs/qu-est-ce-que-l-application-dexcom-follow" target="_blank" rel="noopener noreferrer">Dexcom Follow et conditions de partage</a> · <a href="https://developers.strava.com/docs/webhooks/" target="_blank" rel="noopener noreferrer">Webhooks Strava</a> · <a href="https://developers.strava.com/docs/reference/" target="_blank" rel="noopener noreferrer">Flux d’activités Strava</a></p></section>
 </main>
+<script>
+(() => {
+  const charts = [
+    { match: "Profil altimétrique", x1: 45, x2: 875, top: 35, bottom: 185, x: ["0", "5", "10", "15", "20"], y: ["2 234", "2 000", "1 500", "1 000", "543"], unit: "Altitude (m)", width: 900 },
+    { match: "Cardio et zones", x1: 40, x2: 540, top: 30, bottom: 180, x: ["0", "5", "10", "15", "20"], y: ["164", "150", "130", "110", "95"], unit: "Cardio (bpm)", width: 560 },
+    { match: "Allure", x1: 40, x2: 540, top: 30, bottom: 180, x: ["0", "5", "10", "15", "20"], y: ["4:05", "6:30", "9:00", "11:30", "14:03"], unit: "Allure (min/km)", width: 560 },
+    { match: "VAM", x1: 40, x2: 540, top: 30, bottom: 180, x: ["0", "5", "10", "15", "20"], y: ["1 300", "1 050", "775", "500", "250"], unit: "VAM (m/h)", width: 560 },
+    { match: "Courbe glycémique", x1: 40, x2: 540, top: 30, bottom: 180, x: ["0", "5", "10", "15", "20"], y: ["240", "190", "140", "90", "40"], unit: "Glycémie (mg/dL)", width: 560 }
+  ];
+  const ns = "http://www.w3.org/2000/svg";
+  const add = (svg, name, attrs, text) => {
+    const node = document.createElementNS(ns, name);
+    Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, value));
+    if (text) node.textContent = text;
+    svg.appendChild(node);
+  };
+  charts.forEach((config) => {
+    const svg = [...document.querySelectorAll(".cgm-chart svg")].find((item) => (item.getAttribute("aria-label") || "").includes(config.match));
+    if (!svg) return;
+    const grid = svg.querySelector(".cgm-gridline");
+    if (grid) grid.remove();
+    svg.querySelectorAll("text").forEach((label) => label.remove());
+    for (let index = 0; index < 5; index += 1) {
+      const x = config.x1 + ((config.x2 - config.x1) * index / 4);
+      const y = config.top + ((config.bottom - config.top) * index / 4);
+      add(svg, "line", { x1: config.x1, y1: y, x2: config.x2, y2: y, stroke: "#e8e5de", "stroke-width": "1" });
+      add(svg, "line", { x1: x, y1: config.top, x2: x, y2: config.bottom, stroke: "#e8e5de", "stroke-width": "1" });
+      add(svg, "text", { x: config.x1 - 7, y: y + 3, fill: "#85857f", "font-size": "9", "text-anchor": "end" }, config.y[index]);
+      add(svg, "text", { x, y: config.bottom + 20, fill: "#85857f", "font-size": "9", "text-anchor": "middle" }, config.x[index]);
+    }
+    add(svg, "text", { x: (config.x1 + config.x2) / 2, y: config.bottom + 36, fill: "#666862", "font-size": "10", "font-weight": "700", "text-anchor": "middle" }, "Distance (km)");
+    add(svg, "text", { x: 9, y: (config.top + config.bottom) / 2, fill: "#666862", "font-size": "9", "font-weight": "700", "text-anchor": "middle", transform: `rotate(-90 9 ${(config.top + config.bottom) / 2})` }, config.unit);
+  });
+})();
+</script>
 {% endblock %}

@@ -387,6 +387,27 @@
   @media(max-width:720px){.activity-page{margin:0 -12px}.activity-header{align-items:flex-start!important;padding:24px 20px 18px!important}.activity-header h1{font-size:clamp(2rem,10vw,3rem)}.activity-header-actions{width:auto;justify-content:flex-end;gap:8px}.activity-story-button{min-height:38px;padding:8px 13px}.activity-delete-button{padding:7px 2px}.activity-summary-hero{min-height:0;padding:28px 20px!important;border-right:0;border-left:0;border-radius:0}.activity-summary-hero h2{font-size:clamp(2rem,10vw,3.2rem)!important}.activity-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.activity-layout{display:block}.activity-sidebar{display:none!important}.activity-tab,.activity-tab.is-active{display:block!important;margin:0 12px 14px}}
   @media(max-width:720px){.cardiac-drift-card{grid-template-columns:1fr;margin:14px 12px;padding:18px;gap:10px}.cardiac-drift-meta{text-align:left}}
   @media(max-width:480px){.activity-header{display:block!important}.activity-header-actions{margin-top:17px;justify-content:flex-start}}
+
+  /* Analyse continue : même langage visuel que le profil coureur. */
+  .activity-page{max-width:1120px;margin:0 auto}.activity-header h1{text-transform:none}.activity-summary-hero{min-height:0;padding:32px!important;border-radius:24px;background:#fff!important;box-shadow:none}.activity-summary-hero:before{display:none}.activity-summary-hero h2{max-width:none;text-transform:none!important}.activity-stats-grid{gap:12px;border:0;background:transparent;overflow:visible}.activity-stats-grid>div{min-height:82px;padding:15px;border:1px solid #e7e3dc;border-radius:16px}.activity-stats-grid>div:after{left:15px;top:auto;bottom:10px;width:34px;height:4px;border-radius:99px}.activity-tab>.card,.activity-section-panel,.activity-inline-panel{border-color:#e7e3dc!important}.activity-tab h2,.activity-tab h3{text-transform:none}
+  @media(max-width:860px){
+    body:has(.activity-page){padding-top:0!important;padding-bottom:24px!important;background:#f3f2f6}
+    body:has(.activity-page)>header,body:has(.activity-page) .mobile-bottom-nav{display:none!important}
+    body:has(.activity-page)>.container{width:100%;padding:0 0 24px}
+    body:has(.activity-page) .site-footer{display:none}
+    .activity-page{width:100%;margin:0}
+    .activity-header{display:flex!important;margin:0!important;padding:22px 18px 16px!important;border:0!important;background:#f3f2f6}.activity-heading-kicker{margin-bottom:5px}.activity-header h1{font-size:1.75rem!important;text-transform:none}
+    .activity-header-actions{width:auto}.activity-story-button{clip-path:none;border-radius:12px}.activity-delete-button{font-size:.68rem}
+    .cardiac-drift-card{grid-template-columns:1fr;margin:0 12px 14px;padding:20px 18px;border:0;border-radius:24px;background:#fff;box-shadow:none!important}.cardiac-drift-value{font-size:2.4rem}.cardiac-drift-meta{text-align:left}
+    .activity-summary-hero{margin:0 0 14px!important;padding:22px 18px!important;border:0!important;border-radius:0!important;background:#fff!important}.activity-summary-hero h2{font-size:1.8rem!important}
+    .activity-stats-grid{grid-template-columns:1fr 1fr;gap:10px}.activity-stats-grid>div{min-height:78px;border:0;border-radius:16px;background:#f5f3ef}.tile-k{font-size:.62rem}.tile-v{font-size:1.05rem}
+    .activity-layout{display:block}.activity-sidebar{display:none!important}.activity-layout main{padding:0 12px}
+    .activity-tab,.activity-tab.is-active{display:block!important;margin:14px 0!important;padding:20px 18px!important;border:0!important;border-radius:24px!important;background:#fff!important;box-shadow:none!important}
+    .activity-tab>.card,.activity-section-panel,.activity-inline-panel{border-radius:17px!important;box-shadow:none!important}
+    .activity-tab h2,.activity-tab h3{font-size:1.3rem!important}.activity-tab p,.activity-tab .muted{font-size:.8rem!important;line-height:1.55}
+    .terrain-summary-grid{grid-template-columns:1fr}.overview-map{height:240px}.activity-map-3d{height:250px}.table-responsive{overflow-x:auto;-webkit-overflow-scrolling:touch}.table-responsive table{min-width:560px}.activity-tab table th,.activity-tab table td{font-size:.72rem!important;padding:6px 4px!important}
+  }
+  @media(max-width:480px){.activity-header{display:block!important}.activity-header-actions{margin-top:14px}.activity-stats-grid{grid-template-columns:1fr 1fr}}
 </style>
 {% endblock %}
 

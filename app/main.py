@@ -5599,9 +5599,13 @@ def _seo_page_context(request: Request, *, title: str, description: str, path: s
         ],
     }
     course = extra.get("course")
-    seo_image_url = f"{base_url}/static/logo.png"
+    seo_image_url = f"{base_url}/static/images/running-data-plan-logo.png"
+    seo_image_width = 500
+    seo_image_height = 500
     if page_kind == "course" and isinstance(course, dict):
         seo_image_url = f"{base_url}/courses/{course['slug']}/og.png"
+        seo_image_width = 1200
+        seo_image_height = 630
         event_schema = {
             "@type": "SportsEvent",
             "name": course.get("name"),
@@ -5620,6 +5624,18 @@ def _seo_page_context(request: Request, *, title: str, description: str, path: s
         if location:
             event_schema["location"] = {"@type": "Place", "name": location, "address": {"@type": "PostalAddress", "addressCountry": "FR"}}
         schema["@graph"].append(event_schema)
+    schema["@graph"].append({
+        "@type": "Organization",
+        "@id": f"{base_url}/#organization",
+        "name": "Running Data Plan",
+        "url": base_url,
+        "logo": {
+            "@type": "ImageObject",
+            "url": f"{base_url}/static/images/running-data-plan-logo.png",
+            "width": 500,
+            "height": 500,
+        },
+    })
     event_courses = extra.get("event_courses") or []
     if event_courses:
         schema["@graph"].append({
@@ -5650,6 +5666,8 @@ def _seo_page_context(request: Request, *, title: str, description: str, path: s
         "seo_keywords": extra.get("seo_keywords", ""),
         "canonical_url": canonical_url,
         "seo_image_url": seo_image_url,
+        "seo_image_width": seo_image_width,
+        "seo_image_height": seo_image_height,
         "seo_og_type": "article" if page_kind in {"guide", "course"} else "website",
         "seo_robots": "index,follow",
         "schema_json": json.dumps(schema, ensure_ascii=False),
@@ -8910,15 +8928,30 @@ def _render_login_page(request: Request):
             "seo_title": "Running Data Plan : plan de course trail, pacing et glycémie",
             "seo_description": "Créez un plan de course trail personnalisé à partir de vos données Strava : pacing, allures selon la pente, ravitaillements et suivi de glycémie en option.",
             "canonical_url": f"{_get_app_base_url()}/",
-            "seo_image_url": f"{_get_app_base_url()}/static/logo.png",
+            "seo_image_url": f"{_get_app_base_url()}/static/images/running-data-plan-logo.png",
+            "seo_image_width": 500,
+            "seo_image_height": 500,
             "seo_og_type": "website",
             "seo_robots": "index,follow",
             "schema_json": json.dumps({
                 "@context": "https://schema.org",
-                "@type": "WebSite",
-                "name": "Running Data Plan",
-                "url": _get_app_base_url(),
-                "inLanguage": "fr-FR",
+                "@graph": [{
+                    "@type": "WebSite",
+                    "name": "Running Data Plan",
+                    "url": _get_app_base_url(),
+                    "inLanguage": "fr-FR",
+                }, {
+                    "@type": "Organization",
+                    "@id": f"{_get_app_base_url()}/#organization",
+                    "name": "Running Data Plan",
+                    "url": _get_app_base_url(),
+                    "logo": {
+                        "@type": "ImageObject",
+                        "url": f"{_get_app_base_url()}/static/images/running-data-plan-logo.png",
+                        "width": 500,
+                        "height": 500,
+                    },
+                }],
             }, ensure_ascii=False),
             "hero_points": hero_points,
             "onboarding_steps": onboarding_steps,

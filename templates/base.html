@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <title>{% block title %}Running Data Plan{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/png" sizes="500x500" href="/static/images/running-data-plan-logo.png">
+  <link rel="apple-touch-icon" href="/static/images/running-data-plan-logo.png">
   <meta name="robots" content="{{ seo_robots|default('noindex,follow') }}">
   <meta name="googlebot" content="{{ seo_robots|default('noindex,follow') }},max-image-preview:large,max-snippet:-1,max-video-preview:-1">
   {% if seo_title is defined %}
@@ -17,8 +19,8 @@
   <meta property="og:description" content="{{ seo_description }}">
   <meta property="og:url" content="{{ canonical_url }}">
   <meta property="og:image" content="{{ seo_image_url }}">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
+  <meta property="og:image:width" content="{{ seo_image_width|default(500) }}">
+  <meta property="og:image:height" content="{{ seo_image_height|default(500) }}">
   <meta property="og:image:alt" content="Profil et présentation de {{ seo_title }}">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="{{ seo_title }}">
@@ -129,11 +131,8 @@
 
     .brand-mark {
       width: 34px; height: 34px; border-radius: 10px;
-      background: var(--grad-accent);
-      display: inline-flex; align-items: center; justify-content: center;
-      color: #fff; font-size: .82rem; font-weight: 800;
-      font-family: "DM Mono", monospace;
-      box-shadow: 0 0 0 1px rgba(255, 139, 106, 0.32), 0 0 18px rgba(255, 139, 106, 0.26);
+      display:block; object-fit:contain;
+      box-shadow: 0 0 0 1px rgba(255, 139, 106, 0.22), 0 4px 12px rgba(20, 31, 52, 0.16);
     }
     .brand-text { font-family: "Manrope", sans-serif; font-weight: 800; letter-spacing:.025em; text-transform:none; }
     .brand-home { display:none; font-size:1.3rem; }
@@ -649,7 +648,7 @@
     <div class="brand">
       <a href="{{ home_href }}">
         <span class="brand-home">🏠</span>
-        <span class="brand-mark">RD</span>
+        <img class="brand-mark" src="/static/images/running-data-plan-logo.png" alt="" width="500" height="500">
         <span class="brand-text">Running Data Plan</span>
       </a>
     </div>

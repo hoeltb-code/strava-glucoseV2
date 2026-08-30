@@ -9284,6 +9284,12 @@ def ui_user_dashboard(user_id: int, request: Request):
             usable = [point for point in points if point.altitude is not None]
             if len(usable) < 2:
                 return None
+            if metric == "glucose" and not any(point.glucose_mgdl is not None for point in usable):
+                return None
+            if metric == "hr_zone" and not any(
+                point.hr_zone or point.heartrate is not None for point in usable
+            ):
+                return None
             if len(usable) > 120:
                 step = max(1, (len(usable) + 119) // 120)
                 usable = usable[::step]

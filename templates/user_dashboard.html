@@ -40,6 +40,11 @@
   .home-activity-profiles { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; padding:14px 18px 10px; border-top:1px solid #eee9e0; }
   .home-activity-profile svg { display:block; width:100%; height:58px; margin-top:5px; }
   .home-activity-profile-empty { display:grid; height:58px; margin-top:5px; place-items:center; border-radius:10px; background:#faf9f7; color:var(--text-muted); font-size:.68rem; }
+  .home-activity-cgm-cta { min-height:58px; margin-top:5px; padding:8px 10px; border:1px solid rgba(248,184,88,.48); border-radius:10px; background:#fff9ee; }
+  .home-activity-cgm-cta strong { display:block; color:var(--text-main); font-size:.7rem; }
+  .home-activity-cgm-cta span { display:block; margin-top:2px; color:var(--text-muted); font-size:.63rem; line-height:1.3; }
+  .home-activity-cgm-links { display:flex; flex-wrap:wrap; gap:5px 10px; margin-top:5px; }
+  .home-activity-cgm-links a { color:var(--accent-dark); font-size:.63rem; font-weight:800; }
   .home-activity-windows { display:grid; grid-template-columns:auto repeat(4,minmax(80px,1fr)); gap:1px; border-top:1px solid #eee9e0; background:#eee9e0; }
   .home-activity-windows > span { display:flex; justify-content:space-between; gap:6px; padding:9px 12px; background:var(--home-paper); color:var(--text-muted); font-size:.67rem; }
   .home-activity-windows strong { color:var(--text-main); }
@@ -3730,7 +3735,7 @@
     </div>
     <div class="home-activity-profiles">
       <div class="home-activity-profile"><span class="home-activity-profile-label">Profil × zones cardio</span>{% if a.cardio_profile %}<svg viewBox="0 0 {{ a.cardio_profile.width }} {{ a.cardio_profile.height }}" role="img" aria-label="Profil altimétrique coloré selon les zones cardio">{% for segment in a.cardio_profile.segments %}<path d="{{ segment.path }}" fill="{{ segment.color }}" opacity=".88"></path>{% endfor %}<path d="{{ a.cardio_profile.outline }}" fill="none" stroke="#17243e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>{% else %}<span class="home-activity-profile-empty">Profil cardio indisponible</span>{% endif %}</div>
-      <div class="home-activity-profile"><span class="home-activity-profile-label">Profil × glycémie</span>{% if a.glucose_profile %}<svg viewBox="0 0 {{ a.glucose_profile.width }} {{ a.glucose_profile.height }}" role="img" aria-label="Profil altimétrique coloré selon la glycémie">{% for segment in a.glucose_profile.segments %}<path d="{{ segment.path }}" fill="{{ segment.color }}" opacity=".88"></path>{% endfor %}<path d="{{ a.glucose_profile.outline }}" fill="none" stroke="#17243e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>{% else %}<span class="home-activity-profile-empty">Profil glycémique indisponible</span>{% endif %}</div>
+      <div class="home-activity-profile"><span class="home-activity-profile-label">Profil × glycémie</span>{% if a.glucose_profile %}<svg viewBox="0 0 {{ a.glucose_profile.width }} {{ a.glucose_profile.height }}" role="img" aria-label="Profil altimétrique coloré selon la glycémie">{% for segment in a.glucose_profile.segments %}<path d="{{ segment.path }}" fill="{{ segment.color }}" opacity=".88"></path>{% endfor %}<path d="{{ a.glucose_profile.outline }}" fill="none" stroke="#17243e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>{% elif show_daily_glucose %}<span class="home-activity-profile-empty">Aucune donnée glycémique sur cette sortie</span>{% else %}<div class="home-activity-cgm-cta"><strong>Tu n’as pas encore de capteur ?</strong><span>Découvre comment ajouter le suivi glycémique à tes activités.</span><div class="home-activity-cgm-links"><a href="/capteurs/dexcom-one-plus">Guide Dexcom ONE+ →</a><a href="/suivi-glycemie-sport">Découvrir le suivi →</a></div></div>{% endif %}</div>
     </div>
     <div class="home-activity-windows">
       <span><strong>Meilleur D+ glissant</strong></span>

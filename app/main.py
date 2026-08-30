@@ -5686,6 +5686,7 @@ def seo_guide_detail(request: Request, slug: str):
         request,
         title=guide["title"],
         description=guide["description"],
+        seo_keywords=guide.get("keywords", ""),
         path=f"/guides/{slug}",
         page_kind="guide",
         guide={"slug": slug, **guide},
@@ -6011,9 +6012,14 @@ def ui_glucose_tracking_guide(request: Request):
         request,
         title="Capteur de glycémie et sport : connexion CGM, Strava et indicateurs",
         description="Découvre les sources CGM prises en charge, comment connecter un capteur comme Dexcom ONE+ et comment rapprocher glycémie, parcours, cardio, allure et VAM.",
-        seo_keywords="capteur glycémie sport, CGM trail, Dexcom ONE+, Strava glycémie, glycémie course à pied",
+        seo_keywords="capteur glycémie sport, suivi glycémie trail, CGM running, Dexcom ONE+, Strava glycémie, glycémie course à pied, glycémie vélo",
         path="/suivi-glycemie-sport",
         page_kind="guide",
+        faq_items=[
+            ("Quels graphiques peut-on obtenir avec un capteur de glycémie ?", "Running Data Plan peut rapprocher le profil du parcours, la fréquence cardiaque, les zones cardio, l'allure et la VAM des plages de glycémie lorsque les données sont disponibles."),
+            ("La glycémie est-elle transmise par Strava ?", "Non. Les données CGM proviennent de la source connectée ; Strava fournit séparément l'activité sportive. Les deux chronologies sont ensuite rapprochées."),
+            ("Le suivi remplace-t-il les alarmes du capteur ?", "Non. Il s'agit d'une analyse sportive rétrospective ou proche du temps réel selon la source, et non d'un dispositif médical d'alarme."),
+        ],
         breadcrumbs=[("Accueil", "/"), ("Suivi glycémie et sport", "/suivi-glycemie-sport")],
     ))
 
@@ -10018,6 +10024,15 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
         if not activity:
             return HTMLResponse("Activité introuvable", status_code=404)
 
+        glucose_source_connected = bool(
+            db.query(LibreCredentials.id).filter(LibreCredentials.user_id == user_id).first()
+            or has_dexcom_share_credentials(
+                db.query(DexcomToken).filter(DexcomToken.user_id == user_id).all()
+            )
+            or db.query(CareLinkCredential.id).filter(CareLinkCredential.user_id == user_id).first()
+            or db.query(NightscoutCredential.id).filter(NightscoutCredential.user_id == user_id).first()
+        )
+
         sport_norm = (activity.sport or activity.activity_type or "").lower()
         is_running_activity = sport_norm == "run"
 
@@ -11212,6 +11227,7 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
             "terrain_summary": terrain_summary,
             "tab": tab,
             "has_glucose": has_glucose,
+            "glucose_source_connected": glucose_source_connected,
             "glucose_zone_rows": glucose_zone_rows,
             "glucose_chart_points": glucose_chart_points,
             "glucose_zone_vs_hr_rows": glucose_zone_vs_hr_rows,

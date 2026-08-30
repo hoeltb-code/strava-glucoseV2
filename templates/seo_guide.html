@@ -29,7 +29,7 @@
   {% endif %}
   <section class="seo-section seo-faq"><p class="seo-kicker">Questions fréquentes</p><h2>À retenir</h2>{% for question, answer in guide.faq %}<details><summary>{{ question }}</summary><p>{{ answer }}</p></details>{% endfor %}</section>
   {% if guide.medical_notice %}
-  <section class="seo-cta-box"><h2>Relier l’activité à vos propres données</h2><p>Consultez vos séances et vos données de glycémie pour préparer le prochain échange avec votre équipe soignante.</p><a class="seo-button" href="{{ cta_url }}">Voir mes activités →</a></section>
+  <section class="seo-cta-box"><h2>Voir concrètement le suivi glycémique</h2><p>Découvre comment le profil du parcours, le cardio, les zones, l’allure et la VAM peuvent être rapprochés des mesures de glycémie.</p><a class="seo-button" href="/suivi-glycemie-sport">Voir les graphiques et capteurs compatibles →</a></section>
   {% else %}
   <section class="seo-cta-box"><h2>Construire une projection adaptée à ton profil</h2><p>Utilise tes propres allures par pente et les étapes du parcours pour créer un plan de course personnalisable.</p><a class="seo-button" href="{{ cta_url }}">Créer mon plan de course →</a></section>
   {% endif %}

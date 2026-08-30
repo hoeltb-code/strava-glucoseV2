@@ -1680,8 +1680,26 @@
     {% if has_vam %}
     <div class="activity-tab {% if tab == 'vam' %}is-active{% endif %}" data-tab="vam">
 
+      {% if profile_chart_points_js and profile_chart_points_js != '[]' %}
+      <section class="card activity-slope-profile-card" style="margin-top:0; padding:16px;">
+        <h3 style="margin:0 0 6px;font-size:.95rem;">Profil de dénivelé & vitesse ascensionnelle</h3>
+        <p class="muted" style="margin:0 0 12px;">Chaque tronçon du profil est coloré selon la VAM mesurée au même endroit.</p>
+        <div class="slope-profile-legend" aria-label="Légende des zones de vitesse ascensionnelle"><span><i style="background:#b7b2aa"></i>descente ou indisponible</span><span><i style="background:#91a889"></i>&lt; 300</span><span><i style="background:#6f925f"></i>300–600</span><span><i style="background:#d0a13e"></i>600–900</span><span><i style="background:#df7945"></i>900–1200</span><span><i style="background:#c65343"></i>&gt; 1200 m/h</span></div>
+        <div style="height:260px;"><canvas id="vamElevationProfile" height="240"></canvas></div>
+      </section>
+      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+      <script>
+        (()=>{
+          const data={{ profile_chart_points_js|safe }},canvas=document.getElementById('vamElevationProfile');if(!canvas||!data||data.length<2||typeof Chart==='undefined')return;
+          const color=value=>{value=Number(value);if(!Number.isFinite(value)||value<0)return'#b7b2aa';if(value<300)return'#91a889';if(value<600)return'#6f925f';if(value<900)return'#d0a13e';if(value<1200)return'#df7945';return'#c65343'};
+          const area={id:'vamElevationArea',beforeDatasetsDraw(chart){const {ctx,scales}=chart,points=chart.getDatasetMeta(0).data;if(!points||points.length<2)return;const baseY=scales.y.getPixelForValue(scales.y.min);ctx.save();ctx.globalAlpha=.86;for(let index=0;index<points.length-1;index++){const point=points[index],next=points[index+1],a=data[index].vam,b=data[index+1].vam,value=a==null?b:b==null?a:(Number(a)+Number(b))/2;ctx.fillStyle=color(value);ctx.beginPath();ctx.moveTo(point.x,baseY);ctx.lineTo(point.x,point.y);ctx.lineTo(next.x,next.y);ctx.lineTo(next.x,baseY);ctx.closePath();ctx.fill()}ctx.restore()}};
+          new Chart(canvas.getContext('2d'),{type:'line',data:{datasets:[{data,borderColor:'rgba(69,67,63,.48)',backgroundColor:'transparent',borderWidth:1.25,pointRadius:0,fill:false,tension:.12}]},options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{title:items=>`${items[0].raw.x.toFixed(2)} km · ${Math.round(items[0].raw.y)} m`,label:item=>item.raw.vam==null?'VAM indisponible':`VAM ${item.raw.vam>=0?'+':''}${Math.round(item.raw.vam)} m/h`}}},scales:{x:{type:'linear',title:{display:true,text:'Distance (km)',color:'#5f5b54'},ticks:{color:'#6f6b64'},grid:{color:'rgba(173,166,154,.25)'}},y:{title:{display:true,text:'Altitude (m)',color:'#5f5b54'},ticks:{color:'#6f6b64'},grid:{color:'rgba(173,166,154,.25)'}}}},plugins:[area]});
+        })();
+      </script>
+      {% endif %}
+
       <div class="card"
-          style="margin-top:0; border-radius:4px; padding:16px;">
+          style="margin-top:16px; border-radius:4px; padding:16px;">
 
         <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px;">
           <h3 style="margin:0; font-size:0.95rem;">

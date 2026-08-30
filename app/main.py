@@ -10279,6 +10279,7 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
                 activity_map_points.append({
                     "latitude": round(float(p.lat), 6),
                     "longitude": round(float(p.lon), 6),
+                    "distance_km": round(float(p.distance or 0) / 1000.0, 3),
                     "altitude_m": round(float(p.altitude or 0), 1),
                     "glucose_mgdl": round(float(p.glucose_mgdl), 1) if p.glucose_mgdl is not None else None,
                 })

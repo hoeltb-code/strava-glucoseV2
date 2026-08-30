@@ -5946,7 +5946,7 @@ def seo_robots(request: Request):
 @app.get("/sitemap.xml", response_class=Response)
 def seo_sitemap(request: Request):
     base_url = _get_app_base_url()
-    paths = ["/", "/guides", "/courses"]
+    paths = ["/", "/guides", "/courses", "/suivi-glycemie-sport"]
     paths += [
         f"/courses/{event_slug}"
         for event_slug in SEO_EVENT_REGISTRY
@@ -6003,6 +6003,19 @@ def ui_terms_of_use(request: Request):
 @app.get("/aide", response_class=HTMLResponse)
 def ui_help(request: Request):
     return templates.TemplateResponse("help.html", {"request": request})
+
+
+@app.get("/suivi-glycemie-sport", response_class=HTMLResponse)
+def ui_glucose_tracking_guide(request: Request):
+    return templates.TemplateResponse("glucose_tracking.html", _seo_page_context(
+        request,
+        title="Capteur de glycémie et sport : connexion CGM, Strava et indicateurs",
+        description="Découvre les sources CGM prises en charge, comment connecter un capteur comme Dexcom ONE+ et comment rapprocher glycémie, parcours, cardio, allure et VAM.",
+        seo_keywords="capteur glycémie sport, CGM trail, Dexcom ONE+, Strava glycémie, glycémie course à pied",
+        path="/suivi-glycemie-sport",
+        page_kind="guide",
+        breadcrumbs=[("Accueil", "/"), ("Suivi glycémie et sport", "/suivi-glycemie-sport")],
+    ))
 
 
 @app.get("/assistance", response_class=HTMLResponse)

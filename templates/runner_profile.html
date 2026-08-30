@@ -723,6 +723,14 @@
   <article class="runner-data-kpi"><span class="runner-data-kpi-label">{% if show_glucose_tabs %}Stabilité glycémique{% else %}Cadence endurance{% endif %}</span><strong class="runner-data-kpi-value">{% if show_glucose_tabs and glucose_dashboard_metrics.has_data %}{{ glucose_dashboard_metrics.time_in_range_pct }} %{% elif runner_analytics.endurance_cadence %}{{ runner_analytics.endurance_cadence }} ppm{% else %}—{% endif %}</strong><span class="runner-data-kpi-note">{% if show_glucose_tabs %}temps dans la cible · 24 h{% else %}Zone 2 · pente ±5 %{% endif %}</span></article>
 </section>
 
+{% if not show_glucose_tabs %}
+<section class="glucose-discovery" aria-label="Découvrir le suivi de glycémie">
+  <h2>Ajouter la glycémie à ton profil coureur</h2>
+  <p>Connecte une source CGM compatible pour rapprocher tes tendances de glucose de ton volume, de tes intensités et de tes activités. Découvre les capteurs, la connexion et les indicateurs disponibles.</p>
+  <a href="/suivi-glycemie-sport">Comment fonctionne le suivi glycémique →</a>
+</section>
+{% endif %}
+
 <section class="analytics-panel" aria-label="Lecture analytique du profil">
   <div>
     <span class="runner-data-kpi-label">À retenir</span>

@@ -9516,12 +9516,21 @@ def ui_user_dashboard(user_id: int, request: Request):
             dplus_windows = {}
             for window_id, window_label, seconds in dashboard_windows:
                 best_gain = 0.0
+                best_duration = 0.0
                 start_index = 0
                 for index, elapsed in enumerate(times):
                     while start_index < index and elapsed - times[start_index] > seconds:
                         start_index += 1
-                    best_gain = max(best_gain, cumulative_gain[index] - cumulative_gain[start_index])
-                dplus_windows[window_id] = {"label": window_label, "gain": best_gain}
+                    window_gain = cumulative_gain[index] - cumulative_gain[start_index]
+                    if window_gain > best_gain:
+                        best_gain = window_gain
+                        best_duration = elapsed - times[start_index]
+                window_vam = (best_gain * 3600.0 / best_duration) if best_duration > 0 else None
+                dplus_windows[window_id] = {
+                    "label": window_label,
+                    "gain": best_gain,
+                    "vam": window_vam,
+                }
 
             # 🎯 couleur par niveau
             level = a.level

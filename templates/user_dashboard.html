@@ -46,7 +46,7 @@
   .home-activity-cgm-links { display:flex; flex-wrap:wrap; gap:5px 10px; margin-top:5px; }
   .home-activity-cgm-links a { color:var(--accent-dark); font-size:.63rem; font-weight:800; }
   .home-activity-windows { display:grid; grid-template-columns:auto repeat(4,minmax(80px,1fr)); gap:1px; border-top:1px solid #eee9e0; background:#eee9e0; }
-  .home-activity-windows > span { display:flex; justify-content:space-between; gap:6px; padding:9px 12px; background:var(--home-paper); color:var(--text-muted); font-size:.67rem; }
+  .home-activity-windows > span { display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px; padding:9px 12px; background:var(--home-paper); color:var(--text-muted); font-size:.67rem; }
   .home-activity-windows strong { color:var(--text-main); }
   .dashboard-hero {
     display:grid;
@@ -3739,7 +3739,7 @@
     </div>
     <div class="home-activity-windows">
       <span><strong>Meilleur D+ glissant</strong></span>
-      {% for window in a.dplus_windows.values() %}<span>{{ window.label }} <strong>+{{ window.gain|round|int }} m</strong></span>{% endfor %}
+      {% for window in a.dplus_windows.values() %}<span>{{ window.label }} <strong>+{{ window.gain|round|int }} m{% if window.vam is not none %} · VAM {{ window.vam|round|int }} m/h{% endif %}</strong></span>{% endfor %}
     </div>
   </article>
 {% else %}

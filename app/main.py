@@ -10687,6 +10687,7 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
                 "elapsed_sec": float(p.elapsed_time) if p.elapsed_time is not None else None,
                 "grade": grade,
                 "heartrate": float(p.heartrate) if p.heartrate is not None else None,
+                "hr_zone": p.hr_zone if p.hr_zone in hr_zones else None,
                 "glucose": float(p.glucose_mgdl) if p.glucose_mgdl is not None else None,
                 "velocity": float(p.velocity) if p.velocity is not None else None,
                 "vam": float(p.vertical_speed_m_per_h) if p.vertical_speed_m_per_h is not None else None,
@@ -10721,6 +10722,7 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
                 "pace": round(pace_sec_per_km, 1) if pace_sec_per_km else None,
                 "vam": round(point["vam"]) if point["vam"] is not None else None,
                 "hr": round(point["heartrate"]) if point["heartrate"] is not None else None,
+                "hr_zone": point["hr_zone"],
                 "glucose": round(point["glucose"]) if point["glucose"] is not None else None,
             })
             if index == 0:
@@ -10772,6 +10774,7 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
                     "pace": None,
                     "vam": round(raw_profile_points[-1]["vam"]) if raw_profile_points[-1]["vam"] is not None else None,
                     "hr": round(raw_profile_points[-1]["heartrate"]) if raw_profile_points[-1]["heartrate"] is not None else None,
+                    "hr_zone": raw_profile_points[-1]["hr_zone"],
                     "glucose": round(raw_profile_points[-1]["glucose"]) if raw_profile_points[-1]["glucose"] is not None else None,
                 }
         alt_profile = [[point["x"], point["y"]] for point in profile_chart_points]

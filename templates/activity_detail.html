@@ -1284,7 +1284,24 @@
 
     {# ════════════ ONGLET 4 : CARDIO ════════════ #}
     <div class="activity-tab {% if tab == 'cardio' %}is-active{% endif %}" data-tab="cardio">
-      <div class="card" style="border-radius:4px; padding:16px;">
+      {% if profile_chart_points_js and profile_chart_points_js != '[]' %}
+      <section class="card activity-slope-profile-card" style="margin-top:0; padding:16px;">
+        <h3 style="margin:0 0 6px;font-size:.95rem;">Profil de dénivelé & zones cardio</h3>
+        <p class="muted" style="margin:0 0 12px;">Chaque tronçon du profil est coloré selon la zone cardio enregistrée au même endroit.</p>
+        <div class="slope-profile-legend" aria-label="Légende des zones cardio"><span><i style="background:#b7b2aa"></i>indisponible</span><span><i style="background:#83cceb"></i>Zone 1</span><span><i style="background:#6f925f"></i>Zone 2</span><span><i style="background:#d3b44e"></i>Zone 3</span><span><i style="background:#f38b2d"></i>Zone 4</span><span><i style="background:#e94c34"></i>Zone 5</span></div>
+        <div style="height:260px;"><canvas id="heartRateElevationProfile" height="240"></canvas></div>
+      </section>
+      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+      <script>
+        (()=>{
+          const data={{ profile_chart_points_js|safe }},canvas=document.getElementById('heartRateElevationProfile');if(!canvas||!data||data.length<2||typeof Chart==='undefined')return;
+          const colors={'Zone 1':'#83cceb','Zone 2':'#6f925f','Zone 3':'#d3b44e','Zone 4':'#f38b2d','Zone 5':'#e94c34'},color=zone=>colors[zone]||'#b7b2aa';
+          const area={id:'heartRateElevationArea',beforeDatasetsDraw(chart){const {ctx,scales}=chart,points=chart.getDatasetMeta(0).data;if(!points||points.length<2)return;const baseY=scales.y.getPixelForValue(scales.y.min);ctx.save();ctx.globalAlpha=.86;for(let index=0;index<points.length-1;index++){const point=points[index],next=points[index+1],zone=data[index+1].hr_zone||data[index].hr_zone;ctx.fillStyle=color(zone);ctx.beginPath();ctx.moveTo(point.x,baseY);ctx.lineTo(point.x,point.y);ctx.lineTo(next.x,next.y);ctx.lineTo(next.x,baseY);ctx.closePath();ctx.fill()}ctx.restore()}};
+          new Chart(canvas.getContext('2d'),{type:'line',data:{datasets:[{data,borderColor:'rgba(69,67,63,.48)',backgroundColor:'transparent',borderWidth:1.25,pointRadius:0,fill:false,tension:.12}]},options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{title:items=>`${items[0].raw.x.toFixed(2)} km · ${Math.round(items[0].raw.y)} m`,label:item=>item.raw.hr==null?'Fréquence cardiaque indisponible':`${item.raw.hr} bpm · ${item.raw.hr_zone||'zone indisponible'}`}}},scales:{x:{type:'linear',title:{display:true,text:'Distance (km)',color:'#5f5b54'},ticks:{color:'#6f6b64'},grid:{color:'rgba(173,166,154,.25)'}},y:{title:{display:true,text:'Altitude (m)',color:'#5f5b54'},ticks:{color:'#6f6b64'},grid:{color:'rgba(173,166,154,.25)'}}}},plugins:[area]});
+        })();
+      </script>
+      {% endif %}
+      <div class="card" style="margin-top:16px; border-radius:4px; padding:16px;">
         <h3 style="margin:0 0 10px 0; font-size:0.95rem;">
           Temps passé dans chaque zone cardio
         </h3>

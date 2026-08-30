@@ -37,30 +37,30 @@
 
   <style>
     :root {
-      --bg-page: #f3f0e9;
-      --bg-page-2: #ebe6dc;
-      --bg-header: rgba(250, 248, 243, 0.88);
+      --bg-page: #f5f3ee;
+      --bg-page-2: #ece8df;
+      --bg-header: rgba(250, 249, 246, 0.91);
       --bg-card: #ffffff;
       --bg-card-2: #faf8f4;
       --bg-elevated: #ffffff;
 
-      --accent: #ff5a36;
-      --accent-dark: #d9462a;
-      --accent-2: #5d735d;
+      --accent: #f8b858;
+      --accent-dark: #b96b08;
+      --accent-2: #17243e;
       --accent-danger: #d84d58;
 
-      --text-main: #121316;
-      --text-muted: #62636a;
-      --text-dim: #898a90;
-      --border: rgba(255, 90, 54, 0.30);
+      --text-main: #111d35;
+      --text-muted: #626773;
+      --text-dim: #8a8e97;
+      --border: rgba(248, 184, 88, 0.42);
       --border-soft: #dedad1;
       --shadow-soft: 0 14px 36px rgba(32, 29, 24, 0.08);
-      --ring: 0 0 0 3px rgba(255, 90, 54, 0.18);
+      --ring: 0 0 0 3px rgba(248, 184, 88, 0.24);
 
-      --grad-accent: linear-gradient(135deg, #ff6a49 0%, #ff4d2e 100%);
+      --grad-accent: linear-gradient(135deg, #17243e 0%, #26395d 100%);
       --grad-panel: linear-gradient(145deg, #ffffff 0%, #fbfaf7 100%);
-      --link: #d9462a;
-      --link-hover: #a93622;
+      --link: #a85f06;
+      --link-hover: #704005;
     }
 
     * { box-sizing: border-box; }
@@ -69,9 +69,9 @@
     margin: 0;
     font-family: "Manrope", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
     background:
-      radial-gradient(circle at top left, rgba(255, 90, 54, 0.07), transparent 28%),
-      radial-gradient(circle at top right, rgba(198, 184, 147, 0.11), transparent 22%),
-      linear-gradient(180deg, #f8f6f1 0%, #f3f0e9 100%);
+      radial-gradient(circle at top left, rgba(248, 184, 88, 0.10), transparent 28%),
+      radial-gradient(circle at top right, rgba(23, 36, 62, 0.08), transparent 22%),
+      linear-gradient(180deg, #faf9f6 0%, #f5f3ee 100%);
     background-color: var(--bg-page);
     color: var(--text-main);
     -webkit-font-smoothing: antialiased;
@@ -132,7 +132,7 @@
     .brand-mark {
       width: 34px; height: 34px; border-radius: 10px;
       display:block; object-fit:contain;
-      box-shadow: 0 0 0 1px rgba(255, 139, 106, 0.22), 0 4px 12px rgba(20, 31, 52, 0.16);
+      box-shadow: 0 0 0 1px rgba(248, 184, 88, 0.28), 0 4px 12px rgba(20, 31, 52, 0.16);
     }
     .brand-text { font-family: "Manrope", sans-serif; font-weight: 800; letter-spacing:.025em; text-transform:none; }
     .brand-home { display:none; font-size:1.3rem; }
@@ -154,7 +154,7 @@
       opacity: 0;
       transform: scaleX(.3);
     }
-    nav a:hover { color: var(--text-main); border-color: var(--border); background: rgba(255, 139, 106, 0.07); transform: translateY(-1px); }
+    nav a:hover { color: var(--text-main); border-color: var(--border); background: rgba(248, 184, 88, 0.10); transform: translateY(-1px); }
     nav a:hover::after { opacity: 1; transform: scaleX(1); }
 
     .nav-link {
@@ -191,9 +191,9 @@
     }
     .primary-nav .nav-link::after { display:none; }
     .primary-nav .nav-link:hover { border:0; background:#f5f1e9; transform:none; }
-    .primary-nav .nav-link.is-active { background:var(--grad-accent); color:#fff; box-shadow:0 5px 13px rgba(217,70,42,.19); }
+    .primary-nav .nav-link.is-active { background:var(--grad-accent); color:#fff; box-shadow:0 5px 13px rgba(23,36,62,.20); }
     .header-logout { min-height:38px; padding:9px 12px!important; border:1px solid var(--border-soft)!important; border-radius:10px!important; background:#fff!important; color:var(--text-muted)!important; font-size:.75rem!important; }
-    .header-logout::after { display:none; }.header-logout:hover { color:var(--text-main)!important; background:#fff5f1!important; transform:none!important; }
+    .header-logout::after { display:none; }.header-logout:hover { color:var(--text-main)!important; background:#fff8ea!important; transform:none!important; }
 
     .nav-label { display: inline; }
     .logout-link {
@@ -208,7 +208,7 @@
       border: 1px solid transparent;
       transition: background-color .15s ease, color .15s ease, border-color .15s ease;
     }
-    .logout-link:hover { color: var(--text-main); background: rgba(255, 139, 106, 0.07); border-color: var(--border); }
+    .logout-link:hover { color: var(--text-main); background: rgba(248, 184, 88, 0.10); border-color: var(--border); }
 
     @media (max-width: 640px) {
       body > header {
@@ -281,7 +281,7 @@
       position: absolute;
       inset: 0;
       pointer-events: none;
-      background: linear-gradient(135deg, rgba(255, 90, 54, 0.045), transparent 32%);
+      background: linear-gradient(135deg, rgba(248, 184, 88, 0.07), transparent 32%);
       opacity: 1;
     }
     .card::after {
@@ -292,13 +292,13 @@
       top:0;
       height:2px;
       border-radius:0 0 999px 999px;
-      background:linear-gradient(90deg, transparent, rgba(255,90,54,.55), transparent);
+      background:linear-gradient(90deg, transparent, rgba(248,184,88,.64), transparent);
       opacity:.45;
       pointer-events:none;
     }
     .card > * { position:relative; z-index:1; }
     @media (hover:hover) {
-      .card:hover { transform:translateY(-2px); border-color:rgba(255,90,54,.34); box-shadow:0 18px 42px rgba(32,29,24,.12); }
+      .card:hover { transform:translateY(-2px); border-color:rgba(248,184,88,.48); box-shadow:0 18px 42px rgba(32,29,24,.12); }
     }
     .card h1, .card h2, .card h3, .card h4 { margin-top: 0; color: var(--text-main); }
     .section-title {

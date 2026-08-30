@@ -66,7 +66,8 @@
   .home-view-button { min-height:54px; padding:12px 18px; border:1px solid transparent; border-radius:12px; background:transparent; color:var(--text-main); font:800 .82rem "Manrope",sans-serif; cursor:pointer; }
   .home-view-button:hover { background:#fff9ee; border-color:rgba(248,184,88,.45); }
   .home-view-button.is-active { background:linear-gradient(100deg,#ffc76b,var(--home-orange-dark)); color:var(--home-navy); border-color:var(--home-orange); }
-  .home-view-panel[hidden] { display:none!important; }
+  .home-view-panel { display:none; }
+  .home-view-panel.is-active { display:block; }
   .quick-actions {
     display:grid;
     grid-template-columns:repeat(4, minmax(0, 1fr));
@@ -674,7 +675,7 @@
 </nav>
 {% endif %}
 
-<div class="home-view-panel" data-home-view-panel="plan" {% if not custom_course_mode %}hidden{% endif %}>
+<div class="home-view-panel{% if custom_course_mode %} is-active{% endif %}" data-home-view-panel="plan">
 {% set draft_plans = saved_course_plans|selectattr('status', 'equalto', 'draft')|list %}
 {% set purchased_plans = saved_course_plans|selectattr('status', 'equalto', 'purchased')|list %}
 <section class="plan-library" id="home-plan-library" aria-labelledby="home-plan-library-title">
@@ -3670,7 +3671,7 @@
 </div>
 
 <!-- ================== DERNIÈRES ACTIVITÉS (split map | VAM) ================== -->
-<div class="home-view-panel" data-home-view-panel="activities">
+<div class="home-view-panel{% if not custom_course_mode %} is-active{% endif %}" data-home-view-panel="activities">
 <div class="home-section-heading" style="margin-top:24px;">
   <h2>Dernières activités</h2>
   <a href="/ui/user/{{ user.id }}/activities">Voir tout →</a>
@@ -3756,9 +3757,10 @@
         button.classList.toggle('is-active', active);
         button.setAttribute('aria-selected', active ? 'true' : 'false');
       });
-      panels.forEach((panel) => { panel.hidden = panel.dataset.homeViewPanel !== view; });
+      panels.forEach((panel) => panel.classList.toggle('is-active', panel.dataset.homeViewPanel === view));
     };
     buttons.forEach((button) => button.addEventListener('click', () => showView(button.dataset.homeViewButton)));
+    showView('activities');
   })();
 </script>
 {% endif %}

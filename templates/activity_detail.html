@@ -106,6 +106,12 @@
   .slope-profile-legend { display:flex; flex-wrap:wrap; gap:9px; margin:0 0 10px; color:var(--activity-text-muted); font-size:.72rem; }
   .slope-profile-legend span { display:inline-flex; align-items:center; gap:4px; }
   .slope-profile-legend i { width:9px; height:9px; border-radius:50%; display:inline-block; }
+  .glucose-cross-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:16px 0; }
+  .glucose-cross-card { min-width:0; padding:16px; border:1px solid var(--activity-border); border-radius:17px; background:#fff; }
+  .glucose-cross-card h4 { margin:0 0 4px; font-size:.9rem; }
+  .glucose-cross-card p { margin:0 0 10px; }
+  .glucose-cross-chart { height:220px; }
+  .glucose-cross-empty { display:grid; height:100%; place-items:center; color:var(--activity-text-muted); font-size:.75rem; }
   .climb-route-locator { margin-top:14px; padding:13px; border:1px solid var(--activity-border); border-radius:13px; background:#fbfaf7; }
   .climb-route-locator p { margin:0 0 8px; font-size:.76rem !important; }
   .activity-delete-button {
@@ -302,6 +308,7 @@
       height:220px;
     }
     .terrain-summary-grid { grid-template-columns:1fr; }
+    .glucose-cross-grid { grid-template-columns:1fr; }
   }
   @media (max-width: 720px) {
     .activity-header {
@@ -1442,6 +1449,32 @@
         <h3 style="margin:0 0 10px 0; font-size:0.95rem;">
           Couplage cardio × glycémie
         </h3>
+
+        {% if profile_chart_points_js and profile_chart_points_js != '[]' %}
+        <div class="glucose-cross-grid" aria-label="Courbes croisées avec la glycémie">
+          <article class="glucose-cross-card"><h4>Fréquence cardiaque × glycémie</h4><p class="muted">Évolution du cardio colorée selon la glycémie au même moment.</p><div class="glucose-cross-chart"><canvas id="glucoseHeartRateChart"></canvas></div></article>
+          <article class="glucose-cross-card"><h4>Allure × glycémie</h4><p class="muted">Allure instantanée colorée selon la glycémie synchronisée.</p><div class="glucose-cross-chart"><canvas id="glucosePaceChart"></canvas></div></article>
+          <article class="glucose-cross-card"><h4>VAM × glycémie</h4><p class="muted">Vitesse verticale colorée selon la glycémie au même endroit.</p><div class="glucose-cross-chart"><canvas id="glucoseVamChart"></canvas></div></article>
+        </div>
+        <script>
+          (() => {
+            const source={{ profile_chart_points_js|safe }};
+            if (!source || source.length < 2 || typeof Chart === 'undefined') return;
+            const color=value=>{value=Number(value);if(!Number.isFinite(value))return'#aaa7a0';if(value<50)return'#7f1d1d';if(value<70)return'#dc2626';if(value<90)return'#ea580c';if(value<110)return'#65a30d';if(value<130)return'#22a45d';if(value<150)return'#6f9f45';if(value<170)return'#d4ad28';if(value<180)return'#e6bd20';if(value<200)return'#facc15';if(value<220)return'#f5b914';return'#eaa20e'};
+            const paceLabel=value=>{const seconds=Math.round(Number(value));return Number.isFinite(seconds)&&seconds>0?`${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}/km`:'—'};
+            const build=(id,key,label,unit,options={})=>{
+              const canvas=document.getElementById(id);if(!canvas)return;
+              const data=source.map(point=>({x:Number(point.x),y:Number.isFinite(Number(point[key]))?Number(point[key]):null,glucose:point.glucose})).filter(point=>Number.isFinite(point.x));
+              if(data.filter(point=>point.y!==null).length<2){canvas.parentElement.innerHTML='<span class="glucose-cross-empty">Données insuffisantes</span>';return}
+              const bands={id:`bands-${id}`,beforeDatasetsDraw(chart){const {ctx,chartArea,scales}=chart;if(!chartArea||data.length<2)return;ctx.save();ctx.globalAlpha=.1;for(let index=0;index<data.length-1;index++){const left=scales.x.getPixelForValue(data[index].x),right=scales.x.getPixelForValue(data[index+1].x);ctx.fillStyle=color(data[index].glucose);ctx.fillRect(left,chartArea.top,Math.max(1,right-left),chartArea.bottom-chartArea.top)}ctx.restore()}};
+              new Chart(canvas.getContext('2d'),{type:'line',data:{datasets:[{data,borderWidth:2.5,pointRadius:0,tension:.16,spanGaps:false,segment:{borderColor:context=>color(context.p1.raw.glucose)}}]},options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'nearest',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{title:items=>`${items[0].raw.x.toFixed(2)} km`,label:item=>`${label} ${options.pace?paceLabel(item.raw.y):Math.round(item.raw.y)+' '+unit}`,afterLabel:item=>item.raw.glucose==null?'Glycémie indisponible':`Glycémie ${Math.round(item.raw.glucose)} mg/dL`}}},scales:{x:{type:'linear',title:{display:true,text:'Distance (km)'},grid:{color:'rgba(173,166,154,.2)'}},y:{reverse:Boolean(options.reverse),title:{display:true,text:unit},grid:{color:'rgba(173,166,154,.2)'}}}},plugins:[bands]});
+            };
+            build('glucoseHeartRateChart','hr','FC','bpm');
+            build('glucosePaceChart','pace','Allure','min/km',{pace:true,reverse:true});
+            build('glucoseVamChart','vam','VAM','m/h');
+          })();
+        </script>
+        {% endif %}
 
         <div style="
           display:grid;

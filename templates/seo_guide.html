@@ -15,9 +15,15 @@
     <p class="seo-lead">{{ guide.intro }}</p>
   </header>
   {% if guide.medical_notice %}<aside class="seo-medical-notice" aria-label="Information médicale importante"><strong>Information importante.</strong> {{ guide.medical_notice }}</aside>{% endif %}
+  {% if guide.carb_dose %}
+  <section class="seo-section"><p class="seo-kicker">Répartition indicative</p><h2>Découper {{ guide.carb_dose.grams }} g sur une heure</h2><div class="seo-course-links"><div class="seo-course-link">Toutes les 15 min<small style="display:block;margin-top:5px;color:var(--text-muted)">{{ guide.carb_dose.per_15 }} g par prise</small></div><div class="seo-course-link">Toutes les 20 min<small style="display:block;margin-top:5px;color:var(--text-muted)">{{ guide.carb_dose.per_20 }} g par prise</small></div><div class="seo-course-link">Toutes les 30 min<small style="display:block;margin-top:5px;color:var(--text-muted)">{{ guide.carb_dose.per_30 }} g par prise</small></div></div><p style="margin-top:12px;font-size:.82rem">Ces valeurs répartissent seulement le total. Elles ne définissent ni le produit, ni une fréquence obligatoire, ni une recommandation médicale.</p></section>
+  {% endif %}
   {% for title, text in guide.sections %}
   <section class="seo-section"><h2>{{ title }}</h2><p>{{ text }}</p></section>
   {% endfor %}
+  {% if guide.carb_hub or guide.carb_dose %}
+  <section class="seo-section"><p class="seo-kicker">Comparer les repères</p><h2>Explorer les apports de 40 à 120 g/h</h2><div class="seo-course-links">{% for amount in range(40, 121, 5) %}<a class="seo-course-link" href="/guides/{{ amount }}-g-glucides-par-heure">{{ amount }} g de glucides/h</a>{% endfor %}</div><div class="seo-course-links" style="margin-top:12px"><a class="seo-course-link" href="/guides/types-glucides-endurance">Glucose, fructose et maltodextrine</a><a class="seo-course-link" href="/guides/variations-glycemie-pendant-effort">Variations de glycémie</a><a class="seo-course-link" href="/guides/insuline-pancreas-et-sport">Insuline et pancréas</a></div>{% if guide.carb_dose %}<p style="margin-top:14px"><a href="/guides/glucides-par-heure"><strong>Retour au guide comparatif →</strong></a></p>{% endif %}</section>
+  {% endif %}
   {% if not guide.medical_notice %}
   <section class="seo-section"><p class="seo-kicker">Mise en pratique</p><h2>Transformer cette méthode en plan de course</h2><ol><li>Choisis le parcours et vérifie les informations de l’organisateur : trace, barrières, ravitaillements et règlement peuvent évoluer.</li><li>Découpe ensuite le profil en étapes compréhensibles, idéalement d’un point officiel au suivant, plutôt qu’en kilomètres identiques.</li><li>Renseigne des allures cohérentes avec tes sorties comparables : une valeur différente pour le roulant, la montée et la descente est souvent plus utile qu’une allure moyenne unique.</li><li>Ajoute les temps d’arrêt et les besoins du tronçon suivant. Un plan ne sert pas seulement à passer vite : il aide à repartir prêt.</li><li>Teste les hypothèses à l’entraînement, puis corrige la projection. Le jour J, garde le plan comme un repère et privilégie les sensations et la sécurité.</li></ol></section>
   {% endif %}
@@ -28,7 +34,9 @@
   <section class="seo-section"><p class="seo-kicker">Sources médicales</p><h2>Approfondir avec des références reconnues</h2><ul class="seo-source-list">{% for label, url in guide.sources %}<li><a href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ label }}</a></li>{% endfor %}</ul></section>
   {% endif %}
   <section class="seo-section seo-faq"><p class="seo-kicker">Questions fréquentes</p><h2>À retenir</h2>{% for question, answer in guide.faq %}<details><summary>{{ question }}</summary><p>{{ answer }}</p></details>{% endfor %}</section>
-  {% if guide.medical_notice %}
+  {% if guide.history_cta %}
+  <section class="seo-cta-box"><h2>Construire ton historique d’effort et de nutrition</h2><p>Inscris-toi, synchronise tes activités et conserve des sorties comparables. Le relief, l’allure, le cardio et, si tu utilises un capteur compatible, la glycémie donnent du contexte à tes essais nutritionnels.</p><a class="seo-button" href="{{ cta_url }}">S’inscrire et enrichir mon historique →</a> <a class="seo-button" href="/suivi-glycemie-sport">Découvrir le suivi glycémique →</a></section>
+  {% elif guide.medical_notice %}
   <section class="seo-cta-box"><h2>Voir concrètement le suivi glycémique</h2><p>Découvre comment le profil du parcours, le cardio, les zones, l’allure et la VAM peuvent être rapprochés des mesures de glycémie.</p><a class="seo-button" href="/suivi-glycemie-sport">Voir les graphiques et capteurs compatibles →</a></section>
   {% else %}
   <section class="seo-cta-box"><h2>Construire une projection adaptée à ton profil</h2><p>Utilise tes propres allures par pente et les étapes du parcours pour créer un plan de course personnalisable.</p><a class="seo-button" href="{{ cta_url }}">Créer mon plan de course →</a></section>

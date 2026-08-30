@@ -267,3 +267,151 @@ SEO_GUIDES = {
         "sources": [["American Diabetes Association — hausse du glucose pendant l’exercice", "https://diabetes.org/health-wellness/fitness/why-does-exercise-sometimes-raise-blood-sugar"]],
     },
 }
+
+
+# Série éditoriale consacrée aux apports horaires. Chaque page répond à une
+# recherche chiffrée précise tout en rappelant qu'une cible est à tester et
+# qu'elle ne constitue pas une prescription, notamment en cas de diabète.
+_CARB_SOURCES = [
+    ["Jeukendrup — recommandations d’apport glucidique pendant l’effort (PubMed)", "https://pubmed.ncbi.nlm.nih.gov/23765351/"],
+    ["Revue 2026 — glucides et endurance, des recommandations aux apports élevés (PubMed)", "https://pubmed.ncbi.nlm.nih.gov/41759826/"],
+    ["NIDDK — rôle du pancréas, de l’insuline et du glucagon", "https://www.niddk.nih.gov/-/media/Files/Diabetes/Causes_of_Diabetes_508.pdf"],
+    ["American Diabetes Association — activité physique et diabète", "https://diabetesjournals.org/care/article/39/11/2065/37249/Physical-Activity-Exercise-and-Diabetes-A-Position"],
+]
+
+_CARB_DOSES = list(range(40, 121, 5))
+
+SEO_GUIDES["glucides-par-heure"] = {
+    "title": "Combien de glucides par heure en trail, running ou vélo ?",
+    "description": "Comparer les apports de 40 à 120 g de glucides par heure, comprendre glucose, fructose, glycémie et tolérance digestive, puis construire son historique.",
+    "keywords": "glucides par heure, nutrition trail, glucides running, glucides vélo, glycémie effort, maltodextrine fructose",
+    "kicker": "Dossier nutrition d’endurance",
+    "intro": "Une quantité de glucides par heure est un repère de préparation, pas une valeur universelle. La durée, l’intensité, les produits, la tolérance digestive et, le cas échéant, le traitement du diabète changent complètement la manière de l’utiliser.",
+    "medical_notice": "Running Data Plan n’établit ni prescription nutritionnelle ni adaptation d’insuline. En cas de diabète, toute stratégie d’apports et de traitement pendant l’effort doit être préparée avec l’équipe soignante.",
+    "sections": [
+        ["De 40 à 60 g/h : une plage courante à documenter", "Ces quantités peuvent être réparties en petites prises régulières. Le résultat dépend moins d’un chiffre isolé que de la capacité à le tenir, à boire correctement et à conserver une bonne tolérance au fil des heures."],
+        ["De 65 à 90 g/h : réfléchir aux glucides transportables", "Lorsque l’apport augmente, associer des sources utilisant différentes voies d’absorption, notamment glucose ou maltodextrine avec fructose, peut faciliter l’oxydation des glucides ingérés. La composition exacte du produit et sa tolérance restent à tester."],
+        ["De 95 à 120 g/h : une stratégie avancée", "Ces apports élevés sont observés chez certains sportifs entraînés, mais ils ne sont ni nécessaires ni démontrés comme supérieurs pour tout le monde. Ils demandent une progression, des essais répétés et une attention particulière aux symptômes digestifs."],
+        ["Glycémie, pancréas et historique personnel", "Chez une personne sans diabète, le pancréas module notamment insuline et glucagon pour contribuer à la régulation du glucose. Un capteur mesure le glucose interstitiel, avec ses limites : l’historique sert à rapprocher alimentation, relief, allure et cardio, pas à attribuer automatiquement une variation à un aliment."],
+    ],
+    "faq": [
+        ["Quelle quantité choisir pour commencer ?", "Choisissez avec un professionnel une cible cohérente avec la durée et votre expérience, puis testez-la progressivement à l’entraînement plutôt que pour la première fois en course."],
+        ["Un capteur de glycémie indique-t-il combien manger ?", "Non. Il ajoute une mesure contextuelle mais ne calcule pas à lui seul un besoin nutritionnel et ne remplace pas les consignes médicales."],
+    ],
+    "sources": _CARB_SOURCES,
+    "carb_hub": True,
+    "history_cta": True,
+}
+
+SEO_GUIDES["types-glucides-endurance"] = {
+    "title": "Glucose, fructose, maltodextrine : quels glucides en endurance ?",
+    "description": "Comprendre les types de glucides utilisés en trail, running et vélo : glucose, fructose, maltodextrine, saccharose, absorption et tolérance.",
+    "keywords": "glucose fructose maltodextrine endurance, types glucides trail, glucides transportables, nutrition running vélo",
+    "kicker": "Molécules et nutrition sportive",
+    "intro": "Deux produits annonçant la même quantité de glucides peuvent employer des formules différentes. Comprendre leurs grandes familles aide à lire une étiquette et à documenter la tolérance, sans décréter qu’un mélange convient à tous.",
+    "medical_notice": "Les exemples décrivent des mécanismes généraux. Allergie, maladie digestive, diabète ou traitement nécessitent un conseil adapté auprès d’un professionnel qualifié.",
+    "sections": [
+        ["Glucose et maltodextrine", "Le glucose est un monosaccharide directement utilisable. La maltodextrine est un assemblage de molécules issues de l’amidon, rapidement digéré en glucose. Leur goût et leur concentration peuvent différer, mais ils alimentent principalement la même voie d’absorption intestinale."],
+        ["Fructose et association de transporteurs", "Le fructose emprunte une autre voie d’absorption que le glucose. Dans les apports élevés, une association glucose ou maltodextrine avec fructose peut augmenter l’utilisation de glucides exogènes. Cela ne supprime pas le risque d’inconfort digestif."],
+        ["Saccharose et aliments réels", "Le saccharose fournit glucose et fructose. Fruits secs, compotes, barres ou aliments salés ajoutent texture, eau, fibres, lipides ou protéines : leur quantité totale de glucides et leur tolérance se lisent dans le contexte de la course."],
+        ["Comparer avec son propre historique", "Consigne la marque, la composition, la quantité, l’eau et les symptômes. Une série d’essais comparables permet de distinguer plus proprement quantité, formule et conditions d’effort."],
+    ],
+    "faq": [["La maltodextrine est-elle un sucre lent ?", "Malgré un goût parfois peu sucré, elle peut être rapidement digérée en glucose ; le goût ne prédit pas la vitesse d’utilisation."], ["Faut-il toujours mélanger glucose et fructose ?", "Non. L’intérêt dépend notamment de la quantité horaire, de la durée et de la tolérance."]],
+    "sources": _CARB_SOURCES,
+    "history_cta": True,
+}
+
+SEO_GUIDES["variations-glycemie-pendant-effort"] = {
+    "title": "Variations de glycémie pendant l’effort : comment les comprendre ?",
+    "description": "Glycémie qui monte ou baisse pendant le sport : rôle de l’intensité, des glucides, du stress, du CGM et de l’historique d’entraînement.",
+    "keywords": "variation glycémie effort, glycémie monte sport, glycémie baisse running, glucose trail CGM",
+    "kicker": "Glycémie et contexte d’effort",
+    "intro": "Une courbe qui monte ou descend pendant une activité ne raconte pas sa cause à elle seule. L’intensité, les apports, les hormones, le moment du repas et, chez une personne diabétique, l’insuline active peuvent agir simultanément.",
+    "medical_notice": "Une analyse rétrospective n’est pas un système d’alerte. En présence de symptômes ou d’une valeur inattendue, appliquez les consignes de votre dispositif et de votre équipe soignante.",
+    "sections": [
+        ["Pourquoi une endurance modérée peut accompagner une baisse", "Le muscle augmente sa consommation de carburant pendant l’exercice. La réponse observée dépend toutefois des réserves, des apports, de l’intensité et de la régulation hormonale."],
+        ["Pourquoi un effort intense peut accompagner une hausse", "Le stress de compétition et les efforts intenses peuvent stimuler des hormones favorisant la mise à disposition de glucose. Cette réponse est variable et ne permet pas de diagnostiquer une anomalie sur une seule séance."],
+        ["Ce que mesure réellement un CGM", "Un capteur mesure le glucose du liquide interstitiel. Lors d’une variation rapide, la valeur peut différer temporairement du glucose sanguin ; il faut tenir compte des flèches, des symptômes et des règles propres au dispositif."],
+        ["Relier la courbe au terrain", "Positionner les plages glycémiques sur l’altitude, l’allure, la VAM et le cardio aide à retrouver le contexte exact. Plusieurs activités comparables permettent ensuite de chercher une tendance reproductible."],
+    ],
+    "faq": [["Une hausse signifie-t-elle que j’ai trop mangé ?", "Pas nécessairement. L’intensité, le stress et d’autres facteurs peuvent intervenir ; une coïncidence n’établit pas la cause."], ["Peut-on comparer deux capteurs différents ?", "Le matériel, le site de pose et le contexte peuvent influencer la lecture. Documentez ces éléments avant de comparer."]],
+    "sources": _CARB_SOURCES,
+    "history_cta": True,
+}
+
+SEO_GUIDES["insuline-pancreas-et-sport"] = {
+    "title": "Insuline, pancréas et sport : comprendre la régulation du glucose",
+    "description": "Comprendre simplement le rôle du pancréas, de l’insuline, du glucagon et du glucose pendant le sport, avec ou sans diabète.",
+    "keywords": "insuline sport pancréas, glucagon exercice, glycémie endurance, fonctionnement pancréas glucose",
+    "kicker": "Physiologie du glucose",
+    "intro": "Le pancréas participe en permanence à l’équilibre énergétique. Pendant l’effort, muscles, foie, hormones et alimentation interagissent : ce système explique pourquoi une quantité de glucides ne produit pas une courbe identique chez deux personnes.",
+    "medical_notice": "Cette présentation simplifiée ne permet aucune adaptation de traitement. Toute décision concernant l’insuline doit suivre un protocole établi avec l’équipe de diabétologie.",
+    "sections": [
+        ["Les cellules bêta et l’insuline", "Lorsque le glucose augmente, les cellules bêta des îlots pancréatiques sécrètent de l’insuline. Celle-ci facilite notamment l’entrée du glucose dans certains tissus et favorise son stockage sous forme de glycogène."],
+        ["Les cellules alpha et le glucagon", "Lorsque la disponibilité du glucose baisse, le glucagon contribue à signaler au foie de libérer du glucose. Insuline et glucagon participent ainsi à une régulation dynamique, et non à un simple interrupteur."],
+        ["Ce que l’exercice change", "Les muscles actifs utilisent davantage de carburant et leur captation du glucose peut augmenter. En parallèle, l’intensité et le stress modifient la réponse hormonale et peuvent favoriser une hausse transitoire chez certaines personnes."],
+        ["Pourquoi le diabète impose une stratégie personnelle", "Dans le diabète de type 1, l’insuline doit être apportée de l’extérieur. Dans le diabète de type 2, sa production ou son action peut être insuffisante. L’effort, les glucides et les médicaments doivent donc être préparés avec des professionnels connaissant la personne."],
+    ],
+    "faq": [["Le pancréas libère-t-il seulement de l’insuline ?", "Non. Il produit notamment le glucagon, qui joue un rôle complémentaire dans la régulation du glucose."], ["Le sport fait-il toujours baisser la glycémie ?", "Non. Le type d’effort, son intensité et le contexte peuvent produire des réponses différentes."]],
+    "sources": _CARB_SOURCES,
+    "history_cta": True,
+}
+
+
+def _carb_dose_guide(grams: int) -> dict:
+    per_15 = grams / 4
+    per_20 = grams / 3
+    per_30 = grams / 2
+    if grams <= 60:
+        level = "repère modéré"
+        context = ("Cette cible se situe dans une plage fréquemment utilisée pendant les efforts d’endurance. "
+                   "Elle peut servir de point de travail si la durée, l’intensité et l’alimentation préalable la justifient.")
+        molecule = ("À ce niveau, une source apportant du glucose, du saccharose ou de la maltodextrine peut suffire selon le produit. "
+                    "La présence de fructose n’est pas automatiquement synonyme de meilleure tolérance : lis l’étiquette et teste la formule complète.")
+    elif grams <= 90:
+        level = "apport soutenu"
+        context = ("Cette cible appartient à une plage soutenue, surtout pertinente lors d’efforts longs. "
+                   "Plus la quantité augmente, plus la répartition, la boisson et l’entraînement digestif deviennent déterminants.")
+        molecule = ("Les recommandations sur les apports élevés évoquent des glucides utilisant plusieurs transporteurs intestinaux, typiquement glucose ou maltodextrine associés au fructose. "
+                    "Le ratio varie selon les produits : le total réellement ingéré et la tolérance comptent davantage qu’un argument marketing.")
+    else:
+        level = "stratégie très élevée"
+        context = ("Cette cible dépasse la limite historique de 90 g/h et relève d’une stratégie avancée. "
+                   "Des sportifs entraînés expérimentent jusqu’à 120 g/h, mais la littérature ne démontre pas un bénéfice universel et les données restent en évolution.")
+        molecule = ("À ce niveau, une seule source de glucose est généralement une mauvaise simplification : les travaux portent plutôt sur des mélanges glucose ou maltodextrine et fructose. "
+                    "Même avec un mélange, absorber davantage ne garantit ni oxydation complète ni confort digestif.")
+
+    return {
+        "title": f"{grams} g de glucides par heure : stratégie nutrition en endurance",
+        "description": f"Comment répartir {grams} g de glucides par heure en trail, running ou vélo : prises, molécules, glycémie, digestion et suivi personnel.",
+        "keywords": f"{grams} g glucides par heure, {grams}gr glucides heure, nutrition trail, alimentation endurance, glycémie sport, glucose fructose maltodextrine",
+        "kicker": f"{grams} g/h · {level}",
+        "intro": f"Viser {grams} g de glucides par heure revient à organiser un débit moyen, pas à avaler {grams} g en une fois. Une répartition régulière donne des repères plus faciles à tester, mais cette cible doit rester cohérente avec ton effort et ta tolérance.",
+        "medical_notice": "Cette page fournit des repères généraux et ne prescrit pas une quantité. En cas de diabète ou de traitement influençant la glycémie, ne modifiez ni apports ni insuline à partir de cette page : préparez un protocole personnel avec l’équipe soignante.",
+        "sections": [
+            [f"Que représente exactement {grams} g/h ?", f"Sur une heure, cela correspond par exemple à environ {per_15:g} g toutes les 15 minutes, {per_20:.1f} g toutes les 20 minutes ou {per_30:g} g toutes les 30 minutes. Ces divisions sont des équivalences mathématiques : gels, boissons et aliments doivent être additionnés d’après leur étiquette."],
+            [f"Dans quel contexte envisager {grams} g/h ?", context],
+            ["Glucose, maltodextrine, fructose et saccharose", molecule],
+            ["Glycémie : observer une variation sans inventer une cause", "Un apport glucidique, l’intensité, le stress, la température, l’insuline active et le fonctionnement hormonal peuvent coïncider avec une variation. Le CGM mesure le glucose interstitiel et peut présenter un décalage lors des changements rapides. Il faut donc rapprocher la courbe du moment de prise, du cardio, de l’allure et du relief, puis comparer plusieurs séances similaires."],
+            ["Insuline, glucagon et fonctionnement du pancréas", "Le pancréas endocrine participe à l’équilibre du glucose : les cellules bêta sécrètent l’insuline, qui favorise notamment l’utilisation et le stockage du glucose, tandis que le glucagon contribue à mobiliser du glucose lorsque sa disponibilité baisse. Pendant l’effort, cette régulation interagit avec les hormones du stress et la consommation énergétique. En cas de diabète, ce fonctionnement est modifié et exige des consignes individualisées."],
+            ["Transformer un essai en historique utile", f"Enregistre la quantité réellement prise, les horaires, le produit, l’eau consommée et les symptômes. Avec Running Data Plan, les activités, le relief, l’allure, le cardio et les données CGM compatibles peuvent être conservés au même endroit. Plusieurs essais à {grams} g/h permettent de comparer, sans prétendre prouver qu’une variation vient d’un seul facteur."],
+        ],
+        "faq": [
+            [f"{grams} g/h convient-il à tout le monde ?", "Non. La cible dépend de l’effort, de l’expérience, de la tolérance digestive et de la situation médicale. Elle doit être testée progressivement dans un cadre adapté."],
+            ["Faut-il compter les glucides de la boisson ?", "Oui. Le total horaire comprend boissons, gels, barres et aliments. Utilisez les grammes de glucides indiqués sur les étiquettes, pas seulement le poids du produit."],
+            ["La glycémie suffit-elle pour valider la stratégie ?", "Non. Ajoutez au minimum sensations, tolérance digestive, allure, intensité et contexte. Pour toute décision médicale, suivez les consignes de votre équipe soignante."],
+        ],
+        "sources": _CARB_SOURCES,
+        "carb_dose": {
+            "grams": grams,
+            "per_15": f"{per_15:g}",
+            "per_20": f"{per_20:.1f}",
+            "per_30": f"{per_30:g}",
+        },
+        "history_cta": True,
+        "index_card": False,
+    }
+
+
+for _grams in _CARB_DOSES:
+    SEO_GUIDES[f"{_grams}-g-glucides-par-heure"] = _carb_dose_guide(_grams)

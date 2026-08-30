@@ -5766,7 +5766,11 @@ def seo_guides_index(request: Request):
         description="Guides pratiques sur le plan de course trail, le pacing, les allures selon la pente et la gestion de la glycémie pendant le sport avec un diabète de type 1.",
         path="/guides",
         page_kind="guides",
-        guides=[{"slug": slug, **guide} for slug, guide in SEO_GUIDES.items()],
+        guides=[
+            {"slug": slug, **guide}
+            for slug, guide in SEO_GUIDES.items()
+            if guide.get("index_card", True)
+        ],
     ))
 
 

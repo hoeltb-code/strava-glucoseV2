@@ -110,6 +110,26 @@
     {{ admin_daily_chart('Plans téléchargés · 30 derniers jours', 'Utilisateurs uniques ayant téléchargé au moins un plan par jour.', plan_download_trend, plan_download_trend_max) }}
     {{ admin_daily_chart('Connexions uniques · 30 derniers jours', 'Utilisateurs uniques authentifiés dans l’application par jour. Le suivi démarre à partir de maintenant.', login_trend, login_trend_max) }}
 
+    <section class="card admin-subcard" style="margin-top:14px; padding:14px; background:#fff9ee; border-color:rgba(248,184,88,.48);">
+      <h3 style="margin:0 0 5px; font-size:1rem;">🔗 Connexions aux services</h3>
+      <p style="margin:0 0 12px; color:var(--text-muted); font-size:.82rem;">État des comptes actuellement reliés et variation depuis le précédent relevé quotidien.</p>
+      <div style="display:grid; grid-template-columns:repeat(2,minmax(140px,1fr)); gap:9px;">
+        <div style="padding:11px; border-radius:10px; background:#fff;"><strong style="display:block; font-size:1.3rem;">{{ connection_counts.strava }}</strong><span style="color:var(--text-muted); font-size:.72rem;">connectés à Strava · {% if connection_counts.strava_delta > 0 %}+{% endif %}{{ connection_counts.strava_delta }} depuis le relevé précédent</span></div>
+        <div style="padding:11px; border-radius:10px; background:#fff;"><strong style="display:block; font-size:1.3rem;">{{ connection_counts.cgm }}</strong><span style="color:var(--text-muted); font-size:.72rem;">connectés à un capteur CGM · {% if connection_counts.cgm_delta > 0 %}+{% endif %}{{ connection_counts.cgm_delta }} depuis le relevé précédent</span></div>
+      </div>
+      {{ admin_daily_chart('Utilisateurs connectés à Strava', 'Nombre total de comptes reliés lors de chaque relevé quotidien.', strava_connection_trend, strava_connection_trend_max) }}
+      {{ admin_daily_chart('Utilisateurs connectés à un capteur', 'Au moins une connexion Libre, Dexcom, CareLink ou Nightscout.', cgm_connection_trend, cgm_connection_trend_max) }}
+    </section>
+
+    <section class="card admin-subcard" style="margin-top:14px; padding:14px; background:#fff9ee; border-color:rgba(248,184,88,.48);">
+      <h3 style="margin:0 0 5px; font-size:1rem;">🛒 Intérêt pour Dexcom ONE+</h3>
+      <p style="margin:0 0 10px; color:var(--text-muted); font-size:.82rem;">Clics authentifiés sur le bouton de comparaison Google Shopping.</p>
+      <div style="display:grid; grid-template-columns:repeat(2,minmax(120px,1fr)); gap:9px;">
+        <div style="padding:10px; border-radius:9px; background:#fff;"><strong style="display:block; font-size:1.3rem;">{{ dexcom_purchase_clicks.unique_users }}</strong><span style="color:var(--text-muted); font-size:.72rem;">utilisateurs uniques</span></div>
+        <div style="padding:10px; border-radius:9px; background:#fff;"><strong style="display:block; font-size:1.3rem;">{{ dexcom_purchase_clicks.total }}</strong><span style="color:var(--text-muted); font-size:.72rem;">clics au total</span></div>
+      </div>
+    </section>
+
     <section class="card admin-subcard" style="margin-top:14px; padding:14px; background:#f8fafc;">
       <h3 style="margin:0 0 5px; font-size:1rem;">📄 Utilisation des plans de course</h3>
       <p style="margin:0 0 12px; color:var(--text-muted); font-size:.82rem;">Chaque envoi avec téléchargement PDF est archivé pour suivre l’usage du simulateur.</p>

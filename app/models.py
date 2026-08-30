@@ -668,3 +668,28 @@ class UserLoginEvent(Base):
     logged_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
 
     user = relationship("User")
+
+
+class PurchaseClickEvent(Base):
+    """Clic authentifié vers une source d'achat externe."""
+
+    __tablename__ = "purchase_click_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    product_key = Column(String(64), nullable=False, index=True)
+    clicked_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+    user = relationship("User")
+
+
+class ConnectionDailySnapshot(Base):
+    """Instantané quotidien des connexions aux services externes."""
+
+    __tablename__ = "connection_daily_snapshots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    snapshot_date = Column(Date, nullable=False, unique=True, index=True)
+    strava_users = Column(Integer, nullable=False, default=0)
+    cgm_users = Column(Integer, nullable=False, default=0)
+    recorded_at = Column(DateTime, nullable=False, default=datetime.utcnow)

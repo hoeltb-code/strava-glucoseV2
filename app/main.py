@@ -209,6 +209,8 @@ from app.models import (
     PlanPaymentAttempt,
     PlanCreditWallet,
     UserLoginEvent,
+    PurchaseClickEvent,
+    ConnectionDailySnapshot,
 )
 from app.secrets import encrypt_secret
 from app.seo_content import SEO_GUIDES
@@ -4419,6 +4421,7 @@ def ui_home(request: Request):
     user_pagination = {}
     activity_pagination = {}
     course_plan_usage = {"total": 0, "last_30_days": 0, "unique_users": 0}
+    dexcom_purchase_clicks = {"total": 0, "unique_users": 0}
     course_plan_downloads = []
     course_plan_pagination = {}
     signup_trend = []
@@ -4427,6 +4430,11 @@ def ui_home(request: Request):
     plan_download_trend_max = 1
     login_trend = []
     login_trend_max = 1
+    strava_connection_trend = []
+    strava_connection_trend_max = 1
+    cgm_connection_trend = []
+    cgm_connection_trend_max = 1
+    connection_counts = {"strava": 0, "cgm": 0, "strava_delta": 0, "cgm_delta": 0}
     admin_status = request.query_params.get("admin_status")
     admin_message = request.query_params.get("admin_msg")
 
@@ -4440,12 +4448,63 @@ def ui_home(request: Request):
             carelink_filter=carelink_filter,
             nightscout_filter=nightscout_filter,
         )
+        all_connection_rows = _collect_admin_user_rows(db)
+        current_strava_users = sum(1 for row in all_connection_rows if row["has_strava"])
+        current_cgm_users = sum(
+            1 for row in all_connection_rows
+            if row["libre_email"] or row["has_dexcom"] or row["has_carelink"] or row["has_nightscout"]
+        )
+        today = dt.datetime.utcnow().date()
+        today_snapshot = (
+            db.query(ConnectionDailySnapshot)
+            .filter(ConnectionDailySnapshot.snapshot_date == today)
+            .one_or_none()
+        )
+        if today_snapshot is None:
+            today_snapshot = ConnectionDailySnapshot(snapshot_date=today)
+        today_snapshot.strava_users = current_strava_users
+        today_snapshot.cgm_users = current_cgm_users
+        today_snapshot.recorded_at = dt.datetime.utcnow()
+        db.add(today_snapshot)
+        db.commit()
+
+        connection_snapshots = (
+            db.query(ConnectionDailySnapshot)
+            .filter(ConnectionDailySnapshot.snapshot_date >= dt.datetime.utcnow().date() - dt.timedelta(days=29))
+            .order_by(ConnectionDailySnapshot.snapshot_date.asc())
+            .all()
+        )
+        strava_connection_trend = [
+            {"label": row.snapshot_date.strftime("%d/%m"), "count": row.strava_users}
+            for row in connection_snapshots
+        ]
+        cgm_connection_trend = [
+            {"label": row.snapshot_date.strftime("%d/%m"), "count": row.cgm_users}
+            for row in connection_snapshots
+        ]
+        strava_connection_trend_max = max((point["count"] for point in strava_connection_trend), default=1) or 1
+        cgm_connection_trend_max = max((point["count"] for point in cgm_connection_trend), default=1) or 1
+        previous_snapshot = connection_snapshots[-2] if len(connection_snapshots) > 1 else None
+        connection_counts = {
+            "strava": current_strava_users,
+            "cgm": current_cgm_users,
+            "strava_delta": current_strava_users - previous_snapshot.strava_users if previous_snapshot else 0,
+            "cgm_delta": current_cgm_users - previous_snapshot.cgm_users if previous_snapshot else 0,
+        }
         enrichment_dashboard = _collect_enrichment_admin_rows(db)
         usage_since = dt.datetime.utcnow() - dt.timedelta(days=30)
         course_plan_usage = {
             "total": db.query(CoursePlanDownload.id).count(),
             "last_30_days": db.query(CoursePlanDownload.id).filter(CoursePlanDownload.downloaded_at >= usage_since).count(),
             "unique_users": db.query(func.count(func.distinct(CoursePlanDownload.user_id))).scalar() or 0,
+        }
+        dexcom_purchase_clicks = {
+            "total": db.query(PurchaseClickEvent.id)
+            .filter(PurchaseClickEvent.product_key == "dexcom-one-plus")
+            .count(),
+            "unique_users": db.query(func.count(func.distinct(PurchaseClickEvent.user_id)))
+            .filter(PurchaseClickEvent.product_key == "dexcom-one-plus")
+            .scalar() or 0,
         }
         course_plan_total_pages = max(1, math.ceil(course_plan_usage["total"] / plan_page_size))
         plan_page = min(plan_page, course_plan_total_pages)
@@ -4606,6 +4665,7 @@ def ui_home(request: Request):
             "admin_status": admin_status,
             "admin_message": admin_message,
             "course_plan_usage": course_plan_usage,
+            "dexcom_purchase_clicks": dexcom_purchase_clicks,
             "course_plan_downloads": course_plan_downloads,
             "course_plan_pagination": course_plan_pagination,
             "signup_trend": signup_trend,
@@ -4614,6 +4674,11 @@ def ui_home(request: Request):
             "plan_download_trend_max": plan_download_trend_max,
             "login_trend": login_trend,
             "login_trend_max": login_trend_max,
+            "strava_connection_trend": strava_connection_trend,
+            "strava_connection_trend_max": strava_connection_trend_max,
+            "cgm_connection_trend": cgm_connection_trend,
+            "cgm_connection_trend_max": cgm_connection_trend_max,
+            "connection_counts": connection_counts,
         },
     )
 
@@ -6058,6 +6123,24 @@ def ui_dexcom_one_plus_guide(request: Request):
         ],
         breadcrumbs=[("Accueil", "/"), ("Suivi glycémie et sport", "/suivi-glycemie-sport"), ("Dexcom ONE+", "/capteurs/dexcom-one-plus")],
     ))
+
+
+@app.post("/track/dexcom-purchase-click")
+def track_dexcom_purchase_click(request: Request):
+    """Compte le clic des utilisateurs authentifiés puis ouvre Google Shopping."""
+    user_id = _get_session_user_id(request)
+    if user_id is not None:
+        db = SessionLocal()
+        try:
+            if db.get(User, int(user_id)) is not None:
+                db.add(PurchaseClickEvent(user_id=int(user_id), product_key="dexcom-one-plus"))
+                db.commit()
+        finally:
+            db.close()
+    return RedirectResponse(
+        url="https://www.google.com/search?tbm=shop&q=Dexcom+ONE%2B+France",
+        status_code=303,
+    )
 
 
 @app.get("/assistance", response_class=HTMLResponse)

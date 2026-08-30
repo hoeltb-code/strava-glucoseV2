@@ -3401,9 +3401,9 @@ async def process_activity_core(
                     else None
                 )
                 if activity_link:
-                    blocks_ordered.append(f"Voir l'analyse complète : {activity_link}")
+                    blocks_ordered.append(f"\nVoir l'analyse complète : {activity_link}")
                 blocks_ordered.append(
-                    f"Pour tous les fans de data —> Join us : {app_base_url}/"
+                    f"\nPour tous les fans de data —> Join us : {app_base_url}/"
                 )
                 full_block = normalize_summary_block_layout("\n".join(blocks_ordered))
 

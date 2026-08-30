@@ -1007,7 +1007,8 @@ def compute_hr_zones(
 def merge_desc(existing: str, block: str) -> str:
     """
     Remplace proprement tout ancien bloc auto (glycémie/VAM/allure/cadence/cardio/zones)
-    sans utiliser de balises visibles. Si rien à nettoyer, on ajoute à la fin.
+    sans utiliser de balises visibles. Le contenu déjà présent reste en tête afin
+    de toujours respecter une description éventuellement saisie par l'utilisateur.
     """
     existing = (existing or "").strip()
 
@@ -1039,20 +1040,31 @@ def merge_desc(existing: str, block: str) -> str:
         "Pour tous les fans de data —> Join us :",
     ]
 
-    # Cherche le premier marqueur (le plus tôt dans le texte)
-    cut_positions = []
-    for m in markers:
-        pos = existing.find(m)
-        if pos != -1:
-            cut_positions.append(pos)
-
-    if cut_positions:
-        cut = min(cut_positions)
-        base_clean = existing[:cut].rstrip()
+    # Le bloc généré se termine par la signature Running Data Plan. En ciblant
+    # cette plage, on ne supprime pas le contenu qu'un autre service aurait
+    # ajouté après notre bloc.
+    start_positions = [pos for marker in markers if (pos := existing.find(marker)) != -1]
+    if start_positions:
+        start = min(start_positions)
+        end_markers = (
+            "Pour tous les fans de data —> Join us :",
+            "—> Join us : https://strava-glucosev2.onrender.com/",
+            "—> Made with ❤️ by Benoit",
+        )
+        end_positions = []
+        for marker in end_markers:
+            pos = existing.find(marker, start)
+            if pos != -1:
+                line_end = existing.find("\n", pos)
+                end_positions.append(len(existing) if line_end == -1 else line_end + 1)
+        end = max(end_positions) if end_positions else len(existing)
+        preserved_parts = [part.strip() for part in (existing[:start], existing[end:]) if part.strip()]
+        base_clean = "\n\n".join(preserved_parts)
     else:
         base_clean = existing
 
-    # Fusion finale (sans balises)
+    # Le contenu existant passe avant le bloc applicatif : l'API Strava ne permet
+    # pas de distinguer une saisie manuelle du texte ajouté par un autre service.
     if base_clean:
         merged = f"{base_clean}\n\n{block}"
     else:

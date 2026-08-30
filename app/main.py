@@ -80,6 +80,8 @@ import datetime as dt
 import subprocess
 import secrets
 import hashlib
+import struct
+import zlib
 import smtplib
 from email.message import EmailMessage
 from io import BytesIO
@@ -157,6 +159,7 @@ from .logic import (
     compute_km_highlights_from_streams,
     compute_terrain_adjusted_cardiac_drift,
     backfill_signed_vertical_speed_for_activity,
+    is_valid_activity_stream_interval,
     ensure_activity_meta_contribution,
     get_archived_training_summary,
     purge_old_user_activities,
@@ -254,20 +257,26 @@ def _load_official_course_catalog() -> list[dict]:
             route_file = os.path.basename(str(course.get("route_file") or ""))
             if not course_id or not route_file.lower().endswith(".gpx"):
                 continue
-            event_name = str(course.get("event_name") or ("Festival des Templiers" if course_id in TEMPLIERS_2026_DEPARTURES else ""))
+            reference_route_file = os.path.basename(str(course.get("reference_route_file") or ""))
+            official_route_available = os.path.isfile(os.path.join(OFFICIAL_COURSES_DIR, route_file))
+            reference_route_available = bool(reference_route_file.lower().endswith(".gpx") and os.path.isfile(os.path.join(OFFICIAL_COURSES_DIR, reference_route_file)))
+            event_name = str(course.get("event_name") or _course_event_name(course_id))
             courses.append(
                 {
                     "id": course_id,
                     "name": course.get("name") or course_id,
                     "short_name": course.get("short_name") or course.get("name") or course_id,
                     "distance_km": course.get("distance_km"),
+                    "distance_label": course.get("distance_label"),
                     "elevation_gain_m": course.get("elevation_gain_m"),
                     "elevation_loss_m": course.get("elevation_loss_m"),
                     "course_coefficient_percent": course.get("course_coefficient_percent", 100),
                     "course_pace_category": course.get("course_pace_category", ""),
                     "event_name": event_name,
                     "search_terms": event_name,
-                    "route_available": os.path.isfile(os.path.join(OFFICIAL_COURSES_DIR, route_file)),
+                    "route_available": official_route_available or reference_route_available,
+                    "route_status": "official" if official_route_available else "previous_edition" if reference_route_available else "pending",
+                    "route_edition_year": course.get("route_edition_year") or (course.get("edition_year") if official_route_available else None),
                     "points": course.get("points") or [],
                 }
             )
@@ -294,9 +303,16 @@ def _load_official_course(course_id: str, *, require_route: bool = True) -> dict
     if not route_file.lower().endswith(".gpx"):
         return None
     route_path = os.path.join(OFFICIAL_COURSES_DIR, route_file)
-    if require_route and not os.path.isfile(route_path):
+    route_status = "official" if os.path.isfile(route_path) else "pending"
+    if route_status == "pending":
+        reference_route_file = os.path.basename(str(course.get("reference_route_file") or ""))
+        reference_path = os.path.join(OFFICIAL_COURSES_DIR, reference_route_file)
+        if reference_route_file.lower().endswith(".gpx") and os.path.isfile(reference_path):
+            route_path = reference_path
+            route_status = "previous_edition"
+    if require_route and route_status == "pending":
         return None
-    return {"course": course, "route_path": route_path if os.path.isfile(route_path) else None}
+    return {"course": course, "route_path": route_path if route_status != "pending" else None, "route_status": route_status}
 
 
 def _seo_course_slug(course_id: str) -> str:
@@ -360,6 +376,12 @@ def _seo_segment_profile_svg(profile: list[dict], from_km: float, to_km: float) 
     points = ([before[-1]] if before else []) + inside + ([after[0]] if after else [])
     if len(points) < 2:
         return ""
+    if len(points) > 120:
+        step = max(1, math.ceil(len(points) / 120))
+        compacted = points[::step]
+        if compacted[-1] is not points[-1]:
+            compacted.append(points[-1])
+        points = compacted
     width, height, pad_x, pad_top, pad_bottom = 680, 170, 20, 18, 26
     min_y = min(float(point["elevation_m"]) for point in points)
     max_y = max(float(point["elevation_m"]) for point in points)
@@ -449,6 +471,12 @@ def _course_event_name(course_id: str) -> str:
     normalized_id = str(course_id or "").strip().lower()
     if normalized_id.startswith("saintelyon-"):
         return "SaintéLyon"
+    if normalized_id.startswith("ecotrail-paris-"):
+        return "EcoTrail Paris"
+    if normalized_id.startswith("maxi-race-"):
+        return "MaXi-Race du lac d’Annecy"
+    if normalized_id.startswith("vvx-"):
+        return "Volvic Volcanic Experience"
     if normalized_id in TEMPLIERS_2026_DEPARTURES:
         return "Festival des Templiers"
     if normalized_id.startswith("grp-"):
@@ -468,6 +496,7 @@ def _seo_course_editorial(course: dict, analysis: dict) -> dict:
     """Build useful, course-specific editorial copy from the local route data."""
     name = str(course.get("name") or "ce trail")
     distance = float(course.get("distance_km") or 0)
+    distance_text = str(course.get("distance_label") or (f"{distance:.0f} km" if distance > 0 else "une distance encore à confirmer"))
     gain_value = course.get("elevation_gain_m")
     gain = int(round(float(gain_value))) if isinstance(gain_value, (int, float)) else None
     points = list(course.get("points") or [])
@@ -525,6 +554,8 @@ def _seo_course_editorial(course: dict, analysis: dict) -> dict:
             ("Arrivée, récupération et résultats", "Les arrivées sont prévues sur la zone haute du Domaine de St-Estève, avenue de Millau Plage à Millau. " + meal_text + " Après l’événement, l’organisation annonce le dépôt des résultats pour l’UTMB Index et l’ITRA."),
         ]
     route_pending = not bool(course.get("route_available", True))
+    event_name = str(course.get("event_name") or "cet événement")
+    event_date_label = str(course.get("event_date_label") or "")
     passage_names = [str(point.get("name")) for point in points if point.get("name")]
     passage_preview = ", ".join(passage_names[:6]) + ("…" if len(passage_names) > 6 else "")
     route_sections = [(
@@ -536,7 +567,9 @@ def _seo_course_editorial(course: dict, analysis: dict) -> dict:
     pending_sections = []
     if route_pending:
         intro = (
-            f"{name} est un format de la SaintéLyon annoncé sur {distance:.0f} km. La trace GPX officielle n’est pas encore disponible dans Running Data Plan : "
+            f"{name} est un format de {event_name} annoncé sur {distance_text}"
+            + (f", programmé {event_date_label}" if event_date_label else "")
+            + ". La trace GPX officielle n’est pas encore disponible dans Running Data Plan : "
             "les dénivelés, ravitaillements, barrières et temps de passage ne sont donc pas inventés. Cette page sera enrichie dès la publication des données officielles."
         )
         pending_sections = [
@@ -622,8 +655,14 @@ def _seo_course_payload(course_id: str) -> dict | None:
         return compacted
 
     map_profile_3d = compact_profile(map_profile, 2500)
-    map_profile = compact_profile(map_profile, 450)
-    course = {**course, "route_available": bool(route_path)}
+    map_profile = compact_profile(map_profile, 180)
+    route_status = str(loaded.get("route_status") or ("official" if route_path else "pending"))
+    course = {
+        **course,
+        "route_available": bool(route_path),
+        "route_status": route_status,
+        "route_edition_year": course.get("route_edition_year") or (course.get("edition_year") if route_status == "official" else None),
+    }
     editorial = _seo_course_editorial(course, analysis)
     return {
         **course,
@@ -2640,6 +2679,7 @@ def compute_and_store_vam_peaks(db, activity, user_id: int):
     times = []
     alts = []
     ts_abs = []
+    valid_points = []
 
     for p in stream:
         if p.elapsed_time is None or p.altitude is None:
@@ -2647,10 +2687,22 @@ def compute_and_store_vam_peaks(db, activity, user_id: int):
         times.append(float(p.elapsed_time))
         alts.append(float(p.altitude))
         ts_abs.append(p.timestamp)
+        valid_points.append(p)
 
     if len(times) < 2:
         print("⚠️ Données incomplètes pour calculer les VAM (times/altitude).")
         return
+
+    running_activity = canonicalize_sport_label(getattr(activity, "sport", "run")) == "run"
+    invalid_interval_prefix = [0]
+    for previous, current in zip(valid_points, valid_points[1:]):
+        invalid_interval_prefix.append(
+            invalid_interval_prefix[-1]
+            + (0 if is_valid_activity_stream_interval(previous, current, running=running_activity) else 1)
+        )
+
+    def window_crosses_invalid_interval(start_index: int, end_index: int) -> bool:
+        return invalid_interval_prefix[end_index] > invalid_interval_prefix[start_index]
 
     def compute_vam_for_window(window_min: int):
         window_sec = window_min * 60
@@ -2668,6 +2720,8 @@ def compute_and_store_vam_peaks(db, activity, user_id: int):
                     j = k
                     break
             if j is None:
+                continue
+            if window_crosses_invalid_interval(i, j):
                 continue
 
             gain = alts[j] - alts[i]
@@ -5472,11 +5526,56 @@ def _seo_cta_url(request: Request, course_id: str | None = None) -> str:
     return "/ui/signup"
 
 
+SEO_EVENT_REGISTRY = {
+    "festival-des-templiers": {"name": "Festival des Templiers", "year": 2026, "location": "Millau, Aveyron", "date_label": "16–18 octobre 2026", "prefixes": (), "ids": set(TEMPLIERS_2026_DEPARTURES)},
+    "saintelyon": {"name": "SaintéLyon", "year": 2026, "location": "Saint-Étienne et Lyon", "date_label": "édition 2026", "prefixes": ("saintelyon-",), "ids": set()},
+    "ecotrail-paris": {"name": "EcoTrail Paris", "year": 2027, "location": "Île-de-France et Paris", "date_label": "20–21 mars 2027", "prefixes": ("ecotrail-paris-",), "ids": set()},
+    "maxi-race-annecy": {"name": "MaXi-Race du lac d’Annecy", "year": 2027, "location": "Annecy, Haute-Savoie", "date_label": "édition 2027", "prefixes": ("maxi-race-",), "ids": set()},
+    "vvx": {"name": "Volvic Volcanic Experience", "year": 2027, "location": "Volvic, Puy-de-Dôme", "date_label": "6–8 mai 2027", "prefixes": ("vvx-",), "ids": set()},
+    "utmb-mont-blanc": {"name": "UTMB Mont-Blanc", "year": 2026, "location": "Chamonix-Mont-Blanc", "date_label": "édition 2026", "prefixes": (), "ids": {"utmb-2026", "ccc-2026", "occ-2026", "tds-2026", "mcc-2026", "etc-2026"}},
+    "grand-raid-pyrenees": {"name": "Grand Raid des Pyrénées", "year": 2026, "location": "Pyrénées", "date_label": "édition 2026", "prefixes": ("grp-",), "ids": set()},
+    "grand-raid-reunion": {"name": "Grand Raid de la Réunion", "year": 2026, "location": "La Réunion", "date_label": "édition 2026", "prefixes": (), "ids": {"diagonale-des-fous-2026", "trail-de-bourbon-2026"}},
+}
+
+
+def _seo_course_event(course: dict | None) -> dict | None:
+    if not course:
+        return None
+    course_id = str(course.get("id") or "")
+    declared_name = str(course.get("event_name") or "")
+    for slug, event in SEO_EVENT_REGISTRY.items():
+        if course_id in event["ids"] or any(course_id.startswith(prefix) for prefix in event["prefixes"]) or declared_name == event["name"]:
+            return {"slug": slug, **{key: value for key, value in event.items() if key not in {"prefixes", "ids"}}}
+    return None
+
+
+def _seo_event_courses(event_slug: str) -> list[dict]:
+    courses = [
+        course for course in (_seo_course_payload(str(row["id"])) for row in _load_official_course_catalog())
+        if course and (event := _seo_course_event(course)) and event["slug"] == event_slug
+    ]
+    courses.sort(key=lambda item: float(item.get("distance_km") or 0), reverse=True)
+    return courses
+
+
+def _seo_course_start_date(course: dict) -> str | None:
+    departure = TEMPLIERS_2026_DEPARTURES.get(str(course.get("id") or ""))
+    if not departure:
+        return course.get("event_start_date")
+    label = departure[0].lower()
+    day = "16" if label.startswith("vendredi") else "17" if label.startswith("samedi") else "18"
+    start = next((point for point in course.get("points") or [] if point.get("type") == "start"), {})
+    match = re.search(r"(\d{1,2}):(\d{2})", str(start.get("fastest_label") or ""))
+    time_part = f"T{int(match.group(1)):02d}:{match.group(2)}:00+02:00" if match else ""
+    return f"2026-10-{day}{time_part}"
+
+
 def _seo_page_context(request: Request, *, title: str, description: str, path: str, **extra) -> dict:
     base_url = _get_app_base_url()
     canonical_url = f"{base_url}{path}"
     page_kind = extra.get("page_kind", "website")
     schema_type = "Article" if page_kind == "guide" else "WebPage"
+    breadcrumb_rows = extra.get("breadcrumbs") or [("Accueil", "/"), (title, path)]
     schema = {
         "@context": "https://schema.org",
         "@graph": [
@@ -5491,12 +5590,44 @@ def _seo_page_context(request: Request, *, title: str, description: str, path: s
             {
                 "@type": "BreadcrumbList",
                 "itemListElement": [
-                    {"@type": "ListItem", "position": 1, "name": "Accueil", "item": base_url},
-                    {"@type": "ListItem", "position": 2, "name": title, "item": canonical_url},
+                    {"@type": "ListItem", "position": position, "name": name, "item": base_url + item_path}
+                    for position, (name, item_path) in enumerate(breadcrumb_rows, start=1)
                 ],
             },
         ],
     }
+    course = extra.get("course")
+    seo_image_url = f"{base_url}/static/logo.png"
+    if page_kind == "course" and isinstance(course, dict):
+        seo_image_url = f"{base_url}/courses/{course['slug']}/og.png"
+        event_schema = {
+            "@type": "SportsEvent",
+            "name": course.get("name"),
+            "description": description,
+            "url": canonical_url,
+            "inLanguage": "fr-FR",
+            "sport": "Trail running",
+            "eventStatus": "https://schema.org/EventScheduled",
+            "organizer": {"@type": "Organization", "name": course.get("event_name") or _course_event_name(str(course.get("id") or ""))},
+            "image": seo_image_url,
+        }
+        start_date = _seo_course_start_date(course)
+        if start_date:
+            event_schema["startDate"] = start_date
+        location = course.get("start_location")
+        if location:
+            event_schema["location"] = {"@type": "Place", "name": location, "address": {"@type": "PostalAddress", "addressCountry": "FR"}}
+        schema["@graph"].append(event_schema)
+    event_courses = extra.get("event_courses") or []
+    if event_courses:
+        schema["@graph"].append({
+            "@type": "ItemList",
+            "name": title,
+            "itemListElement": [
+                {"@type": "ListItem", "position": index, "name": item["name"], "url": f"{base_url}/courses/{item['slug']}"}
+                for index, item in enumerate(event_courses, start=1)
+            ],
+        })
     faq_items = extra.get("faq_items") or []
     if faq_items:
         schema["@graph"].append({
@@ -5516,7 +5647,7 @@ def _seo_page_context(request: Request, *, title: str, description: str, path: s
         "seo_description": description,
         "seo_keywords": extra.get("seo_keywords", ""),
         "canonical_url": canonical_url,
-        "seo_image_url": f"{base_url}/static/logo.png",
+        "seo_image_url": seo_image_url,
         "seo_og_type": "article" if page_kind in {"guide", "course"} else "website",
         "seo_robots": "index,follow",
         "schema_json": json.dumps(schema, ensure_ascii=False),
@@ -5574,11 +5705,35 @@ def seo_courses_index(request: Request):
         path="/courses",
         page_kind="courses",
         courses=courses,
+        event_hubs=[
+            {
+                "name": f"{event['name']} {event['year']}",
+                "slug": event_slug,
+                "description": f"Toutes les courses : parcours GPX, ravitaillements, pacing, nutrition et plans de course.",
+                "count": len(_seo_event_courses(event_slug)),
+            }
+            for event_slug, event in SEO_EVENT_REGISTRY.items()
+            if _seo_event_courses(event_slug)
+        ],
     ))
 
 
 @app.get("/courses/{slug}", response_class=HTMLResponse)
 def seo_course_detail(request: Request, slug: str):
+    if slug in SEO_EVENT_REGISTRY:
+        event = {"slug": slug, **{key: value for key, value in SEO_EVENT_REGISTRY[slug].items() if key not in {"prefixes", "ids"}}}
+        event_courses = _seo_event_courses(slug)
+        return templates.TemplateResponse("seo_event.html", _seo_page_context(
+            request,
+            title=f"{event['name']} {event['year']} : parcours, courses et plans de course",
+            description=f"Prépare toutes les courses de {event['name']} {event['year']} : parcours GPX, dénivelés, ravitaillements, pacing, nutrition et plans de course personnalisés.",
+            seo_keywords=f"{event['name']} {event['year']}, parcours, GPX, ravitaillements, plan de course, pacing",
+            path=f"/courses/{slug}",
+            page_kind="event",
+            event=event,
+            event_courses=event_courses,
+            breadcrumbs=[("Accueil", "/"), ("Courses", "/courses"), (event["name"], f"/courses/{slug}")],
+        ))
     course_id = next(
         (str(item["id"]) for item in _load_official_course_catalog() if _seo_course_slug(item["id"]) == slug),
         None,
@@ -5590,12 +5745,15 @@ def seo_course_detail(request: Request, slug: str):
         f"Préparer {course['name']} : plan de course, pacing, nutrition et ravitaillements. "
         + (f"Profil GPX, allures selon la pente et barrières horaires. {course.get('distance_km')} km · D+ {course.get('elevation_gain_m')} m."
            if course.get("route_available") else
-           f"Anticipe la sortie du GPX officiel en enrichissant ton historique d’entraînement. Format annoncé : {course.get('distance_km')} km.")
+           (f"Anticipe la sortie du GPX officiel en enrichissant ton historique d’entraînement. Format annoncé : {course.get('distance_km')} km."
+            if course.get("distance_km") is not None else
+            "Anticipe la sortie du GPX officiel en enrichissant ton historique d’entraînement. Distance et dénivelé à confirmer."))
     )
     related = [
         item for item in (_seo_course_payload(str(row["id"])) for row in _load_official_course_catalog())
         if item and item["id"] != course["id"]
     ][:3]
+    event = _seo_course_event(course)
     return templates.TemplateResponse("seo_course.html", _seo_page_context(
         request,
         title=(f"{course['name']} : parcours GPX, carte et points de passage" if course.get("route_available") else f"{course['name']} : plan de course, pacing et nutrition"),
@@ -5607,6 +5765,10 @@ def seo_course_detail(request: Request, slug: str):
         course_id=course["id"],
         faq_items=course["editorial"]["faq"],
         related_courses=related,
+        event=event,
+        breadcrumbs=[("Accueil", "/"), ("Courses", "/courses")]
+        + ([(event["name"], f"/courses/{event['slug']}")] if event else [])
+        + [(course["short_name"], f"/courses/{course['slug']}")],
     ))
 
 
@@ -5628,6 +5790,7 @@ SEO_COURSE_TOPICS = {
         "title": "points de passage, ravitaillements et contrôles",
         "description": "Retrouve les points de passage kilométriques, ravitaillements, contrôles et barrières horaires du parcours.",
         "requires_gpx": True,
+        "requires_points": True,
     },
     "nutrition-alimentation": {
         "label": "Nutrition et glucides",
@@ -5650,6 +5813,48 @@ SEO_COURSE_TOPICS = {
 }
 
 
+def _seo_social_card_png(course: dict) -> bytes:
+    """Generate a lightweight, cacheable course-specific Open Graph image."""
+    width, height = 1200, 630
+    seed = int(hashlib.sha256(str(course.get("id") or "course").encode()).hexdigest()[:6], 16)
+    accent = (210 + seed % 35, 65 + (seed >> 4) % 35, 35 + (seed >> 8) % 25)
+    pixels = [bytearray([245, 241, 233] * width) for _ in range(height)]
+    for y in range(70, 92):
+        for x in range(70, 1130):
+            pixels[y][x * 3:x * 3 + 3] = bytes(accent)
+    profile = course.get("map_profile") or []
+    elevations = [float(point.get("elevation_m") or 0) for point in profile]
+    if len(elevations) >= 2:
+        low, high = min(elevations), max(elevations)
+        span = max(1.0, high - low)
+        coords = [
+            (70 + round(index / (len(elevations) - 1) * 1060), 540 - round((value - low) / span * 330))
+            for index, value in enumerate(elevations)
+        ]
+        for (x0, y0), (x1, y1) in zip(coords, coords[1:]):
+            steps = max(abs(x1 - x0), abs(y1 - y0), 1)
+            for step in range(steps + 1):
+                x = round(x0 + (x1 - x0) * step / steps)
+                y = round(y0 + (y1 - y0) * step / steps)
+                for thickness in range(-3, 4):
+                    yy = y + thickness
+                    if 0 <= x < width and 0 <= yy < height:
+                        pixels[yy][x * 3:x * 3 + 3] = bytes(accent)
+    raw = b"".join(b"\x00" + bytes(row) for row in pixels)
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(raw, 8)) + chunk(b"IEND", b"")
+
+
+@app.get("/courses/{slug}/og.png", response_class=Response)
+def seo_course_social_image(slug: str):
+    course_id = next((str(item["id"]) for item in _load_official_course_catalog() if _seo_course_slug(item["id"]) == slug), None)
+    course = _seo_course_payload(course_id) if course_id else None
+    if not course:
+        raise HTTPException(status_code=404, detail="Course introuvable.")
+    return Response(_seo_social_card_png(course), media_type="image/png", headers={"Cache-Control": "public, max-age=86400"})
+
+
 @app.get("/courses/{slug}/{topic}", response_class=HTMLResponse)
 def seo_course_topic(request: Request, slug: str, topic: str):
     topic_data = SEO_COURSE_TOPICS.get(topic)
@@ -5660,13 +5865,18 @@ def seo_course_topic(request: Request, slug: str, topic: str):
         None,
     )
     course = _seo_course_payload(course_id) if course_id else None
-    if not course or (topic_data.get("requires_gpx") and not course.get("route_available")):
+    if (
+        not course
+        or (topic_data.get("requires_gpx") and not course.get("route_available"))
+        or (topic_data.get("requires_points") and not course.get("points"))
+    ):
         raise HTTPException(status_code=404, detail="Trace GPX indisponible.")
     title = f"{course['name']} : {topic_data['title']}"
-    course_metrics = f"Format annoncé : {course['distance_km']} km."
-    if course.get("elevation_gain_m") is not None:
+    course_metrics = f"Format annoncé : {course.get('distance_label') or (str(course['distance_km']) + ' km')}." if course.get("distance_km") is not None else "Distance et dénivelé 2027 à confirmer."
+    if course.get("distance_km") is not None and course.get("elevation_gain_m") is not None:
         course_metrics = f"{course['distance_km']} km · D+ {course['elevation_gain_m']} m."
     description = f"{topic_data['description']} {course_metrics}"
+    event = _seo_course_event(course)
     return templates.TemplateResponse("seo_course_topic.html", _seo_page_context(
         request,
         title=title,
@@ -5680,6 +5890,11 @@ def seo_course_topic(request: Request, slug: str, topic: str):
         course_topics=SEO_COURSE_TOPICS,
         course_id=course["id"],
         faq_items=course["editorial"]["faq"],
+        event=event,
+        seo_robots="index,follow" if course.get("route_available") else "noindex,follow",
+        breadcrumbs=[("Accueil", "/"), ("Courses", "/courses")]
+        + ([(event["name"], f"/courses/{event['slug']}")] if event else [])
+        + [(course["short_name"], f"/courses/{course['slug']}"), (topic_data["label"], f"/courses/{course['slug']}/{topic}")],
     ))
 
 
@@ -5721,15 +5936,32 @@ def seo_robots(request: Request):
 def seo_sitemap(request: Request):
     base_url = _get_app_base_url()
     paths = ["/", "/guides", "/courses"]
-    paths += [f"/guides/{slug}" for slug in SEO_GUIDES]
-    paths += [f"/courses/{_seo_course_slug(item['id'])}" for item in _load_official_course_catalog()]
     paths += [
-        f"/courses/{_seo_course_slug(item['id'])}/{topic}"
-        for item in _load_official_course_catalog()
-        for topic, topic_data in SEO_COURSE_TOPICS.items()
-        if item.get("route_available") or not topic_data.get("requires_gpx")
+        f"/courses/{event_slug}"
+        for event_slug in SEO_EVENT_REGISTRY
+        if _seo_event_courses(event_slug)
     ]
-    urls = "".join(f"<url><loc>{escape(base_url + path)}</loc></url>" for path in paths)
+    paths += [f"/guides/{slug}" for slug in SEO_GUIDES]
+    sitemap_courses = [
+        course
+        for item in _load_official_course_catalog()
+        if (course := _seo_course_payload(str(item["id"])))
+    ]
+    paths += [f"/courses/{course['slug']}" for course in sitemap_courses]
+    paths += [
+        f"/courses/{course['slug']}/{topic}"
+        for course in sitemap_courses
+        for topic, topic_data in SEO_COURSE_TOPICS.items()
+        if course.get("route_available")
+        and (not topic_data.get("requires_points") or course.get("points"))
+    ]
+    template_dir = os.path.join(os.path.dirname(__file__), "..", "templates")
+    content_paths = [os.path.join(os.path.dirname(__file__), "main.py")]
+    content_paths += [os.path.join(template_dir, name) for name in os.listdir(template_dir) if name.startswith("seo_")]
+    content_paths += [os.path.join(OFFICIAL_COURSES_DIR, name) for name in os.listdir(OFFICIAL_COURSES_DIR) if name.endswith(".json")]
+    last_modified = max(os.path.getmtime(item) for item in content_paths if os.path.exists(item))
+    lastmod = dt.datetime.fromtimestamp(last_modified, tz=dt.timezone.utc).date().isoformat()
+    urls = "".join(f"<url><loc>{escape(base_url + path)}</loc><lastmod>{lastmod}</lastmod></url>" for path in dict.fromkeys(paths))
     return Response(content=f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>', media_type="application/xml")
 
 

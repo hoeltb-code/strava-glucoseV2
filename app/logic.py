@@ -1197,6 +1197,41 @@ def upsert_activity_record(
 # Helper pente : calcul d'une pente lissée à partir distance / altitude
 # ---------------------------------------------------------------------------
 
+MAX_CONTINUOUS_STREAM_GAP_SEC = 30.0
+MAX_RUNNING_STREAM_SPEED_M_S = 12.0
+MAX_PLAUSIBLE_VERTICAL_SPEED_M_H = 3000.0
+
+
+def is_valid_activity_stream_interval(previous, current, *, running: bool = True) -> bool:
+    """Refuse les intervalles qui traversent une pause ou un transport motorisé.
+
+    Strava peut relier le dernier point avant une pause au premier point après
+    la reprise. Sans cette coupure, pente et VAM attribueraient le déplacement
+    effectué en télésiège, voiture ou navette à l'activité sportive.
+    """
+    if getattr(previous, "moving", None) is False or getattr(current, "moving", None) is False:
+        return False
+    t0 = getattr(previous, "elapsed_time", None)
+    t1 = getattr(current, "elapsed_time", None)
+    if t0 is None or t1 is None:
+        return False
+    dt_sec = float(t1) - float(t0)
+    if dt_sec <= 0 or dt_sec > MAX_CONTINUOUS_STREAM_GAP_SEC:
+        return False
+    d0 = getattr(previous, "distance", None)
+    d1 = getattr(current, "distance", None)
+    if running and d0 is not None and d1 is not None:
+        delta_distance = float(d1) - float(d0)
+        if delta_distance < 0 or delta_distance / dt_sec > MAX_RUNNING_STREAM_SPEED_M_S:
+            return False
+    a0 = getattr(previous, "altitude", None)
+    a1 = getattr(current, "altitude", None)
+    if a0 is not None and a1 is not None:
+        vertical_speed = abs(float(a1) - float(a0)) / dt_sec * 3600.0
+        if vertical_speed > MAX_PLAUSIBLE_VERTICAL_SPEED_M_H:
+            return False
+    return True
+
 def compute_slope_series(
     dist_stream: list[Optional[float]],
     alt_stream: list[Optional[float]],
@@ -1499,12 +1534,29 @@ def save_activity_stream_points(
     glu_trend_stream = get_data("glucose_trend")
     glu_source_stream = get_data("glucose_source")
 
+    # Coupe la série autour des pauses et sauts GPS avant tout lissage. Marquer
+    # aussi les voisins empêche une fenêtre glissante de ponter la coupure.
+    invalid_motion_indices: set[int] = set()
+    motion_count = min(len(time_stream), len(dist_stream), len(alt_stream))
+    running_activity = canonicalize_sport_label(getattr(activity, "sport", "run")) == "run"
+    for i in range(max(0, motion_count - 1)):
+        class _StreamValue:
+            pass
+        previous, current = _StreamValue(), _StreamValue()
+        for point, index in ((previous, i), (current, i + 1)):
+            point.elapsed_time = time_stream[index]
+            point.distance = dist_stream[index]
+            point.altitude = alt_stream[index]
+            point.moving = moving_stream[index] if index < len(moving_stream) else None
+        if not is_valid_activity_stream_interval(previous, current, running=running_activity):
+            invalid_motion_indices.update(range(max(0, i - 5), min(motion_count, i + 7)))
+
     # ✅ pente lissée
     slope_stream: list[Optional[float]] = []
     if dist_stream and alt_stream:
         m = min(len(time_stream), len(dist_stream), len(alt_stream))
-        dist_for_slope = [float(d) if d is not None else None for d in dist_stream[:m]]
-        alt_for_slope  = [float(a) if a is not None else None for a in alt_stream[:m]]
+        dist_for_slope = [float(d) if d is not None and i not in invalid_motion_indices else None for i, d in enumerate(dist_stream[:m])]
+        alt_for_slope  = [float(a) if a is not None and i not in invalid_motion_indices else None for i, a in enumerate(alt_stream[:m])]
         slope_stream = compute_slope_series(
             dist_for_slope,
             alt_for_slope,
@@ -1518,8 +1570,8 @@ def save_activity_stream_points(
     vertical_speed_stream: list[Optional[float]] = []
     if time_stream and alt_stream:
         m_vam = min(len(time_stream), len(alt_stream))
-        elapsed_for_vam = [float(t) if t is not None else None for t in time_stream[:m_vam]]
-        alt_for_vam     = [float(a) if a is not None else None for a in alt_stream[:m_vam]]
+        elapsed_for_vam = [float(t) if t is not None and i not in invalid_motion_indices else None for i, t in enumerate(time_stream[:m_vam])]
+        alt_for_vam     = [float(a) if a is not None and i not in invalid_motion_indices else None for i, a in enumerate(alt_stream[:m_vam])]
         vertical_speed_stream = compute_vertical_speed_series(
             elapsed_stream=elapsed_for_vam,
             alt_stream=alt_for_vam,
@@ -1857,6 +1909,12 @@ def compute_and_store_zone_slope_aggs(db: Session, activity: models.Activity, us
     for idx in range(len(points) - 1):
         p = points[idx]
         next_pt = points[idx + 1]
+        if not is_valid_activity_stream_interval(
+            p,
+            next_pt,
+            running=canonicalize_sport_label(sport) == "run",
+        ):
+            continue
         if not p.hr_zone or p.slope_percent is None:
             continue
 

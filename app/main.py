@@ -5947,7 +5947,7 @@ def seo_robots(request: Request):
 @app.get("/sitemap.xml", response_class=Response)
 def seo_sitemap(request: Request):
     base_url = _get_app_base_url()
-    paths = ["/", "/guides", "/courses", "/suivi-glycemie-sport"]
+    paths = ["/", "/guides", "/courses", "/suivi-glycemie-sport", "/capteurs/dexcom-one-plus"]
     paths += [
         f"/courses/{event_slug}"
         for event_slug in SEO_EVENT_REGISTRY
@@ -6021,6 +6021,24 @@ def ui_glucose_tracking_guide(request: Request):
             ("Le suivi remplace-t-il les alarmes du capteur ?", "Non. Il s'agit d'une analyse sportive rétrospective ou proche du temps réel selon la source, et non d'un dispositif médical d'alarme."),
         ],
         breadcrumbs=[("Accueil", "/"), ("Suivi glycémie et sport", "/suivi-glycemie-sport")],
+    ))
+
+
+@app.get("/capteurs/dexcom-one-plus", response_class=HTMLResponse)
+def ui_dexcom_one_plus_guide(request: Request):
+    return templates.TemplateResponse("dexcom_one_plus_guide.html", _seo_page_context(
+        request,
+        title="Connecter Dexcom ONE+ à Dexcom Follow et Running Data Plan",
+        description="Guide pas à pas pour configurer Dexcom ONE+, activer Share et Follow, puis connecter Dexcom Share à Running Data Plan afin d’analyser sa glycémie avec Strava.",
+        seo_keywords="connecter Dexcom ONE+, Dexcom Follow, Dexcom Share, glycémie Strava, capteur Dexcom sport",
+        path="/capteurs/dexcom-one-plus",
+        page_kind="guide",
+        faq_items=[
+            ("Comment partager Dexcom ONE+ avec Follow ?", "Active Share dans l'application Dexcom ONE+, invite un suiveur par e-mail, puis accepte l'invitation dans l'application Dexcom Follow."),
+            ("La glycémie passe-t-elle par Strava ?", "Non. Running Data Plan récupère séparément les mesures disponibles via Dexcom Share et l'activité via Strava, puis rapproche leurs horodatages."),
+            ("Running Data Plan remplace-t-il Dexcom Follow ?", "Non. Running Data Plan propose une analyse sportive et ne remplace ni Follow, ni les alertes Dexcom, ni le suivi médical."),
+        ],
+        breadcrumbs=[("Accueil", "/"), ("Suivi glycémie et sport", "/suivi-glycemie-sport"), ("Dexcom ONE+", "/capteurs/dexcom-one-plus")],
     ))
 
 

@@ -129,6 +129,18 @@
     border:1px solid #f0d0c5;
     font-size:0.82rem;
   }
+  .profile-page .cgm-start-card {
+    margin:14px 0 16px;
+    padding:16px;
+    border:1px solid #dce5d7;
+    border-radius:14px;
+    background:linear-gradient(135deg,#f4f8f1,#fffaf4);
+  }
+  .profile-page .cgm-start-card h3 { margin:0 0 6px; font-size:1rem; }
+  .profile-page .cgm-start-card p { margin:0; color:var(--text-muted); font-size:.82rem; line-height:1.55; }
+  .profile-page .cgm-start-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  .profile-page .cgm-start-actions a { display:inline-flex; padding:9px 12px; border-radius:10px; background:#fff; border:1px solid #d8ded3; font-size:.78rem; font-weight:700; }
+  .profile-page .cgm-start-actions a:first-child { background:#54784f; border-color:#54784f; color:#fff; }
   .profile-page .provider-accordion {
     border:1px solid #dfdad0;
     border-radius:14px;
@@ -508,6 +520,16 @@
       <div class="card" style="padding:18px;">
         <h2 class="settings-panel-title">Connexion CGM</h2>
         <p class="settings-panel-intro">Connecte ton capteur de glucose. Une seule source est active à la fois pour l’enrichissement des activités.</p>
+        {% if not has_libre and not has_dexcom and not has_carelink and not has_nightscout %}
+        <aside class="cgm-start-card">
+          <h3>Tu n’as pas encore de capteur ? Voici comment te lancer</h3>
+          <p>Découvre le fonctionnement du suivi glycémique dans le sport, les indicateurs disponibles et un exemple complet de mise en route avec Dexcom ONE+, Share et Follow.</p>
+          <div class="cgm-start-actions">
+            <a href="/capteurs/dexcom-one-plus">Guide Dexcom ONE+</a>
+            <a href="/suivi-glycemie-sport">Découvrir le suivi glycémique</a>
+          </div>
+        </aside>
+        {% endif %}
         <div>
           <div style="font-size:0.95rem; font-weight:600; color:#111827; margin-bottom:8px;">Connexion glycémie</div>
           <div class="cgm-source-pill">
@@ -588,7 +610,8 @@
           </summary>
           <div class="provider-body">
             <p style="margin:12px 0 0; font-size:0.82rem; color:var(--text-muted); line-height:1.55;">
-              Utilise le compte Dexcom déjà associé à l’application Dexcom G6, G7 ou One+.
+              Utilise le compte Dexcom déjà associé à l’application Dexcom G6, G7 ou ONE+.
+              <a href="/capteurs/dexcom-one-plus">Guide : configurer Dexcom ONE+, Share et Follow</a>.
             </p>
             {% if dexcom_status %}
               <div class="status-box {% if dexcom_status == 'ok' %}ok{% elif dexcom_status == 'warn' %}warn{% else %}error{% endif %}">

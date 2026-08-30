@@ -238,13 +238,6 @@
   .activity-progress-fill-high {
     background:#c97b2a;
   }
-  .glucose-elevation-card { padding:18px; border:1px solid var(--activity-border); border-radius:18px; background:#fff; }
-  .glucose-elevation-card h3 { margin:0 0 5px; }
-  .glucose-elevation-card p { margin:0 0 12px; }
-  .glucose-elevation-canvas { display:block; width:100%; height:210px; }
-  .glucose-elevation-legend { display:flex; align-items:center; gap:10px; margin-top:7px; color:var(--activity-text-muted); font-size:.68rem; }
-  .glucose-elevation-bins { display:flex; flex:1; height:8px; overflow:hidden; border-radius:99px; }
-  .glucose-elevation-bins i { flex:1; min-width:8px; }
   .activity-legend-note {
     margin-top:10px;
     font-size:0.7rem;
@@ -1339,18 +1332,21 @@
     {% if has_glucose %}
     <div class="activity-tab {% if tab == 'glycemia' %}is-active{% endif %}" data-tab="glycemia">
 
-      {% if has_activity_map %}
-      <section class="glucose-elevation-card" aria-labelledby="glucose-elevation-title">
-        <h3 id="glucose-elevation-title">Profil du parcours coloré par la glycémie</h3>
-        <p class="muted">Chaque bande verticale correspond à la glycémie mesurée au même moment, par paliers de 20 mg/dL environ, avec des seuils précis à 70 et 180 mg/dL.</p>
-        <canvas id="glucoseElevationProfile" class="glucose-elevation-canvas" role="img" aria-label="Profil altimétrique dont la ligne varie du rouge au jaune selon la glycémie"></canvas>
-        <div class="glucose-elevation-legend" aria-label="Échelle des couleurs de glycémie par tranches"><span>&lt;70</span><span class="glucose-elevation-bins" aria-hidden="true"><i style="background:#991b1b"></i><i style="background:#dc2626"></i><i style="background:#ea580c"></i><i style="background:#65a30d"></i><i style="background:#22a45d"></i><i style="background:#6f9f45"></i><i style="background:#d4ad28"></i><i style="background:#facc15"></i><i style="background:#f5b914"></i><i style="background:#eaa20e"></i></span><span>&gt;180 mg/dL</span></div>
+      {% if profile_chart_points_js and profile_chart_points_js != '[]' %}
+      <section class="card activity-slope-profile-card" style="margin-top:0; padding:16px;" aria-labelledby="glucose-elevation-title">
+        <h3 id="glucose-elevation-title" style="margin:0 0 6px 0; font-size:0.95rem;">Profil de dénivelé & glycémie</h3>
+        <p class="muted" style="margin:0 0 12px 0; font-size:0.8rem;">Chaque bande verticale correspond à la glycémie mesurée au même endroit, par paliers d’environ 20 mg/dL. Survole le profil pour lire la distance, l’altitude et la mesure.</p>
+        <div class="slope-profile-legend" aria-label="Légende des plages de glycémie">
+          <span><i style="background:#7f1d1d"></i>&lt; 50</span><span><i style="background:#dc2626"></i>50–70</span><span><i style="background:#ea580c"></i>70–90</span><span><i style="background:#65a30d"></i>90–110</span><span><i style="background:#22a45d"></i>110–130</span><span><i style="background:#6f9f45"></i>130–150</span><span><i style="background:#d4ad28"></i>150–170</span><span><i style="background:#e6bd20"></i>170–180</span><span><i style="background:#facc15"></i>180–200</span><span><i style="background:#f5b914"></i>200–220</span><span><i style="background:#eaa20e"></i>&gt; 220 mg/dL</span>
+        </div>
+        <div style="height:260px;"><canvas id="glucoseElevationProfile" height="240"></canvas></div>
       </section>
+      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
       <script>
         (() => {
-          const points = {{ activity_map_js|safe }}.filter(point => Number.isFinite(Number(point.altitude_m)));
+          const points = {{ profile_chart_points_js|safe }};
           const canvas = document.getElementById('glucoseElevationProfile');
-          if (!canvas || points.length < 2) return;
+          if (!canvas || !points || points.length < 2 || typeof Chart === 'undefined') return;
           const glucoseColor = rawValue => {
             const value = Number(rawValue);
             if (!Number.isFinite(value)) return '#aaa7a0';
@@ -1366,27 +1362,21 @@
             if (value < 220) return '#f5b914';
             return '#eaa20e';
           };
-          const draw = () => {
-            const ratio = Math.min(window.devicePixelRatio || 1, 2);
-            const width = Math.max(280, canvas.clientWidth);
-            const height = Math.max(150, canvas.clientHeight);
-            canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio);
-            const context = canvas.getContext('2d'); context.scale(ratio, ratio); context.clearRect(0, 0, width, height);
-            const padding = {top:12,right:5,bottom:8,left:5};
-            const altitudes = points.map(point => Number(point.altitude_m));
-            const distances = points.map((point, index) => Number.isFinite(Number(point.distance_km)) ? Number(point.distance_km) : index);
-            const minAltitude = Math.min(...altitudes), maxAltitude = Math.max(...altitudes), altitudeSpan = Math.max(1, maxAltitude - minAltitude);
-            const minDistance = Math.min(...distances), maxDistance = Math.max(...distances), distanceSpan = Math.max(1e-6, maxDistance - minDistance);
-            const coordinate = index => ({x:padding.left + (distances[index] - minDistance) / distanceSpan * (width - padding.left - padding.right), y:padding.top + (maxAltitude - altitudes[index]) / altitudeSpan * (height - padding.top - padding.bottom)});
-            const baseline=height-padding.bottom;
-            for(let index=1;index<points.length;index++){
-              const previous=coordinate(index-1),current=coordinate(index),a=points[index-1].glucose_mgdl,b=points[index].glucose_mgdl;
-              const glucose=a == null ? b : b == null ? a : (Number(a)+Number(b))/2;
-              context.beginPath();context.moveTo(previous.x,baseline);context.lineTo(previous.x,previous.y);context.lineTo(current.x,current.y);context.lineTo(current.x,baseline);context.closePath();context.fillStyle=glucoseColor(glucose);context.globalAlpha=.82;context.fill();context.globalAlpha=1;
+          const glucoseAreaPlugin = {
+            id:'glucoseArea',
+            beforeDatasetsDraw(chart) {
+              const {ctx,scales}=chart, rendered=chart.getDatasetMeta(0).data;
+              if (!rendered || rendered.length < 2) return;
+              const baseY=scales.y.getPixelForValue(scales.y.min);ctx.save();ctx.globalAlpha=.86;
+              for(let index=0;index<rendered.length-1;index++){
+                const point=rendered[index],next=rendered[index+1],a=points[index].glucose,b=points[index+1].glucose;
+                const glucose=a == null ? b : b == null ? a : (Number(a)+Number(b))/2;
+                ctx.fillStyle=glucoseColor(glucose);ctx.beginPath();ctx.moveTo(point.x,baseY);ctx.lineTo(point.x,point.y);ctx.lineTo(next.x,next.y);ctx.lineTo(next.x,baseY);ctx.closePath();ctx.fill();
+              }
+              ctx.restore();
             }
-            context.beginPath();const first=coordinate(0);context.moveTo(first.x,first.y);for(let index=1;index<points.length;index++){const current=coordinate(index);context.lineTo(current.x,current.y)}context.strokeStyle='rgba(55,52,47,.42)';context.lineWidth=1.25;context.lineJoin='round';context.stroke();
           };
-          draw(); new ResizeObserver(draw).observe(canvas);
+          new Chart(canvas.getContext('2d'),{type:'line',data:{datasets:[{label:'Altitude',data:points,borderColor:'rgba(69,67,63,.48)',backgroundColor:'transparent',borderWidth:1.25,pointRadius:0,fill:false,tension:.12}]},options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{title:items=>`${items[0].raw.x.toFixed(2)} km · ${Math.round(items[0].raw.y)} m`,label:item=>item.raw.glucose == null?'Glycémie indisponible':`Glycémie ${Math.round(item.raw.glucose)} mg/dL`}}},scales:{x:{type:'linear',title:{display:true,text:'Distance (km)',color:'#5f5b54'},ticks:{color:'#6f6b64'},grid:{color:'rgba(173,166,154,.25)'}},y:{title:{display:true,text:'Altitude (m)',color:'#5f5b54'},ticks:{color:'#6f6b64'},grid:{color:'rgba(173,166,154,.25)'}}}},plugins:[glucoseAreaPlugin]});
         })();
       </script>
       {% endif %}

@@ -276,7 +276,7 @@ def _load_official_course_catalog() -> list[dict]:
     return courses
 
 
-def _load_official_course(course_id: str) -> dict | None:
+def _load_official_course(course_id: str, *, require_route: bool = True) -> dict | None:
     normalized_id = (course_id or "").strip()
     if not normalized_id or os.path.basename(normalized_id) != normalized_id:
         return None
@@ -294,9 +294,9 @@ def _load_official_course(course_id: str) -> dict | None:
     if not route_file.lower().endswith(".gpx"):
         return None
     route_path = os.path.join(OFFICIAL_COURSES_DIR, route_file)
-    if not os.path.isfile(route_path):
+    if require_route and not os.path.isfile(route_path):
         return None
-    return {"course": course, "route_path": route_path}
+    return {"course": course, "route_path": route_path if os.path.isfile(route_path) else None}
 
 
 def _seo_course_slug(course_id: str) -> str:
@@ -447,6 +447,8 @@ TEMPLIERS_2026_DEPARTURES = {
 def _course_event_name(course_id: str) -> str:
     """Nom court de l'événement utilisé dans les habillages de parcours."""
     normalized_id = str(course_id or "").strip().lower()
+    if normalized_id.startswith("saintelyon-"):
+        return "SaintéLyon"
     if normalized_id in TEMPLIERS_2026_DEPARTURES:
         return "Festival des Templiers"
     if normalized_id.startswith("grp-"):
@@ -466,7 +468,8 @@ def _seo_course_editorial(course: dict, analysis: dict) -> dict:
     """Build useful, course-specific editorial copy from the local route data."""
     name = str(course.get("name") or "ce trail")
     distance = float(course.get("distance_km") or 0)
-    gain = int(round(float(course.get("elevation_gain_m") or 0)))
+    gain_value = course.get("elevation_gain_m")
+    gain = int(round(float(gain_value))) if isinstance(gain_value, (int, float)) else None
     points = list(course.get("points") or [])
     aid_points = [point for point in points if point.get("type") in {"aid_station", "aid_station_assistance"}]
     cutoff_points = [point for point in points if point.get("cutoff_label")]
@@ -495,8 +498,9 @@ def _seo_course_editorial(course: dict, analysis: dict) -> dict:
             f"Le départ est prévu le {event_date}, depuis {departure_location}. "
             + (f"Les vagues indiquées sont {start_window}. " if start_window else "")
         )
+    effort_summary = f"{distance:.1f} km et {gain} m de dénivelé positif" if gain is not None else f"un format annoncé de {distance:.0f} km"
     intro = (
-        f"{name} se prépare avec une logique de trail : {distance:.1f} km et {gain} m de dénivelé positif ne se résument pas à une allure moyenne. "
+        f"{name} se prépare avec une logique de trail : {effort_summary} ne se résument pas à une allure moyenne. "
         f"{start_sentence}Le plan de course sert à répartir l’effort selon la pente, à anticiper les arrêts et à garder une marge pour les portions techniques."
     )
     ravito_text = (
@@ -520,32 +524,56 @@ def _seo_course_editorial(course: dict, analysis: dict) -> dict:
             ("Assistance personnelle et postes de ravitaillement", "L’assistance est autorisée uniquement sur les zones officielles de ravitaillement, jamais aux points d’eau. Le passage dans le poste est obligatoire. L’accès au poste est interdit aux suiveurs ; l’assistance personnelle est prévue dans une zone de 50 mètres avant le poste, sauf au Truel où l’accès est interdit. La liste définitive des zones est communiquée avec le dossard."),
             ("Arrivée, récupération et résultats", "Les arrivées sont prévues sur la zone haute du Domaine de St-Estève, avenue de Millau Plage à Millau. " + meal_text + " Après l’événement, l’organisation annonce le dépôt des résultats pour l’UTMB Index et l’ITRA."),
         ]
+    route_pending = not bool(course.get("route_available", True))
+    passage_names = [str(point.get("name")) for point in points if point.get("name")]
+    passage_preview = ", ".join(passage_names[:6]) + ("…" if len(passage_names) > 6 else "")
+    route_sections = [(
+        f"Parcours, carte GPX et points de passage de {name}",
+        f"La carte interactive permet de suivre le parcours GPX et son relief sur {distance:.1f} km. "
+        + (f"Les principaux points de passage référencés sont {passage_preview}. " if passage_preview else "Les points de passage sont positionnés le long de la trace. ")
+        + "Utilise la carte, le profil altimétrique et le tableau kilométrique ensemble pour repérer les montées, descentes, ravitaillements et contrôles.",
+    )]
+    pending_sections = []
+    if route_pending:
+        intro = (
+            f"{name} est un format de la SaintéLyon annoncé sur {distance:.0f} km. La trace GPX officielle n’est pas encore disponible dans Running Data Plan : "
+            "les dénivelés, ravitaillements, barrières et temps de passage ne sont donc pas inventés. Cette page sera enrichie dès la publication des données officielles."
+        )
+        pending_sections = [
+            ("Anticiper avant la sortie du GPX officiel", "Abonne-toi dès maintenant et synchronise régulièrement tes sorties. Un historique riche en montées, descentes, terrain roulant, durée et fatigue permettra de construire un pacing vraiment pertinent lorsque la trace officielle sera publiée."),
+            ("Préparer le pacing sans fausse précision", "Travaille déjà une intensité durable, la marche active, les relances et la gestion de la nuit. Le découpage kilométrique précis viendra ensuite du profil GPX officiel et de tes allures observées sur des pentes comparables."),
+            ("Tester nutrition et hydratation", "Teste à l’entraînement une routine régulière de boisson et d’apports tolérés. Les quantités entre deux ravitaillements seront calculées lorsque leurs emplacements officiels seront connus ; vérifie toujours les consignes de l’organisation."),
+        ]
     return {
         "intro": intro,
-        "sections": [
+        "sections": pending_sections or route_sections + [
             ("Construire un plan d’allure pour " + name, "Pars avec une première estimation prudente, puis règle les allures par pente : effort contrôlé en montée, relance durable sur le roulant et descente précise plutôt que précipitée. " + climb_text),
             ("Planifier les ravitaillements et l’autonomie", ravito_text + " " + longest_text),
             ("Organiser l’heure de départ et les temps de passage", start_sentence + cutoff_text + " Les horaires, parcours et produits proposés peuvent évoluer : les documents de l’organisateur restent la référence."),
             ("Préparer l’entraînement spécifique", f"Travaille les montées, les descentes et les sorties longues adaptées à {distance:.1f} km. Teste l’alimentation et le matériel sur un terrain proche du profil, plutôt que de les découvrir le jour de la course."),
         ] + festival_sections,
         "faq": [
-            (f"Comment préparer un plan de course pour {name} ?", "Utilise le profil, les tronçons et tes propres allures par pente. Ajoute un temps d’arrêt réaliste aux ravitaillements et garde une marge sur les portions longues ou techniques."),
+            (f"Comment préparer un plan de course pour {name} ?", "Enrichis d’abord ton historique avec tes sorties et tes allures selon la pente. Dès que le GPX officiel sera disponible, il permettra de croiser ton profil avec le relief, les tronçons et les ravitaillements." if route_pending else "Utilise le profil, les tronçons et tes propres allures par pente. Ajoute un temps d’arrêt réaliste aux ravitaillements et garde une marge sur les portions longues ou techniques."),
             ("Quelle allure viser en trail ?", "Ne cherche pas une allure unique au kilomètre. En montée, appuie-toi sur l’effort et la marche active ; sur le roulant, choisis une intensité durable ; en descente, privilégie la régularité et la sécurité."),
             ("Comment gérer les ravitaillements ?", "Prépare pour chaque point ce que tu bois, manges et emportes pour le tronçon suivant. Les arrêts font partie du temps de course : mieux vaut les anticiper que les subir."),
             ("Les horaires et barrières affichés sont-ils définitifs ?", "Non. Ils servent à organiser une préparation, mais l’organisateur doit toujours être consulté pour les informations officielles et les éventuelles mises à jour."),
+            (f"Où voir la carte et les points de passage de {name} ?", "La carte du parcours, le profil GPX et le tableau des points de passage sont réunis sur cette page. Ils permettent de localiser les ravitaillements, contrôles et principales étapes kilométriques." if not route_pending else "La carte et les points de passage seront ajoutés sur cette page dès que la trace GPX officielle sera disponible."),
         ],
     }
 
 
 @lru_cache(maxsize=32)
 def _seo_course_payload(course_id: str) -> dict | None:
-    loaded = _load_official_course(course_id)
+    loaded = _load_official_course(course_id, require_route=False)
     if not loaded:
         return None
     course = loaded["course"]
+    route_path = loaded.get("route_path")
     try:
+        if not route_path:
+            raise OSError("GPX not available yet")
         _bands, gpx_distance_m, _segments, profile = _compute_slope_distribution_from_gpx(
-            open(loaded["route_path"], "rb").read(),
+            open(route_path, "rb").read(),
             max_profile_points=2500,
         )
     except (OSError, ValueError, TypeError):
@@ -595,6 +623,7 @@ def _seo_course_payload(course_id: str) -> dict | None:
 
     map_profile_3d = compact_profile(map_profile, 2500)
     map_profile = compact_profile(map_profile, 450)
+    course = {**course, "route_available": bool(route_path)}
     editorial = _seo_course_editorial(course, analysis)
     return {
         **course,
@@ -5485,6 +5514,7 @@ def _seo_page_context(request: Request, *, title: str, description: str, path: s
         "request": request,
         "seo_title": title,
         "seo_description": description,
+        "seo_keywords": extra.get("seo_keywords", ""),
         "canonical_url": canonical_url,
         "seo_image_url": f"{base_url}/static/logo.png",
         "seo_og_type": "article" if page_kind in {"guide", "course"} else "website",
@@ -5557,8 +5587,10 @@ def seo_course_detail(request: Request, slug: str):
     if not course:
         raise HTTPException(status_code=404, detail="Course introuvable.")
     description = (
-        f"Préparer {course['name']} : plan de course, profil GPX, allures selon la pente, "
-        f"heure de départ, ravitaillements et barrières horaires. {course.get('distance_km')} km · D+ {course.get('elevation_gain_m')} m."
+        f"Préparer {course['name']} : plan de course, pacing, nutrition et ravitaillements. "
+        + (f"Profil GPX, allures selon la pente et barrières horaires. {course.get('distance_km')} km · D+ {course.get('elevation_gain_m')} m."
+           if course.get("route_available") else
+           f"Anticipe la sortie du GPX officiel en enrichissant ton historique d’entraînement. Format annoncé : {course.get('distance_km')} km.")
     )
     related = [
         item for item in (_seo_course_payload(str(row["id"])) for row in _load_official_course_catalog())
@@ -5566,14 +5598,88 @@ def seo_course_detail(request: Request, slug: str):
     ][:3]
     return templates.TemplateResponse("seo_course.html", _seo_page_context(
         request,
-        title=f"{course['name']} : plan de course, allures et ravitaillements",
+        title=(f"{course['name']} : parcours GPX, carte et points de passage" if course.get("route_available") else f"{course['name']} : plan de course, pacing et nutrition"),
         description=description,
+        seo_keywords=(f"{course['name']}, parcours, parcours GPX, carte, points de passage, profil altimétrique, ravitaillements, plan de course, pacing" if course.get("route_available") else f"{course['name']}, plan de course, pacing, nutrition, GPX"),
         path=f"/courses/{course['slug']}",
         page_kind="course",
         course=course,
         course_id=course["id"],
         faq_items=course["editorial"]["faq"],
         related_courses=related,
+    ))
+
+
+SEO_COURSE_TOPICS = {
+    "parcours": {
+        "label": "Parcours GPX",
+        "title": "parcours GPX et profil altimétrique",
+        "description": "Découvre le parcours GPX, la distance, le dénivelé, le profil altimétrique et le découpage de la course.",
+        "requires_gpx": True,
+    },
+    "carte": {
+        "label": "Carte",
+        "title": "carte interactive du parcours",
+        "description": "Explore la carte interactive de la course, sa trace GPX et la position des principaux points du parcours.",
+        "requires_gpx": True,
+    },
+    "points-de-passage": {
+        "label": "Points de passage",
+        "title": "points de passage, ravitaillements et contrôles",
+        "description": "Retrouve les points de passage kilométriques, ravitaillements, contrôles et barrières horaires du parcours.",
+        "requires_gpx": True,
+    },
+    "nutrition-alimentation": {
+        "label": "Nutrition et glucides",
+        "title": "nutrition, alimentation et glucides",
+        "description": "Prépare une stratégie de nutrition, d’alimentation, d’hydratation et de glucides cohérente avec la durée et le pacing de la course.",
+        "requires_gpx": False,
+    },
+    "assistance-ravitaillements": {
+        "label": "Assistance et ravitaillements",
+        "title": "assistance, ravitaillements et autonomie",
+        "description": "Organise les ravitaillements, l’assistance, le contenu du sac et l’autonomie nécessaire entre les points de passage.",
+        "requires_gpx": False,
+    },
+    "plan-entrainement": {
+        "label": "Plan d’entraînement",
+        "title": "plan d’entraînement et préparation trail",
+        "description": "Construis un plan d’entraînement adapté à la distance, au dénivelé, au terrain et à ton historique personnel.",
+        "requires_gpx": False,
+    },
+}
+
+
+@app.get("/courses/{slug}/{topic}", response_class=HTMLResponse)
+def seo_course_topic(request: Request, slug: str, topic: str):
+    topic_data = SEO_COURSE_TOPICS.get(topic)
+    if not topic_data:
+        raise HTTPException(status_code=404, detail="Page de course introuvable.")
+    course_id = next(
+        (str(item["id"]) for item in _load_official_course_catalog() if _seo_course_slug(item["id"]) == slug),
+        None,
+    )
+    course = _seo_course_payload(course_id) if course_id else None
+    if not course or (topic_data.get("requires_gpx") and not course.get("route_available")):
+        raise HTTPException(status_code=404, detail="Trace GPX indisponible.")
+    title = f"{course['name']} : {topic_data['title']}"
+    course_metrics = f"Format annoncé : {course['distance_km']} km."
+    if course.get("elevation_gain_m") is not None:
+        course_metrics = f"{course['distance_km']} km · D+ {course['elevation_gain_m']} m."
+    description = f"{topic_data['description']} {course_metrics}"
+    return templates.TemplateResponse("seo_course_topic.html", _seo_page_context(
+        request,
+        title=title,
+        description=description,
+        seo_keywords=f"{course['name']}, {topic_data['label']}, nutrition trail, alimentation, glucides, assistance, ravitaillements, plan d’entraînement, pacing",
+        path=f"/courses/{course['slug']}/{topic}",
+        page_kind="course",
+        course=course,
+        topic=topic,
+        topic_data=topic_data,
+        course_topics=SEO_COURSE_TOPICS,
+        course_id=course["id"],
+        faq_items=course["editorial"]["faq"],
     ))
 
 
@@ -5617,6 +5723,12 @@ def seo_sitemap(request: Request):
     paths = ["/", "/guides", "/courses"]
     paths += [f"/guides/{slug}" for slug in SEO_GUIDES]
     paths += [f"/courses/{_seo_course_slug(item['id'])}" for item in _load_official_course_catalog()]
+    paths += [
+        f"/courses/{_seo_course_slug(item['id'])}/{topic}"
+        for item in _load_official_course_catalog()
+        for topic, topic_data in SEO_COURSE_TOPICS.items()
+        if item.get("route_available") or not topic_data.get("requires_gpx")
+    ]
     urls = "".join(f"<url><loc>{escape(base_url + path)}</loc></url>" for path in paths)
     return Response(content=f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>', media_type="application/xml")
 

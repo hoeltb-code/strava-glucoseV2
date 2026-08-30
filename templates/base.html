@@ -7,6 +7,7 @@
   <meta name="robots" content="{{ seo_robots|default('noindex,follow') }}">
   {% if seo_title is defined %}
   <meta name="description" content="{{ seo_description }}">
+  {% if seo_keywords %}<meta name="keywords" content="{{ seo_keywords }}">{% endif %}
   <link rel="canonical" href="{{ canonical_url }}">
   <meta property="og:locale" content="fr_FR">
   <meta property="og:type" content="{{ seo_og_type|default('website') }}">

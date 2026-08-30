@@ -9280,6 +9280,79 @@ def ui_user_dashboard(user_id: int, request: Request):
             area = f"{line} L{coordinates[-1][0]:.1f},{height:.1f} L{coordinates[0][0]:.1f},{height:.1f} Z"
             return {"line": line, "area": area, "width": width, "height": height}
 
+        def _dashboard_segmented_profile(points, metric, width=320, height=72):
+            usable = [point for point in points if point.altitude is not None]
+            if len(usable) < 2:
+                return None
+            if len(usable) > 120:
+                step = max(1, (len(usable) + 119) // 120)
+                usable = usable[::step]
+                if usable[-1] is not points[-1] and points[-1].altitude is not None:
+                    usable.append(points[-1])
+            altitudes = [float(point.altitude) for point in usable]
+            low, high = min(altitudes), max(altitudes)
+            span = max(high - low, 1.0)
+            pad = 4.0
+            coordinates = [
+                (
+                    pad + index * (width - 2 * pad) / max(1, len(usable) - 1),
+                    pad + (high - altitude) * (height - 2 * pad) / span,
+                )
+                for index, altitude in enumerate(altitudes)
+            ]
+            hr_colors = {
+                "Zone 1": "#83cceb", "Zone 2": "#6f925f", "Zone 3": "#d3b44e",
+                "Zone 4": "#f38b2d", "Zone 5": "#e94c34",
+            }
+
+            def heart_rate_zone(point):
+                if point.hr_zone in hr_colors:
+                    return point.hr_zone
+                if point.heartrate is None:
+                    return None
+                max_hr = float(user.max_heartrate or DEFAULT_FC_MAX)
+                ratio = float(point.heartrate) / max_hr if max_hr > 0 else 0.0
+                for zone_name, low_ratio, high_ratio in HR_ZONES:
+                    if low_ratio <= ratio < high_ratio or (zone_name == "Zone 5" and ratio >= high_ratio):
+                        return zone_name
+                return None
+
+            def glucose_color(value):
+                if value is None:
+                    return "#d7d3cb"
+                value = float(value)
+                if value < 50: return "#7f1d1d"
+                if value < 70: return "#dc2626"
+                if value < 90: return "#ea580c"
+                if value < 110: return "#65a30d"
+                if value < 130: return "#22a45d"
+                if value < 150: return "#6f9f45"
+                if value < 170: return "#d4ad28"
+                if value < 180: return "#e6bd20"
+                if value < 200: return "#facc15"
+                if value < 220: return "#f5b914"
+                return "#eaa20e"
+
+            segments = []
+            for index in range(len(coordinates) - 1):
+                x1, y1 = coordinates[index]
+                x2, y2 = coordinates[index + 1]
+                point = usable[index]
+                color = (
+                    hr_colors.get(heart_rate_zone(point), "#d7d3cb")
+                    if metric == "hr_zone"
+                    else glucose_color(point.glucose_mgdl)
+                )
+                segments.append({
+                    "path": f"M{x1:.1f},{height:.1f} L{x1:.1f},{y1:.1f} L{x2:.1f},{y2:.1f} L{x2:.1f},{height:.1f} Z",
+                    "color": color,
+                })
+            outline = " ".join(
+                f"{'M' if index == 0 else 'L'}{x:.1f},{y:.1f}"
+                for index, (x, y) in enumerate(coordinates)
+            )
+            return {"segments": segments, "outline": outline, "width": width, "height": height}
+
         last_activities = []
         for a in recent[:5]:
             # TIR (calc fallback)
@@ -9316,6 +9389,8 @@ def ui_user_dashboard(user_id: int, request: Request):
                     ActivityStreamPoint.elapsed_time,
                     ActivityStreamPoint.altitude,
                     ActivityStreamPoint.glucose_mgdl,
+                    ActivityStreamPoint.hr_zone,
+                    ActivityStreamPoint.heartrate,
                 )
                 .filter(ActivityStreamPoint.activity_id == a.id)
                 .order_by(ActivityStreamPoint.idx.asc())
@@ -9401,8 +9476,8 @@ def ui_user_dashboard(user_id: int, request: Request):
                 "sport": a.sport or (a.activity_type or "").lower(),
                 "summary_block": summary_block,
                 "summary_block_clean": clean_block,
-                "altitude_profile": _dashboard_sparkline([point.altitude for point in stream_rows]),
-                "glucose_profile": _dashboard_sparkline([point.glucose_mgdl for point in stream_rows]),
+                "cardio_profile": _dashboard_segmented_profile(stream_rows, "hr_zone"),
+                "glucose_profile": _dashboard_segmented_profile(stream_rows, "glucose"),
                 "dplus_windows": dplus_windows,
             })
 

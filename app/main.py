@@ -9252,6 +9252,34 @@ def ui_user_dashboard(user_id: int, request: Request):
             .all()
         )
 
+        dashboard_windows = (
+            ("15m", "15 min", 15 * 60),
+            ("1h", "1 h", 60 * 60),
+            ("2h", "2 h", 2 * 60 * 60),
+            ("5h", "5 h", 5 * 60 * 60),
+        )
+
+        def _dashboard_sparkline(values, width=320, height=72):
+            clean = [float(value) for value in values if value is not None]
+            if len(clean) < 2:
+                return None
+            low, high = min(clean), max(clean)
+            span = max(high - low, 1.0)
+            pad = 4.0
+            coordinates = [
+                (
+                    pad + index * (width - 2 * pad) / max(1, len(clean) - 1),
+                    pad + (high - value) * (height - 2 * pad) / span,
+                )
+                for index, value in enumerate(clean)
+            ]
+            line = " ".join(
+                f"{'M' if index == 0 else 'L'}{x:.1f},{y:.1f}"
+                for index, (x, y) in enumerate(coordinates)
+            )
+            area = f"{line} L{coordinates[-1][0]:.1f},{height:.1f} L{coordinates[0][0]:.1f},{height:.1f} Z"
+            return {"line": line, "area": area, "width": width, "height": height}
+
         last_activities = []
         for a in recent[:5]:
             # TIR (calc fallback)
@@ -9282,6 +9310,41 @@ def ui_user_dashboard(user_id: int, request: Request):
             if len(gps) > 200:
                 step = max(1, len(gps) // 200)
                 gps = gps[::step]
+
+            stream_rows = (
+                db.query(
+                    ActivityStreamPoint.elapsed_time,
+                    ActivityStreamPoint.altitude,
+                    ActivityStreamPoint.glucose_mgdl,
+                )
+                .filter(ActivityStreamPoint.activity_id == a.id)
+                .order_by(ActivityStreamPoint.idx.asc())
+                .all()
+            )
+            times, cumulative_gain = [], []
+            total_gain_calc = total_loss_calc = 0.0
+            previous_altitude = None
+            for point in stream_rows:
+                altitude = float(point.altitude) if point.altitude is not None else None
+                if altitude is not None and previous_altitude is not None:
+                    delta = altitude - previous_altitude
+                    total_gain_calc += max(0.0, delta)
+                    total_loss_calc += max(0.0, -delta)
+                if altitude is not None:
+                    previous_altitude = altitude
+                if point.elapsed_time is not None:
+                    times.append(float(point.elapsed_time))
+                    cumulative_gain.append(total_gain_calc)
+
+            dplus_windows = {}
+            for window_id, window_label, seconds in dashboard_windows:
+                best_gain = 0.0
+                start_index = 0
+                for index, elapsed in enumerate(times):
+                    while start_index < index and elapsed - times[start_index] > seconds:
+                        start_index += 1
+                    best_gain = max(best_gain, cumulative_gain[index] - cumulative_gain[start_index])
+                dplus_windows[window_id] = {"label": window_label, "gain": best_gain}
 
             # 🎯 couleur par niveau
             level = a.level
@@ -9329,6 +9392,7 @@ def ui_user_dashboard(user_id: int, request: Request):
                 "date_str": a.start_date.strftime("%Y-%m-%d %H:%M") if a.start_date else "n/a",
                 "dist_km": round(((a.distance or 0) / 1000.0), 1),
                 "dplus": int(a.total_elevation_gain or 0),
+                "dminus": int(round(total_loss_calc)),
                 "duration_sec": int(a.elapsed_time or 0),
                 "tir_percent": tir,
                 "gps": gps,  # JSON-serializable
@@ -9337,6 +9401,9 @@ def ui_user_dashboard(user_id: int, request: Request):
                 "sport": a.sport or (a.activity_type or "").lower(),
                 "summary_block": summary_block,
                 "summary_block_clean": clean_block,
+                "altitude_profile": _dashboard_sparkline([point.altitude for point in stream_rows]),
+                "glucose_profile": _dashboard_sparkline([point.glucose_mgdl for point in stream_rows]),
+                "dplus_windows": dplus_windows,
             })
 
         # VAM 5/15/30 des dernières activités (via caches Activity)

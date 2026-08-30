@@ -26,8 +26,22 @@
   .dashboard-activities-grid {
     display:flex;
     flex-direction:column;
-    gap:16px;
+    gap:10px;
   }
+  .home-activity-card { overflow:hidden; border:1px solid var(--home-line); border-radius:18px; background:#fff; }
+  .home-activity-head { display:grid; grid-template-columns:minmax(230px,1.3fr) repeat(4,minmax(90px,.55fr)); }
+  .home-activity-main { padding:18px 20px; border-left:4px solid var(--accent); }
+  .home-activity-type,.home-activity-stat span,.home-activity-profile-label { color:var(--text-muted); font:700 .6rem "DM Mono",monospace; letter-spacing:.08em; text-transform:uppercase; }
+  .home-activity-main a { display:block; margin:6px 0 3px; color:var(--text-main); font-weight:800; }
+  .home-activity-date { color:var(--text-muted); font-size:.7rem; }
+  .home-activity-stat { display:flex; flex-direction:column; justify-content:center; padding:15px 13px; border-left:1px solid #eee9e0; }
+  .home-activity-stat strong { margin-top:7px; color:var(--text-main); font-size:.88rem; white-space:nowrap; }
+  .home-activity-profiles { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; padding:14px 18px 10px; border-top:1px solid #eee9e0; }
+  .home-activity-profile svg { display:block; width:100%; height:58px; margin-top:5px; }
+  .home-activity-profile-empty { display:grid; height:58px; margin-top:5px; place-items:center; border-radius:10px; background:#faf9f7; color:var(--text-muted); font-size:.68rem; }
+  .home-activity-windows { display:grid; grid-template-columns:auto repeat(4,minmax(80px,1fr)); gap:1px; border-top:1px solid #eee9e0; background:#eee9e0; }
+  .home-activity-windows > span { display:flex; justify-content:space-between; gap:6px; padding:9px 12px; background:var(--home-paper); color:var(--text-muted); font-size:.67rem; }
+  .home-activity-windows strong { color:var(--text-main); }
   .dashboard-hero {
     display:grid;
     grid-template-columns:minmax(0, 1fr);
@@ -570,6 +584,13 @@
     .dashboard-hero h1 { font-size:clamp(2.5rem,13vw,4rem); }
     .dashboard-hero p:not(.dashboard-eyebrow) { margin-bottom:10px; }
     .home-view-switcher { grid-template-columns:1fr; margin:0 12px 18px; }
+    .dashboard-activities-grid { padding:0 12px; }
+    .home-activity-head { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .home-activity-main { grid-column:1/-1; }
+    .home-activity-stat { border-top:1px solid #eee9e0; }
+    .home-activity-profiles { grid-template-columns:1fr; }
+    .home-activity-windows { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .home-activity-windows > span:first-child { grid-column:1/-1; }
     .quick-actions { grid-template-columns:repeat(2, minmax(0, 1fr)); gap:9px; }
     .quick-action { min-height:120px; padding:14px; }
     .home-summary { grid-template-columns:1fr; gap:8px; }
@@ -3679,70 +3700,44 @@
 </div>
 <div class="dashboard-activities-grid">
 {% for a in last_activities %}
-  <div class="card" style="border:1px solid #e5e7eb; border-radius:6px; padding:12px;">
-    <div style="font-weight:600; font-size:1rem;">
-      <a href="/ui/user/{{ user.id }}/activity/{{ a.id }}" style="text-decoration:none; color:inherit;">
+  <article class="home-activity-card">
+    <div class="home-activity-head">
+      <div class="home-activity-main">
+        <span class="home-activity-type">
         {% set sport = (a.sport or '')|lower %}
         {% if sport in ['run', 'trailrun', 'trail run'] %}
-          🏃
+          Course à pied
         {% elif sport in ['ride', 'virtualride', 'ebikeride', 'gravelride', 'mountainbike', 'mtb'] %}
-          🚴
+          Vélo
         {% elif sport in ['ski_alpine', 'ski', 'alpineski', 'backcountryski'] %}
-          🎿
+          Ski
         {% elif sport in ['ski_nordic', 'rollerski'] %}
-          ⛷️
+          Ski nordique
         {% elif sport in ['hike', 'walk'] %}
-          🚶
+          Marche
         {% else %}
-          ⚪
+          Activité
         {% endif %}
-        {{ (a.name or ('Activité #' ~ a.id))|truncate(60, True, '…') }}
-      </a>
-    </div>
-    <div class="activity-meta">
-      {{ a.date_str }} · {{ a.dist_km }} km · D+ {{ a.dplus }} m ·
-      Durée {{ (a.duration_sec // 3600)|int }}h{{ ((a.duration_sec % 3600) // 60)|int }} ·
-      {% if a.tir_percent is not none %}TIR {{ a.tir_percent|round(0) }}%{% else %}TIR n/a{% endif %}
-    </div>
-
-    <div style="display:flex; flex-wrap:wrap; gap:16px; margin-top:12px;">
-      <div style="flex:0 0 220px;">
-        <div id="map-{{ a.id }}" class="map-frame"></div>
+        </span>
+        <a href="/ui/user/{{ user.id }}/activity/{{ a.id }}">{{ (a.name or ('Activité #' ~ a.id))|truncate(60, True, '…') }} →</a>
+        <span class="home-activity-date">{{ a.date_str }}</span>
       </div>
-      <div style="flex:1 1 320px;">
-        {% if a.summary_block_clean %}
-          <div class="activity-summary">
-            {{ a.summary_block_clean }}
-          </div>
-        {% else %}
-          <div style="font-size:0.85rem; color:#9ca3af;">Aucun bloc généré pour cette activité.</div>
-        {% endif %}
-      </div>
+      <div class="home-activity-stat"><span>Distance</span><strong>{{ a.dist_km }} km</strong></div>
+      <div class="home-activity-stat"><span>Dénivelé +</span><strong>+{{ a.dplus }} m</strong></div>
+      <div class="home-activity-stat"><span>Dénivelé −</span><strong>−{{ a.dminus }} m</strong></div>
+      <div class="home-activity-stat"><span>Durée</span><strong>{{ (a.duration_sec // 3600)|int }}h{{ '%02d'|format(((a.duration_sec % 3600) // 60)|int) }}</strong></div>
     </div>
-
-    <script>
-      (function(){
-        const pts = {{ a.gps|tojson }};
-        if (pts && pts.length > 1 && window.L) {
-          const map = L.map('map-{{ a.id }}', {
-            zoomControl: false,
-            dragging: false,
-            scrollWheelZoom: false,
-            doubleClickZoom: false,
-            boxZoom: false,
-            keyboard: false,
-            tap: false,
-            touchZoom: false
-          });
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap'
-          }).addTo(map);
-          const poly = L.polyline(pts, { weight: 3 }).addTo(map);
-          map.fitBounds(poly.getBounds(), { padding: [20, 20] });
-        }
-      })();
-    </script>
-  </div>
+    <div class="home-activity-profiles">
+      <div class="home-activity-profile"><span class="home-activity-profile-label">Profil de la sortie</span>{% if a.altitude_profile %}<svg viewBox="0 0 {{ a.altitude_profile.width }} {{ a.altitude_profile.height }}" role="img" aria-label="Profil altimétrique simplifié"><path d="{{ a.altitude_profile.area }}" fill="#fff1cf"></path><path d="{{ a.altitude_profile.line }}" fill="none" stroke="#17243e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path></svg>{% else %}<span class="home-activity-profile-empty">Profil indisponible</span>{% endif %}</div>
+      <div class="home-activity-profile"><span class="home-activity-profile-label">Glycémie</span>{% if a.glucose_profile %}<svg viewBox="0 0 {{ a.glucose_profile.width }} {{ a.glucose_profile.height }}" role="img" aria-label="Courbe glycémique simplifiée"><path d="{{ a.glucose_profile.line }}" fill="none" stroke="#54784f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path></svg>{% else %}<span class="home-activity-profile-empty">Aucune donnée</span>{% endif %}</div>
+    </div>
+    <div class="home-activity-windows">
+      <span><strong>Meilleur D+ glissant</strong></span>
+      {% for window in a.dplus_windows.values() %}<span>{{ window.label }} <strong>+{{ window.gain|round|int }} m</strong></span>{% endfor %}
+    </div>
+  </article>
+{% else %}
+  <div class="plan-library-empty">Aucune activité disponible pour le moment.</div>
 {% endfor %}
 </div>
 </div>

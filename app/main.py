@@ -4434,7 +4434,9 @@ def ui_home(request: Request):
     strava_connection_trend_max = 1
     cgm_connection_trend = []
     cgm_connection_trend_max = 1
-    connection_counts = {"strava": 0, "cgm": 0, "strava_delta": 0, "cgm_delta": 0}
+    dexcom_connection_trend = []
+    dexcom_connection_trend_max = 1
+    connection_counts = {"strava": 0, "cgm": 0, "dexcom": 0, "strava_delta": 0, "cgm_delta": 0, "dexcom_delta": 0}
     admin_status = request.query_params.get("admin_status")
     admin_message = request.query_params.get("admin_msg")
 
@@ -4454,6 +4456,7 @@ def ui_home(request: Request):
             1 for row in all_connection_rows
             if row["libre_email"] or row["has_dexcom"] or row["has_carelink"] or row["has_nightscout"]
         )
+        current_dexcom_users = sum(1 for row in all_connection_rows if row["has_dexcom"])
         today = dt.datetime.utcnow().date()
         today_snapshot = (
             db.query(ConnectionDailySnapshot)
@@ -4464,6 +4467,7 @@ def ui_home(request: Request):
             today_snapshot = ConnectionDailySnapshot(snapshot_date=today)
         today_snapshot.strava_users = current_strava_users
         today_snapshot.cgm_users = current_cgm_users
+        today_snapshot.dexcom_users = current_dexcom_users
         today_snapshot.recorded_at = dt.datetime.utcnow()
         db.add(today_snapshot)
         db.commit()
@@ -4482,14 +4486,21 @@ def ui_home(request: Request):
             {"label": row.snapshot_date.strftime("%d/%m"), "count": row.cgm_users}
             for row in connection_snapshots
         ]
+        dexcom_connection_trend = [
+            {"label": row.snapshot_date.strftime("%d/%m"), "count": row.dexcom_users or 0}
+            for row in connection_snapshots
+        ]
         strava_connection_trend_max = max((point["count"] for point in strava_connection_trend), default=1) or 1
         cgm_connection_trend_max = max((point["count"] for point in cgm_connection_trend), default=1) or 1
+        dexcom_connection_trend_max = max((point["count"] for point in dexcom_connection_trend), default=1) or 1
         previous_snapshot = connection_snapshots[-2] if len(connection_snapshots) > 1 else None
         connection_counts = {
             "strava": current_strava_users,
             "cgm": current_cgm_users,
+            "dexcom": current_dexcom_users,
             "strava_delta": current_strava_users - previous_snapshot.strava_users if previous_snapshot else 0,
             "cgm_delta": current_cgm_users - previous_snapshot.cgm_users if previous_snapshot else 0,
+            "dexcom_delta": current_dexcom_users - (previous_snapshot.dexcom_users or 0) if previous_snapshot else 0,
         }
         enrichment_dashboard = _collect_enrichment_admin_rows(db)
         usage_since = dt.datetime.utcnow() - dt.timedelta(days=30)
@@ -4678,6 +4689,8 @@ def ui_home(request: Request):
             "strava_connection_trend_max": strava_connection_trend_max,
             "cgm_connection_trend": cgm_connection_trend,
             "cgm_connection_trend_max": cgm_connection_trend_max,
+            "dexcom_connection_trend": dexcom_connection_trend,
+            "dexcom_connection_trend_max": dexcom_connection_trend_max,
             "connection_counts": connection_counts,
         },
     )

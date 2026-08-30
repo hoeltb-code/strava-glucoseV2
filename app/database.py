@@ -38,6 +38,11 @@ def _run_local_schema_fixes():
     _ensure_column("dexcom_tokens", "share_password", "share_password TEXT")
     _ensure_column("dexcom_tokens", "share_region", "share_region VARCHAR(16)")
     _ensure_column(
+        "connection_daily_snapshots",
+        "dexcom_users",
+        "dexcom_users INTEGER NOT NULL DEFAULT 0",
+    )
+    _ensure_column(
         "libre_credentials",
         "last_fetch_at",
         f"last_fetch_at {libre_last_fetch_type}",

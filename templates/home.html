@@ -5,9 +5,10 @@
 {% block extra_head %}
 <style>
   .admin-page {
-    --admin-surface: rgba(8, 17, 31, 0.78);
-    --admin-surface-soft: rgba(77, 226, 255, 0.06);
-    --admin-border: rgba(108, 135, 175, 0.2);
+    --admin-surface: #ffffff;
+    --admin-surface-soft: #fffaf1;
+    --admin-surface-gold: #fff3dc;
+    --admin-border: rgba(248, 184, 88, 0.42);
   }
   .admin-page [style*="background:#fff"],
   .admin-page [style*="background:#ffffff"],
@@ -33,12 +34,27 @@
   .admin-page .admin-subcard {
     background: var(--admin-surface-soft) !important;
     border: 1px solid var(--admin-border);
+    box-shadow: 0 10px 28px rgba(15, 30, 57, 0.06);
   }
   .admin-page .admin-table-wrap {
     overflow-x: auto;
   }
-  .admin-signup-chart { margin-top:12px; padding:8px 4px 0; border-radius:10px; background:rgba(255,255,255,.03); overflow-x:auto; }
+  .admin-signup-chart { margin-top:12px; padding:8px 4px 0; border-radius:10px; background:#fff; border:1px solid rgba(248,184,88,.24); overflow-x:auto; }
   .admin-signup-chart svg { display:block; width:100%; min-width:560px; height:auto; }
+  .admin-page .admin-kpi {
+    padding:11px;
+    border:1px solid rgba(248,184,88,.34);
+    border-radius:10px;
+    background:#fff !important;
+    color:var(--text-main) !important;
+  }
+  .admin-page .admin-kpi--gold { background:var(--admin-surface-gold) !important; }
+  .admin-page .admin-action-link {
+    display:inline-flex; margin:0 0 12px; padding:7px 10px;
+    border:1px solid rgba(248,184,88,.7); border-radius:8px;
+    color:var(--text-main); background:#fff3dc;
+    text-decoration:none; font-size:.78rem; font-weight:700;
+  }
 </style>
 {% endblock %}
 
@@ -113,20 +129,22 @@
     <section class="card admin-subcard" style="margin-top:14px; padding:14px; background:#fff9ee; border-color:rgba(248,184,88,.48);">
       <h3 style="margin:0 0 5px; font-size:1rem;">🔗 Connexions aux services</h3>
       <p style="margin:0 0 12px; color:var(--text-muted); font-size:.82rem;">État des comptes actuellement reliés et variation depuis le précédent relevé quotidien.</p>
-      <div style="display:grid; grid-template-columns:repeat(2,minmax(140px,1fr)); gap:9px;">
-        <div style="padding:11px; border-radius:10px; background:#fff;"><strong style="display:block; font-size:1.3rem;">{{ connection_counts.strava }}</strong><span style="color:var(--text-muted); font-size:.72rem;">connectés à Strava · {% if connection_counts.strava_delta > 0 %}+{% endif %}{{ connection_counts.strava_delta }} depuis le relevé précédent</span></div>
-        <div style="padding:11px; border-radius:10px; background:#fff;"><strong style="display:block; font-size:1.3rem;">{{ connection_counts.cgm }}</strong><span style="color:var(--text-muted); font-size:.72rem;">connectés à un capteur CGM · {% if connection_counts.cgm_delta > 0 %}+{% endif %}{{ connection_counts.cgm_delta }} depuis le relevé précédent</span></div>
+      <div style="display:grid; grid-template-columns:repeat(3,minmax(140px,1fr)); gap:9px;">
+        <div class="admin-kpi admin-kpi--gold"><strong style="display:block; font-size:1.3rem;">{{ connection_counts.strava }}</strong><span style="color:var(--text-muted); font-size:.72rem;">connectés à Strava · {% if connection_counts.strava_delta > 0 %}+{% endif %}{{ connection_counts.strava_delta }} depuis le relevé précédent</span></div>
+        <div class="admin-kpi"><strong style="display:block; font-size:1.3rem;">{{ connection_counts.cgm }}</strong><span style="color:var(--text-muted); font-size:.72rem;">connectés à un capteur CGM · {% if connection_counts.cgm_delta > 0 %}+{% endif %}{{ connection_counts.cgm_delta }} depuis le relevé précédent</span></div>
+        <div class="admin-kpi admin-kpi--gold"><strong style="display:block; font-size:1.3rem;">{{ connection_counts.dexcom }}</strong><span style="color:var(--text-muted); font-size:.72rem;">connectés à Dexcom · {% if connection_counts.dexcom_delta > 0 %}+{% endif %}{{ connection_counts.dexcom_delta }} depuis le relevé précédent</span></div>
       </div>
       {{ admin_daily_chart('Utilisateurs connectés à Strava', 'Nombre total de comptes reliés lors de chaque relevé quotidien.', strava_connection_trend, strava_connection_trend_max) }}
       {{ admin_daily_chart('Utilisateurs connectés à un capteur', 'Au moins une connexion Libre, Dexcom, CareLink ou Nightscout.', cgm_connection_trend, cgm_connection_trend_max) }}
+      {{ admin_daily_chart('Utilisateurs connectés à Dexcom', 'Nombre total de comptes disposant d’une connexion Dexcom active.', dexcom_connection_trend, dexcom_connection_trend_max) }}
     </section>
 
     <section class="card admin-subcard" style="margin-top:14px; padding:14px; background:#fff9ee; border-color:rgba(248,184,88,.48);">
       <h3 style="margin:0 0 5px; font-size:1rem;">🛒 Intérêt pour Dexcom ONE+</h3>
       <p style="margin:0 0 10px; color:var(--text-muted); font-size:.82rem;">Clics authentifiés sur le bouton de comparaison Google Shopping.</p>
       <div style="display:grid; grid-template-columns:repeat(2,minmax(120px,1fr)); gap:9px;">
-        <div style="padding:10px; border-radius:9px; background:#fff;"><strong style="display:block; font-size:1.3rem;">{{ dexcom_purchase_clicks.unique_users }}</strong><span style="color:var(--text-muted); font-size:.72rem;">utilisateurs uniques</span></div>
-        <div style="padding:10px; border-radius:9px; background:#fff;"><strong style="display:block; font-size:1.3rem;">{{ dexcom_purchase_clicks.total }}</strong><span style="color:var(--text-muted); font-size:.72rem;">clics au total</span></div>
+        <div class="admin-kpi admin-kpi--gold"><strong style="display:block; font-size:1.3rem;">{{ dexcom_purchase_clicks.unique_users }}</strong><span style="color:var(--text-muted); font-size:.72rem;">utilisateurs uniques</span></div>
+        <div class="admin-kpi"><strong style="display:block; font-size:1.3rem;">{{ dexcom_purchase_clicks.total }}</strong><span style="color:var(--text-muted); font-size:.72rem;">clics au total</span></div>
       </div>
     </section>
 
@@ -134,11 +152,11 @@
       <h3 style="margin:0 0 5px; font-size:1rem;">📄 Utilisation des plans de course</h3>
       <p style="margin:0 0 12px; color:var(--text-muted); font-size:.82rem;">Chaque envoi avec téléchargement PDF est archivé pour suivre l’usage du simulateur.</p>
       <div style="display:grid; grid-template-columns:repeat(3,minmax(120px,1fr)); gap:9px; margin-bottom:13px;">
-        <div style="padding:10px; border-radius:9px; background:rgba(77,226,255,.09);"><strong style="display:block; font-size:1.15rem;">{{ course_plan_usage.total }}</strong><span style="color:var(--text-muted); font-size:.72rem;">plans délivrés</span></div>
-        <div style="padding:10px; border-radius:9px; background:rgba(184,255,69,.09);"><strong style="display:block; font-size:1.15rem;">{{ course_plan_usage.last_30_days }}</strong><span style="color:var(--text-muted); font-size:.72rem;">sur 30 jours</span></div>
-        <div style="padding:10px; border-radius:9px; background:rgba(250,204,21,.09);"><strong style="display:block; font-size:1.15rem;">{{ course_plan_usage.unique_users }}</strong><span style="color:var(--text-muted); font-size:.72rem;">coureurs concernés</span></div>
+        <div class="admin-kpi admin-kpi--gold"><strong style="display:block; font-size:1.15rem;">{{ course_plan_usage.total }}</strong><span style="color:var(--text-muted); font-size:.72rem;">plans délivrés</span></div>
+        <div class="admin-kpi"><strong style="display:block; font-size:1.15rem;">{{ course_plan_usage.last_30_days }}</strong><span style="color:var(--text-muted); font-size:.72rem;">sur 30 jours</span></div>
+        <div class="admin-kpi admin-kpi--gold"><strong style="display:block; font-size:1.15rem;">{{ course_plan_usage.unique_users }}</strong><span style="color:var(--text-muted); font-size:.72rem;">coureurs concernés</span></div>
       </div>
-      <a href="/admin/course-plan-downloads" style="display:inline-flex; margin:0 0 12px; padding:7px 10px; border:1px solid rgba(77,226,255,.35); border-radius:8px; color:var(--text-main); background:rgba(77,226,255,.08); text-decoration:none; font-size:.78rem; font-weight:700;">Voir l’historique complet des plans →</a>
+      <a href="/admin/course-plan-downloads" class="admin-action-link">Voir l’historique complet des plans →</a>
       {% if course_plan_downloads %}
         <div class="admin-table-wrap"><table style="width:100%; border-collapse:collapse; font-size:.8rem;"><thead><tr style="border-bottom:1px solid var(--border); color:var(--text-muted);"><th style="text-align:left; padding:6px;">Date</th><th style="text-align:left; padding:6px;">Utilisateur</th><th style="text-align:left; padding:6px;">Course</th></tr></thead><tbody>
           {% for download in course_plan_downloads %}

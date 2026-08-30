@@ -692,4 +692,5 @@ class ConnectionDailySnapshot(Base):
     snapshot_date = Column(Date, nullable=False, unique=True, index=True)
     strava_users = Column(Integer, nullable=False, default=0)
     cgm_users = Column(Integer, nullable=False, default=0)
+    dexcom_users = Column(Integer, nullable=False, default=0)
     recorded_at = Column(DateTime, nullable=False, default=datetime.utcnow)

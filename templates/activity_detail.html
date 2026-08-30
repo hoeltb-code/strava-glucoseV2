@@ -106,10 +106,6 @@
   .slope-profile-legend { display:flex; flex-wrap:wrap; gap:9px; margin:0 0 10px; color:var(--activity-text-muted); font-size:.72rem; }
   .slope-profile-legend span { display:inline-flex; align-items:center; gap:4px; }
   .slope-profile-legend i { width:9px; height:9px; border-radius:50%; display:inline-block; }
-  .glucose-cross-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:16px 0; }
-  .glucose-cross-card { min-width:0; padding:16px; border:1px solid var(--activity-border); border-radius:17px; background:#fff; }
-  .glucose-cross-card h4 { margin:0 0 4px; font-size:.9rem; }
-  .glucose-cross-card p { margin:0 0 10px; }
   .glucose-cross-chart { height:220px; }
   .glucose-cross-empty { display:grid; height:100%; place-items:center; color:var(--activity-text-muted); font-size:.75rem; }
   .climb-route-locator { margin-top:14px; padding:13px; border:1px solid var(--activity-border); border-radius:13px; background:#fbfaf7; }
@@ -308,7 +304,6 @@
       height:220px;
     }
     .terrain-summary-grid { grid-template-columns:1fr; }
-    .glucose-cross-grid { grid-template-columns:1fr; }
   }
   @media (max-width: 720px) {
     .activity-header {
@@ -1454,13 +1449,9 @@
         <div class="slope-profile-legend" aria-label="Légende glycémique commune aux graphiques">
           <span><i style="background:#7f1d1d"></i>&lt; 50</span><span><i style="background:#dc2626"></i>50–70</span><span><i style="background:#ea580c"></i>70–90</span><span><i style="background:#65a30d"></i>90–110</span><span><i style="background:#22a45d"></i>110–130</span><span><i style="background:#6f9f45"></i>130–150</span><span><i style="background:#d4ad28"></i>150–170</span><span><i style="background:#e6bd20"></i>170–180</span><span><i style="background:#facc15"></i>180–200</span><span><i style="background:#f5b914"></i>200–220</span><span><i style="background:#eaa20e"></i>&gt; 220 mg/dL</span>
         </div>
-        <div class="glucose-cross-grid" aria-label="Courbes croisées avec la glycémie">
-          <article class="glucose-cross-card"><h4>Fréquence cardiaque × glycémie</h4><p class="muted">Évolution du cardio colorée selon la glycémie au même moment.</p><div class="glucose-cross-chart"><canvas id="glucoseHeartRateChart"></canvas></div></article>
-          <article class="glucose-cross-card"><h4>Allure × glycémie</h4><p class="muted">Allure instantanée colorée selon la glycémie synchronisée.</p><div class="glucose-cross-chart"><canvas id="glucosePaceChart"></canvas></div></article>
-          <article class="glucose-cross-card"><h4>VAM × glycémie</h4><p class="muted">Vitesse verticale colorée selon la glycémie au même endroit.</p><div class="glucose-cross-chart"><canvas id="glucoseVamChart"></canvas></div></article>
-        </div>
+        <h4 style="margin:14px 0 4px;">Fréquence cardiaque × glycémie</h4><p class="muted">Évolution du cardio colorée selon la glycémie au même moment.</p><div class="glucose-cross-chart"><canvas id="glucoseHeartRateChart"></canvas></div>
         <script>
-          (() => {
+          window.addEventListener('DOMContentLoaded', () => {
             const source={{ profile_chart_points_js|safe }};
             if (!source || source.length < 2 || typeof Chart === 'undefined') return;
             const color=value=>{value=Number(value);if(!Number.isFinite(value))return'#aaa7a0';if(value<50)return'#7f1d1d';if(value<70)return'#dc2626';if(value<90)return'#ea580c';if(value<110)return'#65a30d';if(value<130)return'#22a45d';if(value<150)return'#6f9f45';if(value<170)return'#d4ad28';if(value<180)return'#e6bd20';if(value<200)return'#facc15';if(value<220)return'#f5b914';return'#eaa20e'};
@@ -1477,7 +1468,7 @@
             build('glucoseHeartRateChart','hr','FC','bpm',{valid:value=>value>=40&&value<=240});
             build('glucosePaceChart','pace','Allure','Allure (min/km)',{pace:true,reverse:true,valid:value=>value>=120&&value<=2400});
             build('glucoseVamChart','vam','VAM','m/h',{valid:value=>value>=-4000&&value<=4000});
-          })();
+          });
         </script>
         {% endif %}
 
@@ -1580,16 +1571,21 @@
         </div>
 
       </div>
+      {% if profile_chart_points_js and profile_chart_points_js != '[]' %}
+      <section class="card activity-slope-profile-card" style="margin-top:16px; padding:16px;"><h3 style="margin:0 0 6px;font-size:.95rem;">Allure × glycémie</h3><p class="muted" style="margin:0 0 12px;">La hauteur représente l’allure ; les tronçons sous la courbe représentent la glycémie synchronisée.</p><div class="glucose-cross-chart"><canvas id="glucosePaceChart"></canvas></div></section>
+      <section class="card activity-slope-profile-card" style="margin-top:16px; padding:16px;"><h3 style="margin:0 0 6px;font-size:.95rem;">VAM × glycémie</h3><p class="muted" style="margin:0 0 12px;">La hauteur représente la vitesse verticale ; les tronçons sous la courbe représentent la glycémie.</p><div class="glucose-cross-chart"><canvas id="glucoseVamChart"></canvas></div></section>
+      {% endif %}
       {% endif %}
 
       {% if glucose_chart_points and glucose_chart_points|length > 1 %}
-      <div class="card" style="margin-top:16px; border-radius:4px; padding:16px;">
+      <div class="card activity-slope-profile-card" style="margin-top:16px; padding:16px;">
         <h3 style="margin:0 0 10px 0; font-size:0.95rem;">
           Courbe de glycémie pendant l’activité
         </h3>
         <p class="muted" style="margin:0 0 12px 0; font-size:0.8rem;">
-          Graphe temporel basé sur les points CGM synchronisés avec ta sortie.
+          La hauteur représente la glycémie ; chaque tronçon sous la courbe reprend la couleur de sa plage de 20 mg/dL.
         </p>
+        <div class="slope-profile-legend" aria-label="Légende des plages de glycémie"><span><i style="background:#7f1d1d"></i>&lt; 50</span><span><i style="background:#dc2626"></i>50–70</span><span><i style="background:#ea580c"></i>70–90</span><span><i style="background:#65a30d"></i>90–110</span><span><i style="background:#22a45d"></i>110–130</span><span><i style="background:#6f9f45"></i>130–150</span><span><i style="background:#d4ad28"></i>150–170</span><span><i style="background:#e6bd20"></i>170–180</span><span><i style="background:#facc15"></i>180–200</span><span><i style="background:#f5b914"></i>200–220</span><span><i style="background:#eaa20e"></i>&gt; 220 mg/dL</span></div>
         <div style="height:260px;">
           <canvas id="glucoseActivityChart" height="240"></canvas>
         </div>
@@ -1609,6 +1605,8 @@
           }));
 
           const labels = useTimeAxis ? undefined : series.map(pt => pt.x.toFixed(1));
+          const glucoseColor = value => {value=Number(value);if(value<50)return'#7f1d1d';if(value<70)return'#dc2626';if(value<90)return'#ea580c';if(value<110)return'#65a30d';if(value<130)return'#22a45d';if(value<150)return'#6f9f45';if(value<170)return'#d4ad28';if(value<180)return'#e6bd20';if(value<200)return'#facc15';if(value<220)return'#f5b914';return'#eaa20e'};
+          const glucoseArea = {id:'glucoseActivityArea',beforeDatasetsDraw(chart){const {ctx,chartArea}=chart,points=chart.getDatasetMeta(0).data;if(!chartArea||points.length<2)return;ctx.save();ctx.globalAlpha=.86;for(let index=0;index<points.length-1;index++){const point=points[index],next=points[index+1],value=(Number(rawPoints[index].mgdl)+Number(rawPoints[index+1].mgdl))/2;ctx.fillStyle=glucoseColor(value);ctx.beginPath();ctx.moveTo(point.x,chartArea.bottom);ctx.lineTo(point.x,point.y);ctx.lineTo(next.x,next.y);ctx.lineTo(next.x,chartArea.bottom);ctx.closePath();ctx.fill()}ctx.restore()}};
 
           const ctx = document.getElementById('glucoseActivityChart').getContext('2d');
           new Chart(ctx, {
@@ -1618,12 +1616,12 @@
               datasets: [{
                 label: 'Glycémie (mg/dL)',
                 data: useTimeAxis ? series : series.map(pt => pt.y),
-                borderColor: '#dc2626',
-                backgroundColor: 'rgba(220,38,38,0.12)',
-                borderWidth: 2,
+                borderColor: 'rgba(69,67,63,.52)',
+                backgroundColor: 'transparent',
+                borderWidth: 1.3,
                 pointRadius: 0,
                 tension: 0.15,
-                fill: true,
+                fill: false,
               }]
             },
             options: {
@@ -1667,7 +1665,8 @@
                   title: { display: true, text: 'mg/dL' },
                 }
               }
-            }
+            },
+            plugins: [glucoseArea]
           });
         })();
       </script>

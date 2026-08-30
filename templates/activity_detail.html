@@ -219,6 +219,16 @@
   .activity-progress-fill-vam {
     background:var(--accent);
   }
+  .vam-distribution-fill {
+    height:100%;
+    border-radius:999px;
+    background:#d66a43;
+  }
+  .vam-zone-row:nth-child(1) .vam-distribution-fill { background:#91a889; }
+  .vam-zone-row:nth-child(2) .vam-distribution-fill { background:#6f925f; }
+  .vam-zone-row:nth-child(3) .vam-distribution-fill { background:#d0a13e; }
+  .vam-zone-row:nth-child(4) .vam-distribution-fill { background:#df7945; }
+  .vam-zone-row:nth-child(5) .vam-distribution-fill { background:#c65343; }
   .activity-progress-fill-low {
     background:#d84d58;
   }
@@ -857,7 +867,7 @@
           <tbody>
 
             <!-- FC moyenne -->
-            <tr style="border-bottom:1px solid #f3f4f6;">
+            <tr class="vam-zone-row" style="border-bottom:1px solid #f3f4f6;">
               <td>FC moy</td>
               {% for seg in segments_km_labels %}
                 {% set idx = loop.index0 %}
@@ -1660,11 +1670,7 @@
               <td style="text-align:right;">{{ row.percent }}%</td>
               <td>
                 <div class="activity-progress-track">
-                  <div style="
-                    width:{{ row.percent }}%;
-                    height:100%;
-                    background:linear-gradient(90deg, #4de2ff, #1c8cff);
-                  "></div>
+                  <div class="vam-distribution-fill" style="width:{{ row.percent }}%;"></div>
                 </div>
               </td>
             </tr>

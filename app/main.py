@@ -9775,6 +9775,31 @@ def ui_user_activities(user_id: int, request: Request):
         {"id": "5h", "label": "5 h", "seconds": 5 * 60 * 60},
     ]
 
+    def _sparkline_paths(values: list[float], *, width: int = 320, height: int = 72) -> dict | None:
+        """Construit une mini-courbe SVG sans axes pour les cartes d'activité."""
+        clean = [float(value) for value in values if value is not None and math.isfinite(float(value))]
+        if len(clean) < 2:
+            return None
+        if len(clean) > 90:
+            step = max(1, math.ceil(len(clean) / 90))
+            clean = clean[::step] + ([clean[-1]] if clean[-1] != clean[::step][-1] else [])
+        low, high = min(clean), max(clean)
+        span = max(high - low, 1.0)
+        pad = 3.0
+        coordinates = [
+            (
+                pad + index * (width - 2 * pad) / max(1, len(clean) - 1),
+                pad + (high - value) * (height - 2 * pad) / span,
+            )
+            for index, value in enumerate(clean)
+        ]
+        line = " ".join(
+            f"{'M' if index == 0 else 'L'}{x:.1f},{y:.1f}"
+            for index, (x, y) in enumerate(coordinates)
+        )
+        area = f"{line} L{coordinates[-1][0]:.1f},{height:.1f} L{coordinates[0][0]:.1f},{height:.1f} Z"
+        return {"line": line, "area": area, "width": width, "height": height}
+
     def _build_activity_row(activity: Activity) -> dict:
         distance_km = float(activity.distance) / 1000.0 if activity.distance else None
         elevation_gain = float(activity.total_elevation_gain) if activity.total_elevation_gain is not None else None
@@ -9789,6 +9814,7 @@ def ui_user_activities(user_id: int, request: Request):
             db.query(
                 ActivityStreamPoint.elapsed_time,
                 ActivityStreamPoint.altitude,
+                ActivityStreamPoint.glucose_mgdl,
             )
             .filter(ActivityStreamPoint.activity_id == activity.id)
             .order_by(ActivityStreamPoint.idx.asc())
@@ -9838,6 +9864,9 @@ def ui_user_activities(user_id: int, request: Request):
                             best_gain = gain_window
                     window_values[win["id"]] = best_gain if best_gain > 0 else 0.0
 
+        altitude_profile = _sparkline_paths([point.altitude for point in points if point.altitude is not None])
+        glucose_profile = _sparkline_paths([point.glucose_mgdl for point in points if point.glucose_mgdl is not None])
+
         return {
             "id": activity.id,
             "name": activity.name or f"Activité {activity.id}",
@@ -9848,6 +9877,8 @@ def ui_user_activities(user_id: int, request: Request):
             "duration_str": duration_str,
             "dplus_windows": window_values,
             "sport": activity.sport or (activity.activity_type or "").lower(),
+            "altitude_profile": altitude_profile,
+            "glucose_profile": glucose_profile,
         }
 
     try:

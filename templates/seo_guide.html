@@ -30,6 +30,9 @@
   {% if related_courses %}
   <section class="seo-section"><p class="seo-kicker">Parcours disponibles</p><h2>Passer de la méthode au parcours</h2><div class="seo-course-links">{% for course in related_courses %}<a class="seo-course-link" href="/courses/{{ course.slug }}">{{ course.name }}<small style="display:block;margin-top:5px;color:var(--text-muted);font-weight:600">{{ '%.1f'|format(course.distance_km) }} km · D+ {{ course.elevation_gain_m|round|int }} m</small></a>{% endfor %}</div></section>
   {% endif %}
+  {% if related_guides %}
+  <section class="seo-section"><p class="seo-kicker">Dans le même dossier</p><h2>Continuer la préparation</h2><div class="seo-course-links">{% for related in related_guides %}<a class="seo-course-link" href="/guides/{{ related.slug }}">{{ related.title }}</a>{% endfor %}</div></section>
+  {% endif %}
   {% if guide.sources %}
   <section class="seo-section"><p class="seo-kicker">Sources médicales</p><h2>Approfondir avec des références reconnues</h2><ul class="seo-source-list">{% for label, url in guide.sources %}<li><a href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ label }}</a></li>{% endfor %}</ul></section>
   {% endif %}

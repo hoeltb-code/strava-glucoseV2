@@ -5782,6 +5782,11 @@ def seo_guide_detail(request: Request, slug: str):
     related_courses = [
         _seo_course_payload(course_id) for course_id in guide.get("course_ids", [])
     ]
+    related_guides = [
+        {"slug": related_slug, **SEO_GUIDES[related_slug]}
+        for related_slug in guide.get("related_slugs", [])
+        if related_slug in SEO_GUIDES and related_slug != slug
+    ]
     return templates.TemplateResponse("seo_guide.html", _seo_page_context(
         request,
         title=guide["title"],
@@ -5790,7 +5795,9 @@ def seo_guide_detail(request: Request, slug: str):
         path=f"/guides/{slug}",
         page_kind="guide",
         guide={"slug": slug, **guide},
+        faq_items=guide.get("faq", []),
         related_courses=[course for course in related_courses if course],
+        related_guides=related_guides,
     ))
 
 

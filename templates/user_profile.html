@@ -633,7 +633,7 @@
               {% endif %}
             </div>
             <form method="post" action="/ui/user/{{ user.id }}/dexcom/credentials" style="display:grid; gap:10px;">
-              <div><label>Identifiant Dexcom</label><input name="username" type="text" value="{{ dexcom_username or '' }}" autocomplete="username"></div>
+              <div><label>Identifiant Dexcom (mail ou tél. au format +33…)</label><input name="username" type="text" value="{{ dexcom_username or '' }}" autocomplete="username" placeholder="Mail ou tél. (+33…)"></div>
               <div>
                 <label>Mot de passe</label>
                 <div style="display:flex; gap:8px;">

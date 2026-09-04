@@ -998,7 +998,6 @@
     let customCourseMode = {{ custom_course_mode | default(false) | tojson }};
     const planPaymentPilotEnabled = {{ plan_payment_test_enabled | default(false) | tojson }};
     const planCredits = Number({{ plan_credits | default(0) | tojson }});
-    const hasPurchasedPlan = {{ has_purchased_plan | default(false) | tojson }};
     const runnerProfileData = {{ runner_profile_overview | default({}) | tojson | safe }};
     const communityPaceCurves = {{ dashboard_cohort_curves | default({}) | tojson | safe }};
     const officialCourses = {{ official_courses | default([]) | tojson | safe }};
@@ -2949,9 +2948,9 @@
             ${planPaymentPilotEnabled ? '<label class="course-plan-digital-consent" id="home-digital-content-consent-row" for="home-digital-content-consent" hidden><input id="home-digital-content-consent" type="checkbox"> <span>J’accepte les <a href="/conditions-utilisation#contenus-numeriques" target="_blank" rel="noopener">conditions générales de vente</a>, demande la fourniture immédiate de mon plan numérique et reconnais perdre mon droit de rétractation dès le début de son exécution.</span></label>' : ''}
             <div class="course-plan-purchase-actions">
             <button type="button" id="home-plan-email-btn">${isSavedPurchasedPlan ? 'Télécharger la nouvelle version' : 'Valider et enregistrer mon plan'}</button>
-              ${planPaymentPilotEnabled && hasPurchasedPlan ? '<button type="button" id="home-plan-credit-pack-btn" class="course-plan-credit-pack plan-purchase-details" hidden>Recharger 3 crédits · 30 €</button>' : ''}
+              ${planPaymentPilotEnabled ? '<button type="button" id="home-plan-credit-pack-btn" class="course-plan-credit-pack plan-purchase-details" hidden>Pack 3 plans · 30 €</button>' : ''}
             </div>
-            ${planPaymentPilotEnabled ? '<p class="course-plan-credit-note plan-purchase-details" hidden>' + planCredits + ' crédit' + (planCredits === 1 ? '' : 's') + ' disponible' + (planCredits === 1 ? '' : 's') + (hasPurchasedPlan ? ' · 1 crédit = 1 plan' : ' · Offre de lancement réservée à ton premier plan') + '</p>' : ''}
+            ${planPaymentPilotEnabled ? '<p class="course-plan-credit-note plan-purchase-details" hidden>' + planCredits + ' crédit' + (planCredits === 1 ? '' : 's') + ' disponible' + (planCredits === 1 ? '' : 's') + ' · 1 crédit = 1 plan</p>' : ''}
           </div>
         `;
         result.classList.add('is-visible');
@@ -3098,7 +3097,7 @@
         const creditPackButton = result.querySelector('#home-plan-credit-pack-btn');
         const digitalContentConsent = result.querySelector('#home-digital-content-consent');
         const digitalContentConsentRow = result.querySelector('#home-digital-content-consent-row');
-        const downloadPlanLabel = isSavedPurchasedPlan ? 'Télécharger la nouvelle version' : (planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : (hasPurchasedPlan ? 'Acheter ce plan · 14,90 €' : 'Offre premier plan · 4,90 €')) : '✉ Envoyer et télécharger le plan PDF');
+        const downloadPlanLabel = isSavedPurchasedPlan ? 'Télécharger la nouvelle version' : (planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : 'Acheter ce plan · 14,90 €') : '✉ Envoyer et télécharger le plan PDF');
         const startPaymentCheckout = async (product, planPayload) => {
           const response = await fetch(`/ui/user/{{ user.id }}/course-plan/checkout?product=${encodeURIComponent(product)}`, {
             method: 'POST',
@@ -3182,7 +3181,7 @@
               digitalContentConsentRow.hidden = false;
               digitalContentConsentRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
-            emailPlanButton.textContent = planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : (hasPurchasedPlan ? 'Acheter ce plan · 14,90 €' : 'Offre premier plan · 4,90 €')) : 'Télécharger mon plan PDF';
+            emailPlanButton.textContent = planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : 'Acheter ce plan · 14,90 €') : 'Télécharger mon plan PDF';
             status.textContent = planPaymentPilotEnabled ? (planCredits > 0 ? 'Ton plan est enregistré. Confirme les conditions pour le télécharger et débloquer le Roadbook.' : 'Ton plan est enregistré. Confirme les conditions de vente puis passe au paiement pour débloquer le roadbook et le plan nutrition détaillé.') : 'Ton plan est enregistré. Tu peux maintenant le télécharger.';
             return;
           }
@@ -3267,7 +3266,7 @@
           let planPdfWindow = null;
           try {
             if (planPaymentPilotEnabled && !isSavedPurchasedPlan && planCredits < 1) {
-              await startPaymentCheckout(hasPurchasedPlan ? 'single_plan' : 'first_plan', plan);
+              await startPaymentCheckout('single_plan', plan);
               return;
             }
             // Sur iOS, l'attribut download est souvent ignoré et le PDF remplace l'onglet courant.
@@ -3317,7 +3316,7 @@
             await startPaymentCheckout('credit_pack', {});
           } catch (error) {
             creditPackButton.disabled = false;
-            creditPackButton.textContent = 'Recharger 3 crédits · 30 €';
+            creditPackButton.textContent = 'Pack 3 plans · 30 €';
             status.textContent = error.message || 'Le paiement n’a pas pu être lancé.';
           }
         });

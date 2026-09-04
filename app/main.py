@@ -7811,11 +7811,11 @@ async def ui_create_course_plan_checkout(
     if not _payment_pilot_allowed(user_id):
         raise HTTPException(status_code=404, detail="Paiement indisponible pour ce compte.")
     product = (product or "").strip().lower()
-    if product not in {"first_plan", "single_plan", "credit_pack"}:
+    if product not in {"single_plan", "credit_pack"}:
         raise HTTPException(status_code=422, detail="Produit de plan invalide.")
-    if product in {"first_plan", "single_plan"} and (not isinstance(plan, dict) or not isinstance(plan.get("roadbook"), list) or not plan.get("roadbook")):
+    if product == "single_plan" and (not isinstance(plan, dict) or not isinstance(plan.get("roadbook"), list) or not plan.get("roadbook")):
         raise HTTPException(status_code=422, detail="Calcule une projection avant de tester le paiement.")
-    if product in {"first_plan", "single_plan"} and plan.get("digital_content_consent") is not True:
+    if product == "single_plan" and plan.get("digital_content_consent") is not True:
         raise HTTPException(status_code=422, detail="Confirme la fourniture immédiate du plan numérique pour continuer.")
     if not (settings.PLAN_ADMIN_EMAIL or "").strip():
         raise HTTPException(status_code=503, detail="La boîte d’archivage des plans doit être configurée avant les paiements.")
@@ -7823,28 +7823,23 @@ async def ui_create_course_plan_checkout(
     if not user or not user.email:
         raise HTTPException(status_code=404, detail="Utilisateur introuvable.")
     course_plan = None
-    if product in {"first_plan", "single_plan"}:
+    if product == "single_plan":
         course_plan = _upsert_course_plan_snapshot(db, user, plan)
-    has_purchased_plan = _has_purchased_individual_plan(db, user.id)
-    if product == "first_plan" and has_purchased_plan:
-        raise HTTPException(status_code=409, detail="L’offre de premier plan a déjà été utilisée.")
-    if product == "credit_pack" and not has_purchased_plan:
-        raise HTTPException(status_code=403, detail="L’offre premier plan doit être utilisée avant d’acheter un pack.")
     course_name = str(plan.get("course_name") or ("Pack de 3 crédits" if product == "credit_pack" else "Course simulée")).strip()[:160]
-    if product in {"first_plan", "single_plan"}:
+    if product == "single_plan":
         plan = {
             **plan,
             "digital_content_consent": True,
             "digital_content_consent_recorded_at": dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
         }
     credit_quantity = 3 if product == "credit_pack" else 0
-    amount_cents = 3000 if product == "credit_pack" else 490 if product == "first_plan" else 1490
+    amount_cents = 3000 if product == "credit_pack" else 1490
     attempt = PlanPaymentAttempt(
         user_id=user.id,
         course_plan_id=course_plan.id if course_plan else None,
         user_email=user.email,
         course_name=course_name,
-        plan_payload=json.dumps({"product": product, "credits": credit_quantity, "plan": plan if product in {"first_plan", "single_plan"} else {}}, ensure_ascii=False, separators=(",", ":")),
+        plan_payload=json.dumps({"product": product, "credits": credit_quantity, "plan": plan if product == "single_plan" else {}}, ensure_ascii=False, separators=(",", ":")),
         amount_cents=amount_cents,
         currency="eur",
         status="creating_checkout",
@@ -7860,12 +7855,10 @@ async def ui_create_course_plan_checkout(
         base_url = _get_app_base_url()
         price_id = (
             settings.STRIPE_PRICE_THREE_PLANS_ID if product == "credit_pack"
-            else settings.STRIPE_PRICE_FIRST_PLAN_ID if product == "first_plan"
             else settings.STRIPE_PRICE_ONE_PLAN_ID
         )
         product_name = (
             "Pack de 3 crédits Running Data Plan" if product == "credit_pack"
-            else "Offre premier plan Running Data Plan" if product == "first_plan"
             else "Plan de course Running Data Plan"
         )
         line_item = (

@@ -5596,6 +5596,15 @@ def home_redirect(request: Request):
     return _render_login_page(request)
 
 
+@app.get("/app")
+def installed_app_entry(request: Request):
+    """Point d’entrée de l’icône installée sur l’écran d’accueil."""
+    user_id = _get_session_user_id(request)
+    if user_id is None:
+        return RedirectResponse(url="/ui/login", status_code=302)
+    return RedirectResponse(url=f"/ui/user/{user_id}", status_code=302)
+
+
 def _seo_cta_url(request: Request, course_id: str | None = None) -> str:
     user_id = request.session.get("user_id")
     if user_id:

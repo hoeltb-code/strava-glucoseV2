@@ -3,7 +3,7 @@
   "short_name": "Running Plan",
   "description": "Analyse tes activités et prépare tes plans de course trail.",
   "id": "/",
-  "start_url": "/",
+  "start_url": "/app",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f5f3ee",

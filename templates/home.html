@@ -41,6 +41,9 @@
   }
   .admin-signup-chart { margin-top:12px; padding:8px 4px 0; border-radius:10px; background:#fff; border:1px solid rgba(248,184,88,.24); overflow-x:auto; }
   .admin-signup-chart svg { display:block; width:100%; min-width:560px; height:auto; }
+  .admin-connection-charts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-top:14px; }
+  .admin-connection-charts .admin-subcard { min-width:0; margin-top:0 !important; }
+  .admin-connection-charts .admin-signup-chart svg { min-width:300px; }
   .admin-page .admin-kpi {
     padding:11px;
     border:1px solid rgba(248,184,88,.34);
@@ -54,6 +57,10 @@
     border:1px solid rgba(248,184,88,.7); border-radius:8px;
     color:var(--text-main); background:#fff3dc;
     text-decoration:none; font-size:.78rem; font-weight:700;
+  }
+  @media(max-width:1050px) {
+    .admin-connection-charts { grid-template-columns:1fr; }
+    .admin-connection-charts .admin-signup-chart svg { min-width:560px; }
   }
 </style>
 {% endblock %}
@@ -74,11 +81,11 @@
   {% set plan_download_trend_max = plan_download_trend_max|default(1) %}
   {% set login_trend = login_trend|default([]) %}
   {% set login_trend_max = login_trend_max|default(1) %}
-  {% macro admin_daily_chart(title, subtitle, points, max_count) %}
+  {% macro admin_daily_chart(title, subtitle, points, max_count, metric='sum') %}
     <section class="card admin-subcard" style="margin-top:14px; padding:14px;">
       <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px; flex-wrap:wrap;">
         <div><h3 style="margin:0; font-size:1rem;">{{ title }}</h3><p style="margin:4px 0 0; color:var(--text-muted); font-size:.8rem;">{{ subtitle }}</p></div>
-        <strong style="font-size:1.25rem; color:var(--accent);">{{ points|sum(attribute='count') }}</strong>
+        <strong style="font-size:1.25rem; color:var(--accent);">{{ points[-1].count if metric == 'latest' and points else points|sum(attribute='count') }}</strong>
       </div>
       <div class="admin-signup-chart" aria-label="{{ title }}">
         <svg viewBox="0 0 720 180" role="img" aria-label="{{ title }}">
@@ -134,9 +141,11 @@
         <div class="admin-kpi"><strong style="display:block; font-size:1.3rem;">{{ connection_counts.cgm }}</strong><span style="color:var(--text-muted); font-size:.72rem;">connectés à un capteur CGM · {% if connection_counts.cgm_delta > 0 %}+{% endif %}{{ connection_counts.cgm_delta }} depuis le relevé précédent</span></div>
         <div class="admin-kpi admin-kpi--gold"><strong style="display:block; font-size:1.3rem;">{{ connection_counts.dexcom }}</strong><span style="color:var(--text-muted); font-size:.72rem;">connectés à Dexcom · {% if connection_counts.dexcom_delta > 0 %}+{% endif %}{{ connection_counts.dexcom_delta }} depuis le relevé précédent</span></div>
       </div>
-      {{ admin_daily_chart('Utilisateurs connectés à Strava', 'Nombre total de comptes reliés lors de chaque relevé quotidien.', strava_connection_trend, strava_connection_trend_max) }}
-      {{ admin_daily_chart('Utilisateurs connectés à un capteur', 'Au moins une connexion Libre, Dexcom, CareLink ou Nightscout.', cgm_connection_trend, cgm_connection_trend_max) }}
-      {{ admin_daily_chart('Utilisateurs connectés à Dexcom', 'Nombre total de comptes disposant d’une connexion Dexcom active.', dexcom_connection_trend, dexcom_connection_trend_max) }}
+      <div class="admin-connection-charts">
+        {{ admin_daily_chart('Utilisateurs connectés à Strava', 'Nombre total de comptes reliés lors de chaque relevé quotidien.', strava_connection_trend, strava_connection_trend_max, 'latest') }}
+        {{ admin_daily_chart('Utilisateurs connectés à un capteur', 'Au moins une connexion Libre, Dexcom, CareLink ou Nightscout.', cgm_connection_trend, cgm_connection_trend_max, 'latest') }}
+        {{ admin_daily_chart('Utilisateurs connectés à Dexcom', 'Nombre total de comptes disposant d’une connexion Dexcom active.', dexcom_connection_trend, dexcom_connection_trend_max, 'latest') }}
+      </div>
     </section>
 
     <section class="card admin-subcard" style="margin-top:14px; padding:14px; background:#fff9ee; border-color:rgba(248,184,88,.48);">

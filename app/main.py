@@ -6054,7 +6054,7 @@ def seo_robots(request: Request):
 @app.get("/sitemap.xml", response_class=Response)
 def seo_sitemap(request: Request):
     base_url = _get_app_base_url()
-    paths = ["/", "/guides", "/courses", "/suivi-glycemie-sport", "/capteurs/dexcom-one-plus"]
+    paths = ["/", "/guides", "/courses", "/installer-application", "/suivi-glycemie-sport", "/capteurs/dexcom-one-plus"]
     paths += [
         f"/courses/{event_slug}"
         for event_slug in SEO_EVENT_REGISTRY
@@ -6128,6 +6128,24 @@ def ui_glucose_tracking_guide(request: Request):
             ("Le suivi remplace-t-il les alarmes du capteur ?", "Non. Il s'agit d'une analyse sportive rétrospective ou proche du temps réel selon la source, et non d'un dispositif médical d'alarme."),
         ],
         breadcrumbs=[("Accueil", "/"), ("Suivi glycémie et sport", "/suivi-glycemie-sport")],
+    ))
+
+
+@app.get("/installer-application", response_class=HTMLResponse)
+def ui_install_application(request: Request):
+    return templates.TemplateResponse("install_application.html", _seo_page_context(
+        request,
+        title="Installer Running Data Plan sur iPhone ou Android",
+        description="Ajoute Running Data Plan à l’écran d’accueil de ton iPhone avec Safari ou de ton téléphone Android avec Chrome, sans passer par un store.",
+        seo_keywords="installer Running Data Plan, application trail iPhone, application web Android, ajouter écran accueil Safari",
+        path="/installer-application",
+        page_kind="guide",
+        faq_items=[
+            ("Running Data Plan est-il disponible sur l’App Store ?", "Non. Running Data Plan s’ajoute directement à l’écran d’accueil depuis Safari, sans passer par l’App Store."),
+            ("L’application fonctionne-t-elle sans Internet ?", "L’icône permet un accès direct, mais les synchronisations Strava et CGM nécessitent une connexion Internet."),
+            ("Faut-il créer un nouveau compte ?", "Non. L’icône ouvre le même service et tu utilises ton compte Running Data Plan habituel."),
+        ],
+        breadcrumbs=[("Accueil", "/"), ("Installer l’application", "/installer-application")],
     ))
 
 

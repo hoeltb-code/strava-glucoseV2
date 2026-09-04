@@ -1,0 +1,19 @@
+{
+  "name": "Running Data Plan",
+  "short_name": "Running Plan",
+  "description": "Analyse tes activités et prépare tes plans de course trail.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5f3ee",
+  "theme_color": "#17243e",
+  "icons": [
+    {
+      "src": "/static/images/running-data-plan-logo.png",
+      "sizes": "500x500",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

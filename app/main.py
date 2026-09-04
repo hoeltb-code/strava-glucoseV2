@@ -125,7 +125,7 @@ from fastapi import (
     BackgroundTasks,
 )
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse, Response
+from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse, Response, FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -6058,6 +6058,11 @@ def seo_robots(request: Request):
         content=f"User-agent: *\nAllow: /\nSitemap: {_get_app_base_url()}/sitemap.xml\n",
         media_type="text/plain",
     )
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def site_favicon():
+    return FileResponse("static/favicon.ico", media_type="image/x-icon")
 
 
 @app.get("/sitemap.xml", response_class=Response)

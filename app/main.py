@@ -214,6 +214,7 @@ from app.models import (
 )
 from app.secrets import encrypt_secret
 from app.seo_content import SEO_GUIDES
+from app.marathon_seo import MARATHONS, WORLD_MARATHONS, FRANCE_MARATHONS, EUROPE_MARATHONS, EUROPEAN_MAJORS
 
 SLOPE_BANDS_DEF = [
     (-999, -40, "Sneg40p", "<-40%"),
@@ -5663,7 +5664,7 @@ def _seo_page_context(request: Request, *, title: str, description: str, path: s
     base_url = _get_app_base_url()
     canonical_url = f"{base_url}{path}"
     page_kind = extra.get("page_kind", "website")
-    schema_type = "Article" if page_kind == "guide" else "WebPage"
+    schema_type = "Article" if page_kind in {"guide", "marathon"} else "WebPage"
     breadcrumb_rows = extra.get("breadcrumbs") or [("Accueil", "/"), (title, path)]
     schema = {
         "@context": "https://schema.org",
@@ -5733,6 +5734,16 @@ def _seo_page_context(request: Request, *, title: str, description: str, path: s
                 for index, item in enumerate(event_courses, start=1)
             ],
         })
+    collection_items = extra.get("collection_items") or []
+    if collection_items:
+        schema["@graph"].append({
+            "@type": "ItemList",
+            "name": title,
+            "itemListElement": [
+                {"@type": "ListItem", "position": index, "name": item["name"], "url": f"{base_url}{item['url']}"}
+                for index, item in enumerate(collection_items, start=1)
+            ],
+        })
     faq_items = extra.get("faq_items") or []
     if faq_items:
         schema["@graph"].append({
@@ -5765,6 +5776,100 @@ def _seo_page_context(request: Request, *, title: str, description: str, path: s
         "cta_url": _seo_cta_url(request, extra.get("course_id")),
         **extra,
     }
+
+
+def _marathon_cta_urls(request: Request) -> tuple[str, str]:
+    user_id = request.session.get("user_id")
+    if user_id:
+        return f"/ui/user/{user_id}/activities", f"/ui/user/{user_id}#simulation"
+    return "/ui/signup", "/ui/signup"
+
+
+def _render_marathon_index(request: Request, *, region: str | None = None):
+    activity_cta_url, projection_cta_url = _marathon_cta_urls(request)
+    if region == "monde":
+        marathons = WORLD_MARATHONS
+        heading = "20 marathons parmi les plus connus au monde"
+        intro = "Des World Marathon Majors aux grandes courses européennes, compare les profils et prépare ton plan d’entraînement, ta nutrition, tes glucides, tes ravitaillements et ta projection de chrono."
+        list_title = "Les grands marathons du monde"
+        title = "20 marathons connus dans le monde : plans, profils et nutrition"
+        description = "Découvre 20 marathons connus dans le monde : plan d’entraînement, profil, dénivelé, nutrition, glucides, ravitaillements et projection de chrono."
+    elif region == "europe":
+        marathons = EUROPE_MARATHONS
+        heading = "Les Majors et grands marathons européens"
+        intro = "Londres et Berlin sont les deux Abbott World Marathon Majors européens. Retrouve aussi les grandes courses de Valence, Rotterdam, Amsterdam, Rome, Athènes, Barcelone et d’autres capitales."
+        list_title = "Les grands marathons en Europe"
+        title = "Marathons européens : Majors, plans de course et profils"
+        description = "Les Majors européens et grands marathons d’Europe : plans d’entraînement, profils, dénivelés, nutrition, glucides, ravitaillements et chronos."
+    elif region == "france":
+        marathons = FRANCE_MARATHONS
+        heading = "10 marathons français parmi les plus connus"
+        intro = "De Paris à Nice-Cannes, du Médoc à Annecy, prépare les grands marathons français avec ton historique d’activités, le profil du parcours et une stratégie de ravitaillement testée."
+        list_title = "Les marathons français à préparer"
+        title = "10 marathons français connus : entraînement, nutrition et chrono"
+        description = "Dix marathons connus en France avec plan d’entraînement, profil, dénivelé, nutrition, glucides, ravitaillements et projection de chrono."
+    else:
+        marathons = WORLD_MARATHONS + FRANCE_MARATHONS
+        heading = "Préparer les marathons les plus connus du monde et de France"
+        intro = "Explore des fiches dédiées aux grandes courses sur 42,195 km, puis transforme ton historique d’activités en projection de chrono et en plan de course personnalisé."
+        list_title = "Toutes les fiches marathon"
+        title = "Marathons du monde et de France : plans de course et chronos"
+        description = "Prépare les marathons connus du monde et de France : plan d’entraînement, nutrition, glucides, glycémie, profil, dénivelé et ravitaillements."
+    path = f"/marathons/{region}" if region else "/marathons"
+    return templates.TemplateResponse("seo_marathons_index.html", _seo_page_context(
+        request,
+        title=title,
+        description=description,
+        seo_keywords="marathon, plan entraînement marathon, nutrition marathon, glucides marathon, glycémie marathon, plan de course, profil marathon, dénivelé marathon, ravitaillement marathon, projection chrono",
+        path=path,
+        page_kind="marathon_index",
+        heading=heading,
+        intro=intro,
+        list_title=list_title,
+        marathons=marathons,
+        european_majors=EUROPEAN_MAJORS if region in {None, "europe"} else [],
+        hubs=[] if region else [
+            {"kicker": "Sélection internationale", "title": "20 marathons du monde", "description": "Les huit Majors actuels et de grandes références européennes.", "url": "/marathons/monde", "count": len(WORLD_MARATHONS)},
+            {"kicker": "Majors et grandes villes", "title": "Marathons d’Europe", "description": "Londres, Berlin, Valence, Rotterdam, Rome, Athènes et les grands rendez-vous européens.", "url": "/marathons/europe", "count": len(EUROPE_MARATHONS)},
+            {"kicker": "Sélection française", "title": "10 marathons de France", "description": "Paris, Nice-Cannes, Médoc, Lyon, Toulouse et d’autres grandes courses françaises.", "url": "/marathons/france", "count": len(FRANCE_MARATHONS)},
+        ],
+        activity_cta_url=activity_cta_url,
+        projection_cta_url=projection_cta_url,
+        collection_items=[{"name": item["name"], "url": f"/marathons/{item['slug']}"} for item in marathons],
+        breadcrumbs=[("Accueil", "/"), ("Marathons", "/marathons")] + ([(heading, path)] if region else []),
+    ))
+
+
+@app.get("/marathons", response_class=HTMLResponse)
+def seo_marathons_index(request: Request):
+    return _render_marathon_index(request)
+
+
+@app.get("/marathons/{slug}", response_class=HTMLResponse)
+def seo_marathon_page(request: Request, slug: str):
+    if slug in {"monde", "europe", "france"}:
+        return _render_marathon_index(request, region=slug)
+    marathon = MARATHONS.get(slug)
+    if not marathon:
+        raise HTTPException(status_code=404, detail="Marathon introuvable.")
+    pool = FRANCE_MARATHONS if marathon["region"] == "france" else EUROPE_MARATHONS if marathon["region"] == "europe" else WORLD_MARATHONS
+    related = [item for item in pool if item["slug"] != marathon["slug"]][:4]
+    activity_cta_url, projection_cta_url = _marathon_cta_urls(request)
+    title = f"{marathon['name']} : plan d’entraînement, nutrition et chrono"
+    description = f"Prépare le {marathon['name']} : plan d’entraînement, nutrition, glucides, glycémie, profil, dénivelé, ravitaillements et projection de chrono."
+    return templates.TemplateResponse("seo_marathon.html", _seo_page_context(
+        request,
+        title=title,
+        description=description,
+        seo_keywords=f"{marathon['name']}, plan entraînement {marathon['name']}, nutrition marathon, glucides marathon, glycémie marathon, plan de course, profil, dénivelé, ravitaillement, projection chrono",
+        path=f"/marathons/{marathon['slug']}",
+        page_kind="marathon",
+        marathon=marathon,
+        related_marathons=related,
+        activity_cta_url=activity_cta_url,
+        projection_cta_url=projection_cta_url,
+        breadcrumbs=[("Accueil", "/"), ("Marathons", "/marathons"), (marathon["name"], f"/marathons/{marathon['slug']}")],
+    ))
 
 
 @app.get("/guides", response_class=HTMLResponse)
@@ -6068,7 +6173,8 @@ def site_favicon():
 @app.get("/sitemap.xml", response_class=Response)
 def seo_sitemap(request: Request):
     base_url = _get_app_base_url()
-    paths = ["/", "/guides", "/courses", "/installer-application", "/suivi-glycemie-sport", "/capteurs/dexcom-one-plus"]
+    paths = ["/", "/guides", "/courses", "/marathons", "/marathons/monde", "/marathons/europe", "/marathons/france", "/installer-application", "/suivi-glycemie-sport", "/capteurs/dexcom-one-plus"]
+    paths += [f"/marathons/{slug}" for slug in MARATHONS]
     paths += [
         f"/courses/{event_slug}"
         for event_slug in SEO_EVENT_REGISTRY
@@ -6089,7 +6195,7 @@ def seo_sitemap(request: Request):
         and (not topic_data.get("requires_points") or course.get("points"))
     ]
     template_dir = os.path.join(os.path.dirname(__file__), "..", "templates")
-    content_paths = [os.path.join(os.path.dirname(__file__), "main.py")]
+    content_paths = [os.path.join(os.path.dirname(__file__), "main.py"), os.path.join(os.path.dirname(__file__), "marathon_seo.py")]
     content_paths += [os.path.join(template_dir, name) for name in os.listdir(template_dir) if name.startswith("seo_")]
     content_paths += [os.path.join(OFFICIAL_COURSES_DIR, name) for name in os.listdir(OFFICIAL_COURSES_DIR) if name.endswith(".json")]
     last_modified = max(os.path.getmtime(item) for item in content_paths if os.path.exists(item))

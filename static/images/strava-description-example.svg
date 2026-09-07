@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1308 400" role="img" aria-labelledby="title desc">
+  <title id="title">Exemple de description d’activité enrichie</title>
+  <desc id="desc">Course à pied en soirée avec résumé de glycémie, allures maximales et montée la plus longue.</desc>
+  <rect width="1308" height="400" rx="12" fill="#fff"/>
+  <g fill="none" stroke="#252525" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M27 34l17-15 11 10-5 12 17 19 22 9-7 15c-18 1-35-8-47-21L23 47z"/>
+    <path d="M47 48l14-5M38 57l15-3M57 68l18 6"/>
+  </g>
+  <g fill="#242424" font-family="Arial,Helvetica,sans-serif">
+    <text x="164" y="69" font-size="53" font-weight="700">Course à pied en soirée</text>
+    <text x="164" y="143" font-size="37">🔬Glycémie : Moy : 85 mg/dL | 70-180 : 45%</text>
+    <text x="164" y="233" font-size="36">Départ : 140 mg/dL | Arrivée : 53 mg/dL</text>
+    <text x="164" y="278" font-size="36">Max : 140 mg/dL | Min : 53 mg/dL</text>
+    <text x="164" y="324" font-size="36">⚡ Allures max : 15s : 4:24 /km | 1' : 4:38 /km | 5' : 5:02 /km | 10' : 5:15 /km</text>
+    <text x="164" y="369" font-size="36">⛰ Montée la plus longue : 2.1 km | D+ 26 m | 132 m/h | 5:29 /km</text>
+  </g>
+  <g stroke="#c92d20" stroke-width="2">
+    <rect x="166" y="159" width="33" height="34" fill="#e63b2c"/><rect x="201" y="159" width="33" height="34" fill="#e63b2c"/><rect x="236" y="159" width="33" height="34" fill="#e63b2c"/><rect x="271" y="159" width="33" height="34" fill="#e63b2c"/><rect x="306" y="159" width="33" height="34" fill="#e63b2c"/><rect x="341" y="159" width="33" height="34" fill="#e63b2c"/>
+  </g>
+  <g stroke="#0d9c25" stroke-width="2">
+    <rect x="376" y="159" width="33" height="34" fill="#21c93b"/><rect x="411" y="159" width="33" height="34" fill="#21c93b"/><rect x="446" y="159" width="33" height="34" fill="#21c93b"/><rect x="481" y="159" width="33" height="34" fill="#21c93b"/>
+  </g>
+</svg>

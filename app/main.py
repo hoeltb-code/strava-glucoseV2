@@ -6173,7 +6173,7 @@ def site_favicon():
 @app.get("/sitemap.xml", response_class=Response)
 def seo_sitemap(request: Request):
     base_url = _get_app_base_url()
-    paths = ["/", "/guides", "/courses", "/marathons", "/marathons/monde", "/marathons/europe", "/marathons/france", "/installer-application", "/suivi-glycemie-sport", "/capteurs/dexcom-one-plus"]
+    paths = ["/", "/guides", "/courses", "/marathons", "/marathons/monde", "/marathons/europe", "/marathons/france", "/aide/strava-et-glycemie", "/installer-application", "/suivi-glycemie-sport", "/capteurs/dexcom-one-plus"]
     paths += [f"/marathons/{slug}" for slug in MARATHONS]
     paths += [
         f"/courses/{event_slug}"
@@ -6231,6 +6231,26 @@ def ui_terms_of_use(request: Request):
 @app.get("/aide", response_class=HTMLResponse)
 def ui_help(request: Request):
     return templates.TemplateResponse("help.html", {"request": request})
+
+
+@app.get("/aide/strava-et-glycemie", response_class=HTMLResponse)
+def ui_strava_glucose_help(request: Request):
+    return templates.TemplateResponse("strava_glucose_help.html", _seo_page_context(
+        request,
+        title="Connexion Strava et glycémie : fonctionnement de Running Data Plan",
+        description="Pourquoi connecter Strava à Running Data Plan : données utilisées, croisement avec un capteur CGM, indicateurs glycémie et enrichissement facultatif des descriptions Strava.",
+        seo_keywords="connexion Strava glycémie, Strava CGM, Dexcom Strava, LibreLinkUp Strava, analyse glycémie activité, description Strava glycémie, indicateurs glucose sport",
+        path="/aide/strava-et-glycemie",
+        page_kind="guide",
+        connected_user_id=request.session.get("user_id"),
+        faq_items=[
+            ("Running Data Plan remplace-t-il Strava ?", "Non. Strava reste le service d'enregistrement et de partage des activités. Running Data Plan ajoute une analyse personnelle centrée sur la glycémie et les projections de course."),
+            ("Les données de glycémie viennent-elles de Strava ?", "Non. Elles proviennent séparément de la source CGM connectée par l'athlète, puis sont rapprochées de l'activité grâce aux horodatages."),
+            ("Running Data Plan modifie-t-il automatiquement la description Strava ?", "Seulement lorsque l'athlète active la préférence d'enrichissement. Son texte existant est conservé et l'ancien bloc automatique est remplacé sans duplication."),
+            ("Peut-on désactiver la connexion ?", "Oui. L'enrichissement des descriptions peut être désactivé et la connexion Strava peut être retirée depuis le profil."),
+        ],
+        breadcrumbs=[("Accueil", "/"), ("Aide", "/aide"), ("Strava et glycémie", "/aide/strava-et-glycemie")],
+    ))
 
 
 @app.get("/suivi-glycemie-sport", response_class=HTMLResponse)

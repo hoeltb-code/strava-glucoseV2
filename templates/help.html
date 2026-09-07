@@ -2,6 +2,13 @@
 
 {% block title %}Aide · Running Data Plan{% endblock %}
 
+{% block extra_head %}
+<style>
+  .cgm-cross-flow{display:grid;grid-template-columns:minmax(0,1fr) 42px minmax(0,1.15fr) 42px minmax(0,1fr);align-items:center;gap:8px;margin:18px 0}.cgm-cross-source,.cgm-cross-engine,.cgm-cross-result{height:100%;padding:16px;border:1px solid var(--border-soft);border-radius:15px;background:#fff}.cgm-cross-engine{border-color:rgba(248,184,88,.75);background:#fff8eb}.cgm-cross-flow strong{display:block;margin-bottom:5px}.cgm-cross-flow p{margin:0;font-size:.84rem;line-height:1.5}.cgm-cross-icon{display:block;margin-bottom:8px;font:800 .68rem "DM Mono",monospace;letter-spacing:.08em;color:var(--accent-dark)}.cgm-cross-arrow{text-align:center;color:var(--accent-dark);font-size:1.5rem;font-weight:900}.cgm-cross-inputs{display:grid;grid-template-columns:1fr 1fr;gap:8px}.cgm-cross-result{grid-column:5;grid-row:1 / span 2;display:flex;flex-direction:column;justify-content:center}.cgm-cross-flow>.cgm-cross-arrow:last-of-type{grid-column:4;grid-row:1 / span 2}.cgm-cross-engine{grid-column:3;grid-row:1 / span 2;display:flex;flex-direction:column;justify-content:center}.cgm-cross-inputs{grid-column:1;grid-row:1 / span 2}.cgm-cross-inputs .cgm-cross-source{min-height:130px}@media(max-width:760px){.cgm-cross-flow{grid-template-columns:1fr}.cgm-cross-inputs,.cgm-cross-engine,.cgm-cross-result,.cgm-cross-flow>.cgm-cross-arrow:last-of-type{grid-column:1;grid-row:auto}.cgm-cross-arrow{transform:rotate(90deg)}.cgm-cross-inputs{grid-template-columns:1fr}.cgm-cross-inputs .cgm-cross-source{min-height:0}}
+  .cgm-cross-inputs{grid-template-columns:1fr}
+</style>
+{% endblock %}
+
 {% block content %}
 <main class="info-page">
   <section class="info-hero">
@@ -64,6 +71,23 @@
       <li><strong>Nightscout inaccessible :</strong> contrôlez l’URL complète de votre instance et la validité du jeton de lecture.</li>
     </ul>
     <p>Ne transmettez jamais votre mot de passe ou un jeton d’accès dans une demande d’assistance. Vous pouvez retirer une connexion à tout moment depuis votre profil.</p>
+  </section>
+
+  <section class="info-card">
+    <h2>Comment l’activité et la glycémie sont-elles croisées&nbsp;?</h2>
+    <p>Strava et le capteur CGM constituent deux sources indépendantes. Strava transmet les données sportives autorisées ; LibreLinkUp, Dexcom Share, CareLink ou Nightscout transmet séparément les mesures de glycémie disponibles. Running Data Plan ne reçoit donc aucune glycémie depuis Strava.</p>
+    <div class="cgm-cross-flow" role="img" aria-label="Les données de l’activité Strava et les mesures du capteur CGM sont rapprochées selon leur date et leur heure par Running Data Plan pour produire une analyse personnelle.">
+      <div class="cgm-cross-inputs">
+        <article class="cgm-cross-source"><span class="cgm-cross-icon">ACTIVITÉ STRAVA</span><strong>Le contexte sportif</strong><p>Heure de départ, durée, distance, GPS, altitude, allure, cardio, cadence ou puissance lorsqu’ils sont disponibles.</p></article>
+        <article class="cgm-cross-source"><span class="cgm-cross-icon">SOURCE CGM</span><strong>Les mesures de glycémie</strong><p>Valeurs et tendances récupérées séparément depuis la source connectée par l’athlète.</p></article>
+      </div>
+      <div class="cgm-cross-arrow" aria-hidden="true">→</div>
+      <article class="cgm-cross-engine"><span class="cgm-cross-icon">RUNNING DATA PLAN</span><strong>Alignement par horodatage</strong><p>Chaque mesure CGM est rapprochée du moment correspondant dans la chronologie de l’activité. Si les horaires ne se recouvrent pas ou si des mesures manquent, aucune valeur n’est inventée.</p></article>
+      <div class="cgm-cross-arrow" aria-hidden="true">→</div>
+      <article class="cgm-cross-result"><span class="cgm-cross-icon">ANALYSE PERSONNELLE</span><strong>Des graphiques synchronisés</strong><p>Glycémie avec profil, distance, allure, fréquence cardiaque, zones d’effort et VAM selon les données disponibles.</p></article>
+    </div>
+    <div class="info-notice"><strong>À retenir :</strong> ce rapprochement sert à relire l’effort. Il ne remplace ni les alarmes du capteur, ni une recommandation médicale, ni une décision de traitement.</div>
+    <p><a class="chip" href="/aide/strava-et-glycemie">Voir le fonctionnement détaillé de Strava et du CGM →</a></p>
   </section>
 
   <section class="info-card">

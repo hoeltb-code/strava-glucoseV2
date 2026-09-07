@@ -5664,6 +5664,7 @@ def _seo_page_context(request: Request, *, title: str, description: str, path: s
     base_url = _get_app_base_url()
     canonical_url = f"{base_url}{path}"
     page_kind = extra.get("page_kind", "website")
+    page_language = extra.get("page_language", "fr")
     schema_type = "Article" if page_kind in {"guide", "marathon"} else "WebPage"
     breadcrumb_rows = extra.get("breadcrumbs") or [("Accueil", "/"), (title, path)]
     schema = {
@@ -5675,7 +5676,7 @@ def _seo_page_context(request: Request, *, title: str, description: str, path: s
                 "name": title,
                 "description": description,
                 "url": canonical_url,
-                "inLanguage": "fr-FR",
+                "inLanguage": "en" if page_language == "en" else "fr-FR",
             },
             {
                 "@type": "BreadcrumbList",
@@ -5763,6 +5764,7 @@ def _seo_page_context(request: Request, *, title: str, description: str, path: s
         "seo_description": description,
         "seo_keywords": extra.get("seo_keywords", ""),
         "canonical_url": canonical_url,
+        "app_base_url": base_url,
         "seo_image_url": seo_image_url,
         "seo_image_width": seo_image_width,
         "seo_image_height": seo_image_height,
@@ -6173,7 +6175,7 @@ def site_favicon():
 @app.get("/sitemap.xml", response_class=Response)
 def seo_sitemap(request: Request):
     base_url = _get_app_base_url()
-    paths = ["/", "/guides", "/courses", "/marathons", "/marathons/monde", "/marathons/europe", "/marathons/france", "/aide/strava-et-glycemie", "/installer-application", "/suivi-glycemie-sport", "/capteurs/dexcom-one-plus"]
+    paths = ["/", "/guides", "/courses", "/marathons", "/marathons/monde", "/marathons/europe", "/marathons/france", "/aide/strava-et-glycemie", "/en/help/strava-and-glucose", "/installer-application", "/suivi-glycemie-sport", "/capteurs/dexcom-one-plus"]
     paths += [f"/marathons/{slug}" for slug in MARATHONS]
     paths += [
         f"/courses/{event_slug}"
@@ -6250,6 +6252,27 @@ def ui_strava_glucose_help(request: Request):
             ("Peut-on désactiver la connexion ?", "Oui. L'enrichissement des descriptions peut être désactivé et la connexion Strava peut être retirée depuis le profil."),
         ],
         breadcrumbs=[("Accueil", "/"), ("Aide", "/aide"), ("Strava et glycémie", "/aide/strava-et-glycemie")],
+    ))
+
+
+@app.get("/en/help/strava-and-glucose", response_class=HTMLResponse)
+def ui_strava_glucose_help_en(request: Request):
+    return templates.TemplateResponse("strava_glucose_help_en.html", _seo_page_context(
+        request,
+        title="Strava and glucose connection: how Running Data Plan works",
+        description="Why connect Strava to Running Data Plan: activity data, separate CGM matching, glucose indicators and optional enrichment of Strava descriptions.",
+        seo_keywords="Strava glucose connection, Strava CGM, Dexcom Strava, LibreLinkUp Strava, workout glucose analysis, Strava description glucose",
+        path="/en/help/strava-and-glucose",
+        page_kind="guide",
+        page_language="en",
+        connected_user_id=request.session.get("user_id"),
+        faq_items=[
+            ("Does Running Data Plan replace Strava?", "No. Strava remains the activity recording and sharing platform. Running Data Plan adds personal glucose analysis and race projections."),
+            ("Does glucose data come from Strava?", "No. It comes separately from the CGM source connected by the athlete and is matched to the activity using timestamps."),
+            ("Can Running Data Plan change a Strava description?", "Only when the athlete enables description enrichment. Existing personal text is preserved and the previous automatic block is replaced without duplication."),
+            ("Can the connection be disabled?", "Yes. Description enrichment can be disabled and the Strava connection can be removed from the athlete's profile."),
+        ],
+        breadcrumbs=[("Home", "/"), ("Help", "/aide"), ("Strava and glucose", "/en/help/strava-and-glucose")],
     ))
 
 

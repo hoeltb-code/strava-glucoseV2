@@ -611,7 +611,7 @@
   .performance-chart h4 { margin:0!important; font-size:1rem!important; }
   .performance-chart-legend { display:flex; flex-wrap:wrap; gap:7px; }
   .performance-chart-legend span { display:inline-flex; align-items:center; gap:5px; color:var(--data-muted); font-size:.63rem; }
-  .performance-chart-legend i { display:block; width:18px; height:3px; border-radius:5px; background:var(--performance-accent); }
+  .performance-chart-legend i { display:block; width:10px; height:10px; border-radius:3px; background:var(--performance-accent); }
   .performance-chart-legend .is-dot i { width:6px; height:6px; border-radius:50%; opacity:.45; }
   .performance-chart .pace-curve-canvas { height:340px; }
   .performance-details { margin-top:14px; border:1px solid #e3ded5; border-radius:14px; background:#faf8f4; overflow:hidden; }
@@ -1019,7 +1019,7 @@
             <div>
               <span class="performance-kicker">Rendement vertical</span>
               <h3>Où es-tu le plus efficace en montée et en descente ?</h3>
-              <p class="performance-hero-copy">La VAM traduit ta vitesse verticale. La courbe révèle les pentes sur lesquelles tu transformes le mieux ton effort cardio en dénivelé.</p>
+              <p class="performance-hero-copy">La VAM traduit ta vitesse verticale. Le profil révèle les pentes sur lesquelles tu transformes le mieux ton effort cardio en dénivelé.</p>
             </div>
             <div class="performance-zone-control">
               <label for="vamZone">Intensité analysée</label>
@@ -1029,7 +1029,7 @@
           </header>
 
           <div class="performance-body">
-            <p class="performance-explainer"><span>La ligne modélisée, issue de l’allure lissée, sert aux projections de course. Les points observés permettent de vérifier comment le modèle s’appuie sur ton historique réel.</span></p>
+            <p class="performance-explainer"><span>Les barres affichent uniquement la zone cardio sélectionnée. Elles utilisent l’allure lissée qui sert aux projections ; la comparaison avec l’historique brut reste disponible sous le graphique.</span></p>
 
             <div class="performance-insights-grid" aria-live="polite">
               <div class="vam-efficiency-card performance-insight is-primary" id="vamBestEfficiency"></div>
@@ -1040,7 +1040,7 @@
           <article class="pace-curve-card pace-curve-card-wide performance-chart">
             <div class="pace-curve-head">
               <h4>Ton rendement selon la pente</h4>
-              <div class="performance-chart-legend" aria-label="Légende"><span><i></i>Modélisée</span><span class="is-dot"><i></i>Observée</span></div>
+              <div class="performance-chart-legend" aria-label="Légende"><span><i></i>Zone sélectionnée · modèle lissé</span></div>
             </div>
             <p>Au-dessus de zéro : montée. En dessous : descente. Une valeur plus éloignée de zéro indique une vitesse verticale plus élevée.</p>
             <div class="pace-curve-canvas"><canvas id="vamSlopeChart"></canvas></div>
@@ -1067,7 +1067,6 @@
               window.addEventListener('DOMContentLoaded', () => {
               if (typeof Chart === 'undefined') return;
               const profileData = {{ profile | tojson | safe }};
-              const zones = {{ hr_zones | tojson | safe }};
               const fcMax = {{ (user.max_heartrate or 180) | int | tojson }};
               const zoneHeartRateRatios = {
                 'Zone 1': [0.10, 0.60], 'Zone 2': [0.60, 0.70], 'Zone 3': [0.70, 0.80],
@@ -1078,59 +1077,27 @@
                 min_percent: Math.round(min * 100), max_percent: Math.round(max * 100),
               }]));
               const slopesOrder = {{ slopes_order | tojson | safe }};
-              const colors = ['#3487a3', '#5d735d', '#ff8a3d', '#d94327', '#7962a8'];
               const slopeCenters = {
                 Sneg40p: -45, Sneg30_40: -35, Sneg25_30: -27.5, Sneg20_25: -22.5,
                 Sneg15_20: -17.5, Sneg10_15: -12.5, Sneg5_10: -7.5, Sneg0_5: -2.5,
                 S0_5: 2.5, S5_10: 7.5, S10_15: 12.5, S15_20: 17.5,
                 S20_25: 22.5, S25_30: 27.5, S30_40: 35, S40p: 45,
               };
-              const coloredTextLegend = {
-                labels: {
-                  boxWidth: 0,
-                  padding: 11,
-                  filter: item => !item.text.startsWith('_'),
-                  generateLabels: chart => Chart.defaults.plugins.legend.labels.generateLabels(chart)
-                    .filter(item => !item.text.startsWith('_'))
-                    .map(item => ({
-                      ...item,
-                      fillStyle: 'transparent', strokeStyle: 'transparent', lineWidth: 0,
-                      fontColor: chart.data.datasets[item.datasetIndex].borderColor,
-                    })),
-                },
-              };
-              const solveQuadratic = (points) => {
-                if (points.length < 3) return null;
-                const sums = points.reduce((value, point) => ({
-                  n: value.n + 1, x: value.x + point.x, x2: value.x2 + point.x ** 2,
-                  x3: value.x3 + point.x ** 3, x4: value.x4 + point.x ** 4,
-                  y: value.y + point.y, xy: value.xy + point.x * point.y, x2y: value.x2y + point.x ** 2 * point.y,
-                }), { n:0, x:0, x2:0, x3:0, x4:0, y:0, xy:0, x2y:0 });
-                const matrix = [[sums.x4,sums.x3,sums.x2,sums.x2y],[sums.x3,sums.x2,sums.x,sums.xy],[sums.x2,sums.x,sums.n,sums.y]];
-                for (let pivot = 0; pivot < 3; pivot += 1) {
-                  let maxRow = pivot;
-                  for (let row = pivot + 1; row < 3; row += 1) if (Math.abs(matrix[row][pivot]) > Math.abs(matrix[maxRow][pivot])) maxRow = row;
-                  [matrix[pivot], matrix[maxRow]] = [matrix[maxRow], matrix[pivot]];
-                  if (Math.abs(matrix[pivot][pivot]) < 0.00001) return null;
-                  const divisor = matrix[pivot][pivot];
-                  for (let column = pivot; column < 4; column += 1) matrix[pivot][column] /= divisor;
-                  for (let row = 0; row < 3; row += 1) {
-                    if (row === pivot) continue;
-                    const factor = matrix[row][pivot];
-                    for (let column = pivot; column < 4; column += 1) matrix[row][column] -= factor * matrix[pivot][column];
-                  }
-                }
-                return { a:matrix[0][3], b:matrix[1][3], c:matrix[2][3] };
-              };
-              const curveData = (points) => {
-                const coefficients = solveQuadratic(points);
-                if (!coefficients) return points;
-                const start = points[0].x;
-                const end = points[points.length - 1].x;
-                return Array.from({ length:25 }, (_, index) => {
-                  const x = start + (end - start) * index / 24;
-                  const y = coefficients.a * x * x + coefficients.b * x + coefficients.c;
-                  return { x, y:Math.max(2, Math.min(60, y)) };
+              const smoothPacePoints = (points) => {
+                const sorted = (points || []).slice().sort((a, b) => a.x - b.x);
+                if (sorted.length < 3) return sorted;
+                return sorted.map((point, index) => {
+                  const neighbors = [sorted[index - 1], point, sorted[index + 1]].filter(Boolean);
+                  const local = neighbors.reduce((result, neighbor) => {
+                    const isCurrent = neighbor === point;
+                    const distanceFactor = isCurrent ? 1 : Math.min(1, 10 / Math.max(1, Math.abs(neighbor.x - point.x)));
+                    const weight = (isCurrent ? 4 : 1) * distanceFactor;
+                    return { total:result.total + neighbor.y * weight, weight:result.weight + weight };
+                  }, { total:0, weight:0 });
+                  const localPace = local.weight > 0 ? local.total / local.weight : point.y;
+                  const isKeyAnchor = Math.abs(point.x) <= 5 || Math.abs(point.x) >= 30;
+                  const observationWeight = isKeyAnchor ? .72 : .42;
+                  return { ...point, y:point.y * observationWeight + localPace * (1 - observationWeight) };
                 });
               };
               const modeledPaceFor = (zone, slopeId) => {
@@ -1140,11 +1107,9 @@
                   .map(([id, cell]) => ({ x:slopeCenters[id], y:Number(cell.avg_pace_s_per_km) }))
                   .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y) && point.y > 0)
                   .sort((a, b) => a.x - b.x);
-                const coefficients = points.length >= 5 ? solveQuadratic(points) : null;
-                if (coefficients && coefficients.a > 0) {
-                  const pace = coefficients.a * slopeCenters[slopeId] ** 2 + coefficients.b * slopeCenters[slopeId] + coefficients.c;
-                  if (pace >= 120 && pace <= 7200) return pace;
-                }
+                const modeledPoint = smoothPacePoints(points).find((point) => Math.abs(point.x - slopeCenters[slopeId]) < .001);
+                const pace = Number(modeledPoint?.y);
+                if (pace >= 120 && pace <= 7200) return pace;
                 return rawPace > 0 ? rawPace : null;
               };
               const modeledVamFor = (zone, slopeId) => {
@@ -1152,82 +1117,54 @@
                 const grade = slopeCenters[slopeId];
                 return pace > 0 && Number.isFinite(grade) ? (3600 / pace) * 10 * grade : null;
               };
-              const datasetsFor = () => zones.flatMap((zone, index) => {
-                const raw = Object.entries((profileData.zones || {})[zone] || {})
-                  .map(([slopeId, cell]) => ({ x:slopeCenters[slopeId], y:Number(cell.avg_pace_s_per_km) / 60, duration:Number(cell.pace_duration_sec || cell.duration_sec || 0) }))
-                  .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y) && point.y > 0 && point.duration >= 60)
-                  .sort((a, b) => a.x - b.x);
-                if (!raw.length) return [];
-                return [{ label:zone, data:curveData(raw), borderColor:colors[index], backgroundColor:colors[index], borderWidth:2.5, pointRadius:0, tension:.35, fill:false }, { label:`_${zone}`, data:raw, borderColor:colors[index], backgroundColor:colors[index], pointRadius:3, pointHoverRadius:5, showLine:false }];
-              });
-              const renderPaceCurve = (canvasId, selectId) => {
+              const barColorFor = (slopeId) => {
+                const grade = slopeCenters[slopeId];
+                if (grade < -5) return '#63b7d3';
+                if (grade > 5) return '#f3ad3d';
+                return '#84a964';
+              };
+              const renderPaceBars = (canvasId, selectId) => {
                 const canvas = document.getElementById(canvasId);
                 const select = document.getElementById(selectId);
                 if (!canvas || !select) return;
-                const datasets = datasetsFor();
                 const chart = new Chart(canvas.getContext('2d'), {
-                  type:'line', data:{ datasets },
-                  options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'x', intersect:false, axis:'x' }, plugins:{ legend:coloredTextLegend, tooltip:{ filter:item => { const selected = select.value; return selected ? item.dataset.label === selected : !item.dataset.label.startsWith('_'); }, callbacks:{ label:item => { const pace = Math.round(item.parsed.y * 60); return `${item.dataset.label.replace('_','')} · ${Math.floor(pace / 60)}:${String(pace % 60).padStart(2,'0')}/km`; } } } }, scales:{ x:{ type:'linear', title:{ display:true, text:'Pente (%)', color:'#5f5b53' }, ticks:{ color:'#5f5b53' }, grid:{ color:'rgba(95,91,83,.12)' } }, y:{ reverse:true, max:30, title:{ display:true, text:'Allure (min/km) · haut = plus rapide', color:'#5f5b53' }, ticks:{ color:'#5f5b53', callback:value => { const pace = Math.round(value * 60); return `${Math.floor(pace / 60)}:${String(pace % 60).padStart(2,'0')}`; } }, grid:{ color:'rgba(95,91,83,.12)' } } } }
+                  type:'bar',
+                  data:{ labels:slopesOrder.map(([, label]) => label), datasets:[{ label:select.value, data:[], backgroundColor:slopesOrder.map(([slopeId]) => barColorFor(slopeId)), borderWidth:0, borderRadius:5, borderSkipped:false, maxBarThickness:46 }] },
+                  options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false }, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:item => { const pace = Math.round(Number(item.raw) * 60); return `${select.value} · ${Math.floor(pace / 60)}:${String(pace % 60).padStart(2,'0')}/km`; } } } }, scales:{ x:{ title:{ display:true, text:'Pente', color:'#5f5b53' }, ticks:{ color:'#5f5b53', autoSkip:true, maxRotation:0 }, grid:{ display:false } }, y:{ beginAtZero:true, title:{ display:true, text:'Allure (min/km)', color:'#5f5b53' }, ticks:{ color:'#5f5b53', callback:value => { const pace = Math.round(value * 60); return `${Math.floor(pace / 60)}:${String(pace % 60).padStart(2,'0')}`; } }, grid:{ color:'rgba(95,91,83,.12)' } } } }
                 });
-                const applyZoneFocus = () => {
-                  const selected = select.value;
-                  datasets.forEach((dataset) => {
-                    const zone = dataset.label.replace('_', '');
-                    const selectedOrAll = !selected || zone === selected;
-                    const baseColor = dataset._baseColor || dataset.backgroundColor;
-                    dataset._baseColor = baseColor;
-                    dataset.borderWidth = dataset.label.startsWith('_') ? 1 : selectedOrAll ? 3.6 : 1.05;
-                    dataset.pointRadius = dataset.label.startsWith('_') ? selectedOrAll ? 1.8 : 0.8 : 0;
-                    dataset.pointHoverRadius = dataset.label.startsWith('_') ? 3.5 : 0;
-                    dataset.borderColor = selectedOrAll ? baseColor : `${baseColor}88`;
-                    dataset.backgroundColor = selectedOrAll ? baseColor : `${baseColor}88`;
+                const update = () => {
+                  chart.data.datasets[0].label = select.value;
+                  chart.data.datasets[0].data = slopesOrder.map(([slopeId]) => {
+                    const pace = modeledPaceFor(select.value, slopeId);
+                    return Number.isFinite(pace) && pace > 0 ? pace / 60 : null;
                   });
                   chart.update();
                 };
-                select.addEventListener('change', applyZoneFocus);
-                applyZoneFocus();
+                select.addEventListener('change', update);
+                update();
               };
-              renderPaceCurve('paceSlopeChart', 'paceZone');
-              const datasetsForVam = () => zones.flatMap((zone, index) => {
-                const modeled = slopesOrder
-                  .map(([slopeId]) => ({ x:slopeCenters[slopeId], y:modeledVamFor(zone, slopeId) }))
-                  .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y) && point.y !== 0)
-                  .sort((a, b) => a.x - b.x);
-                const observed = Object.entries((profileData.zones || {})[zone] || {})
-                  .map(([slopeId, cell]) => ({ x:slopeCenters[slopeId], y:Number(cell.avg_vam_m_per_h), duration:Number(cell.duration_sec || 0), estimated:Boolean(cell.vam_is_estimated) }))
-                  .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y) && point.y !== 0)
-                  .sort((a, b) => a.x - b.x);
-                if (!modeled.length) return [];
-                return [{ label:zone, data:modeled, borderColor:colors[index], backgroundColor:colors[index], borderWidth:2.8, pointRadius:2, tension:.32, fill:false }, { label:`_${zone}`, data:observed, borderColor:`${colors[index]}66`, backgroundColor:`${colors[index]}66`, pointRadius:2, pointHoverRadius:3.5, showLine:false }];
-              });
-              const renderVamCurve = (canvasId, selectId) => {
+              renderPaceBars('paceSlopeChart', 'paceZone');
+              const renderVamBars = (canvasId, selectId) => {
                 const canvas = document.getElementById(canvasId);
                 const select = document.getElementById(selectId);
                 if (!canvas || !select) return;
-                const datasets = datasetsForVam();
                 const chart = new Chart(canvas.getContext('2d'), {
-                  type:'line', data:{ datasets },
-                  options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'x', intersect:false, axis:'x' }, plugins:{ legend:coloredTextLegend, tooltip:{ filter:item => { const selected = select.value; return !selected || item.dataset.label.replace('_','') === selected; }, callbacks:{ label:item => { const observed = item.dataset.label.startsWith('_'); const minutes = Math.round(Number(item.raw.duration || 0) / 60); return `${observed ? 'Observée' : 'Modélisée'} · ${item.parsed.y >= 0 ? '+' : ''}${Math.round(item.parsed.y)} m/h${observed && minutes ? ` · ${minutes} min` : ''}`; } } } }, scales:{ x:{ type:'linear', title:{ display:true, text:'Pente (%)', color:'#5f5b53' }, ticks:{ color:'#5f5b53' }, grid:{ color:'rgba(95,91,83,.12)' } }, y:{ title:{ display:true, text:'Vitesse verticale (m/h)', color:'#5f5b53' }, ticks:{ color:'#5f5b53', callback:value => `${value >= 0 ? '+' : ''}${value}` }, grid:{ color:context => context.tick.value === 0 ? 'rgba(36,35,31,.65)' : 'rgba(95,91,83,.12)', lineWidth:context => context.tick.value === 0 ? 2 : 1 } } } }
+                  type:'bar',
+                  data:{ labels:slopesOrder.map(([, label]) => label), datasets:[{ label:select.value, data:[], backgroundColor:slopesOrder.map(([slopeId]) => barColorFor(slopeId)), borderWidth:0, borderRadius:5, borderSkipped:false, maxBarThickness:46 }] },
+                  options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false }, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:item => `${select.value} · ${item.raw >= 0 ? '+' : ''}${Math.round(item.raw)} m/h` } } }, scales:{ x:{ title:{ display:true, text:'Pente', color:'#5f5b53' }, ticks:{ color:'#5f5b53', autoSkip:true, maxRotation:0 }, grid:{ display:false } }, y:{ title:{ display:true, text:'Vitesse verticale (m/h)', color:'#5f5b53' }, ticks:{ color:'#5f5b53', callback:value => `${value >= 0 ? '+' : ''}${value}` }, grid:{ color:context => context.tick.value === 0 ? 'rgba(36,35,31,.65)' : 'rgba(95,91,83,.12)', lineWidth:context => context.tick.value === 0 ? 2 : 1 } } } }
                 });
-                const applyZoneFocus = () => {
-                  const selected = select.value;
-                  datasets.forEach((dataset) => {
-                    const zone = dataset.label.replace('_', '');
-                    const selectedOrAll = !selected || zone === selected;
-                    const baseColor = dataset._baseColor || dataset.backgroundColor;
-                    dataset._baseColor = baseColor;
-                    dataset.borderWidth = dataset.label.startsWith('_') ? 1 : selectedOrAll ? 3.6 : 1.05;
-                    dataset.pointRadius = dataset.label.startsWith('_') ? selectedOrAll ? 1.6 : 0.7 : 0;
-                    dataset.pointHoverRadius = dataset.label.startsWith('_') ? 3.2 : 0;
-                    dataset.borderColor = selectedOrAll ? baseColor : `${baseColor}88`;
-                    dataset.backgroundColor = selectedOrAll ? baseColor : `${baseColor}88`;
+                const update = () => {
+                  chart.data.datasets[0].label = select.value;
+                  chart.data.datasets[0].data = slopesOrder.map(([slopeId]) => {
+                    const vam = modeledVamFor(select.value, slopeId);
+                    return Number.isFinite(vam) && vam !== 0 ? Math.round(vam) : null;
                   });
                   chart.update();
                 };
-                select.addEventListener('change', applyZoneFocus);
-                applyZoneFocus();
+                select.addEventListener('change', update);
+                update();
               };
-              renderVamCurve('vamSlopeChart', 'vamZone');
+              renderVamBars('vamSlopeChart', 'vamZone');
               const renderSelectedZoneTable = (selectId, tableId, titleId, heartRateId, metric) => {
                 const select = document.getElementById(selectId);
                 const table = document.getElementById(tableId);
@@ -1322,7 +1259,7 @@
             <div>
               <span class="performance-kicker">Signature d’allure</span>
               <h3>Comment ton allure évolue-t-elle avec le terrain ?</h3>
-              <p class="performance-hero-copy">Observe ce que deviennent tes min/km quand la pente change, à intensité cardio comparable. Cette courbe constitue la base de tes projections.</p>
+              <p class="performance-hero-copy">Observe ce que deviennent tes min/km quand la pente change, à intensité cardio comparable. Ce profil constitue la base de tes projections.</p>
             </div>
             <div class="performance-zone-control">
               <label for="paceZone">Intensité analysée</label>
@@ -1332,16 +1269,16 @@
           </header>
 
           <div class="performance-body">
-            <p class="performance-explainer"><span>La courbe lisse les variations de tes sorties pour produire un profil continu. Les valeurs clés ci-dessous facilitent la lecture entre descente, roulant et montée.</span></p>
+            <p class="performance-explainer"><span>Les barres affichent uniquement la zone cardio sélectionnée. Le profil reste lissé pour les projections, tandis que les valeurs observées sont consultables dans le tableau détaillé.</span></p>
 
             <div class="performance-insights-grid" id="paceKeyInsights" aria-live="polite"></div>
 
           <article class="pace-curve-card pace-curve-card-wide performance-chart">
             <div class="pace-curve-head">
-              <h4>Ta courbe d’allure modélisée</h4>
-              <div class="performance-chart-legend" aria-label="Légende"><span><i></i>Modélisée</span><span class="is-dot"><i></i>Observée</span></div>
+              <h4>Ton allure par tranche de pente</h4>
+              <div class="performance-chart-legend" aria-label="Légende"><span><i></i>Zone sélectionnée · modèle lissé</span></div>
             </div>
-            <p>À gauche les descentes, au centre le roulant, à droite les montées. Plus la courbe est haute, plus l’allure est rapide.</p>
+            <p>À gauche les descentes, au centre le roulant, à droite les montées. Une barre plus basse correspond à un temps par kilomètre plus rapide.</p>
             <div class="pace-curve-canvas"><canvas id="paceSlopeChart"></canvas></div>
           </article>
 

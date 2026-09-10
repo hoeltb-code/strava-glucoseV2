@@ -1479,39 +1479,44 @@
     }
 
     function fitPaceCurve(points) {
-      if (points.length < 5) return null;
-      const sums = points.reduce((result, point) => ({
-        n: result.n + 1,
-        x: result.x + point.x,
-        x2: result.x2 + point.x ** 2,
-        x3: result.x3 + point.x ** 3,
-        x4: result.x4 + point.x ** 4,
-        y: result.y + point.pace,
-        xy: result.xy + point.x * point.pace,
-        x2y: result.x2y + point.x ** 2 * point.pace,
-      }), { n:0, x:0, x2:0, x3:0, x4:0, y:0, xy:0, x2y:0 });
-      const matrix = [
-        [sums.x4, sums.x3, sums.x2, sums.x2y],
-        [sums.x3, sums.x2, sums.x, sums.xy],
-        [sums.x2, sums.x, sums.n, sums.y],
-      ];
-      for (let pivot = 0; pivot < 3; pivot += 1) {
-        let maxRow = pivot;
-        for (let row = pivot + 1; row < 3; row += 1) {
-          if (Math.abs(matrix[row][pivot]) > Math.abs(matrix[maxRow][pivot])) maxRow = row;
-        }
-        [matrix[pivot], matrix[maxRow]] = [matrix[maxRow], matrix[pivot]];
-        if (Math.abs(matrix[pivot][pivot]) < .00001) return null;
-        const divisor = matrix[pivot][pivot];
-        for (let column = pivot; column < 4; column += 1) matrix[pivot][column] /= divisor;
-        for (let row = 0; row < 3; row += 1) {
-          if (row === pivot) continue;
-          const factor = matrix[row][pivot];
-          for (let column = pivot; column < 4; column += 1) matrix[row][column] -= factor * matrix[pivot][column];
-        }
+      const sorted = (points || [])
+        .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.pace) && point.pace > 0)
+        .sort((a, b) => a.x - b.x);
+      if (sorted.length < 3) return null;
+      return sorted.map((point, index) => {
+        const neighbors = [sorted[index - 1], point, sorted[index + 1]].filter(Boolean);
+        const local = neighbors.reduce((result, neighbor) => {
+          const isCurrent = neighbor === point;
+          const distanceFactor = isCurrent ? 1 : Math.min(1, 10 / Math.max(1, Math.abs(neighbor.x - point.x)));
+          const weight = (isCurrent ? 4 : 1) * distanceFactor;
+          return { total:result.total + neighbor.pace * weight, weight:result.weight + weight };
+        }, { total:0, weight:0 });
+        const localPace = local.weight > 0 ? local.total / local.weight : point.pace;
+        // Le plat et les fortes pentes sont des repères déterminants pour la
+        // projection : ils restent plus fortement ancrés dans l'observation.
+        const isKeyAnchor = Math.abs(point.x) <= 5 || Math.abs(point.x) >= 30;
+        const observationWeight = isKeyAnchor ? .72 : .42;
+        return {
+          ...point,
+          pace:point.pace * observationWeight + localPace * (1 - observationWeight),
+        };
+      });
+    }
+
+    function paceFromCurve(curve, x) {
+      if (!curve || !curve.length || !Number.isFinite(x)) return null;
+      const exact = curve.find((point) => Math.abs(point.x - x) < .001);
+      if (exact) return exact.pace;
+      if (x <= curve[0].x) return curve[0].pace;
+      if (x >= curve[curve.length - 1].x) return curve[curve.length - 1].pace;
+      for (let index = 1; index < curve.length; index += 1) {
+        const right = curve[index];
+        const left = curve[index - 1];
+        if (x > right.x) continue;
+        const ratio = (x - left.x) / Math.max(.001, right.x - left.x);
+        return left.pace + (right.pace - left.pace) * ratio;
       }
-      const coefficients = { a:matrix[0][3], b:matrix[1][3], c:matrix[2][3] };
-      return coefficients.a > 0 && Object.values(coefficients).every(Number.isFinite) ? coefficients : null;
+      return null;
     }
 
     function modeledHistoricalPace(slopeId, zone) {
@@ -1523,7 +1528,7 @@
       })).filter((point) => Number.isFinite(point.x) && point.pace > 0).sort((a, b) => a.x - b.x);
       const curve = fitPaceCurve(points);
       if (curve) {
-        const modeledPace = evaluateQuadratic(curve, slopeCenters[slopeId] || 0);
+        const modeledPace = paceFromCurve(curve, slopeCenters[slopeId] || 0);
         if (modeledPace >= 120 && modeledPace <= 7200) return modeledPace;
       }
       return rawPace > 0 ? rawPace : null;
@@ -1565,6 +1570,23 @@
         if (!ticks.includes(rounded)) ticks.push(rounded);
       }
       return ticks;
+    }
+
+    function roundedPacePath(points, xScale, yScale) {
+      const coordinates = (points || []).map((point) => ({ x:xScale(point.x), y:yScale(point.pace) }));
+      if (!coordinates.length) return '';
+      if (coordinates.length === 1) return `M ${coordinates[0].x.toFixed(1)} ${coordinates[0].y.toFixed(1)}`;
+      let path = `M ${coordinates[0].x.toFixed(1)} ${coordinates[0].y.toFixed(1)}`;
+      for (let index = 0; index < coordinates.length - 1; index += 1) {
+        const previous = coordinates[Math.max(0, index - 1)];
+        const current = coordinates[index];
+        const next = coordinates[index + 1];
+        const following = coordinates[Math.min(coordinates.length - 1, index + 2)];
+        const control1 = { x:current.x + (next.x - previous.x) / 6, y:current.y + (next.y - previous.y) / 6 };
+        const control2 = { x:next.x - (following.x - current.x) / 6, y:next.y - (following.y - current.y) / 6 };
+        path += ` C ${control1.x.toFixed(1)} ${control1.y.toFixed(1)}, ${control2.x.toFixed(1)} ${control2.y.toFixed(1)}, ${next.x.toFixed(1)} ${next.y.toFixed(1)}`;
+      }
+      return path;
     }
 
     function renderArchivedProfileTable() {
@@ -1627,7 +1649,7 @@
         const bounded = Math.max(yMin, Math.min(yMax, pace));
         return pad.top + ((Math.log(bounded) - Math.log(yMin)) / (Math.log(yMax) - Math.log(yMin))) * (height - pad.top - pad.bottom);
       };
-      const path = points.map((point, index) => `${index ? 'L' : 'M'} ${xScale(point.x).toFixed(1)} ${yScale(point.pace).toFixed(1)}`).join(' ');
+      const path = roundedPacePath(points, xScale, yScale);
       const xTicks = [-40, -20, 0, 20, 40];
       const yTicks = paceScaleTicks(yMin, yMax);
       const grid = [
@@ -1645,7 +1667,7 @@
         if (!curve) return rawPoints.map((point) => ({ ...point, pace:paceWithCourseDifficulty(point.pace) }));
         return slopeIds.map((slopeId) => {
           const x = slopeCenters[slopeId];
-          const pace = evaluateQuadratic(curve, x);
+          const pace = paceFromCurve(curve, x);
           return Number.isFinite(pace) && pace >= 120 && pace <= 7200
             ? { slopeId, x, pace:paceWithCourseDifficulty(pace) }
             : null;
@@ -1671,7 +1693,7 @@
         : '';
       const hasCommunityRange = Boolean(rangePath);
       const medianPath = hasCommunityRange
-        ? `M ${referenceRange.map(({ medianPoint }) => `${xScale(medianPoint.x).toFixed(1)} ${yScale(medianPoint.pace).toFixed(1)}`).join(' L ')}`
+        ? roundedPacePath(referenceRange.map(({ medianPoint }) => medianPoint), xScale, yScale)
         : '';
       const communityPaths = hasCommunityRange
         ? `<path class="cohort-band" d="${rangePath}"/><path class="cohort-median" d="${medianPath}"/>`

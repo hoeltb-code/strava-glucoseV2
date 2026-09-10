@@ -871,6 +871,70 @@ def _build_pace_lookup_from_profile(profile_data: dict | None, hr_zone_names: li
     return pace_lookup
 
 
+def _smooth_slope_pace_values(values_by_slope: dict[str, float]) -> dict[str, float]:
+    """Lisse localement une série d'allures, sans effacer ses points d'ancrage.
+
+    Cette fonction constitue la source unique du modèle présenté dans Runner
+    Profile et utilisé par le constructeur de plan. Le plat et les pentes
+    extrêmes restent volontairement plus proches des valeurs observées.
+    """
+    points = sorted(
+        (
+            {
+                "slope_id": slope_id,
+                # Les bandes ouvertes représentent le repère ±45 % affiché
+                # dans les deux interfaces (et non leur borne technique ±50).
+                "x": max(-45.0, min(45.0, float(SLOPE_BAND_CENTER[slope_id]))),
+                "pace": float(pace),
+            }
+            for slope_id, pace in (values_by_slope or {}).items()
+            if slope_id in SLOPE_BAND_CENTER
+            and isinstance(pace, (int, float))
+            and 0 < float(pace) <= 7200
+        ),
+        key=lambda point: point["x"],
+    )
+    if len(points) < 3:
+        return {point["slope_id"]: point["pace"] for point in points}
+
+    modeled: dict[str, float] = {}
+    for index, point in enumerate(points):
+        neighbors = points[max(0, index - 1):min(len(points), index + 2)]
+        weighted_total = 0.0
+        weight_total = 0.0
+        for neighbor in neighbors:
+            is_current = neighbor is point
+            distance_factor = 1.0 if is_current else min(
+                1.0,
+                10.0 / max(1.0, abs(neighbor["x"] - point["x"])),
+            )
+            weight = (4.0 if is_current else 1.0) * distance_factor
+            weighted_total += neighbor["pace"] * weight
+            weight_total += weight
+        local_pace = weighted_total / weight_total if weight_total else point["pace"]
+        is_key_anchor = abs(point["x"]) <= 5 or abs(point["x"]) >= 30
+        observation_weight = 0.72 if is_key_anchor else 0.42
+        modeled[point["slope_id"]] = (
+            point["pace"] * observation_weight
+            + local_pace * (1.0 - observation_weight)
+        )
+    return modeled
+
+
+def _build_modeled_pace_lookup_from_profile(profile_data: dict | None) -> dict[str, dict[str, float]]:
+    """Retourne le modèle commun slope→zone→allure (secondes/km)."""
+    modeled_lookup: dict[str, dict[str, float]] = {}
+    for zone_name, slopes in ((profile_data or {}).get("zones") or {}).items():
+        raw_values = {
+            slope_id: cell.get("avg_pace_s_per_km")
+            for slope_id, cell in (slopes or {}).items()
+            if isinstance(cell, dict)
+        }
+        for slope_id, pace in _smooth_slope_pace_values(raw_values).items():
+            modeled_lookup.setdefault(slope_id, {})[zone_name] = pace
+    return modeled_lookup
+
+
 def _percentile_from_sorted(values: list[float], quantile: float) -> float | None:
     """Percentile interpolé, sans dépendance externe."""
     if not values:
@@ -941,7 +1005,24 @@ def _build_anonymized_pace_benchmarks(
             "count": len(values),
         }
 
-    return {"zones": zones, "minimum_runners": minimum_runners}
+    # Les repères collectifs suivent exactement le même modèle local que le
+    # profil individuel. Chaque percentile est lissé séparément afin de garder
+    # une comparaison cohérente sans mélanger les coureurs entre eux.
+    for zone_cells in zones.values():
+        for percentile in ("p10", "p20", "p50", "p80", "p90"):
+            modeled_percentile = _smooth_slope_pace_values({
+                slope_id: cell.get(percentile)
+                for slope_id, cell in zone_cells.items()
+                if isinstance(cell, dict)
+            })
+            for slope_id, pace in modeled_percentile.items():
+                zone_cells[slope_id][percentile] = pace
+
+    return {
+        "zones": zones,
+        "minimum_runners": minimum_runners,
+        "model": "local-weighted-v1",
+    }
 
 
 def _fill_missing_zone_paces(pace_lookup: dict[str, dict[str, float]], hr_zone_names: list[str]):
@@ -7043,7 +7124,39 @@ def ui_runner_profile(
     # 4) Ordre des zones cardio + pentes (positives et négatives)
     hr_zone_names = [name for (name, _, _) in HR_ZONES]
     pace_lookup_by_slope = _build_pace_lookup_from_profile(profile, hr_zone_names)
+    modeled_pace_lookup_by_slope = _build_modeled_pace_lookup_from_profile(profile)
     slopes_order = SLOPE_ORDER
+
+    # Le constructeur de plan consomme ce mode JSON afin d'utiliser exactement
+    # le même profil que cette page, après les mêmes migrations et reconstructions
+    # d'archives. Cela évite qu'un second endpoint lise un cache encore ancien.
+    if request.query_params.get("format") == "json":
+        profile_payload = dict(profile or {})
+        profile_period = dict(profile_payload.get("period") or {})
+        for key in ("from", "to"):
+            value = profile_period.get(key)
+            if isinstance(value, (dt.datetime, dt.date)):
+                profile_period[key] = value.isoformat()
+        profile_payload["period"] = profile_period
+        months = {
+            "last_3_months": 3,
+            "last_6_months": 6,
+            "last_12_months": 12,
+            "last_1_month": 1,
+        }.get(period)
+        return JSONResponse(
+            {
+                "period": period,
+                "months": months,
+                "has_data": bool(profile_payload.get("zones")),
+                "activities_count": int(archived_training_summary.get("activities_count") or 0),
+                "profile": profile_payload,
+                "pace_lookup_by_slope": pace_lookup_by_slope,
+                "modeled_pace_lookup_by_slope": modeled_pace_lookup_by_slope,
+                "source": "runner-profile",
+            },
+            headers={"Cache-Control": "no-store, max-age=0"},
+        )
 
     libre_connected = (
         db.query(LibreCredentials.id).filter(LibreCredentials.user_id == user_id).first() is not None
@@ -7661,6 +7774,7 @@ def ui_runner_profile(
             "slopes_order": slopes_order,
             "profile": profile_for_template,
             "pace_lookup_by_slope": pace_lookup_by_slope,
+            "modeled_pace_lookup_by_slope": modeled_pace_lookup_by_slope,
             "sport": sport,
             "period": period,
             "tab": tab,
@@ -9488,6 +9602,7 @@ def ui_runner_profile_history(
             profile,
             [name for (name, _, _) in HR_ZONES],
         )
+        modeled_pace_lookup = _build_modeled_pace_lookup_from_profile(profile)
         # On laisse FastAPI encoder les dates présentes dans ``profile.period``.
         return {
             "period": period,
@@ -9496,6 +9611,7 @@ def ui_runner_profile_history(
             "activities_count": int(activities_count),
             "profile": profile,
             "pace_lookup_by_slope": pace_lookup,
+            "modeled_pace_lookup_by_slope": modeled_pace_lookup,
         }
     finally:
         db.close()
@@ -9535,6 +9651,7 @@ def ui_user_dashboard(user_id: int, request: Request):
     runner_profile_overview = {"zones": {}}
     dashboard_cohort_curves = {"zones": {}, "minimum_runners": 8}
     dashboard_pace_lookup = {}
+    dashboard_modeled_pace_lookup = {}
     dashboard_hr_zones = [name for (name, _, _) in HR_ZONES]
     official_courses = _load_official_course_catalog()
     daily_glucose_chart = []
@@ -10066,6 +10183,9 @@ def ui_user_dashboard(user_id: int, request: Request):
             runner_profile_overview,
             dashboard_hr_zones,
         )
+        dashboard_modeled_pace_lookup = _build_modeled_pace_lookup_from_profile(
+            runner_profile_overview,
+        )
         dashboard_cohort_curves = _build_anonymized_pace_benchmarks(
             db,
             sport="run",
@@ -10314,6 +10434,7 @@ def ui_user_dashboard(user_id: int, request: Request):
             "runner_profile_overview": runner_profile_overview,
             "dashboard_cohort_curves": dashboard_cohort_curves,
             "dashboard_pace_lookup": dashboard_pace_lookup,
+            "dashboard_modeled_pace_lookup": dashboard_modeled_pace_lookup,
             "dashboard_hr_zones": dashboard_hr_zones,
             "official_courses": official_courses,
             "sport_distribution": sport_distribution,

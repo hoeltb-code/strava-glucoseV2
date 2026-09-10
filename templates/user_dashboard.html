@@ -3,6 +3,7 @@
 {% block title %}{% if custom_course_mode %}Ma trace GPX · {{ user.email }}{% else %}Dashboard · {{ user.email }}{% endif %}{% endblock %}
 
 {% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
   .dashboard-page {
     --dashboard-panel-border: rgba(248, 184, 88, 0.28);
@@ -265,6 +266,8 @@
   .profile-pacing-table td:last-child { color:var(--accent-2); font-weight:700; }
   .profile-pacing-table th:nth-child(2), .profile-pacing-table td:nth-child(2) { width:72px; }
   .profile-pacing-curve { margin-top:10px; border-radius:12px; overflow:hidden; background:#fbfaf7; border:1px solid #e3ded5; }
+  .profile-pacing-curve.is-bar-chart { height:330px; padding:14px 10px 8px; box-sizing:border-box; }
+  .profile-pacing-curve.is-bar-chart canvas { display:block; width:100% !important; height:100% !important; }
   .profile-pacing-curve svg { display:block; width:100%; height:220px; }
   .profile-pacing-curve .curve-grid { stroke:#e2ded6; stroke-width:1; }
   .profile-pacing-curve .curve-axis-label { fill:#77746d; font-size:11px; font-family:"DM Mono", monospace; }
@@ -919,7 +922,7 @@
           <span class="profile-pacing-note" id="home-profile-table-note"></span>
           <span class="profile-live-total"><strong id="home-profile-live-total">Sélectionne un parcours</strong><small id="home-profile-live-stop-detail">Arrêts ravito · 0 min</small></span>
         </div>
-        <div class="profile-pacing-curve" id="home-profile-curve" role="img" aria-label="Courbe d’allure utilisée pour la projection selon la pente"></div>
+        <div class="profile-pacing-curve is-bar-chart" id="home-profile-curve" role="img" aria-label="Allures modélisées utilisées pour la projection selon la pente"></div>
         <details class="profile-pacing-details">
           <summary>Voir le détail par pente et allure</summary>
           <div class="profile-pacing-live-grid" aria-live="polite">
@@ -1007,7 +1010,9 @@
     const planCredits = Number({{ plan_credits | default(0) | tojson }});
     let runnerProfileData = {{ runner_profile_overview | default({}) | tojson | safe }};
     let runnerPaceLookup = {{ dashboard_pace_lookup | default({}) | tojson | safe }};
+    let runnerModeledPaceLookup = {{ dashboard_modeled_pace_lookup | default({}) | tojson | safe }};
     const communityPaceCurves = {{ dashboard_cohort_curves | default({}) | tojson | safe }};
+    let profilePaceChart = null;
     const officialCourses = {{ official_courses | default([]) | tojson | safe }};
     const resumedCoursePlan = {{ resume_course_plan | default(none) | tojson | safe }};
     let activeCoursePlanId = resumedCoursePlan?.id || '';
@@ -1256,15 +1261,20 @@
       if (historyWindowInput) historyWindowInput.disabled = true;
       if (historyWindowNote) historyWindowNote.textContent = 'Mise à jour des allures de ton historique…';
       try {
-        const profileUrl = new URL(`/ui/user/{{ user.id }}/runner-profile/history`, window.location.origin);
+        const profileUrl = new URL(`/ui/user/{{ user.id }}/runner-profile`, window.location.origin);
         profileUrl.searchParams.set('period', period);
+        profileUrl.searchParams.set('sport', 'run');
+        profileUrl.searchParams.set('tab', 'pace');
+        profileUrl.searchParams.set('format', 'json');
         profileUrl.searchParams.set('_', String(Date.now()));
         const response = await fetch(profileUrl, { cache: 'no-store', headers: { Accept: 'application/json', 'Cache-Control': 'no-cache' } });
         if (!response.ok) throw new Error('Profil historique indisponible');
         const payload = await response.json();
         if (historyProfileRequest !== period) return;
+        if (payload.period !== period || payload.source !== 'runner-profile') throw new Error('La période reçue ne correspond pas à la période sélectionnée');
         runnerProfileData = payload.profile || { zones: {} };
         runnerPaceLookup = payload.pace_lookup_by_slope || {};
+        runnerModeledPaceLookup = payload.modeled_pace_lookup_by_slope || {};
         loadedHistoryWindow = period;
         renderProfilePacingTable();
         renderArchivedProfileTable();
@@ -1489,59 +1499,11 @@
       return coefficients.a * x * x + coefficients.b * x + coefficients.c;
     }
 
-    function fitPaceCurve(points) {
-      const sorted = (points || [])
-        .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.pace) && point.pace > 0)
-        .sort((a, b) => a.x - b.x);
-      if (sorted.length < 3) return null;
-      return sorted.map((point, index) => {
-        const neighbors = [sorted[index - 1], point, sorted[index + 1]].filter(Boolean);
-        const local = neighbors.reduce((result, neighbor) => {
-          const isCurrent = neighbor === point;
-          const distanceFactor = isCurrent ? 1 : Math.min(1, 10 / Math.max(1, Math.abs(neighbor.x - point.x)));
-          const weight = (isCurrent ? 4 : 1) * distanceFactor;
-          return { total:result.total + neighbor.pace * weight, weight:result.weight + weight };
-        }, { total:0, weight:0 });
-        const localPace = local.weight > 0 ? local.total / local.weight : point.pace;
-        // Le plat et les fortes pentes sont des repères déterminants pour la
-        // projection : ils restent plus fortement ancrés dans l'observation.
-        const isKeyAnchor = Math.abs(point.x) <= 5 || Math.abs(point.x) >= 30;
-        const observationWeight = isKeyAnchor ? .72 : .42;
-        return {
-          ...point,
-          pace:point.pace * observationWeight + localPace * (1 - observationWeight),
-        };
-      });
-    }
-
-    function paceFromCurve(curve, x) {
-      if (!curve || !curve.length || !Number.isFinite(x)) return null;
-      const exact = curve.find((point) => Math.abs(point.x - x) < .001);
-      if (exact) return exact.pace;
-      if (x <= curve[0].x) return curve[0].pace;
-      if (x >= curve[curve.length - 1].x) return curve[curve.length - 1].pace;
-      for (let index = 1; index < curve.length; index += 1) {
-        const right = curve[index];
-        const left = curve[index - 1];
-        if (x > right.x) continue;
-        const ratio = (x - left.x) / Math.max(.001, right.x - left.x);
-        return left.pace + (right.pace - left.pace) * ratio;
-      }
-      return null;
-    }
-
     function modeledHistoricalPace(slopeId, zone) {
+      const serverModeledPace = Number((runnerModeledPaceLookup[slopeId] || {})[zone]);
+      if (serverModeledPace >= 120 && serverModeledPace <= 7200) return serverModeledPace;
       const historicalZone = (runnerProfileData.zones || {})[zone] || {};
       const rawPace = Number((historicalZone[slopeId] || {}).avg_pace_s_per_km);
-      const points = Object.entries(historicalZone).map(([id, cell]) => ({
-        x: slopeCenters[id],
-        pace: Number(cell?.avg_pace_s_per_km),
-      })).filter((point) => Number.isFinite(point.x) && point.pace > 0).sort((a, b) => a.x - b.x);
-      const curve = fitPaceCurve(points);
-      if (curve) {
-        const modeledPace = paceFromCurve(curve, slopeCenters[slopeId] || 0);
-        if (modeledPace >= 120 && modeledPace <= 7200) return modeledPace;
-      }
       return rawPace > 0 ? rawPace : null;
     }
 
@@ -1655,75 +1617,107 @@
         return { slopeId, x:slopeCenters[slopeId], pace, source:manual ? 'Manuel' : projected.source };
       }).filter((point) => Number.isFinite(point.x) && point.pace > 0).sort((a, b) => a.x - b.x);
       if (!points.length) {
+        if (profilePaceChart) {
+          profilePaceChart.destroy();
+          profilePaceChart = null;
+        }
         profileCurve.innerHTML = '<p class="runner-history-empty">Aucune allure exploitable pour cette zone.</p>';
         return;
       }
-      const width = 680; const height = 250; const pad = { left:52, right:16, top:18, bottom:36 };
-      // Échelle logarithmique ajustée aux allures réellement calculées : les
-      // écarts restent lisibles, y compris sur les pentes très raides.
-      const { min:yMin, max:yMax } = paceScaleBounds(points.map((point) => point.pace));
-      const xScale = (x) => pad.left + ((x + 45) / 90) * (width - pad.left - pad.right);
-      const yScale = (pace) => {
-        const bounded = Math.max(yMin, Math.min(yMax, pace));
-        return pad.top + ((Math.log(bounded) - Math.log(yMin)) / (Math.log(yMax) - Math.log(yMin))) * (height - pad.top - pad.bottom);
-      };
-      const path = roundedPacePath(points, xScale, yScale);
-      const xTicks = [-40, -20, 0, 20, 40];
-      const yTicks = paceScaleTicks(yMin, yMax);
-      const grid = [
-        ...xTicks.map((tick) => `<line class="curve-grid" x1="${xScale(tick)}" y1="${pad.top}" x2="${xScale(tick)}" y2="${height - pad.bottom}"/><text class="curve-axis-label" x="${xScale(tick)}" y="${height - 12}" text-anchor="middle">${tick > 0 ? '+' : ''}${tick}%</text>`),
-        ...yTicks.map((tick) => `<line class="curve-grid" x1="${pad.left}" y1="${yScale(tick)}" x2="${width - pad.right}" y2="${yScale(tick)}"/><text class="curve-axis-label" x="${pad.left - 7}" y="${yScale(tick) + 4}" text-anchor="end">${formatPace(tick).replace(' /km', '')}</text>`),
-      ].join('');
       const communityZone = (communityPaceCurves.zones || {})[zone] || {};
-      const communityPoints = (key) => {
-        const rawPoints = slopeIds.map((slopeId) => ({
-          slopeId,
-          x: slopeCenters[slopeId],
-          pace: Number((communityZone[slopeId] || {})[key]),
-        })).filter((point) => Number.isFinite(point.x) && point.pace > 0).sort((a, b) => a.x - b.x);
-        const curve = fitPaceCurve(rawPoints);
-        if (!curve) return rawPoints;
-        return slopeIds.map((slopeId) => {
-          const x = slopeCenters[slopeId];
-          const pace = paceFromCurve(curve, x);
-          return Number.isFinite(pace) && pace >= 120 && pace <= 7200
-            ? { slopeId, x, pace }
-            : null;
-        }).filter(Boolean).sort((a, b) => a.x - b.x);
-      };
-      const p10Points = communityPoints('p10');
-      const p50Points = communityPoints('p50');
-      const p90Points = communityPoints('p90');
-      const referenceRange = p10Points.map((fastPoint) => {
-        const prudentPoint = p90Points.find((point) => Math.abs(point.x - fastPoint.x) < .001);
-        const medianPoint = p50Points.find((point) => Math.abs(point.x - fastPoint.x) < .001);
-        if (!prudentPoint || !medianPoint) return null;
-        const fastPace = Math.min(fastPoint.pace, prudentPoint.pace);
-        const prudentPace = Math.max(fastPoint.pace, prudentPoint.pace);
+      const referenceRange = points.map((point) => {
+        const cell = communityZone[point.slopeId] || {};
+        const p10 = Number(cell.p10);
+        const p50 = Number(cell.p50);
+        const p90 = Number(cell.p90);
+        if (!(p10 > 0) || !(p50 > 0) || !(p90 > 0)) return null;
+        const fast = Math.min(p10, p90) / 60;
+        const prudent = Math.max(p10, p90) / 60;
         return {
-          fastPoint: { ...fastPoint, pace:fastPace },
-          prudentPoint: { ...prudentPoint, pace:prudentPace },
-          medianPoint: { ...medianPoint, pace:Math.max(fastPace, Math.min(prudentPace, medianPoint.pace)) },
+          range:[fast, prudent],
+          median:Math.max(fast, Math.min(prudent, p50 / 60)),
         };
-      }).filter(Boolean);
-      const rangePath = referenceRange.length > 1
-        ? `M ${referenceRange.map(({ fastPoint }) => `${xScale(fastPoint.x).toFixed(1)} ${yScale(fastPoint.pace).toFixed(1)}`).join(' L ')} L ${referenceRange.slice().reverse().map(({ prudentPoint }) => `${xScale(prudentPoint.x).toFixed(1)} ${yScale(prudentPoint.pace).toFixed(1)}`).join(' L ')} Z`
-        : '';
-      const hasCommunityRange = Boolean(rangePath);
-      const medianPath = hasCommunityRange
-        ? roundedPacePath(referenceRange.map(({ medianPoint }) => medianPoint), xScale, yScale)
-        : '';
-      const communityPaths = hasCommunityRange
-        ? `<path class="cohort-band" d="${rangePath}"/><path class="cohort-median" d="${medianPath}"/>`
-        : '';
+      });
+      const hasCommunityRange = referenceRange.some(Boolean);
       if (hasCommunityRange) {
-        profileTableNote.textContent += ` · Plages de performance anonymisées et lissées (minimum ${communityPaceCurves.minimum_runners || 8} coureurs par pente).`;
+        profileTableNote.textContent += ` · Barres grisées : performances modélisées des 10 % les plus rapides aux 10 % les moins rapides ; le trait gris indique la médiane (minimum ${communityPaceCurves.minimum_runners || 8} coureurs par pente).`;
       }
-      const dots = points.map((point) => `<circle class="curve-point" cx="${xScale(point.x)}" cy="${yScale(point.pace)}" r="3"><title>${slopeLabels[point.slopeId]} · ${formatPace(point.pace)} · ${point.source}</title></circle>`).join('');
-      const referenceLegend = hasCommunityRange
-        ? '<div class="cohort-reference-legend"><i aria-hidden="true"></i><span>Les courbes lissées délimitent les performances modélisées des <b>10 % de coureurs les plus rapides</b> et des <b>10 % les moins rapides</b>. La ligne pointillée indique la performance médiane modélisée.</span></div>'
-        : '';
-      profileCurve.innerHTML = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">${grid}${communityPaths}<path class="curve-line" d="${path}"/>${dots}<text class="curve-axis-label" x="${width / 2}" y="${height - 1}" text-anchor="middle">Pente</text><text class="curve-axis-label" x="12" y="${height / 2}" transform="rotate(-90 12 ${height / 2})" text-anchor="middle">Allure</text></svg>${referenceLegend}`;
+      if (profilePaceChart) profilePaceChart.destroy();
+      profileCurve.innerHTML = '<canvas id="home-profile-pace-chart"></canvas>';
+      const canvas = profileCurve.querySelector('canvas');
+      if (canvas && typeof Chart !== 'undefined') {
+        const colors = points.map((point) => point.x < -5 ? '#63b7d3' : (point.x > 5 ? '#f3ad3d' : '#84a964'));
+        const communityMedianPlugin = {
+          id:'homeCommunityMedian',
+          afterDatasetsDraw(chart) {
+            if (!hasCommunityRange) return;
+            const { ctx, scales } = chart;
+            ctx.save();
+            ctx.strokeStyle = '#5e6874';
+            ctx.lineWidth = 2;
+            referenceRange.forEach((entry, index) => {
+              if (!entry) return;
+              const x = scales.x.getPixelForValue(index);
+              const y = scales.y.getPixelForValue(entry.median);
+              ctx.beginPath();
+              ctx.moveTo(x - 9, y);
+              ctx.lineTo(x + 9, y);
+              ctx.stroke();
+            });
+            ctx.restore();
+          },
+        };
+        const datasets = [];
+        if (hasCommunityRange) {
+          datasets.push({
+            label:'Plage des autres coureurs',
+            data:referenceRange.map((entry) => entry?.range || null),
+            backgroundColor:'rgba(78, 91, 108, .18)',
+            borderColor:'#718092',
+            borderWidth:1,
+            borderRadius:5,
+            borderSkipped:false,
+            grouped:false,
+            barPercentage:.86,
+            order:2,
+          });
+        }
+        datasets.push({
+          label:manual ? 'Profil manuel' : `${zone} · modèle personnel`,
+          data:points.map((point) => point.pace / 60),
+          backgroundColor:colors,
+          borderWidth:0,
+          borderRadius:5,
+          borderSkipped:false,
+          grouped:false,
+          barPercentage:.56,
+          maxBarThickness:46,
+          order:1,
+        });
+        profilePaceChart = new Chart(canvas.getContext('2d'), {
+          type:'bar',
+          data:{ labels:points.map((point) => slopeLabels[point.slopeId]), datasets },
+          options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            interaction:{ mode:'index', intersect:false },
+            plugins:{
+              legend:{ display:hasCommunityRange, labels:{ color:'#5f5b53', boxWidth:16, usePointStyle:true } },
+              tooltip:{ callbacks:{ label:item => {
+                if (Array.isArray(item.raw)) {
+                  return `Autres coureurs · ${formatPace(item.raw[0] * 60)} à ${formatPace(item.raw[1] * 60)}`;
+                }
+                return `${item.dataset.label} · ${formatPace(Number(item.raw) * 60)}`;
+              } } },
+            },
+            scales:{
+              x:{ title:{ display:true, text:'Pente', color:'#5f5b53' }, ticks:{ color:'#5f5b53', autoSkip:true, maxRotation:0 }, grid:{ display:false } },
+              y:{ beginAtZero:true, title:{ display:true, text:'Allure (min/km)', color:'#5f5b53' }, ticks:{ color:'#5f5b53', callback:value => formatPace(Number(value) * 60).replace(' /km', '') }, grid:{ color:'rgba(95,91,83,.12)' } },
+            },
+          },
+          plugins:[communityMedianPlugin],
+        });
+      }
       if (profileLiveData) {
         profileLiveData.innerHTML = points.map((point) => {
           const vam = Math.round((3600 / point.pace) * 10 * point.x);
@@ -3942,7 +3936,6 @@
 </script>
 
 {% if daily_glucose_chart and daily_glucose_chart|length > 1 %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
 <script>
   (function() {

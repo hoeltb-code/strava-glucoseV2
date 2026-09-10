@@ -1067,6 +1067,7 @@
               window.addEventListener('DOMContentLoaded', () => {
               if (typeof Chart === 'undefined') return;
               const profileData = {{ profile | tojson | safe }};
+              const modeledPaceLookup = {{ modeled_pace_lookup_by_slope | default({}) | tojson | safe }};
               const fcMax = {{ (user.max_heartrate or 180) | int | tojson }};
               const zoneHeartRateRatios = {
                 'Zone 1': [0.10, 0.60], 'Zone 2': [0.60, 0.70], 'Zone 3': [0.70, 0.80],
@@ -1083,33 +1084,11 @@
                 S0_5: 2.5, S5_10: 7.5, S10_15: 12.5, S15_20: 17.5,
                 S20_25: 22.5, S25_30: 27.5, S30_40: 35, S40p: 45,
               };
-              const smoothPacePoints = (points) => {
-                const sorted = (points || []).slice().sort((a, b) => a.x - b.x);
-                if (sorted.length < 3) return sorted;
-                return sorted.map((point, index) => {
-                  const neighbors = [sorted[index - 1], point, sorted[index + 1]].filter(Boolean);
-                  const local = neighbors.reduce((result, neighbor) => {
-                    const isCurrent = neighbor === point;
-                    const distanceFactor = isCurrent ? 1 : Math.min(1, 10 / Math.max(1, Math.abs(neighbor.x - point.x)));
-                    const weight = (isCurrent ? 4 : 1) * distanceFactor;
-                    return { total:result.total + neighbor.y * weight, weight:result.weight + weight };
-                  }, { total:0, weight:0 });
-                  const localPace = local.weight > 0 ? local.total / local.weight : point.y;
-                  const isKeyAnchor = Math.abs(point.x) <= 5 || Math.abs(point.x) >= 30;
-                  const observationWeight = isKeyAnchor ? .72 : .42;
-                  return { ...point, y:point.y * observationWeight + localPace * (1 - observationWeight) };
-                });
-              };
               const modeledPaceFor = (zone, slopeId) => {
+                const modeledPace = Number((modeledPaceLookup[slopeId] || {})[zone]);
+                if (modeledPace >= 120 && modeledPace <= 7200) return modeledPace;
                 const historicalZone = (profileData.zones || {})[zone] || {};
                 const rawPace = Number((historicalZone[slopeId] || {}).avg_pace_s_per_km);
-                const points = Object.entries(historicalZone)
-                  .map(([id, cell]) => ({ x:slopeCenters[id], y:Number(cell.avg_pace_s_per_km) }))
-                  .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y) && point.y > 0)
-                  .sort((a, b) => a.x - b.x);
-                const modeledPoint = smoothPacePoints(points).find((point) => Math.abs(point.x - slopeCenters[slopeId]) < .001);
-                const pace = Number(modeledPoint?.y);
-                if (pace >= 120 && pace <= 7200) return pace;
                 return rawPace > 0 ? rawPace : null;
               };
               const modeledVamFor = (zone, slopeId) => {

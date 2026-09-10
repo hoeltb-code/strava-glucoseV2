@@ -1254,7 +1254,10 @@
       if (historyWindowInput) historyWindowInput.disabled = true;
       if (historyWindowNote) historyWindowNote.textContent = 'Mise à jour des allures de ton historique…';
       try {
-        const response = await fetch(`/ui/user/{{ user.id }}/runner-profile/history?months=${months}`, { headers: { Accept: 'application/json' } });
+        const profileUrl = new URL(`/ui/user/{{ user.id }}/runner-profile/history`, window.location.origin);
+        profileUrl.searchParams.set('months', String(months));
+        profileUrl.searchParams.set('_', String(Date.now()));
+        const response = await fetch(profileUrl, { cache: 'no-store', headers: { Accept: 'application/json', 'Cache-Control': 'no-cache' } });
         if (!response.ok) throw new Error('Profil historique indisponible');
         const payload = await response.json();
         if (historyProfileRequest !== months) return;
@@ -1264,9 +1267,13 @@
         renderArchivedProfileTable();
         if (refreshLiveProjection) refreshLiveProjection();
         updatePlanFlow();
-        if (historyWindowNote) historyWindowNote.textContent = payload.has_data
-          ? `Les allures de tes ${months} derniers mois servent de référence.`
-          : `Pas encore assez de données sur les ${months} derniers mois : tu peux utiliser le paramétrage manuel.`;
+        if (historyWindowNote) {
+          const activityCount = Number(payload.activities_count || 0);
+          const activityLabel = `${activityCount} ${activityCount > 1 ? 'sorties analysées' : 'sortie analysée'}`;
+          historyWindowNote.textContent = payload.has_data
+            ? `Période active : ${months} derniers mois · ${activityLabel}. Projection recalculée.`
+            : `Pas encore assez de données sur les ${months} derniers mois (${activityLabel}) : tu peux utiliser le paramétrage manuel.`;
+        }
       } catch (error) {
         console.warn('[runner-profile] historique par période', error);
         if (historyWindowNote) historyWindowNote.textContent = 'Impossible de mettre à jour la période pour le moment. Ton profil actuel reste utilisé.';

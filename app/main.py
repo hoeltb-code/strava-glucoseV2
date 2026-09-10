@@ -9422,6 +9422,7 @@ def ui_reset_password_apply(
 @app.get("/ui/user/{user_id}/runner-profile/history", response_class=JSONResponse)
 def ui_runner_profile_history(
     request: Request,
+    response: Response,
     user_id: int,
     months: int = Query(6),
 ):
@@ -9431,10 +9432,23 @@ def ui_runner_profile_history(
         return guard
     if months not in {3, 6, 12}:
         raise HTTPException(status_code=422, detail="La période doit être de 3, 6 ou 12 mois.")
+    # Cette réponse dépend du mois choisi : ni le navigateur ni un CDN ne doit
+    # réutiliser le profil d'une période précédente.
+    response.headers["Cache-Control"] = "no-store, max-age=0"
 
     db = SessionLocal()
     try:
         date_from = dt.datetime.utcnow() - dt.timedelta(days={3: 92, 6: 183, 12: 365}[months])
+        activities_count = (
+            db.query(func.count(Activity.id))
+            .filter(
+                Activity.user_id == user_id,
+                Activity.start_date >= date_from,
+                sport_column_condition(Activity.sport, "run"),
+            )
+            .scalar()
+            or 0
+        )
         profile = build_runner_profile(
             db,
             user_id=user_id,
@@ -9445,6 +9459,7 @@ def ui_runner_profile_history(
         return {
             "months": months,
             "has_data": bool(profile.get("zones")),
+            "activities_count": int(activities_count),
             "profile": profile,
         }
     finally:

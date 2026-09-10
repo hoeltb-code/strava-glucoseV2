@@ -1292,6 +1292,17 @@
       }
     }
 
+    async function ensureSelectedHistoryProfileIsReady() {
+      const period = historyWindowInput?.value || 'last_6_months';
+      if (loadedHistoryWindow === period && !historyProfileRequest) return true;
+      loadHistoryProfileForWindow({ force: true });
+      const deadline = Date.now() + 15000;
+      while ((historyProfileRequest || pendingHistoryWindow) && Date.now() < deadline) {
+        await new Promise((resolve) => window.setTimeout(resolve, 75));
+      }
+      return loadedHistoryWindow === period;
+    }
+
     function setChecklistStepDone(id, done, doneText, pendingText) {
       const step = document.getElementById(id);
       if (!step) return;
@@ -1616,24 +1627,31 @@
       const zone = zoneInput.value;
       const historicalZone = (runnerProfileData.zones || {})[zone] || {};
       const manual = manualProfileIsActive();
+      const historyPeriodLabels = {
+        last_3_months: '3 derniers mois',
+        last_6_months: '6 derniers mois',
+        last_12_months: '12 derniers mois',
+      };
+      const historyPeriodLabel = historyPeriodLabels[historyWindowInput?.value] || 'période sélectionnée';
+      const courseAdjustment = courseTimeAdjustmentLabel(currentCourseCoefficientPercent());
       const zoneNote = document.getElementById('home-profile-zone-note');
       if (zoneNote) {
         zoneNote.textContent = manual
-          ? 'Réglage manuel actif : les allures et la VAM de cette projection sont corrigées avec les curseurs ci-dessus, pour cette course uniquement.'
-          : 'L’allure est modélisée par une courbe lissée selon la pente ; la VAM de projection est calculée depuis cette courbe, comme dans Runner profil.';
+          ? `Profil manuel de référence. Le calcul du chrono applique ensuite l’adaptation du parcours (${courseAdjustment}).`
+          : `Même profil modélisé que dans Runner Profile · ${zone} · ${historyPeriodLabel}. Le calcul du chrono applique ensuite l’adaptation du parcours (${courseAdjustment}).`;
       }
       const hasHistoricalData = Object.values(historicalZone).some((cell) => Number(cell?.avg_pace_s_per_km) > 0);
-      profileTableTitle.textContent = `Profil utilisé · ${zone}`;
+      profileTableTitle.textContent = manual
+        ? `Profil manuel · ${zone}`
+        : `Profil historique · ${zone} · ${historyPeriodLabel}`;
       profileTableNote.textContent = manual
-        ? 'Réglages manuels : ajuste les curseurs pour visualiser ton profil.'
+        ? 'Allures de référence réglées manuellement, avant adaptation au parcours.'
         : hasHistoricalData
-          ? 'Courbe personnelle modélisée à partir de ton historique par pente ; les points bruts servent d’ancrage.'
+          ? 'Valeurs de référence identiques à celles du Runner Profile, avant coefficient technique et stratégie de course.'
           : 'Historique insuffisant : active les réglages manuels pour créer un profil de départ.';
       const points = slopeIds.map((slopeId) => {
-        const historyCell = historicalZone[slopeId] || {};
-        const historicalPace = Number(historyCell.avg_pace_s_per_km);
         const projected = projectedPaceForSlope(slopeId, zone);
-        const pace = paceWithCourseDifficulty(manual ? manualPaceForSlope(slopeId) : projected.pace);
+        const pace = manual ? manualPaceForSlope(slopeId) : projected.pace;
         return { slopeId, x:slopeCenters[slopeId], pace, source:manual ? 'Manuel' : projected.source };
       }).filter((point) => Number.isFinite(point.x) && point.pace > 0).sort((a, b) => a.x - b.x);
       if (!points.length) {
@@ -1664,12 +1682,12 @@
           pace: Number((communityZone[slopeId] || {})[key]),
         })).filter((point) => Number.isFinite(point.x) && point.pace > 0).sort((a, b) => a.x - b.x);
         const curve = fitPaceCurve(rawPoints);
-        if (!curve) return rawPoints.map((point) => ({ ...point, pace:paceWithCourseDifficulty(point.pace) }));
+        if (!curve) return rawPoints;
         return slopeIds.map((slopeId) => {
           const x = slopeCenters[slopeId];
           const pace = paceFromCurve(curve, x);
           return Number.isFinite(pace) && pace >= 120 && pace <= 7200
-            ? { slopeId, x, pace:paceWithCourseDifficulty(pace) }
+            ? { slopeId, x, pace }
             : null;
         }).filter(Boolean).sort((a, b) => a.x - b.x);
       };
@@ -2872,6 +2890,19 @@
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
+      if (selectedPlanBasis() === 'paces' && selectedPaceSource() === 'history') {
+        if (generatePlanButton) {
+          generatePlanButton.disabled = true;
+          generatePlanButton.textContent = 'Chargement de ton historique…';
+        }
+        const historyReady = await ensureSelectedHistoryProfileIsReady();
+        if (!historyReady) {
+          status.textContent = 'Le profil correspondant à la période sélectionnée n’a pas pu être chargé. Réessaie avant de générer le plan.';
+          if (generatePlanButton) generatePlanButton.textContent = 'Réessayer de générer mon plan';
+          updatePlanFlow();
+          return;
+        }
+      }
       const isUpdatingExistingPlan = result.classList.contains('is-visible');
       if (generatePlanButton) {
         generatePlanButton.disabled = true;

@@ -1478,7 +1478,60 @@
       return coefficients.a * x * x + coefficients.b * x + coefficients.c;
     }
 
+    function fitPaceCurve(points) {
+      if (points.length < 5) return null;
+      const sums = points.reduce((result, point) => ({
+        n: result.n + 1,
+        x: result.x + point.x,
+        x2: result.x2 + point.x ** 2,
+        x3: result.x3 + point.x ** 3,
+        x4: result.x4 + point.x ** 4,
+        y: result.y + point.pace,
+        xy: result.xy + point.x * point.pace,
+        x2y: result.x2y + point.x ** 2 * point.pace,
+      }), { n:0, x:0, x2:0, x3:0, x4:0, y:0, xy:0, x2y:0 });
+      const matrix = [
+        [sums.x4, sums.x3, sums.x2, sums.x2y],
+        [sums.x3, sums.x2, sums.x, sums.xy],
+        [sums.x2, sums.x, sums.n, sums.y],
+      ];
+      for (let pivot = 0; pivot < 3; pivot += 1) {
+        let maxRow = pivot;
+        for (let row = pivot + 1; row < 3; row += 1) {
+          if (Math.abs(matrix[row][pivot]) > Math.abs(matrix[maxRow][pivot])) maxRow = row;
+        }
+        [matrix[pivot], matrix[maxRow]] = [matrix[maxRow], matrix[pivot]];
+        if (Math.abs(matrix[pivot][pivot]) < .00001) return null;
+        const divisor = matrix[pivot][pivot];
+        for (let column = pivot; column < 4; column += 1) matrix[pivot][column] /= divisor;
+        for (let row = 0; row < 3; row += 1) {
+          if (row === pivot) continue;
+          const factor = matrix[row][pivot];
+          for (let column = pivot; column < 4; column += 1) matrix[row][column] -= factor * matrix[pivot][column];
+        }
+      }
+      const coefficients = { a:matrix[0][3], b:matrix[1][3], c:matrix[2][3] };
+      return coefficients.a > 0 && Object.values(coefficients).every(Number.isFinite) ? coefficients : null;
+    }
+
+    function modeledHistoricalPace(slopeId, zone) {
+      const historicalZone = (runnerProfileData.zones || {})[zone] || {};
+      const rawPace = Number((historicalZone[slopeId] || {}).avg_pace_s_per_km);
+      const points = Object.entries(historicalZone).map(([id, cell]) => ({
+        x: slopeCenters[id],
+        pace: Number(cell?.avg_pace_s_per_km),
+      })).filter((point) => Number.isFinite(point.x) && point.pace > 0).sort((a, b) => a.x - b.x);
+      const curve = fitPaceCurve(points);
+      if (curve) {
+        const modeledPace = evaluateQuadratic(curve, slopeCenters[slopeId] || 0);
+        if (modeledPace >= 120 && modeledPace <= 7200) return modeledPace;
+      }
+      return rawPace > 0 ? rawPace : null;
+    }
+
     function projectedPaceForSlope(slopeId, zone) {
+      const modeledPace = modeledHistoricalPace(slopeId, zone);
+      if (modeledPace > 0) return { pace: modeledPace, source: 'Courbe modélisée' };
       const preparedPace = Number((runnerPaceLookup[slopeId] || {})[zone]);
       if (preparedPace > 0) return { pace: preparedPace, source: 'Runner profil' };
       const historicalZone = (runnerProfileData.zones || {})[zone] || {};
@@ -1545,14 +1598,14 @@
       if (zoneNote) {
         zoneNote.textContent = manual
           ? 'Réglage manuel actif : les allures et la VAM de cette projection sont corrigées avec les curseurs ci-dessus, pour cette course uniquement.'
-          : 'Critère basé sur l’historique de vos activités : les allures et la VAM enregistrées dans cette zone cardiaque servent de référence à la projection.';
+          : 'L’allure est modélisée par une courbe lissée selon la pente ; la VAM de projection est calculée depuis cette courbe, comme dans Runner profil.';
       }
       const hasHistoricalData = Object.values(historicalZone).some((cell) => Number(cell?.avg_pace_s_per_km) > 0);
       profileTableTitle.textContent = `Profil utilisé · ${zone}`;
       profileTableNote.textContent = manual
         ? 'Réglages manuels : ajuste les curseurs pour visualiser ton profil.'
         : hasHistoricalData
-          ? 'Historique personnel par pente ; les trous sont complétés pour la simulation.'
+          ? 'Courbe personnelle modélisée à partir de ton historique par pente ; les points bruts servent d’ancrage.'
           : 'Historique insuffisant : active les réglages manuels pour créer un profil de départ.';
       const points = slopeIds.map((slopeId) => {
         const historyCell = historicalZone[slopeId] || {};
@@ -1582,17 +1635,36 @@
         ...yTicks.map((tick) => `<line class="curve-grid" x1="${pad.left}" y1="${yScale(tick)}" x2="${width - pad.right}" y2="${yScale(tick)}"/><text class="curve-axis-label" x="${pad.left - 7}" y="${yScale(tick) + 4}" text-anchor="end">${formatPace(tick).replace(' /km', '')}</text>`),
       ].join('');
       const communityZone = (communityPaceCurves.zones || {})[zone] || {};
-      const communityPoints = (key) => slopeIds.map((slopeId) => {
-        const pace = paceWithCourseDifficulty(Number((communityZone[slopeId] || {})[key]));
-        return Number.isFinite(pace) && pace > 0 ? { x:slopeCenters[slopeId], pace } : null;
-      }).filter(Boolean).sort((a, b) => a.x - b.x);
+      const communityPoints = (key) => {
+        const rawPoints = slopeIds.map((slopeId) => ({
+          slopeId,
+          x: slopeCenters[slopeId],
+          pace: Number((communityZone[slopeId] || {})[key]),
+        })).filter((point) => Number.isFinite(point.x) && point.pace > 0).sort((a, b) => a.x - b.x);
+        const curve = fitPaceCurve(rawPoints);
+        if (!curve) return rawPoints.map((point) => ({ ...point, pace:paceWithCourseDifficulty(point.pace) }));
+        return slopeIds.map((slopeId) => {
+          const x = slopeCenters[slopeId];
+          const pace = evaluateQuadratic(curve, x);
+          return Number.isFinite(pace) && pace >= 120 && pace <= 7200
+            ? { slopeId, x, pace:paceWithCourseDifficulty(pace) }
+            : null;
+        }).filter(Boolean).sort((a, b) => a.x - b.x);
+      };
       const p10Points = communityPoints('p10');
       const p50Points = communityPoints('p50');
       const p90Points = communityPoints('p90');
       const referenceRange = p10Points.map((fastPoint) => {
         const prudentPoint = p90Points.find((point) => Math.abs(point.x - fastPoint.x) < .001);
         const medianPoint = p50Points.find((point) => Math.abs(point.x - fastPoint.x) < .001);
-        return prudentPoint && medianPoint ? { fastPoint, prudentPoint, medianPoint } : null;
+        if (!prudentPoint || !medianPoint) return null;
+        const fastPace = Math.min(fastPoint.pace, prudentPoint.pace);
+        const prudentPace = Math.max(fastPoint.pace, prudentPoint.pace);
+        return {
+          fastPoint: { ...fastPoint, pace:fastPace },
+          prudentPoint: { ...prudentPoint, pace:prudentPace },
+          medianPoint: { ...medianPoint, pace:Math.max(fastPace, Math.min(prudentPace, medianPoint.pace)) },
+        };
       }).filter(Boolean);
       const rangePath = referenceRange.length > 1
         ? `M ${referenceRange.map(({ fastPoint }) => `${xScale(fastPoint.x).toFixed(1)} ${yScale(fastPoint.pace).toFixed(1)}`).join(' L ')} L ${referenceRange.slice().reverse().map(({ prudentPoint }) => `${xScale(prudentPoint.x).toFixed(1)} ${yScale(prudentPoint.pace).toFixed(1)}`).join(' L ')} Z`
@@ -1605,11 +1677,11 @@
         ? `<path class="cohort-band" d="${rangePath}"/><path class="cohort-median" d="${medianPath}"/>`
         : '';
       if (hasCommunityRange) {
-        profileTableNote.textContent += ` · Repères anonymisés (minimum ${communityPaceCurves.minimum_runners || 8} coureurs par pente).`;
+        profileTableNote.textContent += ` · Plages de performance anonymisées et lissées (minimum ${communityPaceCurves.minimum_runners || 8} coureurs par pente).`;
       }
       const dots = points.map((point) => `<circle class="curve-point" cx="${xScale(point.x)}" cy="${yScale(point.pace)}" r="3"><title>${slopeLabels[point.slopeId]} · ${formatPace(point.pace)} · ${point.source}</title></circle>`).join('');
       const referenceLegend = hasCommunityRange
-        ? '<div class="cohort-reference-legend"><i aria-hidden="true"></i><span>La plage représente les performances historiques des <b>10 % de coureurs les plus rapides</b> et des <b>10 % les moins rapides</b> pour l’intensité sélectionnée. La ligne pointillée indique la performance médiane.</span></div>'
+        ? '<div class="cohort-reference-legend"><i aria-hidden="true"></i><span>Les courbes lissées délimitent les performances modélisées des <b>10 % de coureurs les plus rapides</b> et des <b>10 % les moins rapides</b>. La ligne pointillée indique la performance médiane modélisée.</span></div>'
         : '';
       profileCurve.innerHTML = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">${grid}${communityPaths}<path class="curve-line" d="${path}"/>${dots}<text class="curve-axis-label" x="${width / 2}" y="${height - 1}" text-anchor="middle">Pente</text><text class="curve-axis-label" x="12" y="${height / 2}" transform="rotate(-90 12 ${height / 2})" text-anchor="middle">Allure</text></svg>${referenceLegend}`;
       if (profileLiveData) {

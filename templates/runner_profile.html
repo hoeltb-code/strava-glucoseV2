@@ -581,6 +581,53 @@
   .runner-data-kpi-value { font-size:clamp(1.55rem,2.5vw,2.15rem); }
   .analytics-panel,.runner-section,.drift-history { box-shadow:none; }
 
+  /* Onglets performance : une lecture guidée avant les données détaillées. */
+  .performance-tab { --performance-accent:var(--data-orange); --performance-soft:#fff1eb; padding:0!important; overflow:hidden; }
+  .performance-tab[data-section="vam"] { --performance-accent:#347f96; --performance-soft:#eaf4f6; }
+  .performance-hero { display:grid; grid-template-columns:minmax(0,1fr) minmax(220px,280px); gap:26px; align-items:end; padding:28px; border-bottom:1px solid #e6e1d8; background:linear-gradient(130deg,#fff 0 62%,var(--performance-soft)); }
+  .performance-kicker { display:block; margin-bottom:8px; color:var(--performance-accent); font:800 .65rem "DM Mono",monospace; letter-spacing:.11em; text-transform:uppercase; }
+  .performance-hero h3 { max-width:760px; margin:0 0 8px!important; font-size:clamp(1.45rem,2.7vw,2rem)!important; line-height:1.12; }
+  .performance-hero-copy { max-width:720px; margin:0!important; color:var(--data-muted)!important; font-size:.83rem!important; }
+  .performance-zone-control { padding:14px; border:1px solid rgba(36,35,31,.1); border-radius:15px; background:rgba(255,255,255,.82); }
+  .performance-zone-control label { display:block!important; margin:0!important; color:var(--data-muted); font:700 .63rem "DM Mono",monospace; letter-spacing:.08em; text-transform:uppercase; }
+  .performance-zone-control select { width:100%; margin-top:7px; border-color:#d9d3c9; background:#fff; color:var(--data-ink); font-weight:800; }
+  .performance-zone-control p { min-height:32px; margin:7px 0 0!important; color:var(--data-muted)!important; font-size:.67rem!important; line-height:1.4; }
+  .performance-body { padding:24px 28px 28px; }
+  .performance-explainer { display:flex; gap:10px; align-items:flex-start; margin:0 0 18px!important; padding:12px 14px; border:0; border-radius:13px; background:var(--performance-soft); color:var(--data-ink)!important; font-size:.74rem!important; }
+  .performance-explainer::before { content:"i"; display:grid; flex:0 0 20px; width:20px; height:20px; place-items:center; border-radius:50%; background:var(--performance-accent); color:#fff; font:800 .68rem "DM Mono",monospace; }
+  .performance-insights-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-bottom:16px; }
+  .performance-insight,.vam-efficiency-card.performance-insight { display:block; min-height:118px; margin:0; padding:16px; border:1px solid #e3ded5; border-radius:15px; background:#faf8f4; }
+  .performance-insight.is-primary,.vam-efficiency-card.performance-insight.is-primary { border-color:color-mix(in srgb,var(--performance-accent) 35%,#e3ded5); background:var(--performance-soft); }
+  .performance-insight-label { display:block; color:var(--data-muted); font:700 .61rem "DM Mono",monospace; letter-spacing:.08em; text-transform:uppercase; }
+  .performance-insight-value { display:block; margin:12px 0 4px; color:var(--data-ink); font-size:1.55rem; font-weight:800; letter-spacing:-.05em; font-variant-numeric:tabular-nums; }
+  .performance-insight-copy { display:block; color:var(--data-muted); font-size:.69rem; line-height:1.4; }
+  .vam-efficiency-card.performance-insight { grid-template-columns:1fr; }
+  .vam-efficiency-card.performance-insight .vam-efficiency-value { margin:12px 0 4px; color:var(--data-ink); font-size:1.55rem; }
+  .vam-efficiency-card.performance-insight .vam-efficiency-value small { display:inline; margin-left:4px; color:var(--data-muted); }
+  .vam-efficiency-card.performance-insight .vam-efficiency-copy strong { font-size:.73rem; }
+  .vam-efficiency-card.performance-insight .vam-efficiency-copy span { margin-top:3px; font-size:.67rem; }
+  .performance-chart { margin:0!important; padding:20px; border-color:#e3ded5; border-radius:17px; background:#fff!important; }
+  .performance-chart .pace-curve-head { align-items:center; margin-bottom:3px; }
+  .performance-chart h4 { margin:0!important; font-size:1rem!important; }
+  .performance-chart-legend { display:flex; flex-wrap:wrap; gap:7px; }
+  .performance-chart-legend span { display:inline-flex; align-items:center; gap:5px; color:var(--data-muted); font-size:.63rem; }
+  .performance-chart-legend i { display:block; width:18px; height:3px; border-radius:5px; background:var(--performance-accent); }
+  .performance-chart-legend .is-dot i { width:6px; height:6px; border-radius:50%; opacity:.45; }
+  .performance-chart .pace-curve-canvas { height:340px; }
+  .performance-details { margin-top:14px; border:1px solid #e3ded5; border-radius:14px; background:#faf8f4; overflow:hidden; }
+  .performance-details summary { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; cursor:pointer; color:var(--data-ink); font-size:.76rem; font-weight:800; list-style:none; }
+  .performance-details summary::-webkit-details-marker { display:none; }
+  .performance-details summary::after { content:"+"; color:var(--performance-accent); font-size:1.1rem; }
+  .performance-details[open] summary::after { content:"−"; }
+  .performance-details .runner-table-scroll { margin:0; padding:0 16px 14px; }
+  .performance-details table { background:#fff; }
+  .performance-empty { padding:28px; text-align:center; }
+
+  /* Les autres onglets héritent d'une présentation plus légère et cohérente. */
+  .runner-section:not(.performance-tab) > h3:first-child { max-width:760px; }
+  .runner-section:not(.performance-tab) > .muted:first-of-type { max-width:760px; }
+  .runner-section .runner-table-scroll { border-radius:14px; }
+
   @media(max-width:900px){
     body:has(.runner-page) { padding-bottom:24px!important; background:#f3f2f6; }
     body:has(.runner-page) > .container { width:100%; padding:0 0 24px; }
@@ -608,10 +655,38 @@
     .analytics-list { display:grid; grid-template-columns:1fr; margin-top:18px; }
     .analytics-item { min-height:0; padding:16px; border:0; border-radius:16px; background:#f5f3ef; }
     .runner-layout { display:block; }
-    .runner-sidebar { display:none!important; }
+    .runner-sidebar {
+      position:sticky!important;
+      top:62px;
+      z-index:20;
+      display:flex!important;
+      gap:7px;
+      margin:0 12px 14px;
+      padding:8px!important;
+      overflow-x:auto;
+      border:1px solid rgba(36,35,31,.08);
+      border-radius:18px;
+      background:rgba(255,255,255,.94);
+      box-shadow:0 7px 24px rgba(36,35,31,.08)!important;
+      scrollbar-width:none;
+      backdrop-filter:blur(14px);
+    }
+    .runner-sidebar::-webkit-scrollbar { display:none; }
+    .runner-sidebar-title { display:none; }
+    .runner-sidebar a {
+      flex:0 0 auto;
+      margin:0;
+      padding:10px 13px!important;
+      border:0!important;
+      border-radius:12px;
+      white-space:nowrap;
+      background:transparent;
+      font-size:.72rem!important;
+    }
+    .runner-sidebar a.is-active { background:var(--data-ink)!important; color:#fff!important; }
     .runner-layout main { padding:0 12px; }
     .runner-section {
-      display:block!important;
+      display:none!important;
       margin:14px 0!important;
       padding:20px 18px!important;
       border:0!important;
@@ -619,12 +694,23 @@
       background:#fff!important;
       box-shadow:none!important;
     }
+    .runner-section.is-active { display:block!important; }
     .runner-section::before { display:none; }
     .runner-section h3 { padding:0; font-size:1.35rem!important; }
     .runner-section p,.runner-section .muted { font-size:.82rem!important; }
     .pace-curve-card,.drift-hero,.drift-history,.glucose-chart-card,.glucose-now-card,.glucose-period { border-radius:17px!important; box-shadow:none!important; }
     .pace-curve-canvas { height:235px; }
     .runner-table-scroll { margin-left:-2px; margin-right:-2px; }
+    .performance-tab { padding:0!important; }
+    .performance-hero { grid-template-columns:1fr; gap:16px; padding:22px 18px; }
+    .performance-body { padding:18px; }
+    .performance-insights-grid { grid-template-columns:1fr; }
+    .performance-insight,.vam-efficiency-card.performance-insight { min-height:0; }
+    .performance-chart { padding:15px; }
+    .performance-chart .pace-curve-head { display:block; }
+    .performance-chart-legend { margin-top:8px; }
+    .performance-chart .pace-curve-canvas { height:270px; }
+    .performance-details .runner-table-scroll { margin:0; }
   }
 </style>
 {% set needs_chart_js = (profile.zones and profile.zones|length > 0) or (show_glucose_tabs and (
@@ -927,30 +1013,43 @@
         </div>
       </div>
 
-    <div class="card runner-section {% if tab == 'vam' %}is-active{% endif %}" style="padding:14px;" data-section="vam">
+    <div class="card runner-section performance-tab {% if tab == 'vam' %}is-active{% endif %}" data-section="vam">
         {% if profile.zones and profile.zones|length > 0 %}
-          <h3 style="margin:0 0 10px 0; font-size:0.95rem;">
-            VAM (m/h) par % de pente et zone cardio
-          </h3>
-          <p class="muted" style="margin:0 0 10px 0; font-size:0.8rem;">
-            Compare la réponse verticale par zone cardio, aussi bien en montée qu’en descente.
-          </p>
-          <p class="vam-reference-note">La <strong>VAM modélisée</strong>, calculée depuis la courbe d’allure lissée et le centre de chaque tranche de pente, est la base de référence utilisée pour les projections de course. La VAM observée reste affichée pour comparer le modèle à ton historique brut.</p>
-          <label class="pace-zone-select" style="display:inline-flex; align-items:center; gap:8px; margin-bottom:2px;">
-            Zone cardio affichée
-            <select id="vamZone" aria-label="Zone cardio affichée pour la VAM">{% for z in hr_zones %}<option value="{{ z }}" {% if z == "Zone 2" %}selected{% endif %}>{{ z }}</option>{% endfor %}</select>
-          </label>
-          <p id="vamZoneHeartRate" class="muted" style="margin:2px 0 8px; font-size:.75rem;"></p>
-          <div class="vam-efficiency-card" id="vamBestEfficiency" aria-live="polite"></div>
+          <header class="performance-hero">
+            <div>
+              <span class="performance-kicker">Rendement vertical</span>
+              <h3>Où es-tu le plus efficace en montée et en descente ?</h3>
+              <p class="performance-hero-copy">La VAM traduit ta vitesse verticale. La courbe révèle les pentes sur lesquelles tu transformes le mieux ton effort cardio en dénivelé.</p>
+            </div>
+            <div class="performance-zone-control">
+              <label for="vamZone">Intensité analysée</label>
+              <select id="vamZone" aria-label="Zone cardio affichée pour la VAM">{% for z in hr_zones %}<option value="{{ z }}" {% if z == "Zone 2" %}selected{% endif %}>{{ z }}</option>{% endfor %}</select>
+              <p id="vamZoneHeartRate"></p>
+            </div>
+          </header>
 
-          <article class="pace-curve-card pace-curve-card-wide">
-            <div class="pace-curve-head"><h4>Courbe de VAM modélisée par pente</h4></div>
-            <p>La ligne constitue la référence des projections ; les points atténués représentent les observations historiques.</p>
+          <div class="performance-body">
+            <p class="performance-explainer"><span>La ligne modélisée, issue de l’allure lissée, sert aux projections de course. Les points observés permettent de vérifier comment le modèle s’appuie sur ton historique réel.</span></p>
+
+            <div class="performance-insights-grid" aria-live="polite">
+              <div class="vam-efficiency-card performance-insight is-primary" id="vamBestEfficiency"></div>
+              <article class="performance-insight" id="vamClimbReading"></article>
+              <article class="performance-insight" id="vamDescentReading"></article>
+            </div>
+
+          <article class="pace-curve-card pace-curve-card-wide performance-chart">
+            <div class="pace-curve-head">
+              <h4>Ton rendement selon la pente</h4>
+              <div class="performance-chart-legend" aria-label="Légende"><span><i></i>Modélisée</span><span class="is-dot"><i></i>Observée</span></div>
+            </div>
+            <p>Au-dessus de zéro : montée. En dessous : descente. Une valeur plus éloignée de zéro indique une vitesse verticale plus élevée.</p>
             <div class="pace-curve-canvas"><canvas id="vamSlopeChart"></canvas></div>
           </article>
 
-          <div class="runner-table-scroll">
-            <table class="runner-two-column-table" style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+          <details class="performance-details">
+            <summary>Voir les valeurs par tranche de pente</summary>
+            <div class="runner-table-scroll">
+              <table class="runner-two-column-table" style="width:100%; border-collapse:collapse; font-size:0.8rem;">
               <thead>
               <tr style="border-bottom:1px solid #e5e7eb;">
                 <th style="text-align:left; padding:4px 2px;">Pente</th>
@@ -959,7 +1058,9 @@
               </tr>
             </thead>
             <tbody id="vamZoneTable"></tbody>
-          </table>
+              </table>
+            </div>
+          </details>
           </div>
           <script>
             (function() {
@@ -1144,9 +1245,16 @@
                     const cell = ((profileData.zones || {})[zone] || {})[slopeId];
                     let value = '–';
                     let observedValue = '–';
-                    if (metric === 'pace' && Number(cell?.avg_pace_s_per_km) > 0) {
-                      const seconds = Math.round(Number(cell.avg_pace_s_per_km));
-                      value = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+                    if (metric === 'pace') {
+                      const modeledPace = modeledPaceFor(zone, slopeId);
+                      if (Number.isFinite(modeledPace) && modeledPace > 0) {
+                        const seconds = Math.round(modeledPace);
+                        value = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+                      }
+                      if (Number(cell?.avg_pace_s_per_km) > 0) {
+                        const observedSeconds = Math.round(Number(cell.avg_pace_s_per_km));
+                        observedValue = `${Math.floor(observedSeconds / 60)}:${String(observedSeconds % 60).padStart(2, '0')}`;
+                      }
                     }
                     if (metric === 'vam') {
                       const modeledVam = modeledVamFor(zone, slopeId);
@@ -1160,13 +1268,37 @@
                         observedValue = `${cell?.vam_is_estimated ? '≈' : ''}${observed >= 0 ? '+' : ''}${observed}`;
                       }
                     }
-                    return { slopeId, slopeLabel, modeledVam:metric === 'vam' ? modeledVamFor(zone, slopeId) : null, html:`<tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:4px 2px;">${slopeLabel}</td><td style="text-align:right; padding:4px 2px;">${value}</td>${metric === 'vam' ? `<td style="text-align:right; padding:4px 2px; color:var(--text-muted);">${observedValue}</td>` : ''}</tr>` };
+                    return { slopeId, slopeLabel, modeledVam:metric === 'vam' ? modeledVamFor(zone, slopeId) : null, html:`<tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:4px 2px;">${slopeLabel}</td><td style="text-align:right; padding:4px 2px; font-weight:700;">${value}</td><td style="text-align:right; padding:4px 2px; color:var(--text-muted);">${observedValue}</td></tr>` };
                   });
                   table.innerHTML = modeledRows.map((row) => row.html).join('');
                   if (metric === 'vam') {
                     const best = modeledRows.filter((row) => slopeCenters[row.slopeId] > 0 && Number.isFinite(row.modeledVam)).sort((a, b) => b.modeledVam - a.modeledVam)[0];
                     const efficiency = document.getElementById('vamBestEfficiency');
-                    if (efficiency) efficiency.innerHTML = best ? `<div class="vam-efficiency-value">+${Math.round(best.modeledVam)}<small>m/h</small></div><div class="vam-efficiency-copy"><strong>Meilleur rendement modélisé · ${best.slopeLabel}</strong><span>Pente représentative ${slopeCenters[best.slopeId]} % · ${zone}. Ce maximum sert de repère de rendement vertical, pas d’allure cible à maintenir en permanence.</span></div>` : '<div class="vam-efficiency-copy"><strong>Rendement non disponible</strong><span>Pas encore assez de données d’allure pour modéliser cette zone.</span></div>';
+                    if (efficiency) efficiency.innerHTML = best ? `<span class="performance-insight-label">Meilleur rendement</span><div class="vam-efficiency-value">+${Math.round(best.modeledVam)}<small>m/h</small></div><div class="vam-efficiency-copy"><strong>${best.slopeLabel}</strong><span>Sommet de ta courbe modélisée en ${zone}.</span></div>` : '<span class="performance-insight-label">Meilleur rendement</span><div class="vam-efficiency-copy"><strong>Non disponible</strong><span>Continue à enregistrer des sorties avec cardio.</span></div>';
+                    const vamInsight = (elementId, label, slopeId, copy) => {
+                      const element = document.getElementById(elementId);
+                      if (!element) return;
+                      const vam = modeledVamFor(zone, slopeId);
+                      const value = Number.isFinite(vam) && vam !== 0 ? `${vam > 0 ? '+' : '−'}${Math.abs(Math.round(vam))} m/h` : '—';
+                      element.innerHTML = `<span class="performance-insight-label">${label}</span><strong class="performance-insight-value">${value}</strong><span class="performance-insight-copy">${copy} · ${zone}</span>`;
+                    };
+                    vamInsight('vamClimbReading', 'Montée soutenue', 'S10_15', 'Repère sur une pente de 10 à 15 %');
+                    vamInsight('vamDescentReading', 'Descente modérée', 'Sneg5_10', 'Repère sur une pente de −5 à −10 %');
+                  } else {
+                    const paceInsights = document.getElementById('paceKeyInsights');
+                    if (paceInsights) {
+                      const paceCards = [
+                        ['Descente modérée', 'Sneg5_10', 'Pente de −5 à −10 %'],
+                        ['Terrain roulant', 'S0_5', 'Pente de 0 à 5 %'],
+                        ['Montée soutenue', 'S10_15', 'Pente de 10 à 15 %'],
+                      ];
+                      paceInsights.innerHTML = paceCards.map(([label, slopeId, copy], index) => {
+                        const pace = modeledPaceFor(zone, slopeId);
+                        const seconds = Number.isFinite(pace) && pace > 0 ? Math.round(pace) : null;
+                        const value = seconds ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')} /km` : '—';
+                        return `<article class="performance-insight${index === 1 ? ' is-primary' : ''}"><span class="performance-insight-label">${label}</span><strong class="performance-insight-value">${value}</strong><span class="performance-insight-copy">${copy} · ${zone}</span></article>`;
+                      }).join('');
+                    }
                   }
                 };
                 select.addEventListener('change', update);
@@ -1178,42 +1310,54 @@
             })();
           </script>
         {% else %}
-          <p class="muted" style="margin:0;">
+          <p class="muted performance-empty">
             Aucune donnée d’agrégats trouvée pour ce profil (sport={{ sport }}, période={{ period }}).
           </p>
         {% endif %}
       </div>
 
-    <div class="card runner-section {% if tab == 'pace' %}is-active{% endif %}" style="padding:14px;" data-section="pace">
+    <div class="card runner-section performance-tab {% if tab == 'pace' %}is-active{% endif %}" data-section="pace">
         {% if profile.zones and profile.zones|length > 0 %}
-          <h3 style="margin:0 0 10px 0; font-size:0.95rem;">
-            Allure moyenne (min/km) par % de pente et zone cardio
-          </h3>
-          <p class="muted" style="margin:0 0 10px 0; font-size:0.8rem;">
-            Une courbe lissée pour visualiser ton allure, de la descente à la montée.
-            Sélectionne une zone cardio pour la mettre en avant.
-          </p>
-          <label class="pace-zone-select" style="display:inline-flex; align-items:center; gap:8px; margin-bottom:2px;">
-            Zone cardio affichée
-            <select id="paceZone" aria-label="Zone cardio affichée pour les allures">{% for z in hr_zones %}<option value="{{ z }}" {% if z == "Zone 2" %}selected{% endif %}>{{ z }}</option>{% endfor %}</select>
-          </label>
-          <p id="paceZoneHeartRate" class="muted" style="margin:2px 0 8px; font-size:.75rem;"></p>
+          <header class="performance-hero">
+            <div>
+              <span class="performance-kicker">Signature d’allure</span>
+              <h3>Comment ton allure évolue-t-elle avec le terrain ?</h3>
+              <p class="performance-hero-copy">Observe ce que deviennent tes min/km quand la pente change, à intensité cardio comparable. Cette courbe constitue la base de tes projections.</p>
+            </div>
+            <div class="performance-zone-control">
+              <label for="paceZone">Intensité analysée</label>
+              <select id="paceZone" aria-label="Zone cardio affichée pour les allures">{% for z in hr_zones %}<option value="{{ z }}" {% if z == "Zone 2" %}selected{% endif %}>{{ z }}</option>{% endfor %}</select>
+              <p id="paceZoneHeartRate"></p>
+            </div>
+          </header>
 
-          <article class="pace-curve-card pace-curve-card-wide">
-            <div class="pace-curve-head"><h4>Courbe d’allure par pente</h4></div>
-            <p>Une lecture continue, des descentes aux montées.</p>
+          <div class="performance-body">
+            <p class="performance-explainer"><span>La courbe lisse les variations de tes sorties pour produire un profil continu. Les valeurs clés ci-dessous facilitent la lecture entre descente, roulant et montée.</span></p>
+
+            <div class="performance-insights-grid" id="paceKeyInsights" aria-live="polite"></div>
+
+          <article class="pace-curve-card pace-curve-card-wide performance-chart">
+            <div class="pace-curve-head">
+              <h4>Ta courbe d’allure modélisée</h4>
+              <div class="performance-chart-legend" aria-label="Légende"><span><i></i>Modélisée</span><span class="is-dot"><i></i>Observée</span></div>
+            </div>
+            <p>À gauche les descentes, au centre le roulant, à droite les montées. Plus la courbe est haute, plus l’allure est rapide.</p>
             <div class="pace-curve-canvas"><canvas id="paceSlopeChart"></canvas></div>
           </article>
 
-          <div class="runner-table-scroll">
-            <table class="runner-two-column-table" style="width:100%; border-collapse:collapse; font-size:0.8rem;">
-            <thead><tr style="border-bottom:1px solid #e5e7eb;"><th style="text-align:left; padding:4px 2px;">Pente</th><th id="paceZoneTableTitle" style="text-align:right; padding:4px 2px;">Zone 2 · allure (min/km)</th></tr></thead>
-            <tbody id="paceZoneTable"></tbody>
-          </table>
+          <details class="performance-details">
+            <summary>Comparer le modèle aux allures observées</summary>
+            <div class="runner-table-scroll">
+              <table class="runner-two-column-table" style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                <thead><tr style="border-bottom:1px solid #e5e7eb;"><th style="text-align:left; padding:4px 2px;">Pente</th><th id="paceZoneTableTitle" style="text-align:right; padding:4px 2px;">Zone 2 · modélisée</th><th style="text-align:right; padding:4px 2px;">Observée</th></tr></thead>
+                <tbody id="paceZoneTable"></tbody>
+              </table>
+            </div>
+          </details>
           </div>
 
         {% else %}
-          <p class="muted" style="margin:0;">
+          <p class="muted performance-empty">
             Aucune donnée d’agrégats trouvée pour ce profil (sport={{ sport }}, période={{ period }}).
           </p>
         {% endif %}
@@ -2254,6 +2398,14 @@
       resultBox.innerHTML = "";
     }
   }
+</script>
+
+<script>
+  window.addEventListener('DOMContentLoaded', () => {
+    if (!window.matchMedia('(max-width: 900px)').matches) return;
+    const activeTab = document.querySelector('.runner-sidebar .runner-nav-link.is-active');
+    if (activeTab) activeTab.scrollIntoView({ behavior:'auto', block:'nearest', inline:'center' });
+  });
 </script>
 
 </div>

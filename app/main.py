@@ -9419,6 +9419,38 @@ def ui_reset_password_apply(
 #-----------------------------------------------------------------------------
 #-------------------UI : Dashboard utilisateur -----------------------
 #-----------------------------------------------------------------------------
+@app.get("/ui/user/{user_id}/runner-profile/history", response_class=JSONResponse)
+def ui_runner_profile_history(
+    request: Request,
+    user_id: int,
+    months: int = Query(6),
+):
+    """Retourne le profil d'allure limité à une fenêtre récente choisie."""
+    guard = _guard_user_route(request, user_id)
+    if guard:
+        return guard
+    if months not in {3, 6, 12}:
+        raise HTTPException(status_code=422, detail="La période doit être de 3, 6 ou 12 mois.")
+
+    db = SessionLocal()
+    try:
+        date_from = dt.datetime.utcnow() - dt.timedelta(days={3: 92, 6: 183, 12: 365}[months])
+        profile = build_runner_profile(
+            db,
+            user_id=user_id,
+            sport="run",
+            date_from=date_from,
+        )
+        # On laisse FastAPI encoder les dates présentes dans ``profile.period``.
+        return {
+            "months": months,
+            "has_data": bool(profile.get("zones")),
+            "profile": profile,
+        }
+    finally:
+        db.close()
+
+
 @app.get("/ui/user/{user_id}", response_class=HTMLResponse)
 def ui_user_dashboard(user_id: int, request: Request):
     """

@@ -9424,21 +9424,27 @@ def ui_runner_profile_history(
     request: Request,
     response: Response,
     user_id: int,
-    months: int = Query(6),
+    period: str = Query("last_6_months"),
 ):
-    """Retourne le profil d'allure limité à une fenêtre récente choisie."""
+    """Retourne le même profil périodisé que la page Runner profil."""
     guard = _guard_user_route(request, user_id)
     if guard:
         return guard
-    if months not in {3, 6, 12}:
-        raise HTTPException(status_code=422, detail="La période doit être de 3, 6 ou 12 mois.")
+    period_windows = {
+        "last_3_months": (3, 92),
+        "last_6_months": (6, 183),
+        "last_12_months": (12, 365),
+    }
+    if period not in period_windows:
+        raise HTTPException(status_code=422, detail="Période historique invalide.")
     # Cette réponse dépend du mois choisi : ni le navigateur ni un CDN ne doit
     # réutiliser le profil d'une période précédente.
     response.headers["Cache-Control"] = "no-store, max-age=0"
 
     db = SessionLocal()
     try:
-        date_from = dt.datetime.utcnow() - dt.timedelta(days={3: 92, 6: 183, 12: 365}[months])
+        months, window_days = period_windows[period]
+        date_from = dt.datetime.utcnow() - dt.timedelta(days=window_days)
         activities_count = (
             db.query(func.count(Activity.id))
             .filter(
@@ -9449,18 +9455,47 @@ def ui_runner_profile_history(
             .scalar()
             or 0
         )
-        profile = build_runner_profile(
+        # Même source et même ordre de repli que dans ui_runner_profile :
+        # archive mensuelle, reconstruction de l'archive, puis calcul direct.
+        profile = get_cached_runner_profile(
             db,
             user_id=user_id,
             sport="run",
             date_from=date_from,
         )
+        if not profile or not profile.get("zones"):
+            rebuilt_months = rebuild_runner_profile_range_from_contributions(
+                db,
+                user_id=user_id,
+                sport="run",
+                date_from=date_from,
+            )
+            if rebuilt_months:
+                profile = get_cached_runner_profile(
+                    db,
+                    user_id=user_id,
+                    sport="run",
+                    date_from=date_from,
+                )
+        if not profile or not profile.get("zones"):
+            profile = build_runner_profile(
+                db,
+                user_id=user_id,
+                sport="run",
+                date_from=date_from,
+            )
+        pace_lookup = _build_pace_lookup_from_profile(
+            profile,
+            [name for (name, _, _) in HR_ZONES],
+        )
         # On laisse FastAPI encoder les dates présentes dans ``profile.period``.
         return {
+            "period": period,
             "months": months,
             "has_data": bool(profile.get("zones")),
             "activities_count": int(activities_count),
             "profile": profile,
+            "pace_lookup_by_slope": pace_lookup,
         }
     finally:
         db.close()

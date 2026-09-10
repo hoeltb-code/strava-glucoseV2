@@ -808,9 +808,9 @@
           <h4 class="pace-choice-kicker">Sur base de mon historique de sorties</h4>
           <label class="pace-choice-field-label" for="home-history-window">Période analysée</label>
           <select id="home-history-window">
-            <option value="3">3 derniers mois</option>
-            <option value="6" selected>6 derniers mois</option>
-            <option value="12">12 derniers mois</option>
+            <option value="last_3_months">3 derniers mois</option>
+            <option value="last_6_months" selected>6 derniers mois</option>
+            <option value="last_12_months">12 derniers mois</option>
           </select>
           <p class="history-window-note" id="home-history-window-note">Les allures de tes 6 derniers mois servent de référence.</p>
           <label class="pace-choice-field-label" for="home-projection-zone">Intensité visée pour la course</label>
@@ -1006,6 +1006,7 @@
     const planPaymentPilotEnabled = {{ plan_payment_test_enabled | default(false) | tojson }};
     const planCredits = Number({{ plan_credits | default(0) | tojson }});
     let runnerProfileData = {{ runner_profile_overview | default({}) | tojson | safe }};
+    let runnerPaceLookup = {{ dashboard_pace_lookup | default({}) | tojson | safe }};
     const communityPaceCurves = {{ dashboard_cohort_curves | default({}) | tojson | safe }};
     const officialCourses = {{ official_courses | default([]) | tojson | safe }};
     const resumedCoursePlan = {{ resume_course_plan | default(none) | tojson | safe }};
@@ -1244,25 +1245,27 @@
     }
 
     async function loadHistoryProfileForWindow({ force = false } = {}) {
-      const months = Number(historyWindowInput?.value || 6);
-      if (![3, 6, 12].includes(months) || (!force && loadedHistoryWindow === months)) return;
+      const period = historyWindowInput?.value || 'last_6_months';
+      const periodMonths = { last_3_months: 3, last_6_months: 6, last_12_months: 12 };
+      if (!periodMonths[period] || (!force && loadedHistoryWindow === period)) return;
       if (historyProfileRequest) {
-        pendingHistoryWindow = months;
+        pendingHistoryWindow = period;
         return;
       }
-      historyProfileRequest = months;
+      historyProfileRequest = period;
       if (historyWindowInput) historyWindowInput.disabled = true;
       if (historyWindowNote) historyWindowNote.textContent = 'Mise à jour des allures de ton historique…';
       try {
         const profileUrl = new URL(`/ui/user/{{ user.id }}/runner-profile/history`, window.location.origin);
-        profileUrl.searchParams.set('months', String(months));
+        profileUrl.searchParams.set('period', period);
         profileUrl.searchParams.set('_', String(Date.now()));
         const response = await fetch(profileUrl, { cache: 'no-store', headers: { Accept: 'application/json', 'Cache-Control': 'no-cache' } });
         if (!response.ok) throw new Error('Profil historique indisponible');
         const payload = await response.json();
-        if (historyProfileRequest !== months) return;
+        if (historyProfileRequest !== period) return;
         runnerProfileData = payload.profile || { zones: {} };
-        loadedHistoryWindow = months;
+        runnerPaceLookup = payload.pace_lookup_by_slope || {};
+        loadedHistoryWindow = period;
         renderProfilePacingTable();
         renderArchivedProfileTable();
         if (refreshLiveProjection) refreshLiveProjection();
@@ -1271,16 +1274,16 @@
           const activityCount = Number(payload.activities_count || 0);
           const activityLabel = `${activityCount} ${activityCount > 1 ? 'sorties analysées' : 'sortie analysée'}`;
           historyWindowNote.textContent = payload.has_data
-            ? `Période active : ${months} derniers mois · ${activityLabel}. Projection recalculée.`
-            : `Pas encore assez de données sur les ${months} derniers mois (${activityLabel}) : tu peux utiliser le paramétrage manuel.`;
+            ? `Période active : ${payload.months} derniers mois · ${activityLabel}. Projection recalculée.`
+            : `Pas encore assez de données sur les ${payload.months} derniers mois (${activityLabel}) : tu peux utiliser le paramétrage manuel.`;
         }
       } catch (error) {
         console.warn('[runner-profile] historique par période', error);
         if (historyWindowNote) historyWindowNote.textContent = 'Impossible de mettre à jour la période pour le moment. Ton profil actuel reste utilisé.';
       } finally {
-        if (historyProfileRequest === months) historyProfileRequest = null;
+        if (historyProfileRequest === period) historyProfileRequest = null;
         if (historyWindowInput) historyWindowInput.disabled = false;
-        if (pendingHistoryWindow && pendingHistoryWindow !== months) {
+        if (pendingHistoryWindow && pendingHistoryWindow !== period) {
           pendingHistoryWindow = null;
           loadHistoryProfileForWindow({ force: true });
         } else {
@@ -1475,41 +1478,11 @@
       return coefficients.a * x * x + coefficients.b * x + coefficients.c;
     }
 
-    function fitHistoricalCurve(zone) {
-      const historicalZone = (runnerProfileData.zones || {})[zone] || {};
-      const points = slopeIds.map((slopeId) => [slopeCenters[slopeId], Number((historicalZone[slopeId] || {}).avg_pace_s_per_km)])
-        .filter(([, pace]) => pace > 0 && Number.isFinite(pace));
-      if (points.length < 5) return null;
-      const sums = points.reduce((result, [x, y]) => ({
-        n: result.n + 1, x: result.x + x, x2: result.x2 + x * x, x3: result.x3 + x * x * x,
-        x4: result.x4 + x * x * x * x, y: result.y + y, xy: result.xy + x * y, x2y: result.x2y + x * x * y,
-      }), { n: 0, x: 0, x2: 0, x3: 0, x4: 0, y: 0, xy: 0, x2y: 0 });
-      const matrix = [[sums.x4, sums.x3, sums.x2, sums.x2y], [sums.x3, sums.x2, sums.x, sums.xy], [sums.x2, sums.x, sums.n, sums.y]];
-      for (let pivot = 0; pivot < 3; pivot += 1) {
-        let maxRow = pivot;
-        for (let row = pivot + 1; row < 3; row += 1) if (Math.abs(matrix[row][pivot]) > Math.abs(matrix[maxRow][pivot])) maxRow = row;
-        [matrix[pivot], matrix[maxRow]] = [matrix[maxRow], matrix[pivot]];
-        if (Math.abs(matrix[pivot][pivot]) < 0.00001) return null;
-        const divisor = matrix[pivot][pivot];
-        for (let column = pivot; column < 4; column += 1) matrix[pivot][column] /= divisor;
-        for (let row = 0; row < 3; row += 1) {
-          if (row === pivot) continue;
-          const factor = matrix[row][pivot];
-          for (let column = pivot; column < 4; column += 1) matrix[row][column] -= factor * matrix[pivot][column];
-        }
-      }
-      const coefficients = { a: matrix[0][3], b: matrix[1][3], c: matrix[2][3] };
-      return coefficients.a > 0 && Object.values(coefficients).every(Number.isFinite) ? coefficients : null;
-    }
-
     function projectedPaceForSlope(slopeId, zone) {
+      const preparedPace = Number((runnerPaceLookup[slopeId] || {})[zone]);
+      if (preparedPace > 0) return { pace: preparedPace, source: 'Runner profil' };
       const historicalZone = (runnerProfileData.zones || {})[zone] || {};
       const historicalPace = Number((historicalZone[slopeId] || {}).avg_pace_s_per_km);
-      const curve = fitHistoricalCurve(zone);
-      if (curve) {
-        const smoothed = evaluateQuadratic(curve, slopeCenters[slopeId] || 0);
-        if (smoothed >= 120 && smoothed <= 7200) return { pace: smoothed, source: 'Lissé' };
-      }
       if (historicalPace > 0) return { pace: historicalPace, source: 'Historique' };
       return { pace: manualPaceForSlope(slopeId), source: 'Courbe de départ' };
     }
@@ -1961,7 +1934,7 @@
     });
     function collectCoursePlanSettings() {
       return {
-        plan_basis: selectedPlanBasis(), pace_source: selectedPaceSource(), zone: zoneInput?.value || 'Zone 2', history_window_months: historyWindowInput?.value || '6',
+        plan_basis: selectedPlanBasis(), pace_source: selectedPaceSource(), zone: zoneInput?.value || 'Zone 2', history_period: historyWindowInput?.value || 'last_6_months',
         target_hours: targetHoursInput?.value || '0', target_minutes: targetMinutesInput?.value || '0',
         manual_mode: Boolean(manualMode?.checked), flat_speed: flatSpeed?.value || '',
         descent_level: descentLevel?.value || '', ascent_level: ascentLevel?.value || '',
@@ -2089,7 +2062,8 @@
       const setCheckedRadio = (inputs, value) => inputs.find((input) => input.value === value) && (inputs.find((input) => input.value === value).checked = true);
       setCheckedRadio(planBasisInputs, settings.plan_basis);
       setCheckedRadio(paceSourceInputs, settings.pace_source);
-      setValue(zoneInput, settings.zone); setValue(historyWindowInput, settings.history_window_months); setValue(targetHoursInput, settings.target_hours); setValue(targetMinutesInput, settings.target_minutes);
+      const restoredHistoryPeriod = settings.history_period || ({ '3': 'last_3_months', '6': 'last_6_months', '12': 'last_12_months' }[String(settings.history_window_months || '')]);
+      setValue(zoneInput, settings.zone); setValue(historyWindowInput, restoredHistoryPeriod); setValue(targetHoursInput, settings.target_hours); setValue(targetMinutesInput, settings.target_minutes);
       if (manualMode && settings.manual_mode !== undefined) manualMode.checked = Boolean(settings.manual_mode);
       setValue(flatSpeed, settings.flat_speed); setValue(descentLevel, settings.descent_level); setValue(ascentLevel, settings.ascent_level);
       if (advancedAscentMode && settings.advanced_ascent_mode !== undefined) advancedAscentMode.checked = Boolean(settings.advanced_ascent_mode);

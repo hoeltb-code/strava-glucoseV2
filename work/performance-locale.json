@@ -1,0 +1,12 @@
+{
+  "fixture": "5 activit\u00e9s, 721 points chacune, SQLite m\u00e9moire",
+  "before": {
+    "queries": 8,
+    "stream_queries": 5
+  },
+  "after": {
+    "queries": 3,
+    "stream_queries": 0,
+    "html_bytes": 14458
+  }
+}

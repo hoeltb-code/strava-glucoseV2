@@ -3,671 +3,10 @@
 {% block title %}{% if custom_course_mode %}Ma trace GPX · {{ user.email }}{% else %}Dashboard · {{ user.email }}{% endif %}{% endblock %}
 
 {% block extra_head %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<style>
-  .dashboard-page {
-    --dashboard-panel-border: rgba(248, 184, 88, 0.28);
-    --home-paper:#f7f4ee;
-    --home-line:#dfdad0;
-    --home-orange:#f8b858;
-    --home-orange-dark:#e5a13c;
-    --home-navy:#111d35;
-  }
-  .dashboard-grid {
-    display:grid;
-    grid-template-columns:repeat(2, minmax(0, 1fr));
-    gap:16px;
-    margin-bottom:20px;
-  }
-  @media (max-width: 900px) {
-    .dashboard-grid {
-      grid-template-columns:1fr;
-    }
-  }
-  .dashboard-activities-grid {
-    display:flex;
-    flex-direction:column;
-    gap:16px;
-  }
-  .home-activity-card { overflow:hidden; border:1.5px solid rgba(23,36,62,.26); border-radius:18px; background:#fff; box-shadow:0 7px 18px rgba(17,29,53,.08); }
-  .home-activity-head { display:grid; grid-template-columns:minmax(230px,1.3fr) repeat(4,minmax(90px,.55fr)); }
-  .home-activity-main { padding:18px 20px; border-left:4px solid #e5a13c; background:linear-gradient(105deg,#ffc76b,#f8b858); color:var(--home-navy); }
-  .home-activity-type,.home-activity-stat span,.home-activity-profile-label { color:var(--text-muted); font:700 .6rem "DM Mono",monospace; letter-spacing:.08em; text-transform:uppercase; }
-  .home-activity-main .home-activity-type { color:rgba(17,29,53,.72); }
-  .home-activity-main a { display:block; margin:6px 0 3px; color:var(--home-navy); font-weight:800; }
-  .home-activity-date { color:rgba(17,29,53,.72); font-size:.7rem; }
-  .home-activity-stat { display:flex; flex-direction:column; justify-content:center; padding:15px 13px; border-left:1px solid #eee9e0; }
-  .home-activity-stat strong { margin-top:7px; color:var(--text-main); font-size:.88rem; white-space:nowrap; }
-  .home-activity-profiles { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; padding:14px 18px 10px; border-top:1px solid #eee9e0; }
-  .home-activity-profile svg { display:block; width:100%; height:58px; margin-top:5px; }
-  .home-activity-profile-empty { display:grid; height:58px; margin-top:5px; place-items:center; border-radius:10px; background:#faf9f7; color:var(--text-muted); font-size:.68rem; }
-  .home-activity-cgm-cta { min-height:58px; margin-top:5px; padding:8px 10px; border:1px solid rgba(248,184,88,.48); border-radius:10px; background:#fff9ee; }
-  .home-activity-cgm-cta strong { display:block; color:var(--text-main); font-size:.7rem; }
-  .home-activity-cgm-cta span { display:block; margin-top:2px; color:var(--text-muted); font-size:.63rem; line-height:1.3; }
-  .home-activity-cgm-links { display:flex; flex-wrap:wrap; gap:5px 10px; margin-top:5px; }
-  .home-activity-cgm-links a { color:var(--accent-dark); font-size:.63rem; font-weight:800; }
-  .home-activity-windows { display:grid; grid-template-columns:auto repeat(4,minmax(80px,1fr)); gap:1px; border-top:1px solid #eee9e0; background:#eee9e0; }
-  .home-activity-windows > span { display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px; padding:9px 12px; background:var(--home-paper); color:var(--text-muted); font-size:.67rem; }
-  .home-activity-windows strong { color:var(--text-main); }
-  .dashboard-hero {
-    display:grid;
-    grid-template-columns:minmax(0, 1fr);
-    gap:20px;
-    align-items:center;
-    min-height:300px;
-    padding:42px;
-    border-radius:28px;
-    background:linear-gradient(145deg, #fff 0 58%, #fff8e9 100%);
-    border:1px solid #dfdad0;
-    box-shadow:0 14px 34px rgba(32,29,24,.08);
-    margin-bottom:16px;
-    position:relative;
-    overflow:hidden;
-  }
-  .dashboard-hero::before { content:""; position:absolute; right:-10%; bottom:-70%; width:55%; aspect-ratio:1; border-radius:50%; background:radial-gradient(circle,rgba(248,184,88,.24),transparent 68%); }
-  .dashboard-hero::after { content:""; position:absolute; left:42px; bottom:29px; width:38px; height:8px; transform:skew(-14deg); background:var(--home-orange); }
-  .dashboard-hero > * { position:relative; z-index:1; }
-  .payment-confirmation { margin:0 0 16px; padding:12px 14px; border:1px solid #d7e5cf; border-left:3px solid #6d8d57; border-radius:12px; background:#f5faef; color:#40523e; font-size:.86rem; line-height:1.45; }
-  .dashboard-eyebrow {
-    display:inline-block;
-    margin:0 0 23px;
-    padding:9px 23px 9px 17px;
-    clip-path:polygon(4% 0,100% 0,94% 100%,0 100%);
-    background:linear-gradient(90deg,#ffc76b,var(--home-orange-dark));
-    color:var(--home-navy);
-    text-transform:uppercase;
-    letter-spacing:.1em;
-    font-family:"DM Mono",monospace;
-    font-size:.7rem;
-    font-weight:800;
-  }
-  .dashboard-hero h1 { max-width:15ch; margin:0; font-size:clamp(2.35rem, 5vw, 4.65rem); font-weight:800; line-height:.94; letter-spacing:-.06em; text-transform:uppercase; }
-  .dashboard-hero p:not(.dashboard-eyebrow) { margin:18px 0 28px; color:var(--text-muted); max-width:620px; font-size:1rem; line-height:1.6; }
-  .home-view-switcher { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:0 0 20px; padding:7px; border:1px solid var(--home-line); border-radius:17px; background:#fff; }
-  .home-view-button { min-height:54px; padding:12px 18px; border:1px solid transparent; border-radius:12px; background:transparent; color:var(--text-main); font:800 .82rem "Manrope",sans-serif; cursor:pointer; }
-  .home-view-button:hover { background:#fff9ee; border-color:rgba(248,184,88,.45); }
-  .home-view-button.is-active { background:linear-gradient(100deg,#ffc76b,var(--home-orange-dark)); color:var(--home-navy); border-color:var(--home-orange); }
-  .home-view-panel { display:none; }
-  .home-view-panel.is-active { display:block; }
-  .quick-actions {
-    display:grid;
-    grid-template-columns:repeat(4, minmax(0, 1fr));
-    gap:12px;
-    margin:0 0 20px;
-  }
-  .quick-action {
-    display:flex;
-    flex-direction:column;
-    gap:7px;
-    min-height:132px;
-    padding:17px;
-    border-radius:16px;
-    background:#fff;
-    border:1px solid #dfdad0;
-    color:var(--text-main) !important;
-    transition:transform .15s ease, border-color .15s ease, background .15s ease;
-  }
-  .quick-action:hover { transform:translateY(-2px); border-color:var(--accent); background:#fff9ee; }
-  .quick-action.is-primary { background:linear-gradient(135deg, #fff4d9, #fffaf1); border-color:rgba(248,184,88,.58); }
-  .quick-action-icon { font-size:1.45rem; }
-  .quick-action-title { font-size:1rem; font-weight:700; }
-  .quick-action-copy { font-size:.8rem; color:var(--text-muted); line-height:1.3; }
-  .home-summary {
-    display:grid;
-    grid-template-columns:repeat(3, minmax(0, 1fr));
-    gap:12px;
-    margin:0 0 20px;
-  }
-  .home-summary-item { padding:14px 16px; border:1px solid #dfdad0; border-radius:14px; background:#fff; position:relative; overflow:hidden; }
-  .home-summary-item::before { content:""; position:absolute; inset:0 auto 0 0; width:4px; background:var(--accent); }
-  .home-summary-item:nth-child(2)::before { background:var(--accent-2); }
-  .home-summary-item:nth-child(3)::before { background:var(--home-orange-dark); }
-  .home-summary-label { color:var(--text-muted); font-size:.78rem; }
-  .home-summary-value { margin-top:3px; font-size:1.12rem; font-weight:700; }
-  .home-section-heading { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin:4px 0 10px; }
-  .home-section-heading h2 { margin:0; font-size:1.1rem; }
-  .projection-workbench {
-    display:grid;
-    grid-template-columns:minmax(0, 1fr);
-    gap:16px;
-    margin-bottom:20px;
-  }
-  /* Le simulateur n'est plus enfermé dans une carte parent : ses modules
-     utilisent directement la largeur disponible du tableau de bord. */
-  .projection-panel { margin:0; min-width:0; max-width:100%; }
-  .projection-panel input,
-  .projection-panel select,
-  .projection-panel textarea { box-sizing:border-box; max-width:100%; }
-  .projection-panel > h2 { margin:0 0 8px; font-size:clamp(1.7rem,3vw,2.5rem); font-weight:800; letter-spacing:-.045em; text-transform:uppercase; }
-  .projection-panel p { color:var(--text-muted); margin:0 0 18px; line-height:1.45; }
-  .simulation-progress { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin:14px 0 18px; padding:0; list-style:none; }
-  .simulation-progress-step { display:flex; align-items:center; gap:8px; min-width:0; padding:10px; border:1px solid #dfdad0; border-radius:12px; background:#fff; color:var(--text-muted); font-size:.78rem; font-weight:600; }
-  .simulation-progress-step b { flex:0 0 23px; width:23px; height:23px; display:grid; place-items:center; border-radius:50%; background:#f1eee8; color:#827d74; font-size:.72rem; }
-  .simulation-progress-step.is-active { border-color:var(--accent); color:var(--text-main); background:#fff9ee; }.simulation-progress-step.is-active b,.simulation-progress-step.is-done b { background:var(--accent); color:var(--home-navy); }.simulation-progress-step.is-done { color:var(--text-main); }
-  .plan-ready-card { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:16px 0 14px; padding:16px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:16px; background:#fff; }.plan-ready-card h3 { margin:0; font-size:1.05rem; }.plan-ready-card p { margin:4px 0 0; font-size:.8rem; }.plan-ready-card button { flex:0 0 auto; min-height:50px; padding:11px 22px; border:1px solid var(--home-orange); border-radius:12px; background:linear-gradient(100deg,#ffc76b,var(--home-orange-dark)); color:var(--home-navy); box-shadow:none; font:800 .82rem "Manrope",sans-serif; text-transform:uppercase; }.plan-ready-card button:hover:not(:disabled) { filter:brightness(.97); transform:translateY(-1px); }.plan-ready-card button:disabled { border-color:#e1bd7b; background:linear-gradient(100deg,#ffe1aa,#efbd6e); color:#67583f; opacity:.62; cursor:not-allowed; transform:none; }
-  .generation-steps { display:flex; flex-wrap:wrap; gap:8px; margin:-4px 0 16px; }.generation-steps[hidden] { display:none; }.generation-step { display:inline-flex; align-items:center; gap:6px; padding:7px 9px; border:1px solid #dfdad0; border-radius:999px; background:#fff; color:var(--text-muted); font-size:.73rem; }.generation-step i { width:7px; height:7px; border-radius:50%; background:#c9c4bb; }.generation-step.is-active { border-color:var(--accent); color:var(--text-main); background:#fff9ee; }.generation-step.is-active i { background:var(--accent); animation:plan-pulse 1s infinite; }.generation-step.is-done i { background:#6d8d57; } @keyframes plan-pulse { 50% { transform:scale(1.55); opacity:.45; } }
-  .plan-thinking-modal { position:fixed; z-index:1000; inset:0; display:grid; place-items:center; padding:20px; background:rgba(32,29,24,.38); backdrop-filter:blur(4px); }.plan-thinking-modal[hidden] { display:none; }.plan-thinking-card { width:min(460px,100%); padding:22px; border:1px solid rgba(255,255,255,.55); border-radius:20px; background:#fffdf9; box-shadow:0 24px 70px rgba(32,29,24,.24); }.plan-thinking-kicker { display:flex; align-items:center; gap:8px; margin:0 0 8px; color:var(--accent-dark); font-family:"DM Mono",monospace; font-size:.7rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }.plan-thinking-kicker i { width:9px; height:9px; border-radius:50%; background:var(--accent); animation:plan-pulse .8s infinite; }.plan-thinking-card h3 { margin:0; font-size:1.28rem; }.plan-thinking-card > p { margin:5px 0 14px; font-size:.82rem; }.plan-thinking-stream { display:grid; gap:7px; min-height:116px; overflow:hidden; }.plan-thinking-line { padding:8px 10px; border-radius:10px; background:#f6f2eb; color:var(--text-main); font-size:.78rem; animation:plan-line-in .26s ease both; }.plan-thinking-line:last-child { border-left:3px solid var(--accent); background:#fff2ed; font-weight:700; }.plan-thinking-profile { margin:0 0 14px; padding:10px; border:1px solid #e2ddd3; border-radius:12px; background:#fff; }.plan-thinking-profile .projection-profile { margin:0; }.plan-thinking-profile .projection-profile h3,.plan-thinking-profile .home-summary-label,.plan-thinking-profile .slope-legend { display:none; }.plan-thinking-profile svg { display:block; width:100%; height:auto; max-height:130px; } @keyframes plan-line-in { from { transform:translateY(9px); opacity:0; } to { transform:translateY(0); opacity:1; } }
-  .first-plan-checklist { margin:0 0 18px; padding:16px; border:1px solid #c9ddc8; border-radius:18px; background:#f6fbf4; }
-  .first-plan-checklist h2 { margin:0; font-size:1.08rem; }.first-plan-checklist > p { margin:5px 0 12px; font-size:.84rem; }
-  .first-plan-steps { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:9px; }
-  .first-plan-step { display:flex; align-items:flex-start; gap:8px; min-height:64px; padding:10px; border:1px solid #dce7da; border-radius:12px; background:#fff; font-size:.78rem; line-height:1.4; }
-  .first-plan-step i { flex:0 0 20px; width:20px; height:20px; display:grid; place-items:center; border-radius:50%; background:#f1eee8; color:#827d74; font-style:normal; font-weight:800; }.first-plan-step.is-done i { background:#d9efda; color:#275c32; }.first-plan-step.is-done { border-color:#b7d9b9; }
-  .plan-library { margin:0 0 22px; padding:25px; border:1px solid var(--home-line); border-radius:22px; background:var(--home-paper); }.plan-library-header { display:flex; align-items:end; justify-content:space-between; gap:12px; }.plan-library h2 { margin:0; font-size:1.45rem; letter-spacing:-.035em; }.plan-library-header p { margin:5px 0 0; color:var(--text-muted); font-size:.82rem; }.plan-library-tabs { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:18px 0 12px; }.plan-library-tab { min-height:96px; padding:16px 19px; border:1px solid #d8d2c7; border-radius:0; clip-path:polygon(4% 0,100% 0,96% 100%,0 100%); background:#fff; color:var(--text-main); cursor:pointer; font-family:"Manrope",system-ui,sans-serif; text-align:left; }.plan-library-tab strong { display:block; font-size:.9rem; font-weight:800; }.plan-library-tab span { display:block; margin-top:6px; color:var(--text-muted); font-size:.72rem; font-weight:400; line-height:1.4; }.plan-library-tab.is-active { border-color:var(--home-orange); background:linear-gradient(100deg,#ffc76b,var(--home-orange-dark)); color:var(--home-navy); box-shadow:none; }.plan-library-tab.is-active strong,.plan-library-tab.is-active span { color:var(--home-navy); }.plan-library-panel { padding:14px; border:1px solid #dfdad0; border-radius:16px; background:#fff; }.plan-library-panel[hidden] { display:none!important; }.plan-library-tags { display:flex; flex-wrap:wrap; gap:8px; }.plan-library-tag-wrap { position:relative; display:inline-flex; max-width:100%; }.plan-library-tag { display:inline-flex; align-items:center; gap:6px; max-width:100%; padding:8px 30px 8px 10px; border:1px solid #dfdad0; border-radius:999px; background:#fff; color:var(--text-main); font-family:"Manrope",system-ui,sans-serif; font-size:.77rem; font-weight:700; text-decoration:none; cursor:pointer; }.plan-library-tag:hover { border-color:var(--accent); color:var(--accent-dark); }.plan-library-tag small { color:var(--text-muted); font-size:.68rem; font-weight:500; }.plan-library-tag.is-purchased { border-color:#b7d9b9; background:#f6fbf4; color:#275c32; }.plan-library-delete { position:absolute; top:50%; right:7px; width:18px; height:18px; padding:0; transform:translateY(-50%); border:0; border-radius:50%; background:transparent; color:#77736c; font:700 1rem/1 "Manrope",sans-serif; cursor:pointer; }.plan-library-delete:hover,.plan-library-delete:focus-visible { background:#fff0c9; color:var(--accent-dark); outline:none; }.plan-library-empty { margin:0; padding:12px; border-radius:12px; background:#f7f4ee; color:var(--text-muted); font-size:.78rem; }
-  .simulation-quick-settings { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; margin:14px 0; }.simulation-quick-settings > div { padding:15px; border:1px solid #dfdad0; border-radius:16px; background:#fff; }.simulation-quick-settings > div[hidden], #home-history-intensity-settings[hidden] { display:none!important; }
-  .plan-basis { margin-top:16px; padding:16px; border:1px solid #dfdad0; border-radius:18px; background:#fff; }.plan-basis h3 { margin:0; font-size:1.15rem; }.plan-basis > p { margin:5px 0 12px; font-size:.84rem; }.plan-basis-options,.pace-source-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }.plan-basis-option,.pace-source-option { display:block; padding:12px; border:1px solid #dfdad0; border-radius:13px; background:#fff; color:var(--text-main); cursor:pointer; font-family:"Manrope",system-ui,sans-serif; font-weight:400; letter-spacing:0; text-transform:none; }.plan-basis-option { display:flex; min-height:70px; padding:12px 18px; flex-direction:column; align-items:center; justify-content:center; border-color:transparent; border-radius:12px; text-align:center; }.plan-basis-option:hover,.pace-source-option:hover { background:#fff9ee; border-color:rgba(248,184,88,.45); }.plan-basis-option:has(input:checked),.pace-source-option:has(input:checked) { border-color:var(--home-orange); background:linear-gradient(100deg,#ffc76b,var(--home-orange-dark)); color:var(--home-navy); box-shadow:none; }.plan-basis-option:has(input:checked) strong,.plan-basis-option:has(input:checked) span,.pace-source-option:has(input:checked) strong,.pace-source-option:has(input:checked) span { color:var(--home-navy); }.plan-basis-option input,.pace-source-option input { position:absolute; opacity:0; pointer-events:none; }.plan-basis-option strong,.pace-source-option strong { display:block; color:var(--text-main); font-size:.84rem; font-weight:700; }.plan-basis-option strong { font-weight:800; text-transform:uppercase; }.plan-basis-option span,.pace-source-option span { display:block; margin-top:4px; color:var(--text-muted); font-size:.74rem; font-weight:400; line-height:1.4; }.pace-source-title { margin:0 0 8px; font-size:.86rem; }.history-window-note { margin:5px 0 10px!important; color:var(--text-muted)!important; font-size:.75rem!important; }
-  .simulation-quick-settings > .time-goal-card { border-color:var(--home-orange); background:linear-gradient(100deg,#ffc76b,var(--home-orange-dark)); box-shadow:0 12px 28px rgba(185,107,8,.16); }.time-goal-card .pace-choice-title { color:var(--home-navy); }.time-goal-toggle { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 10px; }.time-goal-toggle label { display:inline-flex; align-items:center; gap:6px; padding:7px 9px; border:1px solid #dfdad0; border-radius:999px; font-size:.78rem; font-weight:700; cursor:pointer; }.time-goal-fields { display:flex; align-items:end; gap:8px; }.time-goal-fields[hidden] { display:none!important; }.time-goal-fields label { flex:1; color:var(--home-navy); font-size:.75rem; font-weight:800; }.time-goal-fields input { width:100%; margin-top:5px; border-color:rgba(17,29,53,.22); background:#fff; }.time-goal-fields input:focus { border-color:var(--home-navy); box-shadow:0 0 0 3px rgba(17,29,53,.14); }.time-goal-note { margin:10px 0 0!important; color:var(--home-navy)!important; font-size:.76rem!important; }
-  .simulation-advanced { margin-top:14px; border:1px solid #dfdad0; border-radius:16px; background:#fff; box-shadow:inset 0 3px 0 var(--accent); overflow:hidden; }.simulation-advanced > summary { padding:14px 16px; cursor:pointer; font-weight:800; }.simulation-advanced-title { display:block; color:var(--text-main); font-size:.9rem; font-weight:800; }.simulation-advanced > summary .simulation-advanced-description { display:block; margin-top:3px; color:var(--text-muted); font-size:.77rem; font-weight:500; }.simulation-advanced-body { padding:0 16px 16px; border-top:1px solid #eee9e0; }
-  .manual-profile-choice { display:block; }
-  .projection-form { display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:12px; align-items:end; }
-  .projection-form > div:nth-child(1), .projection-form #home-gpx-source { grid-column:span 3; min-width:0; }
-  .projection-form > div:nth-child(3), .projection-form > button { grid-column:span 3; }
-  .projection-form select { min-width:0; }
-  .custom-course-link { display:inline-flex; align-items:center; justify-content:center; min-height:43px; margin-top:8px; padding:9px 12px; border:1px solid #cbd8c3; border-radius:11px; background:#f3f8ef; color:#40523e; font-size:.78rem; font-weight:800; text-decoration:none; }
-  .custom-course-link:hover { background:#e6f0df; color:#243322; }
-  .projection-form > div.course-selection-showcase { grid-column:1 / -1; }
-  .course-selection-showcase { padding:16px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:18px; background:#fff; box-shadow:none; }
-  /* Titres principaux du parcours : une seule hiérarchie, quel que soit le composant. */
-  .course-selection-showcase > label,
-  .course-profile-title,
-  .projection-planning-title,
-  .projection-section-title,
-  .pace-setup-title h3 {
-    color:var(--text-main);
-    font-family:"Manrope", system-ui, sans-serif;
-    font-size:1.42rem;
-    font-weight:700;
-    line-height:1.2;
-    letter-spacing:-.025em;
-    text-transform:none;
-  }
-  .course-selection-showcase > label { display:block; }
-  .course-selection-showcase .course-selection-intro { margin:4px 0 12px; color:var(--text-muted); font-size:.8rem; line-height:1.5; }
-  .course-picker { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:11px; margin-top:7px; }
-  .course-search-shell { margin-top:12px; padding:14px; border:1px solid #dfdad0; border-radius:16px; background:#fff; }
-  .course-search-input { min-height:46px; font-size:.96rem; }
-  .course-search-results { display:flex; flex-wrap:wrap; gap:8px; margin-top:11px; }
-  .course-search-result { padding:8px 11px; border:1px solid #ead7d0; border-radius:999px; background:#fff8f5; color:var(--text-main); font:700 .78rem "Manrope",sans-serif; letter-spacing:0; text-transform:none; box-shadow:none; }
-  .course-search-result:hover, .course-search-result:focus-visible { background:#fff0ea; border-color:var(--accent); color:var(--text-main); transform:none; }
-  .course-search-result small { margin-left:5px; color:var(--text-muted); font-weight:600; }
-  .course-search-empty { margin:10px 0 0; color:var(--text-muted); font-size:.82rem; }
-  .course-browser { margin-top:12px; }
-  .course-browser summary { cursor:pointer; color:var(--text-muted); font-size:.82rem; font-weight:700; }
-  .course-browser select { margin-top:8px; }
-  .course-custom-link { display:inline-flex; align-items:center; gap:8px; margin-top:13px; color:var(--accent-dark); font-size:.84rem; font-weight:800; }
-  .course-picker-card { min-height:156px; padding:0 14px 14px; border:1px solid #dfdad0; border-radius:15px; background:#fff; color:var(--text-main); text-align:left; cursor:pointer; letter-spacing:normal; box-shadow:none; overflow:hidden; transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease; }
-  .course-picker-card:nth-child(2), .course-picker-card:nth-child(3) { background:#fff; }
-  .course-picker-card:hover, .course-picker-card.is-selected { transform:translateY(-3px); border-color:var(--accent); box-shadow:0 12px 22px rgba(23,36,62,.12),0 0 0 3px rgba(248,184,88,.16); filter:saturate(1.06); }
-  .course-picker-card-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0 -14px 12px; padding:11px 12px; border-bottom:1px solid #ebe6de; background:transparent; color:var(--text-main); }
-  .course-picker-card:nth-child(2) .course-picker-card-head, .course-picker-card:nth-child(3) .course-picker-card-head, .course-picker-card.is-custom .course-picker-card-head { background:transparent; }
-  .course-picker-card .course-picker-card-head strong { display:block; color:var(--text-main) !important; font-family:"DM Mono",monospace; font-size:.72rem; line-height:1.35; letter-spacing:.07em; font-weight:700; text-shadow:none; text-transform:uppercase; }.course-picker-arrow { color:var(--accent); font-size:1rem; line-height:1; }
-  .course-picker-card small { display:block; margin-top:8px; color:var(--text-muted); font-family:"Manrope",sans-serif; font-size:.74rem; line-height:1.45; letter-spacing:0; font-weight:500; }
-  .course-picker-card .course-picker-action { display:block; margin-top:10px; color:var(--accent); font-size:.72rem; font-weight:800; letter-spacing:.02em; }
-  .course-picker-event { min-height:156px; padding:0 14px 14px; background:#fff; }
-  .course-picker-event .course-picker-card-head { margin:0 -14px 10px; background:transparent; cursor:pointer; list-style:none; }
-  .course-picker-event .course-picker-card-head::-webkit-details-marker { display:none; }
-  .course-picker-event-list { display:block; margin-top:3px; color:var(--text-muted); font-family:"Manrope",sans-serif; font-size:.68rem; line-height:1.4; font-weight:500; }
-  .course-picker-event select { width:100%; min-height:36px; padding:7px 9px; border:1px solid #dfdad0; border-radius:9px; background:#fbfaf7; color:var(--text-main); font:700 .75rem "Manrope",sans-serif; }
-  .course-picker-card.is-custom { border:1px dashed rgba(248,184,88,.72); background:#fffaf1; box-shadow:none; }
-  .course-picker-card.is-custom small { color:#665c57; }.course-picker-card.is-custom .course-picker-action { color:var(--accent-dark); }
-  .custom-simulator-back { display:inline-flex; margin-top:10px; color:var(--accent-2); font-size:.82rem; font-weight:700; text-decoration:none; }
-  .gpx-source-fields { display:grid; grid-template-columns:minmax(160px, .7fr) minmax(0, 1.3fr); gap:10px; }
-  .gpx-upload-card { padding:16px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:14px; background:#fff; }
-  .gpx-upload-card .projection-section-title { margin:0 0 5px; }
-  .gpx-upload-card > p { margin:0 0 12px; color:var(--text-muted); font-size:.78rem; line-height:1.45; }
-  .projection-form input[type="file"] { width:100%; min-height:44px; padding:8px; border:1px dashed var(--border); border-radius:12px; color:var(--text-muted); background:#fff; }
-  .course-profile-preview { margin-top:14px; padding:13px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
-  .race-settings { margin-top:14px; padding:16px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:14px; background:#fff; }.race-settings[hidden] { display:none; }.race-settings h3 { margin:0; font-size:1rem; }.race-settings > p { margin:4px 0 12px; color:var(--text-muted); font-size:.78rem; }.race-settings-departure { display:grid; grid-template-columns:repeat(3,minmax(100px,1fr)); gap:9px; max-width:480px; }.race-settings label { color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.76rem; font-weight:400; letter-spacing:0; text-transform:none; }.race-settings input { width:100%; margin-top:4px; }.race-settings-stops { display:grid; gap:8px; margin-top:14px; }.race-settings-stop { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:center; padding:9px 10px; border-radius:10px; background:#f7f4ee; }.race-settings-stop strong { display:block; font-size:.8rem; }.race-settings-stop small { display:block; margin-top:2px; color:var(--text-muted); font-size:.72rem; }.race-settings-stop label { display:flex; align-items:center; gap:5px; white-space:nowrap; }.race-settings-stop input { width:58px; min-height:32px; margin:0; text-align:center; }
-  .race-settings-times { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:7px; margin:0 0 14px; }.race-settings-time { padding:8px; border-radius:10px; background:#f7f4ee; }.race-settings-time span { display:block; color:var(--text-muted); font-size:.66rem; }.race-settings-time strong { display:block; margin-top:2px; color:var(--text-main); font-size:.8rem; line-height:1.25; }
-  .course-profile-preview .projection-profile { margin:0; }
-  .course-profile-title { display:flex; flex-wrap:wrap; align-items:baseline; gap:8px; }
-  .course-profile-title small { color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.76rem; font-weight:600; letter-spacing:0; }
-  .course-profile-title, .projection-planning-title, .projection-section-title { margin:16px 0 9px; }
-  .course-profile-preview .course-profile-title { margin:0 0 10px; }
-  .manual-profile { min-width:0; max-width:100%; }
-  .profile-history-choice { padding:15px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
-  .pace-choice-title { display:block; margin:0 0 9px; color:var(--text-main); font-family:"Manrope",system-ui,sans-serif; font-size:1.42rem; font-weight:700; line-height:1.2; letter-spacing:-.025em; text-transform:none; }
-  .pace-choice-kicker, .manual-profile-toggle, .profile-pacing-heading h3 { display:block; margin:0 0 6px; color:var(--text-main); font-family:"Manrope",system-ui,sans-serif; font-size:.9rem; font-weight:700; line-height:1.35; letter-spacing:-.01em; text-transform:none; }
-  .pace-choice-field-label { margin:0 0 6px; color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.78rem; font-weight:500; line-height:1.4; letter-spacing:0; text-transform:none; }
-  .profile-cardio-note { margin:10px 0 0; padding:9px 10px; border-left:3px solid var(--accent); border-radius:0 9px 9px 0; background:#fff9ee; color:var(--text-muted); font-size:.76rem; line-height:1.45; }
-  .profile-cardio-note a { font-weight:700; }
-  .manual-profile-choice { margin-top:12px; }
-  .manual-profile-choice .profile-pacing-note { display:block; margin:5px 0 0; }
-  .manual-profile-toggle { display:flex; align-items:center; gap:8px; cursor:pointer; }
-  .manual-controls { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px; margin-top:14px; }
-  .manual-controls[hidden] { display:none; }
-  .manual-control label { display:flex; justify-content:space-between; gap:8px; color:var(--text-main); font-family:"Manrope",system-ui,sans-serif; font-size:.8rem; font-weight:400; letter-spacing:0; text-transform:none; }
-  .manual-control output { color:var(--accent-2); font-family:inherit; font-weight:400; }
-  .manual-control input[type="range"] { width:100%; accent-color:var(--accent); }
-  .manual-advanced-ascent { grid-column:1 / -1; padding:10px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:11px; background:#fff; }
-  .manual-advanced-ascent summary { color:var(--text-main); font-size:.82rem; font-weight:800; cursor:pointer; }
-  .manual-advanced-ascent p { margin:7px 0; color:var(--text-muted); font-size:.74rem; line-height:1.4; }
-  .manual-advanced-toggle { display:flex; align-items:center; gap:7px; margin:8px 0; color:var(--text-main); font-family:"Manrope",system-ui,sans-serif; font-size:.78rem; font-weight:400; letter-spacing:0; text-transform:none; cursor:pointer; }
-  .manual-advanced-fields { display:grid; grid-template-columns:repeat(2,minmax(150px,1fr)); gap:9px; }
-  .manual-advanced-fields label { display:flex; flex-wrap:wrap; justify-content:space-between; gap:4px 8px; color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.73rem; font-weight:400; letter-spacing:0; text-transform:none; }
-  .manual-advanced-fields output { color:var(--accent-2); font-family:inherit; font-weight:400; }
-  .manual-advanced-fields input[type="range"] { width:100%; accent-color:var(--accent); }
-  .profile-pacing-preview { margin-top:14px; padding:13px; border:1px solid #dfdad0; border-radius:14px; background:#fff; box-sizing:border-box; min-width:0; max-width:100%; overflow:hidden; }
-  .manual-profile .profile-pacing-details { margin-top:14px; border-top:1px solid #e5e0d7; }.manual-profile .profile-pacing-details > summary { padding:13px 0 0; color:var(--text-main); cursor:pointer; font-size:.82rem; font-weight:700; }.manual-profile .profile-pacing-preview { margin-top:12px; padding:0; border:0; border-radius:0; background:transparent; }
-  .profile-projection-zone { display:block; margin-bottom:12px; }
-  .profile-projection-zone > div { min-width:0; }
-  .profile-projection-zone p { margin:9px 0 0; color:var(--text-muted); font-size:.78rem; line-height:1.45; }
-  .profile-projection-zone.profile-history-choice { margin-bottom:0; padding:15px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
-  .profile-pacing-heading { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:8px; }
-  .profile-pacing-heading h3 { margin:0; }
-  .profile-pacing-note { color:var(--text-muted); font-size:.76rem; }
-  .profile-live-total { display:grid; gap:2px; margin-left:auto; color:var(--accent-2); font-family:"Orbitron", sans-serif; font-size:.84rem; text-align:right; white-space:nowrap; }
-  .profile-live-total > strong { display:block; color:var(--accent) !important; font-size:1.3rem !important; line-height:1.1; letter-spacing:.01em; text-shadow:none; }
-  .profile-live-total small { color:var(--text-muted); font-family:inherit; font-size:.6rem; }
-  .profile-pacing-table { width:100%; margin-top:10px; border-collapse:collapse; font-size:.77rem; }
-  .profile-pacing-table th, .profile-pacing-table td { padding:5px 4px; border-bottom:1px solid rgba(148,174,214,.14); text-align:left; color:var(--text-main); white-space:nowrap; }
-  .profile-pacing-table th { color:var(--text-muted); font-size:.66rem; letter-spacing:.08em; text-transform:uppercase; font-family:"DM Mono",monospace; }
-  .profile-pacing-table th small { font-size:.58rem; letter-spacing:0; text-transform:none; }
-  .profile-pacing-table td:first-child { color:var(--text-main); font-weight:700; }
-  .profile-pacing-table td:last-child { color:var(--accent-2); font-weight:700; }
-  .profile-pacing-table th:nth-child(2), .profile-pacing-table td:nth-child(2) { width:72px; }
-  .profile-pacing-curve { margin-top:10px; border-radius:12px; overflow:hidden; background:#fbfaf7; border:1px solid #e3ded5; }
-  .profile-pacing-curve.is-bar-chart { height:330px; padding:14px 10px 8px; box-sizing:border-box; }
-  .profile-pacing-curve.is-bar-chart canvas { display:block; width:100% !important; height:100% !important; }
-  .profile-pacing-curve svg { display:block; width:100%; height:220px; }
-  .profile-pacing-curve .curve-grid { stroke:#e2ded6; stroke-width:1; }
-  .profile-pacing-curve .curve-axis-label { fill:#77746d; font-size:11px; font-family:"DM Mono", monospace; }
-  .profile-pacing-curve .curve-line { fill:none; stroke:var(--accent); stroke-width:3.5; stroke-linecap:round; stroke-linejoin:round; filter:none; }
-  .profile-pacing-curve .curve-point { fill:#fff; stroke:var(--accent); stroke-width:2.5; }
-  .profile-pacing-curve .cohort-band { fill:rgba(78, 91, 108, .18); stroke:#718092; stroke-width:1.3; stroke-dasharray:5 4; stroke-linejoin:round; }
-  .profile-pacing-curve .cohort-median { fill:none; stroke:#5e6874; stroke-width:1.5; stroke-dasharray:5 4; stroke-linejoin:round; }
-  .target-pacing-card { margin-top:16px; padding:16px; border:1px solid #dfdad0; border-top:4px solid var(--accent); border-radius:14px; background:#fff; }
-  .target-pacing-card h3 { margin:0; color:var(--text-main); font-size:1rem; }
-  .target-pacing-card > p { margin:5px 0 0; color:var(--text-muted); font-size:.8rem; line-height:1.45; }
-  .target-pacing-summary { display:flex; flex-wrap:wrap; gap:7px; margin:12px 0 2px; }
-  .target-pacing-summary span { padding:6px 8px; border:1px solid #dfdad0; border-radius:999px; background:#fbfaf7; color:var(--text-main); font-size:.72rem; }
-  .target-pacing-summary strong { color:var(--accent-dark); }
-  .target-pacing-card .profile-pacing-curve { position:relative; margin-top:12px; }
-  .target-pacing-explanation { margin-top:10px !important; }
-  .target-curve-tooltip, .terrain-pace-tooltip { position:absolute; z-index:2; padding:6px 8px; border:1px solid #dfdad0; border-radius:8px; background:rgba(255,255,255,.96); box-shadow:0 6px 14px rgba(32,29,24,.12); color:var(--text-main); font-family:"DM Mono",monospace; font-size:.68rem; line-height:1.4; pointer-events:none; transform:translate(8px, -100%); white-space:nowrap; }
-  .target-curve-tooltip.is-left, .terrain-pace-tooltip.is-left { transform:translate(calc(-100% - 8px), -100%); }
-  .terrain-pace-overview { position:relative; margin-top:16px; padding:10px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
-  .terrain-pace-overview svg { display:block; width:100%; height:168px; overflow:visible; border-radius:9px; background:#fbfaf7; }
-  .cohort-reference-legend { display:flex; align-items:flex-start; gap:7px; margin:0 10px 10px; color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.7rem; line-height:1.4; }
-  .cohort-reference-legend i { display:inline-block; flex:0 0 auto; width:18px; height:9px; margin-top:4px; border:1px dashed #718092; border-radius:2px; background:rgba(78,91,108,.18); }
-  .cohort-reference-legend b { color:#5e6874; font-weight:700; }
-  .profile-pacing-live-grid { display:grid; width:100%; max-width:100%; margin-top:10px; font-size:.76rem; }
-  .profile-pacing-live-head,
-  .profile-pacing-live-row { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); }
-  .profile-pacing-live-head { color:var(--text-muted); font:700 .66rem "DM Mono", monospace; letter-spacing:.08em; text-transform:uppercase; }
-  .profile-pacing-live-head span,
-  .profile-pacing-live-cell { min-width:0; padding:5px 4px; border-bottom:1px solid rgba(148,174,214,.14); overflow-wrap:anywhere; color:var(--text-main); }
-  .profile-pacing-live-cell:first-child { font-weight:700; }
-  .nutrition-plan-heading { margin:24px 0 8px; scroll-margin-top:88px; }.nutrition-plan-heading .projection-section-title { margin:0; }
-  .nutrition-plan-settings { margin-top:0; padding:16px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:14px; background:#fff; }
-  .nutrition-plan-settings .nutrition-subtitle { margin:15px 0 4px; color:var(--text-main); font-size:.94rem; }
-  .nutrition-plan-settings > p { margin:0 0 13px; color:var(--text-muted); font-size:.76rem; line-height:1.4; }
-  .nutrition-auto-summary { display:flex; flex-wrap:wrap; gap:7px; min-height:32px; color:var(--text-muted); font-size:.78rem; line-height:1.4; }.nutrition-auto-summary .projection-nutrition-tag { margin:0; }.nutrition-customize-button { margin-top:12px; padding:8px 10px; border-color:#dfdad0; background:#fff; color:var(--text-main); font-size:.76rem; }.nutrition-manual-controls { margin-top:14px; padding-top:14px; border-top:1px solid #eee9e0; }.nutrition-manual-controls[hidden] { display:none; }
-  .calculation-summary { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:7px; margin:0 0 13px; padding:10px; border-radius:12px; background:#f7f4ee; }.calculation-summary[hidden] { display:none; }.calculation-summary-item { min-width:0; }.calculation-summary-item span { display:block; color:var(--text-muted); font-size:.66rem; line-height:1.25; }.calculation-summary-item strong { display:block; margin-top:2px; overflow:hidden; color:var(--text-main); font-size:.82rem; line-height:1.25; text-overflow:ellipsis; white-space:nowrap; }
-  .nutrition-rate-controls { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; }
-  .nutrition-rate-control label { display:flex; justify-content:space-between; gap:6px; margin:0; color:var(--text-main); font-family:"Manrope", sans-serif; font-size:.76rem; font-weight:400; letter-spacing:0; text-transform:none; }
-  .nutrition-rate-control output { color:var(--accent-2); font-family:inherit; font-weight:400; }
-  .nutrition-rate-control input { width:100%; margin-top:5px; accent-color:var(--accent); }
-  .nutrition-energy-balance { display:flex; align-items:flex-start; gap:7px; margin:11px 0 0; color:var(--text-muted); font-family:"Manrope", system-ui, sans-serif; font-size:.76rem; font-weight:400; line-height:1.4; letter-spacing:0; text-transform:none; cursor:pointer; }
-  .nutrition-energy-balance input { width:auto; min-height:0; margin:2px 0 0; accent-color:var(--accent); }
-  .nutrition-manual-controls > label:not(.nutrition-energy-balance) { color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.76rem; font-weight:400; letter-spacing:0; text-transform:none; }
-  .profile-calculate { width:100%; margin-top:14px; }
-  .projection-status { min-height:20px; margin:12px 0 0; color:var(--text-muted); font-size:.88rem; }
-  .projection-result { display:none; margin-top:14px; padding:15px; border-radius:14px; background:#fbfaf7; border:1px solid rgba(248,184,88,.42); }
-  .projection-result.is-visible { display:block; }
-  .projection-time { margin:7px 0 4px; color:var(--text-main); font-family:"Manrope",system-ui,sans-serif; font-size:1.72rem; font-weight:700; line-height:1.12; letter-spacing:-.035em; }
-  .projection-detail { color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.82rem; line-height:1.45; }
-  .projection-nutrition-summary { display:flex; flex-wrap:wrap; gap:7px; margin-top:12px; }
-  .projection-nutrition-tag { display:inline-flex; align-items:baseline; gap:5px; padding:6px 8px; border:1px solid #dfdad0; border-radius:999px; background:#fff; color:var(--text-main); font-family:"Manrope",system-ui,sans-serif; font-size:.72rem; line-height:1; }
-  .projection-nutrition-tag strong { color:var(--accent-2); font-size:.78rem; }
-  .projection-nutrition-tag.is-energy strong { color:#8c5824; }
-  .projection-nutrition-tag.is-deficit strong { color:#a73c27; }
-  .projection-disclaimer { margin:10px 0 0; color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.73rem; line-height:1.45; }
-  .projection-profile { margin-top:16px; }
-  .projection-profile svg { display:block; width:100%; height:170px; overflow:visible; border-radius:12px; background:#fbfaf7; }
-  .slope-legend { display:flex; flex-wrap:wrap; gap:10px; margin:8px 0 0; color:var(--text-muted); font-size:.72rem; }
-  .slope-legend span { display:inline-flex; align-items:center; gap:4px; }
-  .slope-legend i { width:9px; height:9px; border-radius:50%; display:inline-block; }
-  .segment-explorer { margin-top:14px; padding:14px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
-  .segment-explorer h3 { margin:0; font-size:1rem; }
-  .segment-explorer > p { margin:4px 0 10px; color:var(--text-muted); font-size:.76rem; line-height:1.4; }
-  .segment-explorer label { display:block; margin:0 0 6px; color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.76rem; font-weight:600; letter-spacing:0; text-transform:none; }
-  .segment-explorer select { width:100%; min-height:42px; }
-  .segment-detail-profile { margin-top:13px; padding-top:13px; border-top:1px solid #e5e0d7; }
-  .segment-detail-profile h4 { margin:0 0 4px; font-size:.9rem; }
-  .segment-detail-profile p { margin:0 0 9px; color:var(--text-muted); font-size:.75rem; line-height:1.4; }
-  .segment-detail-profile svg { display:block; width:100%; height:185px; border-radius:12px; background:#fbfaf7; }
-  .projection-splits { width:100%; min-width:0; margin-top:16px; font-size:.84rem; }
-  .projection-splits th, .projection-splits td { padding:8px 6px; }
-  .projection-timeline { display:grid; gap:0; margin-top:16px; overflow:hidden; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
-  .roadbook-header { display:grid; grid-template-columns:92px minmax(0, 1fr) auto; gap:12px; padding:10px 14px; background:#eeebe4; color:#6b6a67; font-family:"Manrope",system-ui,sans-serif; font-size:.7rem; font-weight:600; letter-spacing:0; text-transform:none; }
-  .roadbook-header span:last-child { text-align:right; }
-  .timeline-row { display:grid; grid-template-columns:92px minmax(0, 1fr) auto; gap:12px; align-items:center; padding:13px 14px; border:0; border-bottom:1px solid #e5e0d8; border-radius:0; background:#fff; }
-  .timeline-row:last-child { border-bottom:0; }
-  .timeline-km { color:#41434a; font-family:"Manrope",system-ui,sans-serif; font-size:.72rem; font-weight:700; letter-spacing:0; }
-  .timeline-race-time { margin-bottom:5px; color:#41434a; font-family:"Manrope",system-ui,sans-serif; font-size:.76rem; font-weight:700; line-height:1.2; }
-  .timeline-race-time small { display:block; color:var(--text-muted); font-family:inherit; font-size:.6rem; font-weight:500; letter-spacing:0; }
-  .timeline-title { font-size:.94rem; font-weight:700; }
-  .timeline-meta { margin-top:3px; color:var(--text-muted); font-size:.78rem; }
-  .timeline-summary { margin-top:4px; color:var(--text-main); font-size:.78rem; font-weight:650; }
-  .timeline-cutoff { display:inline-flex; margin-top:6px; padding:4px 7px; border:1px solid #efc3b7; border-radius:999px; background:#fff3ef; color:#a73c27; font-size:.72rem; font-weight:700; }
-  .timeline-detail-toggle, .timeline-panel-toggle, .timeline-km-detail-toggle { box-shadow:none !important; transform:none; }
-  .timeline-detail-toggle:hover, .timeline-panel-toggle:hover, .timeline-km-detail-toggle:hover { box-shadow:none !important; transform:none; filter:none; }
-  .timeline-detail-toggle { margin-top:8px; padding:5px 8px; border-radius:8px; border-color:#dfdad0; background:#fff; color:var(--text-main); font-size:.72rem; line-height:1; }
-  .timeline-detail-toggle::after { content:'⌄'; display:inline-block; margin-left:5px; font-size:.85rem; transition:transform .16s ease; }
-  .timeline-row.is-expanded .timeline-detail-toggle::after { transform:rotate(180deg); }
-  .timeline-details { display:none; margin-top:10px; padding:10px; border-left:2px solid #d7d1c7; border-radius:0 10px 10px 0; background:rgba(255,255,255,.64); }
-  .timeline-row.is-expanded .timeline-details { display:block; }
-  .timeline-detail-actions { display:flex; flex-wrap:wrap; gap:7px; margin-top:8px; }
-  .timeline-panel-toggle { padding:5px 8px; border-radius:8px; border-color:#dfdad0; background:#fff; color:var(--text-main); font-size:.72rem; line-height:1; }
-  .timeline-panel { display:none !important; }
-  .timeline-panel.is-open { display:block !important; }
-  .timeline-detail-heading { color:var(--text-main); font-family:"Manrope",system-ui,sans-serif; font-size:.72rem; font-weight:700; letter-spacing:0; text-transform:none; }
-  .timeline-nutrition-intro { margin:4px 0 0; color:var(--text-muted); font-size:.76rem; line-height:1.45; }
-  .timeline-nutrition-advice { margin:8px 0 0; color:#8c482f; font-size:.76rem; line-height:1.45; }
-  .timeline-nutrition-disclaimer { margin:9px 0 0; padding-top:8px; border-top:1px solid #e3ded5; color:var(--text-muted); font-size:.7rem; font-style:italic; line-height:1.4; }
-  .timeline-leg-profile { margin-top:10px; }
-  .timeline-leg-profile svg { display:block; width:100%; height:72px; border-radius:8px; background:#f5f2ec; }
-  .timeline-leg-profile-label { margin:0 0 4px; color:var(--text-muted); font-size:.7rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; }
-  .timeline-km-detail-toggle { margin-top:8px; padding:5px 8px; border-radius:8px; border-color:#f0c9bc; background:#fff3ef; color:#a73c27; font-size:.72rem; line-height:1; }
-  .timeline-km-detail-toggle::after { content:'⌄'; display:inline-block; margin-left:5px; font-size:.85rem; transition:transform .16s ease; }
-  .timeline-km-details { display:none; gap:5px; margin-top:8px; }
-  .timeline-details.is-km-expanded .timeline-km-details { display:grid; }
-  .timeline-details.is-km-expanded .timeline-km-detail-toggle::after { transform:rotate(180deg); }
-  .timeline-km-row { display:grid; grid-template-columns:minmax(0, 1fr) auto auto; gap:8px; align-items:center; padding:6px 8px; border-radius:7px; background:#f7f4ee; color:var(--text-muted); font-size:.72rem; }
-  .timeline-km-row strong { color:var(--text-main); }
-  .timeline-km-row span { white-space:nowrap; }
-  .distance-split-planner { margin-top:20px; overflow:hidden; border:1px solid rgba(248,184,88,.52); border-left:4px solid var(--accent); border-radius:15px; background:#fff; box-shadow:0 8px 22px rgba(23,36,62,.08); }
-  .distance-split-planner summary { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:15px 15px 14px; color:var(--accent); font-family:"DM Mono",monospace; font-size:1rem; font-weight:800; letter-spacing:.045em; cursor:pointer; list-style:none; }
-  .distance-split-planner summary::-webkit-details-marker { display:none; }
-  .distance-split-planner summary::after { content:'⌄'; color:var(--accent); font-size:1rem; transition:transform .16s ease; }
-  .distance-split-planner[open] summary::after { transform:rotate(180deg); }
-  .distance-split-planner summary small { display:block; margin-top:5px; color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.71rem; font-weight:600; letter-spacing:0; }
-  .distance-split-controls { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:0 14px 12px; border-bottom:1px solid #e5e0d8; background:#fffaf7; }
-  .distance-split-controls label { color:var(--text-muted); font-size:.73rem; font-weight:700; }
-  .distance-split-controls select { width:auto; min-height:35px; padding:5px 26px 5px 8px; font-size:.76rem; }
-  .distance-split-table-wrap { overflow-x:auto; }
-  .distance-split-table { width:100%; min-width:620px; border-collapse:collapse; font-size:.76rem; }
-  .distance-split-table th, .distance-split-table td { padding:9px 10px; border-bottom:1px solid #eee9e1; text-align:left; vertical-align:middle; }
-  .distance-split-table tr:last-child td { border-bottom:0; }
-  .distance-split-table th { color:var(--text-muted); background:#fbfaf7; font-family:"DM Mono",monospace; font-size:.62rem; letter-spacing:.08em; text-transform:uppercase; }
-  .distance-split-table td:nth-child(2), .distance-split-table td:nth-child(3), .distance-split-table td:nth-child(4), .distance-split-table td:nth-child(5) { white-space:nowrap; }
-  .distance-split-table td:first-child { color:var(--text-main); font-family:"DM Mono",monospace; font-weight:800; }
-  .distance-split-table td:nth-child(5) { color:var(--accent-2); font-weight:800; }
-  .distance-split-stop { display:inline-flex; align-items:center; max-width:250px; padding:4px 7px; border-radius:999px; background:#fff0eb; color:#a93622; font-size:.69rem; font-weight:800; line-height:1.25; }
-  .distance-split-empty { padding:14px; color:var(--text-muted); font-size:.78rem; }
-  .course-plan-email { display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:8px; margin:18px 0 2px; }
-  .course-plan-purchase-actions { display:flex; flex:0 0 100%; width:100%; justify-content:center; align-items:center; flex-wrap:wrap; gap:8px; }
-  .course-plan-email button { padding:10px 15px; border-radius:10px; border:1px solid transparent; background:var(--grad-accent); color:#fff; font-weight:800; box-shadow:none; }
-  .course-plan-email button:disabled { cursor:wait; opacity:.68; }
-  .course-plan-email .course-plan-credit-pack { background:#fff; border-color:#dfdad0; color:var(--text-main); }
-  .course-plan-credit-note { width:100%; margin:0; text-align:center; color:var(--text-muted); font-size:.78rem; }
-  .course-plan-digital-consent { display:flex; flex:0 0 100%; width:100%; max-width:620px; align-items:flex-start; gap:8px; margin:3px auto 0; color:var(--text-muted); font-family:"Manrope",system-ui,sans-serif; font-size:.73rem; font-weight:400; letter-spacing:0; line-height:1.42; text-align:left; text-transform:none; }
-  .course-plan-digital-consent[hidden] { display:none!important; }
-  .course-plan-digital-consent input { flex:0 0 auto; width:auto; min-height:0; margin:3px 0 0; }
-  .course-plan-digital-consent a { color:var(--accent-2); text-decoration:underline; }
-  .plan-detail-lock { margin:14px 0; padding:14px; border:1px solid #b7d9b9; border-radius:14px; background:#f6fbf4; }.plan-detail-lock h3 { margin:0; color:#275c32; font-size:1rem; }.plan-detail-lock p { margin:5px 0 0; font-size:.78rem; }
-  .plan-detail-benefit { display:flex; gap:9px; align-items:flex-start; margin-top:12px; padding:10px; border:1px solid #c8e0c9; border-radius:10px; background:#fff; color:#275c32; font-size:.78rem; line-height:1.45; }.plan-detail-benefit i { flex:0 0 auto; width:21px; height:21px; display:grid; place-items:center; border-radius:50%; background:#e4f3e5; color:#275c32; font-style:normal; font-weight:800; }.plan-detail-benefit strong { display:block; margin-bottom:2px; color:#275c32; }
-  .fueling-schedule { margin-top:18px; padding:14px; border:1px solid #dfdad0; border-radius:14px; background:#fff; }
-  .fueling-schedule h3 { margin:0; color:var(--text-main); font-size:1.18rem; }
-  .fueling-schedule > p { margin:5px 0 10px; color:var(--text-muted); font-size:.78rem; line-height:1.45; }
-  .fueling-profile { display:block; width:100%; height:155px; border-radius:10px; background:#f5f2ec; }
-  .fueling-intakes { display:grid; grid-template-columns:repeat(auto-fill, minmax(145px, 1fr)); gap:7px; margin-top:10px; max-height:330px; overflow:auto; padding-right:3px; }
-  .fueling-intake { padding:7px 8px; border-radius:8px; background:#faf8f4; border-left:3px solid var(--accent); color:var(--text-main); font-size:.72rem; line-height:1.35; }
-  .fueling-intake.is-climb { border-left-color:#c97b2a; } .fueling-intake.is-descent { border-left-color:#3f7180; }
-  .fueling-intake strong { display:block; color:var(--text-main); font-size:.75rem; }
-  .carbohydrate-profile-preview { margin-top:14px; padding:18px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:16px; background:#fff; }
-  .carbohydrate-profile-preview[hidden] { display:none; }
-  .carbohydrate-profile-head { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:12px; }
-  .carbohydrate-profile-head h3 { margin:0; font-size:1.18rem; letter-spacing:-.025em; }.carbohydrate-profile-head p { max-width:650px; margin:5px 0 0; color:var(--text-muted); font-size:.76rem; line-height:1.45; }
-  .carbohydrate-profile-total { flex:0 0 auto; padding:8px 10px; border-radius:10px; background:#fff3ef; color:#a73c27; font-size:.7rem; text-align:right; }.carbohydrate-profile-total strong { display:block; color:#a73c27; font-size:1rem; }
-  .carbohydrate-chart-block + .carbohydrate-chart-block { margin-top:10px; }.carbohydrate-chart-label { display:flex; justify-content:space-between; gap:10px; margin:0 0 5px; color:var(--text-muted); font:700 .63rem "DM Mono",monospace; letter-spacing:.07em; text-transform:uppercase; }.carbohydrate-consumption-chart { display:block; width:100%; height:145px; border-radius:10px; background:#fbfaf7; }
-  .carbohydrate-profile-legend { display:flex; flex-wrap:wrap; gap:8px 14px; margin-top:10px; color:var(--text-muted); font-size:.68rem; }.carbohydrate-profile-legend span { display:inline-flex; align-items:center; gap:5px; }.carbohydrate-profile-legend i { width:9px; height:9px; border-radius:50%; }.carbohydrate-profile-legend .is-course-profile i { width:18px; height:3px; border-radius:2px; }
-  .timeline-time { color:#41434a; font-family:"DM Mono", monospace; font-size:.82rem; white-space:nowrap; }
-  .timeline-time small { display:block; margin-bottom:2px; color:var(--text-muted); font-family:inherit; font-size:.56rem; letter-spacing:.05em; }
-  .timeline-aid { grid-template-columns:92px minmax(0, 1fr) auto; border-left:4px solid var(--accent); background:#fff; }
-  .timeline-aid .timeline-km, .timeline-aid .timeline-time { color:var(--accent-dark); }
-  .timeline-aid-assistance { border-left-color:#2e7065; background:#fff; }
-  .timeline-aid-assistance .timeline-km, .timeline-aid-assistance .timeline-time { color:#2e7065; }
-  .timeline-control { border-left:4px solid #59616c; background:#fff; }
-  .timeline-control .timeline-km, .timeline-control .timeline-time { color:#59616c; }
-  .timeline-start { border-left:4px solid #59616c; background:#fff; }
-  .timeline-start .timeline-km, .timeline-start .timeline-time { color:#59616c; }
-  .timeline-finish { border-bottom:0; border-left:4px solid var(--accent); background:#fff; box-shadow:none; }
-  .timeline-finish .timeline-km, .timeline-finish .timeline-time { color:var(--accent-dark); }
-  .timeline-finish .timeline-title { font-family:"Manrope", sans-serif; letter-spacing:-.01em; text-transform:none; }
-  .timeline-filter { display:flex; flex-wrap:wrap; gap:8px; margin:15px 0 0; }
-  .timeline-filter button { padding:8px 11px; font-size:.75rem; background:#fff; color:var(--text-main); border-color:#dfdad0; }
-  .timeline-filter button.is-active { background:#fff0eb; border-color:var(--accent); color:#a93622; }
-  .projection-timeline.show-points-only .timeline-segment { display:none; }
-  .nutrition-chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
-  .nutrition-chip { padding:3px 7px; border-radius:999px; background:#f3eee6; color:var(--text-main); font-size:.72rem; font-weight:700; }
-  .timeline-stop-control { display:inline-flex; align-items:center; gap:6px; margin-top:8px; padding:5px 7px; border:1px solid #edc8bd; border-radius:9px; background:#fff; color:var(--text-muted); font-size:.72rem; font-weight:700; }
-  .timeline-stop-control input { width:58px; min-height:30px; margin:0; padding:3px 5px; text-align:center; font-weight:800; }
-  .timeline-start-control { display:flex; flex-wrap:wrap; align-items:end; gap:8px 12px; margin-top:8px; color:var(--text-main); font-size:.74rem; font-weight:700; }
-  .timeline-start-control label { display:flex; align-items:center; gap:5px; margin:0; color:inherit; font:inherit; text-transform:none; letter-spacing:0; }
-  .timeline-start-control input { width:48px; min-height:32px; margin:0; padding:4px 3px; text-align:center; }
-  .timeline-start-control .timeline-departure-date { width:138px; text-align:left; }
-  .aid-stations { margin-top:14px; padding:16px; border:1px solid #dfdad0; border-left:3px solid var(--accent); border-radius:14px; background:#fff; }
-  .aid-stations .projection-section-title { margin:0 0 12px; }
-  .aid-stations-header { display:flex; align-items:end; gap:10px; }
-  .aid-stations-header > div { max-width:180px; }
-  .aid-point-adder { display:flex; gap:8px; width:min(100%, 560px); margin-top:7px; }
-  .aid-point-adder select { min-width:250px; }
-  .aid-station-row.is-saved { border-color:#cbd8b4; background:#f7faef; }
-  .aid-station-list { display:grid; gap:8px; margin-top:10px; }
-  .official-point-settings { color:var(--accent-2); font-size:.8rem; margin:8px 0 0; }
-  .aid-station-row { display:grid; grid-template-columns:minmax(145px, .8fr) 175px 100px 105px auto auto; gap:8px; align-items:end; }
-  .aid-station-row label { margin:0; font-size:.72rem; }
-  .aid-station-row button { padding:9px 11px; background:#fff3ef; color:#ad3c27; border-color:#efc3b7; }
-  .aid-station-row .aid-save { background:#f3f8ec; color:#4d6539; border-color:#cbd8b4; }
-  .weight-note { margin:9px 0 0; font-size:.76rem; color:var(--text-muted); }
-  .course-selection-note { margin:10px 0 0; color:var(--accent-2); font-size:.8rem; }
-  .profile-summary-list { display:grid; gap:10px; margin-top:14px; }
-  .profile-summary-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding-bottom:10px; border-bottom:1px solid rgba(148,174,214,.16); }
-  .profile-summary-row:last-child { border-bottom:0; padding-bottom:0; }
-  .profile-summary-row span { color:var(--text-muted); font-size:.86rem; }
-  .profile-summary-row strong { font-size:.94rem; }
-  .runner-history { margin-top:16px; }
-  .runner-history h3 { margin:0 0 8px; color:#fff; font-size:.9rem; }
-  .runner-history-note { margin:0 0 8px; color:var(--text-muted); font-size:.75rem; }
-  .runner-history-table { font-size:.72rem; }
-  .runner-history-table th, .runner-history-table td { padding:5px 3px; }
-  .runner-history-table th:first-child, .runner-history-table td:first-child { width:56px; }
-  .runner-history-empty { color:var(--text-muted); font-size:.78rem; }
-  .hr-zones-list { display:grid; gap:5px; }
-  .hr-zone-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 7px; border-radius:8px; background:rgba(255,255,255,.05); font-size:.76rem; }
-  .hr-zone-row strong { color:#fff; }
-  .hr-zone-row span { color:var(--accent-2); }
-  .insight-list {
-    list-style:none;
-    padding-left:0;
-    margin:0;
-  }
-  .insight-list li {
-    margin-bottom:4px;
-    font-size:0.85rem;
-  }
-  .mini-table {
-    width:100%;
-    border-collapse:collapse;
-    font-size:0.85rem;
-    margin-top:8px;
-    min-width:420px;
-  }
-  .mini-table-wrap {
-    width:100%;
-    overflow-x:auto;
-    -webkit-overflow-scrolling:touch;
-  }
-  .mini-table th,
-  .mini-table td {
-    padding:4px 6px;
-    border-bottom:1px solid rgba(108, 135, 175, 0.2);
-    color:var(--text-main);
-  }
-  .dashboard-page .mini-table th {
-    color:var(--text-main);
-  }
-  .dashboard-page .card {
-    border-color: var(--dashboard-panel-border);
-  }
-  .dashboard-page [style*="color:#0f172a"],
-  .dashboard-page [style*="color:#111827"],
-  .dashboard-page [style*="color:#374151"] {
-    color:var(--text-main) !important;
-  }
-  .dashboard-page [style*="color:#4b5563"],
-  .dashboard-page [style*="color:#6b7280"],
-  .dashboard-page [style*="color:#9ca3af"] {
-    color:var(--text-muted) !important;
-  }
-  .dashboard-page [style*="background:#ffffff"],
-  .dashboard-page [style*="background:#fff"] {
-    background:#fff !important;
-  }
-  .dashboard-page [style*="border:1px solid #e5e7eb"],
-  .dashboard-page [style*="border-bottom:1px solid #e5e7eb"] {
-    border-color:rgba(108, 135, 175, 0.2) !important;
-  }
-  .dashboard-page p,
-  .dashboard-page li,
-  .dashboard-page td,
-  .dashboard-page strong,
-  .dashboard-page span {
-    color:inherit;
-  }
-  .dashboard-page .activity-meta {
-    font-size:0.85rem;
-    color:var(--text-main);
-    margin-top:4px;
-  }
-  .dashboard-page .activity-summary {
-    background:#faf8f4;
-    color:var(--text-main);
-    padding:10px;
-    border-radius:12px;
-    border:1px solid rgba(108, 135, 175, 0.2);
-    font-size:0.85rem;
-    line-height:1.5;
-    white-space:pre-wrap;
-    font-family:inherit;
-  }
-  .dashboard-page .map-frame {
-    height:160px;
-    border:1px solid rgba(108, 135, 175, 0.2);
-    border-radius:12px;
-  }
-  .daily-glucose-card {
-    margin-bottom:16px;
-  }
-  .daily-glucose-chart-wrap {
-    height:300px;
-    margin-top:12px;
-  }
-  .daily-glucose-legend {
-    display:flex;
-    flex-wrap:wrap;
-    gap:10px;
-    margin-top:10px;
-    font-size:0.78rem;
-    color:var(--text-muted);
-  }
-  .daily-glucose-legend-item {
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
-  }
-  .daily-glucose-legend-swatch {
-    width:12px;
-    height:12px;
-    border-radius:999px;
-    border:1px solid rgba(255,255,255,0.18);
-  }
-  @media (max-width: 640px) {
-    .dashboard-page { margin:0 -12px; }
-    .plan-library { padding:24px 20px; border-right:0; border-left:0; border-radius:0; }
-    .plan-library-tabs { grid-template-columns:1fr; }
-    .plan-library-tab { min-height:0; }
-    .dashboard-hero { grid-template-columns:1fr; min-height:0; padding:34px 20px 58px; gap:20px; border-right:0; border-left:0; border-radius:0; }
-    .dashboard-hero::after { left:20px; bottom:28px; }
-    .dashboard-hero h1 { font-size:clamp(2.5rem,13vw,4rem); }
-    .dashboard-hero p:not(.dashboard-eyebrow) { margin-bottom:10px; }
-    .home-view-switcher { grid-template-columns:1fr; margin:0 12px 18px; }
-    .dashboard-activities-grid { padding:0 12px; }
-    .home-activity-head { grid-template-columns:repeat(2,minmax(0,1fr)); }
-    .home-activity-main { grid-column:1/-1; }
-    .home-activity-stat { border-top:1px solid #eee9e0; }
-    .home-activity-profiles { grid-template-columns:1fr; }
-    .home-activity-windows { grid-template-columns:repeat(2,minmax(0,1fr)); }
-    .home-activity-windows > span:first-child { grid-column:1/-1; }
-    .quick-actions { grid-template-columns:repeat(2, minmax(0, 1fr)); gap:9px; }
-    .quick-action { min-height:120px; padding:14px; }
-    .home-summary { grid-template-columns:1fr; gap:8px; }
-    .projection-workbench { grid-template-columns:1fr; }
-  .simulation-progress,.first-plan-steps,.simulation-quick-settings,.plan-basis-options { grid-template-columns:1fr; }.plan-ready-card { align-items:flex-start; flex-direction:column; }.plan-ready-card button { width:100%; }
-    .projection-form { grid-template-columns:1fr; }
-    .projection-form > div:nth-child(1), .projection-form #home-gpx-source, .projection-form > div:nth-child(3), .projection-form > button { grid-column:auto; }
-    .gpx-source-fields { grid-template-columns:1fr; }
-    .manual-controls { grid-template-columns:1fr; }
-    .manual-advanced-fields { grid-template-columns:1fr; }
-    /* Grille native, plutôt qu'un tableau : Safari mobile respecte ainsi les
-       trois colonnes sans appliquer de largeur minimale interne. */
-    .profile-pacing-live-head { display:none; }
-    #home-profile-live-data { display:grid; gap:7px; }
-    .profile-pacing-live-row {
-      display:grid;
-      grid-template-columns:repeat(3, minmax(0, 1fr));
-      border:1px solid #dfdad0;
-      border-radius:10px;
-      background:#fbfaf7;
-      overflow:hidden;
-    }
-    .profile-pacing-live-cell {
-      display:flex;
-      min-width:0;
-      flex-direction:column;
-      gap:2px;
-      padding:7px 5px;
-      border:0;
-      border-right:1px solid #e6e1d8;
-      overflow-wrap:anywhere;
-      word-break:break-word;
-      font-size:.72rem;
-      line-height:1.25;
-    }
-    .profile-pacing-live-cell:last-child { border-right:0; }
-    .profile-pacing-live-cell::before {
-      content:attr(data-label);
-      color:var(--text-muted);
-      font-family:"DM Mono", monospace;
-      font-size:.56rem;
-      letter-spacing:.05em;
-      text-transform:uppercase;
-    }
-    .aid-stations-header { align-items:stretch; flex-direction:column; }
-    .aid-point-adder { flex-direction:column; }
-    .aid-station-row { grid-template-columns:1fr 1fr; }
-    .aid-station-row button { grid-column:span 2; }
-    .roadbook-header { display:none; }
-    .timeline-row, .timeline-aid { grid-template-columns:70px minmax(0, 1fr); gap:8px; }
-    .nutrition-rate-controls { grid-template-columns:1fr; gap:8px; }
-    .carbohydrate-profile-head { display:block; }.carbohydrate-profile-total { display:inline-block; margin-top:10px; text-align:left; }.carbohydrate-profile-preview { padding:14px; }
-    .calculation-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
-    .race-settings-departure { grid-template-columns:1fr 1fr; }.race-settings-departure label:first-child { grid-column:1 / -1; }
-    .race-settings-times { grid-template-columns:repeat(2,minmax(0,1fr)); }
-    .timeline-time { grid-column:2; }
-    .timeline-details { grid-column:1 / -1; }
-    .mini-table {
-      font-size:0.74rem;
-      min-width:360px;
-    }
-    .mini-table th,
-    .mini-table td {
-      padding:5px 4px;
-      white-space:nowrap;
-    }
-  }
-</style>
+<script src="/static/js/pace-curve.js?v=1"></script>
+<script src="/static/js/energy.js?v=2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="/static/css/user_dashboard-1.css?v=2">
 {% endblock %}
 
 {% block content %}
@@ -804,8 +143,8 @@
         <h3 class="pace-choice-title">La base de mes allures</h3>
         <p class="pace-source-title">Comment souhaites-tu définir tes allures ?</p>
         <div class="pace-source-options" role="radiogroup" aria-label="Source des allures">
-          <label class="pace-source-option"><input type="radio" name="home-pace-source" value="history" {% if runner_profile_overview and runner_profile_overview.zones %}checked{% endif %}><strong>Mon historique</strong><span>Allures issues de tes sorties.</span></label>
-          <label class="pace-source-option"><input type="radio" name="home-pace-source" value="manual" {% if not runner_profile_overview or not runner_profile_overview.zones %}checked{% endif %}><strong>Paramétrage manuel</strong><span>Plat, montée et descente réglés par toi.</span></label>
+          <label class="pace-source-option"><input type="radio" name="home-pace-source" value="history" checked><strong>Courbe de référence</strong><span>Ton modèle, complété par la médiane collective.</span></label>
+          <label class="pace-source-option"><input type="radio" name="home-pace-source" value="manual"><strong>Paramétrage manuel</strong><span>Plat, montée et descente réglés par toi.</span></label>
         </div>
         <div id="home-history-intensity-settings">
           <h4 class="pace-choice-kicker">Sur base de mon historique de sorties</h4>
@@ -823,7 +162,7 @@
             {% endfor %}
           </select>
         </div>
-        <p id="home-profile-zone-note">Les allures et la VAM enregistrées dans cette zone cardiaque servent de référence à la projection.</p>
+        <p id="home-profile-zone-note">La courbe d’allure recalculée dans cette zone cardiaque sert de référence à la projection.</p>
         <p class="profile-cardio-note"><strong>Important :</strong> renseigne bien ta fréquence cardiaque maximale dans tes réglages. Elle permet de calculer des zones cardio cohérentes et donc de choisir la bonne intensité pour cette projection. <a href="/ui/user/{{ user.id }}/profile">Vérifier mes réglages →</a></p>
       </div>
       <div class="time-goal-card" id="home-time-basis-settings">
@@ -870,6 +209,7 @@
     <div class="course-profile-preview" id="home-course-profile-preview" hidden></div>
     <div id="home-custom-segment-explorer" hidden></div>
     <div id="home-target-pacing-curve" hidden></div>
+    <div id="plan-energy" hidden></div>
     <section class="race-settings" id="home-race-settings" hidden aria-label="Départ et ravitos"></section>
     <div id="home-terrain-pace-overview" hidden></div>
     <section class="carbohydrate-profile-preview" id="home-carbohydrate-profile" hidden aria-label="Profil du parcours et alimentation en glucides"></section>
@@ -888,12 +228,12 @@
     <div class="manual-profile">
       <div class="manual-profile-choice">
         <label class="manual-profile-toggle" for="home-manual-mode">
-          <input id="home-manual-mode" type="checkbox" {% if not runner_profile_overview or not runner_profile_overview.zones %}checked{% endif %}>
+          <input id="home-manual-mode" type="checkbox">
           Utiliser mes propres allures pour cette course
         </label>
         <p class="profile-pacing-note">Corrige les données proposées pour cette course uniquement. Niveau 1 : prudent · Niveau 5 : équilibré · Niveau 12 : très performant.</p>
       </div>
-      <div class="manual-controls" id="home-manual-controls" {% if runner_profile_overview and runner_profile_overview.zones %}hidden{% endif %}>
+      <div class="manual-controls" id="home-manual-controls" hidden>
         <div class="manual-control">
           <label for="home-flat-speed">Vitesse sur plat <output id="home-flat-speed-output">8.5 km/h</output></label>
           <input id="home-flat-speed" type="range" min="5" max="22" step="0.1" value="8.5">
@@ -922,7 +262,7 @@
           <span class="profile-pacing-note" id="home-profile-table-note"></span>
           <span class="profile-live-total"><strong id="home-profile-live-total">Sélectionne un parcours</strong><small id="home-profile-live-stop-detail">Arrêts ravito · 0 min</small></span>
         </div>
-        <div class="profile-pacing-curve is-bar-chart" id="home-profile-curve" role="img" aria-label="Allures modélisées utilisées pour la projection selon la pente"></div>
+        <div class="profile-pacing-curve is-pace-chart" id="home-profile-curve" role="img" aria-label="Allures modélisées utilisées pour la projection selon la pente"></div>
         <details class="profile-pacing-details">
           <summary>Voir le détail par pente et allure</summary>
           <div class="profile-pacing-live-grid" aria-live="polite">
@@ -1009,7 +349,7 @@
     const planPaymentPilotEnabled = {{ plan_payment_test_enabled | default(false) | tojson }};
     const planCredits = Number({{ plan_credits | default(0) | tojson }});
     let runnerProfileData = {{ runner_profile_overview | default({}) | tojson | safe }};
-    let runnerPaceLookup = {{ dashboard_pace_lookup | default({}) | tojson | safe }};
+    let paceReference = {{ dashboard_pace_reference | default({}) | tojson | safe }};
     let runnerModeledPaceLookup = {{ dashboard_modeled_pace_lookup | default({}) | tojson | safe }};
     const communityPaceCurves = {{ dashboard_cohort_curves | default({}) | tojson | safe }};
     let profilePaceChart = null;
@@ -1112,9 +452,7 @@
     function targetTimeAdjustment(baseMovingSeconds, stopSeconds = 0) {
       const targetSeconds = requestedTargetSeconds();
       if (!targetSeconds) return { factor: 1, targetSeconds: null, invalid: isTargetTimeMode() };
-      const targetMovingSeconds = targetSeconds - Math.max(0, stopSeconds);
-      if (targetMovingSeconds < 60 || !(baseMovingSeconds > 0)) return { factor: 1, targetSeconds, invalid: true };
-      return { factor: targetMovingSeconds / baseMovingSeconds, targetSeconds, invalid: false };
+      return PaceCurve.targetAdjustment(baseMovingSeconds, stopSeconds, targetSeconds);
     }
 
     function refreshTimeGoalUi() {
@@ -1178,7 +516,7 @@
       });
     }
 
-    async function playPlanThinking(duration = 5000, profile = null) {
+    async function playPlanThinking(duration = 0, profile = null) {
       if (!planThinkingModal || !planThinkingStream) return;
       const selected = officialCourses.find((course) => course.id === officialCourseInput.value);
       const courseName = selected?.name || manualCourseNameInput.value.trim() || fileInput.files?.[0]?.name?.replace(/\.gpx$/i, '') || 'ta trace GPX';
@@ -1219,8 +557,11 @@
       const basis = selectedPlanBasis();
       const usesPaces = basis === 'paces';
       const usesManualPaces = usesPaces && selectedPaceSource() === 'manual';
-      if (historyBasisSettings) historyBasisSettings.hidden = !usesPaces;
-      if (historyIntensitySettings) historyIntensitySettings.hidden = !usesPaces || usesManualPaces;
+      if (historyBasisSettings) {
+        historyBasisSettings.hidden = false;
+        historyBasisSettings.querySelectorAll('.pace-source-title, .pace-source-options').forEach(element => { element.hidden = !usesPaces; });
+      }
+      if (historyIntensitySettings) historyIntensitySettings.hidden = usesManualPaces;
       if (timeBasisSettings) timeBasisSettings.hidden = basis !== 'target';
       const targetModeInput = timeModeInputs.find((input) => input.value === 'target');
       const automaticModeInput = timeModeInputs.find((input) => input.value === 'automatic');
@@ -1246,7 +587,7 @@
       refreshTimeGoalUi();
       updatePlanFlow();
       if (refreshLiveProjection) refreshLiveProjection();
-      if (usesPaces && !usesManualPaces) loadHistoryProfileForWindow();
+      if (!usesManualPaces) loadHistoryProfileForWindow();
     }
 
     async function loadHistoryProfileForWindow({ force = false } = {}) {
@@ -1273,8 +614,8 @@
         if (historyProfileRequest !== period) return;
         if (payload.period !== period || payload.source !== 'runner-profile') throw new Error('La période reçue ne correspond pas à la période sélectionnée');
         runnerProfileData = payload.profile || { zones: {} };
-        runnerPaceLookup = payload.pace_lookup_by_slope || {};
         runnerModeledPaceLookup = payload.modeled_pace_lookup_by_slope || {};
+        paceReference = payload.pace_reference || {};
         loadedHistoryWindow = period;
         renderProfilePacingTable();
         renderArchivedProfileTable();
@@ -1284,8 +625,8 @@
           const activityCount = Number(payload.activities_count || 0);
           const activityLabel = `${activityCount} ${activityCount > 1 ? 'sorties analysées' : 'sortie analysée'}`;
           historyWindowNote.textContent = payload.has_data
-            ? `Période active : ${payload.months} derniers mois · ${activityLabel}. Projection recalculée.`
-            : `Pas encore assez de données sur les ${payload.months} derniers mois (${activityLabel}) : tu peux utiliser le paramétrage manuel.`;
+            ? `Période active : ${payload.months} derniers mois · ${activityLabel}. Modèle personnel complété par la médiane collective si nécessaire.`
+            : `Données personnelles insuffisantes sur cette période (${activityLabel}) : médiane collective utilisée sur les pentes disponibles.`;
         }
       } catch (error) {
         console.warn('[runner-profile] historique par période', error);
@@ -1403,16 +744,6 @@
       return pace > 0 ? pace * multiplier : pace;
     }
 
-    function applyRacePacingProgression(rows, totalDistanceKm) {
-      const totalDistance = Math.max(.001, Number(totalDistanceKm) || 0);
-      rows.forEach((row) => {
-        const midpointKm = Math.max(0, Number(row.cumulativeKm || 0) - Number(row.distance || 0) / 2);
-        const progression = 1.05 - 0.10 * Math.max(0, Math.min(1, midpointKm / totalDistance));
-        row.seconds *= progression;
-      });
-      return rows.reduce((sum, row) => sum + Number(row.seconds || 0), 0);
-    }
-
     function refreshManualLabels() {
       document.getElementById('home-flat-speed-output').textContent = `${Number(flatSpeed.value).toFixed(1)} km/h`;
       document.getElementById('home-descent-level-output').textContent = `${Math.round(Number(descentLevel.value))} / ${descentLevel.max}`;
@@ -1499,23 +830,11 @@
       return coefficients.a * x * x + coefficients.b * x + coefficients.c;
     }
 
-    function modeledHistoricalPace(slopeId, zone) {
-      const serverModeledPace = Number((runnerModeledPaceLookup[slopeId] || {})[zone]);
-      if (serverModeledPace >= 120 && serverModeledPace <= 7200) return serverModeledPace;
-      const historicalZone = (runnerProfileData.zones || {})[zone] || {};
-      const rawPace = Number((historicalZone[slopeId] || {}).avg_pace_s_per_km);
-      return rawPace > 0 ? rawPace : null;
-    }
-
     function projectedPaceForSlope(slopeId, zone) {
-      const modeledPace = modeledHistoricalPace(slopeId, zone);
-      if (modeledPace > 0) return { pace: modeledPace, source: 'Courbe modélisée' };
-      const preparedPace = Number((runnerPaceLookup[slopeId] || {})[zone]);
-      if (preparedPace > 0) return { pace: preparedPace, source: 'Runner profil' };
-      const historicalZone = (runnerProfileData.zones || {})[zone] || {};
-      const historicalPace = Number((historicalZone[slopeId] || {}).avg_pace_s_per_km);
-      if (historicalPace > 0) return { pace: historicalPace, source: 'Historique' };
-      return { pace: manualPaceForSlope(slopeId), source: 'Courbe de départ' };
+      const pace = Number((runnerModeledPaceLookup[slopeId] || {})[zone]);
+      return Number.isFinite(pace) && pace > 0
+        ? { pace, source: paceReference.sources?.[slopeId]?.[zone] === 'median' ? 'Médiane collective' : 'Modèle personnel' }
+        : { pace: null, source: 'Modèle indisponible' };
     }
 
     function formatPace(seconds) {
@@ -1545,23 +864,6 @@
       return ticks;
     }
 
-    function roundedPacePath(points, xScale, yScale) {
-      const coordinates = (points || []).map((point) => ({ x:xScale(point.x), y:yScale(point.pace) }));
-      if (!coordinates.length) return '';
-      if (coordinates.length === 1) return `M ${coordinates[0].x.toFixed(1)} ${coordinates[0].y.toFixed(1)}`;
-      let path = `M ${coordinates[0].x.toFixed(1)} ${coordinates[0].y.toFixed(1)}`;
-      for (let index = 0; index < coordinates.length - 1; index += 1) {
-        const previous = coordinates[Math.max(0, index - 1)];
-        const current = coordinates[index];
-        const next = coordinates[index + 1];
-        const following = coordinates[Math.min(coordinates.length - 1, index + 2)];
-        const control1 = { x:current.x + (next.x - previous.x) / 6, y:current.y + (next.y - previous.y) / 6 };
-        const control2 = { x:next.x - (following.x - current.x) / 6, y:next.y - (following.y - current.y) / 6 };
-        path += ` C ${control1.x.toFixed(1)} ${control1.y.toFixed(1)}, ${control2.x.toFixed(1)} ${control2.y.toFixed(1)}, ${next.x.toFixed(1)} ${next.y.toFixed(1)}`;
-      }
-      return path;
-    }
-
     function renderArchivedProfileTable() {
       if (!archivedProfileBody || !archivedProfileNote) return;
       const zone = zoneInput.value;
@@ -1587,7 +889,6 @@
     function renderProfilePacingTable() {
       if (!profileCurve) return;
       const zone = zoneInput.value;
-      const historicalZone = (runnerProfileData.zones || {})[zone] || {};
       const manual = manualProfileIsActive();
       const historyPeriodLabels = {
         last_3_months: '3 derniers mois',
@@ -1602,14 +903,14 @@
           ? `Profil manuel de référence. Le calcul du chrono applique ensuite l’adaptation du parcours (${courseAdjustment}).`
           : `Même profil modélisé que dans Runner Profile · ${zone} · ${historyPeriodLabel}. Le calcul du chrono applique ensuite l’adaptation du parcours (${courseAdjustment}).`;
       }
-      const hasHistoricalData = Object.values(historicalZone).some((cell) => Number(cell?.avg_pace_s_per_km) > 0);
+      const hasHistoricalData = Object.values(runnerModeledPaceLookup).some(cell => Number(cell?.[zone]) > 0);
       profileTableTitle.textContent = manual
         ? `Profil manuel · ${zone}`
-        : `Profil historique · ${zone} · ${historyPeriodLabel}`;
+        : `Profil recalculé · ${zone} · ${historyPeriodLabel}`;
       profileTableNote.textContent = manual
         ? 'Allures de référence réglées manuellement, avant adaptation au parcours.'
         : hasHistoricalData
-          ? 'Valeurs de référence identiques à celles du Runner Profile, avant coefficient technique et stratégie de course.'
+          ? 'Courbe recalculée du profil coureur, avant adaptation au parcours. Les pentes peu documentées utilisent la médiane des autres coureurs lorsque le groupe est suffisant.'
           : 'Historique insuffisant : active les réglages manuels pour créer un profil de départ.';
       const points = slopeIds.map((slopeId) => {
         const projected = projectedPaceForSlope(slopeId, zone);
@@ -1622,118 +923,60 @@
           profilePaceChart = null;
         }
         profileCurve.innerHTML = '<p class="runner-history-empty">Aucune allure exploitable pour cette zone.</p>';
+        if (profileLiveData) profileLiveData.innerHTML = '';
         return;
       }
+      const medianCount = points.filter(point => point.source === 'Médiane collective').length;
+      if (!manual) profileTableNote.textContent += ` · ${points.length - medianCount} pentes personnelles · ${medianCount} pentes issues de la médiane collective.`;
+      const curve = PaceCurve.create(points);
       const communityZone = (communityPaceCurves.zones || {})[zone] || {};
-      const referenceRange = points.map((point) => {
-        const cell = communityZone[point.slopeId] || {};
-        const p10 = Number(cell.p10);
-        const p50 = Number(cell.p50);
-        const p90 = Number(cell.p90);
-        if (!(p10 > 0) || !(p50 > 0) || !(p90 > 0)) return null;
-        const fast = Math.min(p10, p90) / 60;
-        const prudent = Math.max(p10, p90) / 60;
-        return {
-          range:[fast, prudent],
-          median:Math.max(fast, Math.min(prudent, p50 / 60)),
-        };
+      const datasets = [];
+      ['p10', 'p90', 'p50'].forEach((percentile) => {
+        const reference = PaceCurve.create(points.map(point => ({ x:point.x, pace:Number(communityZone[point.slopeId]?.[percentile]) })));
+        if (reference.nodes.length < 2) return;
+        datasets.push({
+          label:{ p10:'Repère collectif rapide', p90:'Repère collectif prudent', p50:'Médiane collective' }[percentile],
+          data:reference.samples.map(point => ({ x:point.x, y:point.pace })),
+          borderColor:'#a0a7ad', borderWidth:1, borderDash:percentile === 'p50' ? [4,4] : [2,5], pointRadius:0,
+        });
       });
-      const hasCommunityRange = referenceRange.some(Boolean);
-      if (hasCommunityRange) {
-        profileTableNote.textContent += ` · Barres grisées : performances modélisées des 10 % les plus rapides aux 10 % les moins rapides ; le trait gris indique la médiane (minimum ${communityPaceCurves.minimum_runners || 8} coureurs par pente).`;
-      }
+      if (datasets.length) profileTableNote.textContent += ' · Repères collectifs gris : P10, médiane et P90.';
+      datasets.push({ label:manual ? 'Profil manuel' : `${zone} · courbe recalculée`,
+        data:curve.samples.map(point => ({ x:point.x, y:point.pace })),
+        borderColor:'#e9a33b', borderWidth:3, pointRadius:0, pointHitRadius:8, tension:0 });
       if (profilePaceChart) profilePaceChart.destroy();
       profileCurve.innerHTML = '<canvas id="home-profile-pace-chart"></canvas>';
       const canvas = profileCurve.querySelector('canvas');
       if (canvas && typeof Chart !== 'undefined') {
-        const colors = points.map((point) => point.x < -5 ? '#63b7d3' : (point.x > 5 ? '#f3ad3d' : '#84a964'));
-        const communityMedianPlugin = {
-          id:'homeCommunityMedian',
-          afterDatasetsDraw(chart) {
-            if (!hasCommunityRange) return;
-            const { ctx, scales } = chart;
-            ctx.save();
-            ctx.strokeStyle = '#5e6874';
-            ctx.lineWidth = 2;
-            referenceRange.forEach((entry, index) => {
-              if (!entry) return;
-              const x = scales.x.getPixelForValue(index);
-              const y = scales.y.getPixelForValue(entry.median);
-              ctx.beginPath();
-              ctx.moveTo(x - 9, y);
-              ctx.lineTo(x + 9, y);
-              ctx.stroke();
-            });
-            ctx.restore();
-          },
-        };
-        const datasets = [];
-        if (hasCommunityRange) {
-          datasets.push({
-            label:'Plage des autres coureurs',
-            data:referenceRange.map((entry) => entry?.range || null),
-            backgroundColor:'rgba(78, 91, 108, .18)',
-            borderColor:'#718092',
-            borderWidth:1,
-            borderRadius:5,
-            borderSkipped:false,
-            grouped:false,
-            barPercentage:.86,
-            order:2,
-          });
-        }
-        datasets.push({
-          label:manual ? 'Profil manuel' : `${zone} · modèle personnel`,
-          data:points.map((point) => point.pace / 60),
-          backgroundColor:colors,
-          borderWidth:0,
-          borderRadius:5,
-          borderSkipped:false,
-          grouped:false,
-          barPercentage:.56,
-          maxBarThickness:46,
-          order:1,
-        });
+        const bounds = paceScaleBounds(datasets.flatMap(dataset => dataset.data.map(point => point.y)));
         profilePaceChart = new Chart(canvas.getContext('2d'), {
-          type:'bar',
-          data:{ labels:points.map((point) => slopeLabels[point.slopeId]), datasets },
-          options:{
-            responsive:true,
-            maintainAspectRatio:false,
-            interaction:{ mode:'index', intersect:false },
-            plugins:{
-              legend:{ display:hasCommunityRange, labels:{ color:'#5f5b53', boxWidth:16, usePointStyle:true } },
-              tooltip:{ callbacks:{ label:item => {
-                if (Array.isArray(item.raw)) {
-                  return `Autres coureurs · ${formatPace(item.raw[0] * 60)} à ${formatPace(item.raw[1] * 60)}`;
-                }
-                return `${item.dataset.label} · ${formatPace(Number(item.raw) * 60)}`;
-              } } },
-            },
+          type:'line', data:{ datasets },
+          options:{ responsive:true, maintainAspectRatio:false, animation:false,
+            interaction:{ mode:'nearest', axis:'x', intersect:false },
+            plugins:{ legend:{ display:datasets.length > 1 }, tooltip:{ callbacks:{
+              title:items => `${Number(items[0].raw.x).toFixed(1)} %`,
+              label:item => `${item.dataset.label} · ${formatPace(item.raw.y)}`,
+            } } },
             scales:{
-              x:{ title:{ display:true, text:'Pente', color:'#5f5b53' }, ticks:{ color:'#5f5b53', autoSkip:true, maxRotation:0 }, grid:{ display:false } },
-              y:{ beginAtZero:true, title:{ display:true, text:'Allure (min/km)', color:'#5f5b53' }, ticks:{ color:'#5f5b53', callback:value => formatPace(Number(value) * 60).replace(' /km', '') }, grid:{ color:'rgba(95,91,83,.12)' } },
+              x:{ type:'linear', min:-45, max:45, title:{ display:true, text:'Pente (%)' }, ticks:{ stepSize:15, callback:v => `${v > 0 ? '+' : ''}${v}%` }, grid:{ color:'rgba(95,91,83,.12)' } },
+              y:{ type:'logarithmic', reverse:true, min:bounds.min, max:bounds.max,
+                afterBuildTicks:axis => { axis.ticks = paceScaleTicks(bounds.min, bounds.max).map(value => ({ value })); },
+                title:{ display:true, text:'Allure (min/km)' }, ticks:{ callback:v => formatPace(v).replace(' /km','') }, grid:{ color:'rgba(95,91,83,.12)' } },
             },
           },
-          plugins:[communityMedianPlugin],
         });
       }
       if (profileLiveData) {
         profileLiveData.innerHTML = points.map((point) => {
           const vam = Math.round((3600 / point.pace) * 10 * point.x);
-          return `<div class="profile-pacing-live-row"><span class="profile-pacing-live-cell" data-label="Pente">${slopeLabels[point.slopeId]}</span><span class="profile-pacing-live-cell" data-label="Allure">${formatPace(point.pace)}</span><span class="profile-pacing-live-cell" data-label="VAM">${vam ? `${vam > 0 ? '+' : '−'}${Math.abs(vam)} m/h` : '—'}</span></div>`;
+          return `<div class="profile-pacing-live-row"><span class="profile-pacing-live-cell" data-label="Pente">${slopeLabels[point.slopeId]}</span><span class="profile-pacing-live-cell" data-label="Allure">${formatPace(point.pace)}</span><span class="profile-pacing-live-cell" data-label="VAM" title="${point.source}">${vam ? `${vam > 0 ? '+' : '−'}${Math.abs(vam)} m/h` : '—'}</span></div>`;
         }).join('');
       }
     }
 
     function renderTargetPacingCurve({ zone, courseDifficulty, movingSeconds, stopSeconds }) {
       if (!targetPacingCurveHost) return;
-      if (!isTargetTimeMode()) {
-        targetPacingCurveHost.hidden = true;
-        targetPacingCurveHost.innerHTML = '';
-        return;
-      }
-      const multiplier = Math.max(.05, Number(targetPaceMultiplier) || 1);
+      const multiplier = Number(targetPaceMultiplier) > 0 ? Number(targetPaceMultiplier) : 1;
       const manual = manualProfileIsActive();
       const points = slopeIds.map((slopeId) => {
         const projected = projectedPaceForSlope(slopeId, zone);
@@ -1750,7 +993,8 @@
         const bounded = Math.max(yMin, Math.min(yMax, pace));
         return pad.top + ((Math.log(bounded) - Math.log(yMin)) / (Math.log(yMax) - Math.log(yMin))) * (height - pad.top - pad.bottom);
       };
-      const path = points.map((point, index) => `${index ? 'L' : 'M'} ${xScale(point.x).toFixed(1)} ${yScale(point.pace).toFixed(1)}`).join(' ');
+      const curve = PaceCurve.create(points);
+      const path = curve.samples.map((point, index) => `${index ? 'L' : 'M'} ${xScale(point.x).toFixed(1)} ${yScale(point.pace).toFixed(1)}`).join(' ');
       const xTicks = [-40, -20, 0, 20, 40];
       const yTicks = paceScaleTicks(yMin, yMax);
       const grid = [
@@ -1759,25 +1003,22 @@
       ].join('');
       const dots = points.map((point) => `<circle class="curve-point" cx="${xScale(point.x)}" cy="${yScale(point.pace)}" r="3"><title>${slopeLabels[point.slopeId]} · ${formatPace(point.pace)}</title></circle>`).join('');
       const targetSeconds = requestedTargetSeconds();
+      const curveTitle = targetSeconds ? 'Allures recalculées pour le chrono cible' : 'Allures recalculées pour ce parcours';
+      const curveExplanation = targetSeconds
+        ? 'La forme du modèle est conservée : toutes les allures sont ajustées par le même facteur, après déduction des pauses aux ravitos.'
+        : 'La courbe du profil coureur est adaptée au parcours. Les pauses aux ravitos s’ajoutent au temps en mouvement.';
       targetPacingCurveHost.hidden = false;
-      targetPacingCurveHost.innerHTML = `<section class="target-pacing-card" aria-label="Allures retenues pour le chrono cible"><h3>Allures retenues pour le chrono cible</h3><p>Cette courbe est appliquée aux pentes du parcours pour calculer le chrono de chaque tronçon.</p><div class="target-pacing-summary"><span>Objectif total <strong>${formatDuration(targetSeconds || movingSeconds + stopSeconds)}</strong></span><span>En mouvement <strong>${formatDuration(movingSeconds)}</strong></span><span>Ravitos <strong>${formatDuration(stopSeconds)}</strong></span></div><div class="profile-pacing-curve" role="img" aria-label="Allures retenues selon la pente pour atteindre le chrono cible"><svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">${grid}<path class="curve-line" d="${path}"/>${dots}<text class="curve-axis-label" x="${width / 2}" y="${height - 1}" text-anchor="middle">Pente</text><text class="curve-axis-label" x="12" y="${height / 2}" transform="rotate(-90 12 ${height / 2})" text-anchor="middle">Allure</text></svg><span class="target-curve-tooltip" hidden></span></div><p class="target-pacing-explanation">Survole la courbe pour lire l’allure et la VAM à la pente choisie. Si tu augmentes les pauses aux ravitos, le temps en mouvement se réduit et toute la courbe s’ajuste pour conserver le chrono total visé.</p></section>`;
+      targetPacingCurveHost.innerHTML = `<section class="target-pacing-card" aria-label="${curveTitle}"><h3>${curveTitle}</h3><p>${manual ? "Tes réglages manuels" : "Le modèle personnel et, si nécessaire, la médiane collective"} servent de référence au chrono de chaque tronçon.</p><div class="target-pacing-summary"><span>${targetSeconds ? 'Objectif total' : 'Temps total estimé'} <strong>${formatDuration(targetSeconds || movingSeconds + stopSeconds)}</strong></span><span>En mouvement <strong>${formatDuration(movingSeconds)}</strong></span><span>Ravitos <strong>${formatDuration(stopSeconds)}</strong></span></div><div class="profile-pacing-curve" role="img" aria-label="${curveTitle} selon la pente"><svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">${grid}<path class="curve-line" d="${path}"/>${dots}<text class="curve-axis-label" x="${width / 2}" y="${height - 1}" text-anchor="middle">Pente</text><text class="curve-axis-label" x="12" y="${height / 2}" transform="rotate(-90 12 ${height / 2})" text-anchor="middle">Allure</text></svg><span class="target-curve-tooltip" hidden></span></div><p class="target-pacing-explanation">Survole la courbe pour lire l’allure et la VAM à la pente choisie. ${curveExplanation}</p></section>`;
       const curveBox = targetPacingCurveHost.querySelector('.profile-pacing-curve');
       const svg = curveBox?.querySelector('svg');
       const tooltip = curveBox?.querySelector('.target-curve-tooltip');
-      const paceAtGrade = (grade) => {
-        const rightIndex = points.findIndex((point) => point.x >= grade);
-        if (rightIndex <= 0) return points[0].pace;
-        if (rightIndex < 0) return points[points.length - 1].pace;
-        const left = points[rightIndex - 1]; const right = points[rightIndex];
-        const ratio = (grade - left.x) / Math.max(.001, right.x - left.x);
-        return left.pace + (right.pace - left.pace) * ratio;
-      };
       svg?.addEventListener('pointermove', (event) => {
         if (!tooltip) return;
         const box = svg.getBoundingClientRect();
         const ratio = Math.max(0, Math.min(1, (event.clientX - box.left) / Math.max(1, box.width)));
-        const grade = -45 + ratio * 90;
-        const pace = paceAtGrade(grade);
+        const plotRatio = Math.max(0, Math.min(1, (ratio * width - pad.left) / (width - pad.left - pad.right)));
+        const grade = -45 + plotRatio * 90;
+        const pace = curve.at(grade);
         const vam = Math.round((3600 / pace) * 10 * grade);
         tooltip.hidden = false;
         tooltip.classList.toggle('is-left', ratio > .55);
@@ -2884,7 +2125,7 @@
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
-      if (selectedPlanBasis() === 'paces' && selectedPaceSource() === 'history') {
+      if (!manualProfileIsActive()) {
         if (generatePlanButton) {
           generatePlanButton.disabled = true;
           generatePlanButton.textContent = 'Chargement de ton historique…';
@@ -2950,12 +2191,12 @@
           method: 'POST',
           body: payload,
         });
-        if (!isUpdatingExistingPlan) await playPlanThinking(4000);
+        if (!isUpdatingExistingPlan) await playPlanThinking(0);
         const response = await projectionRequest;
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || 'Impossible de lire ce GPX.');
         if (!isUpdatingExistingPlan) {
-          await playPlanThinking(1800, {
+          await playPlanThinking(0, {
             elevationProfile: data.elevation_profile,
             courseName: data.official_course?.name || manualCourseNameInput.value.trim(),
           });
@@ -2966,7 +2207,6 @@
         let movingSeconds = 0;
         let gain = 0;
         let loss = 0;
-        let manualFallback = false;
         const projectedRows = [];
         (data.km_splits || []).forEach((segment) => {
           gain += Number(segment.elevation_gain_m || 0);
@@ -2975,11 +2215,9 @@
           (segment.slope_distribution || []).forEach((part) => {
             const projectedPace = projectedPaceForSlope(part.slope_id, zone);
             let pace = paceWithCourseDifficulty(manualProfileIsActive() ? manualPaceForSlope(part.slope_id) : projectedPace.pace, simulationCoefficientPercent);
-            if (!manualProfileIsActive() && projectedPace.source === 'Courbe de départ') manualFallback = true;
             const distance = Number(part.distance_km || 0);
             if (!(pace > 0) && distance > 0) {
-              pace = paceWithCourseDifficulty(manualPaceForSlope(part.slope_id), simulationCoefficientPercent);
-              manualFallback = true;
+              throw new Error('Modèle d’allure indisponible pour cette pente. Choisis une autre période ou le paramétrage manuel.');
             }
             if (pace > 0 && distance > 0) {
               const partSeconds = pace * distance;
@@ -2996,7 +2234,7 @@
             slopeDistribution: segment.slope_distribution || [],
           });
         });
-        movingSeconds = applyRacePacingProgression(projectedRows, data.total_distance_km);
+        movingSeconds = projectedRows.reduce((sum, row) => sum + row.seconds, 0);
 
         if (!movingSeconds) {
           throw new Error('Impossible de calculer cette trace GPX. Vérifie qu’elle contient au moins deux points GPS et des altitudes.');
@@ -3078,6 +2316,16 @@
           movingSeconds,
           stopSeconds,
         });
+        const planEnergyHost=document.getElementById('plan-energy');
+        const energyRows=(data.slope_distribution||[]).map(part=>{
+          const grade=slopeCenters[part.slope_id];
+          const pace=paceWithCourseDifficulty(manualProfileIsActive()?manualPaceForSlope(part.slope_id):projectedPaceForSlope(part.slope_id,zone).pace,simulationCoefficientPercent)*targetPaceMultiplier;
+          return {grade,distance:Number(part.distance_km),estimate:EnergyModel.terrain(Number(weightInput.value),grade,pace,Number(part.distance_km))};
+        });
+        const energyDistance=energyRows.reduce((sum,row)=>sum+(row.estimate?row.distance:0),0);
+        const energyKcal=energyRows.reduce((sum,row)=>sum+(row.estimate?.kcal||0),0);
+        planEnergyHost.hidden=false;
+        planEnergyHost.innerHTML=energyDistance>0?`<section class="data-panel"><div class="data-heading"><div><span class="data-eyebrow">Le relief dans ton effort</span><h2>Énergie estimée sur ce parcours</h2></div><a href="/ui/user/{{ user.id }}/energy">Explorer les pentes →</a></div><div class="data-kpis"><article><span>Locomotion</span><strong>≈ ${Math.round(energyKcal)} <small>kcal</small></strong></article><article><span>Au chrono choisi, en mouvement</span><strong>≈ ${Math.round(energyKcal/movingSeconds*3600)} <small>kcal/h</small></strong></article><article><span>Distance estimée</span><strong>${energyDistance.toFixed(1)} <small>km</small></strong></article></div><div class="energy-terrain">${[['Descente',g=>g<-3],['Roulant',g=>Math.abs(g)<=3],['Montée',g=>g>3]].map(([label,test])=>{const kcal=energyRows.filter(row=>test(row.grade)).reduce((sum,row)=>sum+(row.estimate?.kcal||0),0);return `<article><span>${label}</span><strong>${Math.round(kcal)} kcal</strong><div class="data-track"><i style="width:${energyKcal?kcal/energyKcal*100:0}%"></i></div></article>`;}).join('')}</div><p class="data-note">Pour ${Number(weightInput.value)} kg, avec le modèle de course Minetti et le centre de chaque tranche de pente. À distance et relief identiques, un chrono plus court augmente les kcal/h ; le coût total du modèle reste identique. Ce chiffre ne fixe pas les apports à manger. La marche, la technicité et la fatigue peuvent modifier le coût réel.</p></section>`:'<section class="data-panel"><p>Renseigne un poids valide pour estimer la dépense du parcours.</p></section>';
         const totalSeconds = movingSeconds + stopSeconds;
         const stopDetail = stopSeconds ? ` · ${formatDuration(stopSeconds)} de ravito` : '';
         const manualCourseName = manualCourseNameInput.value.trim() || 'Ma trace GPX';
@@ -3093,7 +2341,6 @@
           <div class="projection-time" id="home-projection-total">${formatDuration(totalSeconds)}</div>
           <div class="projection-detail" id="home-projection-distance-detail">${Number(data.total_distance_km || 0).toFixed(1)} km · D+ ${Math.round(gain)} m · D− ${Math.round(loss)} m · ${formatDuration(movingSeconds)} en mouvement${stopDetail}</div>
           ${manualProfileIsActive() ? '<div class="projection-detail" style="margin-top:8px;">Projection calculée avec tes réglages manuels. Ils ne sont pas encore sauvegardés.</div>' : ''}
-          ${manualFallback ? '<div class="projection-detail" style="margin-top:8px;">Les pentes sans historique suffisant utilisent une courbe parabolique de départ, ajustable dans le tableau de profil.</div>' : ''}
           ${nutrition.weightIsEstimated ? '<div class="projection-detail" style="margin-top:8px;">Poids non renseigné : estimation basée sur 70 kg.</div>' : ''}
           <p class="projection-disclaimer">Ce plan est une estimation générique basée sur ton poids, le parcours et l’intensité choisie. Pour une stratégie précise et adaptée à ta santé, à ta tolérance digestive ou à un suivi glycémique, fais valider et personnaliser l’analyse par un professionnel de la nutrition.</p>
           <div id="home-projection-timeline"></div><div id="home-fueling-schedule"></div><div id="home-distance-split-planner"></div>
@@ -3168,6 +2415,7 @@
         };
         const refreshProjectionSummary = () => {
           const currentStopSeconds = aidStations.reduce((sum, point) => sum + point.stopSeconds, 0);
+          renderTargetPacingCurve({zone,courseDifficulty:simulationCoefficientPercent,movingSeconds,stopSeconds:currentStopSeconds});
           latestProjectionTotalSeconds = movingSeconds + currentStopSeconds;
           const currentStopDetail = currentStopSeconds ? ` · ${formatDuration(currentStopSeconds)} de ravito` : '';
           totalProjectionOutput.textContent = formatDuration(movingSeconds + currentStopSeconds);
@@ -3328,7 +2576,7 @@
         emailPlanButton.addEventListener('click', async () => {
           if (!isSavedPurchasedPlan && !emailPlanButton.dataset.validated) {
             emailPlanButton.disabled = true;
-            await playPlanThinking(6000);
+            await playPlanThinking(0);
             const savedPlan = await saveCoursePlanDraft();
             if (!savedPlan && !activeCoursePlanId) {
               emailPlanButton.disabled = false;
@@ -3496,7 +2744,7 @@
         if (!isUpdatingExistingPlan) (nutritionHeading || nutritionSettings)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         refreshLiveProjection = () => {
           let nextMovingSeconds = 0;
-          let nextManualFallback = false;
+          let missingModeledPace = false;
           const nextRows = [];
           const activeZone = zoneInput.value;
           (data.km_splits || []).forEach((segment) => {
@@ -3504,11 +2752,9 @@
             (segment.slope_distribution || []).forEach((part) => {
               const projectedPace = projectedPaceForSlope(part.slope_id, activeZone);
               let pace = paceWithCourseDifficulty(manualProfileIsActive() ? manualPaceForSlope(part.slope_id) : projectedPace.pace, simulationCoefficientPercent);
-              if (!manualProfileIsActive() && projectedPace.source === 'Courbe de départ') nextManualFallback = true;
               const distance = Number(part.distance_km || 0);
               if (!(pace > 0) && distance > 0) {
-                pace = paceWithCourseDifficulty(manualPaceForSlope(part.slope_id), simulationCoefficientPercent);
-                nextManualFallback = true;
+                missingModeledPace = true;
               }
               if (pace > 0 && distance > 0) {
                 const partSeconds = pace * distance;
@@ -3525,8 +2771,11 @@
               slopeDistribution: segment.slope_distribution || [],
             });
           });
-          nextMovingSeconds = applyRacePacingProgression(nextRows, data.total_distance_km);
-          if (!nextMovingSeconds) return;
+          nextMovingSeconds = nextRows.reduce((sum, row) => sum + row.seconds, 0);
+          if (missingModeledPace || !nextMovingSeconds) {
+            status.textContent = 'Modèle d’allure indisponible pour cette sélection. Le plan affiché reste celui de la dernière projection valide.';
+            return;
+          }
           const nextStopSeconds = aidStations.reduce((sum, point) => sum + point.stopSeconds, 0);
           const nextTargetAdjustment = targetTimeAdjustment(nextMovingSeconds, nextStopSeconds);
           if (nextTargetAdjustment.invalid) {
@@ -3534,9 +2783,9 @@
             return;
           }
           targetPaceMultiplier = nextTargetAdjustment.factor;
+          status.textContent = '';
           if (targetPaceMultiplier !== 1) nextRows.forEach((row) => { row.seconds *= targetPaceMultiplier; });
           movingSeconds = nextMovingSeconds * targetPaceMultiplier;
-          manualFallback = nextManualFallback;
           projectedRows.splice(0, projectedRows.length, ...nextRows);
           nutrition = nutritionPlan(movingSeconds, Number(weightInput.value), Number(data.total_distance_km || 0), gain, activeZone, nutritionPreferences());
           syncNutritionControls(nutrition);
@@ -3936,7 +3185,7 @@
 </script>
 
 {% if daily_glucose_chart and daily_glucose_chart|length > 1 %}
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <script>
   (function() {
     const rawPoints = {{ daily_glucose_chart | tojson | safe }};

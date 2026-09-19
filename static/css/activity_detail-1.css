@@ -1,0 +1,432 @@
+
+  .activity-page {
+    --activity-surface: #ffffff;
+    --activity-surface-strong: #ffffff;
+    --activity-surface-soft: #fff9ee;
+    --activity-border: #dfdad0;
+    --activity-border-strong: rgba(248, 184, 88, 0.62);
+    --activity-text: var(--text-main);
+    --activity-text-muted: var(--text-muted);
+    --activity-text-dim: var(--text-dim);
+    --activity-row-hover: #fff9ee;
+  }
+  .activity-header-actions {
+    display:flex;
+    gap:10px;
+  }
+  .activity-stats-grid {
+    display:grid;
+    grid-template-columns:repeat(6,1fr);
+    gap:12px;
+  }
+  .activity-stats-grid > div { padding:11px; border-radius:12px; border:1px solid var(--activity-border); background:#fff; position:relative; overflow:hidden; }
+  .activity-stats-grid > div::after { content:""; position:absolute; left:0; bottom:0; width:4px; height:100%; background:var(--accent); }
+  .activity-stats-grid > div:nth-child(n)::after { background:var(--accent); }
+  .tile-k { color:var(--text-muted); font-family:"DM Mono",monospace; font-size:.66rem; font-weight:700; letter-spacing:.10em; text-transform:uppercase; }
+  .tile-v { margin-top:3px; color:var(--text-main); font-family:"DM Mono",monospace; font-size:1.05rem; font-weight:700; text-shadow:none; }
+  .cardiac-drift-card { display:grid; grid-template-columns:180px 1fr auto; gap:22px; align-items:center; margin:16px 0; padding:20px 22px; border:1px solid var(--activity-border); border-radius:18px; background:#fff; }
+  .cardiac-drift-card[data-tone="positive"] { box-shadow:inset 5px 0 #6d8d57; }
+  .cardiac-drift-card[data-tone="warning"] { box-shadow:inset 5px 0 #e0a52d; }
+  .cardiac-drift-card[data-tone="danger"] { box-shadow:inset 5px 0 #d94327; }
+  .cardiac-drift-card[data-tone="neutral"] { box-shadow:inset 5px 0 #c8c2b7; }
+  .cardiac-drift-value { display:block; margin-top:5px; font-size:2rem; font-weight:800; letter-spacing:-.06em; }
+  .cardiac-drift-copy strong { display:block; margin-bottom:4px; font-size:1rem; }
+  .cardiac-drift-copy p,.cardiac-drift-meta { margin:0; color:var(--text-muted); font-size:.76rem; line-height:1.5; }
+  .cardiac-drift-meta { text-align:right; }
+  .activity-layout {
+    display:grid;
+    grid-template-columns:210px minmax(0,1fr);
+    gap:16px;
+    align-items:flex-start;
+  }
+  .activity-sidebar {
+    padding:12px;
+    font-size:0.9rem;
+  }
+  .table-responsive {
+    width:100%;
+    max-width:100%;
+    overflow-x:auto;
+    display:block;
+  }
+  .activity-tab {
+    display:none;
+    margin-bottom:16px;
+  }
+  .activity-tab.is-active {
+    display:block;
+  }
+  .activity-tab p,
+  .activity-tab .muted {
+    font-size:0.82rem !important;
+    color:var(--activity-text-muted) !important;
+  }
+  .activity-tab table {
+    width:100%;
+    border-collapse:collapse;
+    table-layout:auto;
+  }
+  .activity-tab table th,
+  .activity-tab table td {
+    padding:3px 2px !important;
+    font-size:0.75rem !important;
+    white-space:normal !important;
+    border-bottom:1px solid var(--activity-border);
+  }
+  .activity-tab table th {
+    color:var(--activity-text-muted);
+  }
+  .activity-tab table td {
+    color:var(--activity-text);
+  }
+  .activity-tab table th span {
+    display:block;
+    font-size:0.65rem !important;
+    line-height:1.2;
+  }
+  .overview-vam {
+    border-top:1px solid var(--activity-border);
+  }
+  .terrain-summary-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; margin:16px 0; }
+  .terrain-summary-card { padding:12px; border:1px solid var(--activity-border); border-radius:12px; background:var(--activity-surface); }
+  .terrain-summary-card[data-terrain="descent"] { border-color:rgba(96,165,250,.52); }
+  .terrain-summary-card[data-terrain="flat"] { border-color:rgba(77,226,255,.5); }
+  .terrain-summary-card[data-terrain="climb"] { border-color:rgba(251,146,60,.58); }
+  .terrain-summary-card h4 { margin:0; font-size:.86rem; }
+  .terrain-summary-card p { margin:6px 0 0; color:var(--activity-text-muted); font-size:.74rem; line-height:1.45; }
+  .activity-slope-profile-card { position:relative; overflow:hidden; border-color:var(--activity-border) !important; background:#fff !important; }
+  .activity-slope-profile-card::before { content:""; position:absolute; inset:0 18px auto; height:3px; background:linear-gradient(90deg, transparent, var(--accent), transparent); }
+  .activity-slope-profile-card h3 { padding-top:5px; }
+  .slope-profile-legend { display:flex; flex-wrap:wrap; gap:9px; margin:0 0 10px; color:var(--activity-text-muted); font-size:.72rem; }
+  .slope-profile-legend span { display:inline-flex; align-items:center; gap:4px; }
+  .slope-profile-legend i { width:9px; height:9px; border-radius:50%; display:inline-block; }
+  .glucose-cross-chart { height:220px; }
+  .glucose-cross-empty { display:grid; height:100%; place-items:center; color:var(--activity-text-muted); font-size:.75rem; }
+  .climb-route-locator { margin-top:14px; padding:13px; border:1px solid var(--activity-border); border-radius:13px; background:#fbfaf7; }
+  .climb-route-locator p { margin:0 0 8px; font-size:.76rem !important; }
+  .activity-delete-button {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    padding:10px 16px;
+    font-size:.95rem;
+    font-weight:700;
+    line-height:1.15;
+    min-height:48px;
+    border-radius:12px;
+    border:1px solid #d84d58;
+    background:#d84d58;
+    color:#fff;
+    text-decoration:none;
+    box-shadow:none;
+    transition:filter .15s ease, transform .06s ease;
+    cursor:pointer;
+  }
+  .activity-delete-button:hover {
+    filter:brightness(1.06);
+  }
+  .activity-story-button {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    padding:10px 16px;
+    font-size:.92rem;
+    font-weight:700;
+    line-height:1.15;
+    text-align:center;
+    min-height:48px;
+    border-radius:12px;
+    border:1px solid var(--accent);
+    background:var(--grad-accent);
+    color:#fff;
+    box-shadow:none;
+    transition:filter .15s ease, transform .06s ease, border-color .15s ease;
+    cursor:pointer;
+  }
+  .activity-story-button:hover:not(:disabled) {
+    filter:brightness(1.08);
+    border-color:var(--accent-dark);
+  }
+  .activity-story-button:disabled {
+    opacity:0.5;
+    cursor:not-allowed;
+    box-shadow:none;
+  }
+  .activity-tab-link {
+    display:block;
+    padding:8px 10px;
+    border-radius:10px;
+    margin-bottom:6px;
+    color:var(--activity-text-muted);
+    border:1px solid transparent;
+    background:transparent;
+    transition:background-color .15s ease, border-color .15s ease, color .15s ease, transform .15s ease;
+  }
+  .activity-tab-link:hover {
+    color:var(--activity-text);
+    background:#fff9ee;
+    border-color:var(--activity-border-strong);
+    transform:translateY(-1px);
+  }
+  .activity-tab-link.is-active {
+    color:var(--activity-text);
+    background:#fff9ee;
+    border-color:var(--activity-border-strong);
+    font-weight:700;
+    box-shadow:inset 3px 0 var(--accent);
+  }
+  .activity-select {
+    padding:4px 8px;
+    font-size:0.85rem;
+    border:1px solid var(--activity-border);
+    border-radius:8px;
+    background:var(--activity-surface-strong);
+    color:var(--activity-text);
+  }
+  .activity-select option {
+    background:#fff;
+    color:var(--activity-text);
+  }
+  .activity-section-panel {
+    padding:16px;
+    margin-top:16px;
+    border:1px solid var(--activity-border);
+    border-radius:14px;
+    background:var(--activity-surface);
+    box-shadow:none;
+  }
+  .activity-inline-panel {
+    border:1px solid var(--activity-border);
+    border-radius:14px;
+    background:var(--activity-surface);
+  }
+  .activity-inline-panel + .activity-inline-panel {
+    margin-top:16px;
+  }
+  .activity-progress-track {
+    background:#ebe7df;
+    border-radius:999px;
+    overflow:hidden;
+    height:14px;
+    box-shadow:none;
+  }
+  .activity-progress-fill-vam {
+    background:var(--accent);
+  }
+  .vam-distribution-fill {
+    height:100%;
+    border-radius:999px;
+    background:#d66a43;
+  }
+  .vam-zone-row:nth-child(1) .vam-distribution-fill { background:#91a889; }
+  .vam-zone-row:nth-child(2) .vam-distribution-fill { background:#6f925f; }
+  .vam-zone-row:nth-child(3) .vam-distribution-fill { background:#d0a13e; }
+  .vam-zone-row:nth-child(4) .vam-distribution-fill { background:#df7945; }
+  .vam-zone-row:nth-child(5) .vam-distribution-fill { background:#c65343; }
+  .activity-progress-fill-low {
+    background:#d84d58;
+  }
+  .activity-progress-fill-mid {
+    background:#2e7065;
+  }
+  .activity-progress-fill-high {
+    background:#c97b2a;
+  }
+  .activity-legend-note {
+    margin-top:10px;
+    font-size:0.7rem;
+    color:var(--activity-text-dim);
+  }
+  .activity-hover-row {
+    transition:background-color .15s ease;
+  }
+  .activity-hover-row:hover {
+    background:var(--activity-row-hover) !important;
+  }
+  .activity-page h3,
+  .activity-page h4,
+  .activity-page strong {
+    color:var(--activity-text);
+  }
+  .activity-page [style*="background:white"],
+  .activity-page [style*="background:#fff"],
+  .activity-page [style*="background:#ffffff"] {
+    background:var(--activity-surface) !important;
+    color:var(--activity-text) !important;
+    border-color:var(--activity-border) !important;
+  }
+  .activity-page [style*="background:#f9fafb"] {
+    background:#faf8f4 !important;
+  }
+  .activity-page [style*="background:#e5e7eb"] {
+    background:var(--activity-border) !important;
+  }
+  .activity-page [style*="border:1px solid #e5e7eb"],
+  .activity-page [style*="border-top:1px solid #e5e7eb"],
+  .activity-page [style*="border-bottom:1px solid #e5e7eb"],
+  .activity-page [style*="border-bottom:1px solid #f3f4f6"],
+  .activity-page [style*="border:1px solid #d1d5db"] {
+    border-color:var(--activity-border) !important;
+  }
+  .activity-page [style*="color:#0f172a"],
+  .activity-page [style*="color:#111827"],
+  .activity-page [style*="color:#000"] {
+    color:var(--activity-text) !important;
+  }
+  .activity-page [style*="color:#4b5563"],
+  .activity-page [style*="color:#6b7280"],
+  .activity-page [style*="color:#9ca3af"] {
+    color:var(--activity-text-dim) !important;
+  }
+  .vam-table th:first-child,
+  .vam-table td:first-child {
+    width:70px;
+    white-space:nowrap;
+  }
+  .vam-table th:not(:first-child),
+  .vam-table td:not(:first-child) {
+    width:65px;
+    text-align:right;
+  }
+  @media (max-width: 900px) {
+    .activity-stats-grid {
+      grid-template-columns:repeat(auto-fit, minmax(140px,1fr));
+    }
+    .overview-map {
+      height:220px;
+    }
+    .terrain-summary-grid { grid-template-columns:1fr; }
+  }
+  @media (max-width: 720px) {
+    .activity-header {
+      flex-direction:column;
+      align-items:flex-start;
+      gap:12px;
+    }
+    .activity-header-actions {
+      width:100%;
+      justify-content:space-between;
+      flex-wrap:wrap;
+    }
+    .activity-layout {
+      display:block;
+    }
+    .activity-sidebar {
+      display:none;
+    }
+    .card h3 {
+      font-size:1rem;
+    }
+  .overview-layout {
+    grid-template-columns:1fr !important;
+  }
+  .overview-layout .overview-divider {
+    display:none;
+  }
+  .overview-map-container {
+    padding:12px !important;
+  }
+  .overview-map {
+      height:200px;
+    }
+    .table-responsive table {
+      font-size:0.8rem;
+      min-width:100%;
+    }
+    .vam-table th:first-child,
+    .vam-table td:first-child {
+      width:52px;
+      white-space:normal;
+    }
+    .vam-table th:not(:first-child),
+    .vam-table td:not(:first-child) {
+      width:48px;
+      word-break:break-word;
+    }
+    .vam-table th span {
+      font-size:0.6rem !important;
+    }
+    .activity-tab table {
+      table-layout:fixed;
+    }
+    .activity-tab table th,
+    .activity-tab table td {
+      font-size:0.65rem !important;
+      padding:2px 1px !important;
+    }
+    .activity-tab p,
+    .activity-tab .muted {
+      font-size:0.68rem !important;
+    }
+    .activity-tab {
+      display:block !important;
+    }
+  }
+  .activity-map-3d { height:300px; border-radius:12px; overflow:hidden; background:linear-gradient(145deg,#dfe8df,#a8c0ad); }
+  .activity-page .maplibregl-ctrl-group {
+    overflow:hidden;
+    border:1px solid rgba(248,184,88,.72);
+    border-radius:11px;
+    background:#17243e;
+    box-shadow:0 6px 16px rgba(17,29,53,.22);
+  }
+  .activity-page .maplibregl-ctrl-group button {
+    width:32px;
+    height:32px;
+    border:0;
+    background-color:#17243e;
+  }
+  .activity-page .maplibregl-ctrl-group button + button { border-top:1px solid rgba(248,184,88,.34); }
+  .activity-page .maplibregl-ctrl-group button:hover { background-color:#26395d; }
+  .activity-page .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+    filter:invert(78%) sepia(73%) saturate(590%) hue-rotate(341deg) brightness(103%) contrast(95%);
+  }
+  .activity-map-legend { display:flex; flex-wrap:wrap; gap:9px; margin:9px 0 0; color:var(--activity-text-muted); font-size:.72rem; }
+  .activity-map-legend span { display:inline-flex; align-items:center; gap:5px; }
+  .activity-map-legend i { width:10px; height:10px; border-radius:50%; display:inline-block; }
+  .activity-map-note { margin:8px 0 0; color:var(--activity-text-dim); font-size:.72rem; }
+
+  @media (min-width: 721px) {
+    .table-responsive table {
+      min-width:unset;
+    }
+    .activity-tab {
+      display:none;
+    }
+    .activity-tab.is-active {
+      display:block;
+    }
+  }
+  /* Nouvelle enveloppe data, cohérente avec l'accueil et le profil coureur */
+  .activity-page{--detail-orange:#f8b858;--detail-orange-dark:#b96b08;--detail-paper:#f7f4ee;--detail-ink:#111d35}
+  .activity-header{position:relative;display:flex;align-items:flex-end!important;justify-content:space-between;padding:30px 4px 20px!important;border-bottom:1px solid var(--activity-border)!important}.activity-heading-kicker{display:block;margin-bottom:7px;color:var(--detail-orange);font:800 .66rem "DM Mono",monospace;letter-spacing:.1em;text-transform:uppercase}.activity-header h1{margin:0;font-size:clamp(2rem,4vw,3.3rem);font-weight:800;line-height:.95;letter-spacing:-.055em;text-transform:uppercase}
+  .activity-header-actions form{margin:0}.activity-story-button,.activity-delete-button{min-height:40px;padding:9px 15px;font-size:.7rem;text-transform:uppercase;letter-spacing:.04em}.activity-story-button{border-radius:0;clip-path:polygon(7% 0,100% 0,93% 100%,0 100%)}.activity-delete-button{min-height:auto;padding:8px 4px;border:0;border-bottom:1px solid #c97869;border-radius:0;background:transparent;color:#a63d2e}
+  .activity-summary-hero{min-height:245px;padding:38px!important;border-radius:26px;background:linear-gradient(145deg,#fff 0 62%,#fff8e9)!important;box-shadow:0 18px 44px rgba(32,29,24,.08)}.activity-summary-hero:before{background:radial-gradient(circle at 90% 110%,rgba(248,184,88,.22),transparent 38%)}
+  .activity-summary-hero h2{max-width:16ch;margin:4px 0 10px!important;font-size:clamp(2rem,4vw,3.55rem)!important;font-weight:800!important;line-height:.98;letter-spacing:-.055em;text-transform:uppercase}.activity-summary-hero>a{font-size:.72rem;text-decoration:none!important}
+  .activity-stats-grid{gap:1px;margin-top:23px;border:1px solid var(--activity-border);border-radius:15px;background:var(--activity-border);overflow:hidden}.activity-stats-grid>div{min-height:78px;border:0;border-radius:0;background:#fff}.activity-stats-grid>div:after{inset:0 0 auto;width:100%;height:3px}.tile-v{margin-top:8px;font-family:"Manrope",sans-serif;font-size:1rem;font-weight:800;letter-spacing:-.03em}
+  .activity-sidebar{position:sticky;top:84px;padding:10px;border-radius:17px;box-shadow:none}.activity-tab-link{margin:0 0 4px;padding:11px 12px;font-size:.78rem;font-weight:700}.activity-tab-link.is-active{border-color:var(--detail-orange);background:linear-gradient(100deg,#ffc76b,#e5a13c);color:var(--detail-ink);box-shadow:none}
+  .activity-tab>.card,.activity-section-panel,.activity-inline-panel{border-radius:17px!important;box-shadow:none!important}.activity-tab h2,.activity-tab h3{letter-spacing:-.03em}
+  @media(max-width:720px){.activity-page{margin:0 -12px}.activity-header{align-items:flex-start!important;padding:24px 20px 18px!important}.activity-header h1{font-size:clamp(2rem,10vw,3rem)}.activity-header-actions{width:auto;justify-content:flex-end;gap:8px}.activity-story-button{min-height:38px;padding:8px 13px}.activity-delete-button{padding:7px 2px}.activity-summary-hero{min-height:0;padding:28px 20px!important;border-right:0;border-left:0;border-radius:0}.activity-summary-hero h2{font-size:clamp(2rem,10vw,3.2rem)!important}.activity-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.activity-layout{display:block}.activity-sidebar{display:none!important}.activity-tab,.activity-tab.is-active{display:block!important;margin:0 12px 14px}}
+  @media(max-width:720px){.cardiac-drift-card{grid-template-columns:1fr;margin:14px 12px;padding:18px;gap:10px}.cardiac-drift-meta{text-align:left}}
+  @media(max-width:480px){.activity-header{display:block!important}.activity-header-actions{margin-top:17px;justify-content:flex-start}}
+
+  /* Analyse continue : même langage visuel que le profil coureur. */
+  .activity-page{max-width:1120px;margin:0 auto}.activity-header h1{text-transform:none}.activity-summary-hero{min-height:0;padding:32px!important;border-radius:24px;background:#fff!important;box-shadow:none}.activity-summary-hero:before{display:none}.activity-summary-hero h2{max-width:none;text-transform:none!important}.activity-stats-grid{gap:12px;border:0;background:transparent;overflow:visible}.activity-stats-grid>div{min-height:82px;padding:15px;border:1px solid #e7e3dc;border-radius:16px}.activity-stats-grid>div:after{left:15px;top:auto;bottom:10px;width:34px;height:4px;border-radius:99px}.activity-tab>.card,.activity-section-panel,.activity-inline-panel{border-color:#e7e3dc!important}.activity-tab h2,.activity-tab h3{text-transform:none}
+  @media(max-width:860px){
+    body:has(.activity-page){padding-bottom:24px!important;background:#f5f3ee}
+    body:has(.activity-page)>.container{width:100%;padding:0 0 24px}
+    .activity-page{width:100%;margin:0}
+    .activity-header{display:flex!important;margin:0!important;padding:22px 18px 16px!important;border:0!important;background:#f5f3ee}.activity-heading-kicker{margin-bottom:5px}.activity-header h1{font-size:1.75rem!important;text-transform:none}
+    .activity-header-actions{width:auto}.activity-story-button{clip-path:none;border-radius:12px}.activity-delete-button{font-size:.68rem}
+    .cardiac-drift-card{grid-template-columns:1fr;margin:0 12px 14px;padding:20px 18px;border:0;border-radius:24px;background:#fff;box-shadow:none!important}.cardiac-drift-value{font-size:2.4rem}.cardiac-drift-meta{text-align:left}
+    .activity-summary-hero{margin:0 0 14px!important;padding:22px 18px!important;border:0!important;border-radius:0!important;background:#fff!important}.activity-summary-hero h2{font-size:1.8rem!important}
+    .activity-stats-grid{grid-template-columns:1fr 1fr;gap:10px}.activity-stats-grid>div{min-height:78px;border:0;border-radius:16px;background:#f5f3ef}.tile-k{font-size:.62rem}.tile-v{font-size:1.05rem}
+    .activity-layout{display:block}.activity-sidebar{display:none!important}.activity-layout main{padding:0 12px}
+    .activity-tab,.activity-tab.is-active{display:block!important;margin:14px 0!important;padding:20px 18px!important;border:0!important;border-radius:24px!important;background:#fff!important;box-shadow:none!important}
+    .activity-tab>.card,.activity-section-panel,.activity-inline-panel{border-radius:17px!important;box-shadow:none!important}
+    .activity-tab h2,.activity-tab h3{font-size:1.3rem!important}.activity-tab p,.activity-tab .muted{font-size:.8rem!important;line-height:1.55}
+    .terrain-summary-grid{grid-template-columns:1fr}.overview-map{height:240px}.activity-map-3d{height:250px}.table-responsive{overflow-x:auto;-webkit-overflow-scrolling:touch}.table-responsive table{min-width:560px}.activity-tab table th,.activity-tab table td{font-size:.72rem!important;padding:6px 4px!important}
+  }
+  @media(max-width:480px){.activity-header{display:block!important}.activity-header-actions{margin-top:14px}.activity-stats-grid{grid-template-columns:1fr 1fr}}

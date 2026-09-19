@@ -1,0 +1,4 @@
+{% extends "base.html" %}
+{% block title %}Comprendre mon énergie · Running Data Plan{% endblock %}
+{% block extra_head %}<script src="/static/js/pace-curve.js?v=1"></script><script src="/static/js/energy.js?v=1" defer></script>{% endblock %}
+{% block content %}<div class="data-page"><header class="data-page-header"><span class="data-eyebrow">L’atelier de l’athlète</span><h1>Le relief change la dépense.</h1><p>Explore le lien entre pente, allure et intensité. Les chiffres sont des repères pour comprendre ton effort.</p></header>{% include "_energy_explorer.html" %}</div>{% endblock %}

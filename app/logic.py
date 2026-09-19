@@ -36,6 +36,7 @@ from typing import Optional, List
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 from app import models
+from .glucose_metrics import summarize as summarize_glucose
 
 from collections import defaultdict
 
@@ -471,6 +472,9 @@ def build_glucose_stats_from_activity_record(
     db: Session,
     activity: models.Activity,
 ) -> dict | None:
+    cached = (getattr(activity, "analytics_summary", None) or {}).get("glycemia") or {}
+    if cached.get("available"):
+        return cached
     if activity.avg_glucose is None:
         return None
 
@@ -807,105 +811,33 @@ def compute_stats(
     start_value_hint: float | None = None,
     end_value_hint: float | None = None,
 ):
-    if not samples:
+    metrics = summarize_glucose(samples, activity_start, activity_end)
+    if not metrics["available"]:
         return None
+    metrics.pop("intervals", None)
+    metrics["nb_hypo"] = sum(1 for s in samples if isinstance(s.get("mgdl"),(int,float)) and s["mgdl"] < TARGET_MIN)
+    metrics["nb_hyper"] = sum(1 for s in samples if isinstance(s.get("mgdl"),(int,float)) and s["mgdl"] > TARGET_MAX)
+    metrics["nb_in_range"] = max(0, metrics["n"] - metrics["nb_hypo"] - metrics["nb_hyper"])
+    metrics["bar"] = _build_bar(metrics["pct_hypo"], metrics["pct_in_range"], metrics["pct_hyper"])
+    return format_glucose_stats(metrics)
 
-    values = [s["mgdl"] for s in samples if s.get("mgdl") is not None]
-    if len(values) < 2:
-        return None
 
-    n = len(values)
-    vmin = min(values)
-    vmax = max(values)
-    avg = sum(values) / n
-
-    nb_hypo = sum(1 for v in values if v < TARGET_MIN)
-    nb_in_range = sum(1 for v in values if TARGET_MIN <= v <= TARGET_MAX)
-    nb_hyper = sum(1 for v in values if v > TARGET_MAX)
-
-    pct_hypo = (nb_hypo / n) * 100
-    pct_in_range = (nb_in_range / n) * 100
-    pct_hyper = (nb_hyper / n) * 100
-
-    bar = _build_bar(pct_hypo, pct_in_range, pct_hyper)
-
-    avg_r = round(avg)
-    pct_zone_r = round(pct_in_range)
-
-    pairs_with_ts = []
-    for s in samples:
-        val = s.get("mgdl")
-        ts = s.get("ts")
-        if val is None or ts is None:
-            continue
-        if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=dt.timezone.utc)
-        pairs_with_ts.append((ts, val))
-    pairs_with_ts.sort(key=lambda x: x[0])
-
-    def _value_at_start(pairs, target):
-        if not pairs:
-            return None
-        if target is None:
-            return pairs[0][1]
-        for ts, val in pairs:
-            if ts >= target:
-                return val
-        return pairs[-1][1]
-
-    def _value_at_end(pairs, target):
-        if not pairs:
-            return None
-        if target is None:
-            return pairs[-1][1]
-        for ts, val in reversed(pairs):
-            if ts <= target:
-                return val
-        return pairs[0][1]
-
-    start_val = _value_at_start(pairs_with_ts, activity_start)
-    end_val = _value_at_end(pairs_with_ts, activity_end)
-
-    if start_value_hint is not None:
-        start_val = start_value_hint
-    if end_value_hint is not None:
-        end_val = end_value_hint
-
-    lines = []
-    lines.append(f"🔬Glycémie : Moy : {avg_r} mg/dL | {TARGET_MIN}-{TARGET_MAX} : {pct_zone_r}%")
-    lines.append(bar)
-    if start_val is not None or end_val is not None:
-        start_str = f"{round(start_val)} mg/dL" if start_val is not None else "n/a"
-        end_str = f"{round(end_val)} mg/dL" if end_val is not None else "n/a"
-        lines.append(f"Départ : {start_str} | Arrivée : {end_str}")
-    def _fmt(v):
-        if v is None:
-            return "n/a"
-        if isinstance(v, (int, float)):
-            return str(int(round(v)))
-        return str(v)
-    lines.append(f"Max : {_fmt(vmax)} mg/dL | Min : {_fmt(vmin)} mg/dL")
-    block = "\n".join(lines)
-
-    h = hashlib.sha1(block.encode()).hexdigest()
-
-    return {
-        "avg": avg,
-        "min": vmin,
-        "max": vmax,
-        "pct_in_range": pct_in_range,
-        "pct_hypo": pct_hypo,
-        "pct_hyper": pct_hyper,
-        "n": n,
-        "nb_hypo": nb_hypo,
-        "nb_in_range": nb_in_range,
-        "nb_hyper": nb_hyper,
-        "bar": bar,
-        "block": block,
-        "hash": h,
-        "start_mgdl": start_val,
-        "end_mgdl": end_val,
-    }
+def format_glucose_stats(metrics):
+    """Use the same canonical metrics for site and Strava presentation."""
+    metrics = dict(metrics)
+    metrics["bar"] = _build_bar(metrics["pct_hypo"],metrics["pct_in_range"],metrics["pct_hyper"])
+    def fmt(value):
+        return str(round(value)) if value is not None else "—"
+    lines = [
+        f"🔬 Glycémie · moyenne {fmt(metrics['avg'])} mg/dL",
+        f"{metrics['bar']} {round(metrics['pct_in_range'])} % entre 70–180 mg/dL",
+        f"Sous 70 : {round(metrics['low_seconds']/60)} min · Au-dessus de 180 : {round(metrics['high_seconds']/60)} min",
+        f"Départ {fmt(metrics['start_mgdl'])} → arrivée {fmt(metrics['end_mgdl'])} mg/dL",
+        f"Capteur : {round(metrics['coverage_percent'] or 0)} % couvert · {round(metrics['observed_seconds']/60)} min observées",
+    ]
+    metrics["block"] = "\n".join(lines)
+    metrics["hash"] = hashlib.sha1(metrics["block"].encode()).hexdigest()
+    return metrics
 
 #---------------------------------------------------------------------------
 # Calcul des zones cardio + stats glycémiques par zone
@@ -1014,6 +946,8 @@ def merge_desc(existing: str, block: str) -> str:
 
     # Marqueurs possibles d'un ancien bloc auto
     markers = [
+        "🔬 Glycémie ·",
+        "🔥 Énergie estimée :",
         "🔬Glycémie :",                 # ancien entête gly
         "🔬 Glycémie (LibreLinkUp)",    # tout premier format historique
         "⛰️ VAM :",                     # entête VAM
@@ -1070,8 +1004,24 @@ def merge_desc(existing: str, block: str) -> str:
     else:
         merged = block
 
-    # Sécurité Strava (~2000). On garde 1800 pour marge.
-    return merged[:1800]
+    # Limit generated content only; never truncate the athlete's own text.
+    if len(merged) <= 1800:
+        return merged
+    budget = 1800-len(base_clean)-(2 if base_clean else 0)
+    if budget <= 0:
+        return base_clean
+    lines=block.splitlines()
+    footer=[line for line in lines if line.startswith(("Voir l'analyse complète :", "Pour tous les fans de data"))]
+    tail="\n\n"+"\n".join(footer) if footer else ""
+    kept=[]
+    for line in lines:
+        if line in footer:continue
+        candidate="\n".join(kept+[line])
+        if len(candidate)+len(tail)>budget:break
+        kept.append(line)
+    if not any(kept):return base_clean
+    trimmed="\n".join(kept).strip()+tail
+    return f"{base_clean}\n\n{trimmed}" if base_clean else trimmed
 
 
 def normalize_summary_block_layout(block: str) -> str:
@@ -3174,6 +3124,7 @@ def rebuild_activity_contributions(
     )
 
     activity_extra = {
+        "analytics_summary": {key:value for key,value in (activity.analytics_summary or {}).items() if key in {"version","generated_at","glycemia","energy"}},
         "activity_id": activity.id,
         "name": activity.name,
         "profile": classify_run_surface_profile(activity.distance, activity.total_elevation_gain)
@@ -3354,6 +3305,12 @@ def rebuild_activity_contributions(
             "end_mgdl": glucose_stats.get("end_mgdl"),
             "avg_mgdl": glucose_stats.get("avg"),
             "tir_percent": glucose_stats.get("pct_in_range"),
+            "metrics_version": glucose_stats.get("version"),
+            "observed_seconds": glucose_stats.get("observed_seconds"),
+            "coverage_percent": glucose_stats.get("coverage_percent"),
+            "low_seconds": glucose_stats.get("low_seconds"),
+            "high_seconds": glucose_stats.get("high_seconds"),
+            "variability_pct": glucose_stats.get("variability_pct"),
             "profile": profile_key,
             "start_ts": _isoformat(activity_start),
             "distance_km": (activity.distance or 0.0) / 1000.0 if activity.distance else None,
@@ -4591,6 +4548,9 @@ def _update_runner_profile_glucose_activity(
         "end_mgdl": stats.get("end_mgdl"),
         "avg_mgdl": avg,
         "tir_percent": stats.get("pct_in_range"),
+        "metrics_version": stats.get("version"), "observed_seconds": stats.get("observed_seconds"),
+        "coverage_percent": stats.get("coverage_percent"), "low_seconds": stats.get("low_seconds"),
+        "high_seconds": stats.get("high_seconds"), "variability_pct": stats.get("variability_pct"),
         "profile": profile_key,
         "start_ts": _isoformat(_safe_dt(activity.start_date)),
         "distance_km": (activity.distance or 0.0) / 1000.0 if activity.distance else None,
@@ -4661,68 +4621,42 @@ def update_runner_profile_monthly_from_activity(
 
 
 def get_cached_glucose_activity_summary(
-    db: Session,
-    *,
-    user_id: int,
-    sport: str = "run",
-    limit: int = 20,
+    db: Session, *, user_id: int, sport: str = "run", limit: int = 20,
+    date_from: dt.datetime | None = None, date_to: dt.datetime | None = None,
 ) -> dict | None:
     sport = canonicalize_sport_label(sport)
-    q = (
-        db.query(models.RunnerProfileMonthly)
-        .filter(
-            models.RunnerProfileMonthly.user_id == user_id,
-            sport_column_condition(models.RunnerProfileMonthly.sport, sport),
-            models.RunnerProfileMonthly.metric_scope == "glucose_activity",
-        )
+    query = db.query(models.RunnerProfileActivityContribution).filter(
+        models.RunnerProfileActivityContribution.user_id == user_id,
+        sport_column_condition(models.RunnerProfileActivityContribution.sport, sport),
+        models.RunnerProfileActivityContribution.metric_scope == "glucose_activity",
     )
-
-    rows = q.all()
-    if not rows:
-        return None
-
-    activities: list[dict] = []
-    profile_stats = {
-        "endurance": {"sum_avg_mgdl": 0.0, "count": 0},
-        "seuil": {"sum_avg_mgdl": 0.0, "count": 0},
-        "fractionne": {"sum_avg_mgdl": 0.0, "count": 0},
-    }
-
-    for row in rows:
-        extra = row.extra or {}
-        for entry in extra.get("activities") or []:
-            start_ts = _parse_iso_datetime(entry.get("start_ts"))
-            activities.append(
-                {
-                    "activity_id": entry.get("activity_id"),
-                    "start_mgdl": entry.get("start_mgdl"),
-                    "end_mgdl": entry.get("end_mgdl"),
-                    "avg_mgdl": entry.get("avg_mgdl"),
-                    "tir_percent": entry.get("tir_percent"),
-                    "profile": entry.get("profile"),
-                    "start_ts": start_ts,
-                    "distance_km": entry.get("distance_km"),
-                    "elevation_gain_m": entry.get("elevation_gain_m"),
-                    "duration_sec": entry.get("duration_sec"),
-                }
-            )
-
-        stats = extra.get("profile_stats") or {}
-        for key in profile_stats.keys():
-            data = stats.get(key) or {}
-            profile_stats[key]["sum_avg_mgdl"] += float(data.get("sum_avg_mgdl") or 0.0)
-            profile_stats[key]["count"] += int(data.get("count") or 0)
-
-    if not activities:
-        return {"activities": [], "profile_stats": profile_stats}
-
-    activities.sort(key=lambda x: x.get("start_ts") or dt.datetime.min, reverse=True)
-    limited = activities[:limit]
-
-    return {
-        "activities": limited,
-        "profile_stats": profile_stats,
-    }
+    if date_from:
+        query = query.filter(models.RunnerProfileActivityContribution.activity_start_date >= date_from)
+    if date_to:
+        query = query.filter(models.RunnerProfileActivityContribution.activity_start_date < date_to)
+    activities = []
+    for row in query.order_by(models.RunnerProfileActivityContribution.activity_start_date.desc()).all():
+        entry = dict(row.extra or {})
+        # Contributions wrap the original summary under activity in some archives.
+        if isinstance(entry.get("activity"), dict):
+            entry = dict(entry["activity"])
+        if not entry.get("start_ts"):
+            entry["start_ts"] = row.activity_start_date
+        entry["start_ts"] = _parse_iso_datetime(entry["start_ts"]) if isinstance(entry["start_ts"], str) else entry["start_ts"]
+        if entry.get("metrics_version") != "duration-v2":
+            entry["tir_percent"] = None
+            entry["observed_seconds"] = 0
+        activities.append(entry)
+    profile_stats = {key: {"sum_avg_mgdl": 0., "count": 0, "observed_seconds": 0., "weighted_sum": 0.} for key in ("endurance", "seuil", "fractionne")}
+    for entry in activities:
+        key = entry.get("profile")
+        if key in profile_stats and entry.get("avg_mgdl") is not None and (entry.get("observed_seconds") or 0)>0:
+            profile_stats[key]["sum_avg_mgdl"] += entry["avg_mgdl"]
+            profile_stats[key]["count"] += 1
+            observed=entry.get("observed_seconds") or 0
+            profile_stats[key]["observed_seconds"] += observed
+            profile_stats[key]["weighted_sum"] += entry["avg_mgdl"]*observed
+    return {"activities": activities[:limit], "all_activities": activities, "profile_stats": profile_stats}
 
 
 def get_cached_distance_efforts(

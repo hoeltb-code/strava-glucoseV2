@@ -1,0 +1,124 @@
+<div id="rdp-design-audit" aria-label="Proposition de design Running Data Plan">
+  <style>
+    #rdp-design-audit{--rdp-bg:#f7f8f5;--rdp-ink:#17243e;--rdp-muted:#596773;--rdp-line:#dde4df;--rdp-glucose:#287b65;--rdp-radius:16px;color:var(--rdp-ink);background:var(--rdp-bg);font:14px/1.5 Manrope,system-ui,sans-serif;color-scheme:light;overflow:hidden}
+    #rdp-design-audit *{box-sizing:border-box}
+    #rdp-design-audit .rdp-top{padding:18px 26px;background:#fff;border-bottom:1px solid var(--rdp-line);display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    #rdp-design-audit .rdp-brand{font-size:16px;font-weight:700;letter-spacing:-.5px;display:flex;align-items:center;gap:10px}
+    #rdp-design-audit .rdp-mark{display:grid;place-items:center;background:#f8b858;border-radius:10px;width:32px;height:32px}
+    #rdp-design-audit .rdp-switch{display:flex;gap:6px;flex-wrap:wrap}
+    #rdp-design-audit button{font:inherit;color:var(--rdp-muted);background:transparent;border:0;border-radius:9px;padding:10px 15px;cursor:pointer;min-height:44px}
+    #rdp-design-audit button[aria-pressed=true]{color:var(--rdp-ink);background:#edf2ed;font-weight:600}
+    #rdp-design-audit .rdp-main{padding:28px;max-width:1100px;margin:auto}
+    #rdp-design-audit .rdp-label{font-size:12px;color:var(--rdp-muted);letter-spacing:.04em}
+    #rdp-design-audit h2{font-size:28px;line-height:1.2;font-weight:650;letter-spacing:-1px;margin:7px 0 10px;color:var(--rdp-ink)}
+    #rdp-design-audit h3{font-size:16px;font-weight:600;line-height:1.4;letter-spacing:-.3px;margin:0;color:var(--rdp-ink)}
+    #rdp-design-audit p{margin:0}
+    #rdp-design-audit .rdp-sub{color:var(--rdp-muted);font-size:13px}
+    #rdp-design-audit .rdp-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:23px}
+    #rdp-design-audit .rdp-demo{font-size:12px;border:1px solid var(--rdp-line);border-radius:6px;padding:5px 9px;background:#fff;color:var(--rdp-muted)}
+    #rdp-design-audit .rdp-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px}
+    #rdp-design-audit .rdp-metric{background:#fff;border:1px solid var(--rdp-line);border-radius:var(--rdp-radius);padding:18px}
+    #rdp-design-audit .rdp-number{font-size:30px;line-height:1.25;letter-spacing:-1px;font-variant-numeric:tabular-nums;margin:7px 0;font-weight:550}
+    #rdp-design-audit .rdp-number small{font-size:14px;font-weight:400;letter-spacing:0}
+    #rdp-design-audit .rdp-panel{background:#fff;border:1px solid var(--rdp-line);border-radius:var(--rdp-radius);padding:21px}
+    #rdp-design-audit .rdp-panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+    #rdp-design-audit .rdp-legend{display:flex;gap:15px;flex-wrap:wrap;font-size:12px;color:var(--rdp-muted)}
+    #rdp-design-audit .rdp-legend span{display:flex;align-items:center;gap:7px}
+    #rdp-design-audit .rdp-swatch{width:15px;height:3px;background:var(--rdp-glucose);display:inline-block}
+    #rdp-design-audit .rdp-swatch.band{height:10px;background:#eaf4ec}
+    #rdp-design-audit .rdp-chart{width:100%;height:265px;display:block}
+    #rdp-design-audit .rdp-chart text{font:12px system-ui,sans-serif;fill:var(--rdp-muted)}
+    #rdp-design-audit .rdp-bottom{display:grid;grid-template-columns:1.1fr 1fr;gap:16px;margin-top:16px}
+    #rdp-design-audit .rdp-stack{display:flex;height:13px;border-radius:5px;overflow:hidden;margin:20px 0 16px;gap:2px}
+    #rdp-design-audit .rdp-zone-list{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--rdp-muted)}
+    #rdp-design-audit .rdp-zone-list strong{display:block;color:var(--rdp-ink);font-size:17px;font-weight:550;margin-top:3px}
+    #rdp-design-audit .rdp-quality{margin-top:13px;border-top:1px solid var(--rdp-line);padding-top:12px;font-size:12px;color:var(--rdp-muted)}
+    #rdp-design-audit .rdp-row{display:grid;grid-template-columns:75px 1fr 45px;gap:12px;align-items:center;margin-top:18px;font-size:12px}
+    #rdp-design-audit .rdp-track{height:8px;background:#edf1ed;border-radius:4px;overflow:hidden}
+    #rdp-design-audit .rdp-track i{display:block;height:100%;background:var(--rdp-glucose)}
+    #rdp-design-audit .rdp-footer{margin-top:18px;color:var(--rdp-muted);font-size:12px}
+    @media(max-width:650px){#rdp-design-audit .rdp-top{padding:14px 16px}#rdp-design-audit .rdp-main{padding:20px 14px}#rdp-design-audit .rdp-kpis{grid-template-columns:1fr}#rdp-design-audit .rdp-metric{display:grid;grid-template-columns:1fr auto;align-items:center;gap:4px 10px;padding:13px 16px}#rdp-design-audit .rdp-number{grid-column:2;grid-row:1/3;font-size:27px;margin:0}#rdp-design-audit .rdp-metric .rdp-sub{grid-column:1}#rdp-design-audit .rdp-bottom{grid-template-columns:1fr}#rdp-design-audit .rdp-panel{padding:16px}#rdp-design-audit h2{font-size:25px}#rdp-design-audit button{padding:10px 12px}}
+  </style>
+  <header class="rdp-top">
+    <div class="rdp-brand"><span class="rdp-mark"><i data-lucide="activity" aria-hidden="true"></i></span>Running Data Plan</div>
+    <nav class="rdp-switch" aria-label="Écrans proposés">
+      <button type="button" data-view="activity" aria-pressed="true">Activité</button>
+      <button type="button" data-view="athlete" aria-pressed="false">Bilan athlète</button>
+    </nav>
+  </header>
+  <div class="rdp-main">
+    <div class="rdp-heading"><div><div class="rdp-label" id="rdp-eyebrow">ANALYSE D’ACTIVITÉ</div><h2 id="rdp-title">Trail · sortie longue</h2><p class="rdp-sub" id="rdp-meta">18,4 km · 860 m D+ · 2 h 00</p></div><span class="rdp-demo">Proposition · données fictives</span></div>
+    <div class="rdp-kpis" aria-live="polite">
+      <article class="rdp-metric"><div class="rdp-label" id="rdp-label-1">Dans la plage affichée</div><div class="rdp-number" id="rdp-value-1">—</div><div class="rdp-sub" id="rdp-note-1">Sur la durée observée</div></article>
+      <article class="rdp-metric"><div class="rdp-label" id="rdp-label-2">Sous la borne basse</div><div class="rdp-number" id="rdp-value-2">—</div><div class="rdp-sub" id="rdp-note-2">Durée cumulée</div></article>
+      <article class="rdp-metric"><div class="rdp-label" id="rdp-label-3">Couverture du capteur</div><div class="rdp-number" id="rdp-value-3">100 <small>%</small></div><div class="rdp-sub" id="rdp-note-3">120 min observées sur 120 min</div></article>
+    </div>
+    <section class="rdp-panel">
+      <div class="rdp-panel-head"><div><h3 id="rdp-chart-title">La glycémie pendant ta sortie</h3><div class="rdp-sub" id="rdp-chart-sub">Une lecture dans le temps, avec des repères constants</div></div><div class="rdp-legend" id="rdp-legend"><span><i class="rdp-swatch"></i>Glycémie</span><span><i class="rdp-swatch band"></i>Plage 70–180 mg/dL</span></div></div>
+      <svg class="rdp-chart" id="rdp-chart" role="img" aria-label="Courbe fictive de glycémie pendant une activité de deux heures"></svg>
+    </section>
+    <div class="rdp-bottom">
+      <section class="rdp-panel"><h3 id="rdp-distribution-title">Répartition de la durée observée</h3><div class="rdp-stack" role="img" id="rdp-stack"><span style="background:#bd6464" id="rdp-low"></span><span style="background:#80b291" id="rdp-range"></span><span style="background:#d9a752" id="rdp-high"></span></div><div class="rdp-zone-list"><div>Sous 70<strong id="rdp-low-label">—</strong></div><div>70–180 mg/dL<strong id="rdp-range-label">—</strong></div><div>Au-dessus de 180<strong id="rdp-high-label">—</strong></div></div><div class="rdp-quality" id="rdp-quality">Aucune interruption dans cet exemple fictif.</div></section>
+      <section class="rdp-panel"><h3 id="rdp-secondary-title">Repères de la sortie</h3><div id="rdp-secondary"></div></section>
+    </div>
+    <div class="rdp-footer">Maquette exploratoire · plage affichée à titre d’exemple · aucune donnée personnelle</div>
+  </div>
+  <script>
+    (() => {
+      const root=document.getElementById('rdp-design-audit');
+      const chart=root.querySelector('#rdp-chart');
+      const data=[136,141,149,156,168,186,174,155,139,122,104,85,66,64,79,98,117,129,142,153,147,138,131,125,119];
+      const weeks=[{label:'S1',low:4,range:83,high:13,minutes:180},{label:'S2',low:6,range:85,high:9,minutes:240},{label:'S3',low:5,range:88,high:7,minutes:200},{label:'S4',low:3,range:90,high:7,minutes:280}];
+      let view='activity';
+      const style={palette:'ivoire',radius:16};
+      const set=(id,value)=>root.querySelector('#'+id).textContent=value;
+      const value=(id,n,unit)=>{root.querySelector('#'+id).innerHTML=n+' <small>'+unit+'</small>';};
+      const svgEl=(name,attrs,text)=>{const el=document.createElementNS('http://www.w3.org/2000/svg',name);Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v));if(text!==undefined)el.textContent=text;chart.appendChild(el);return el;};
+      function draw(){
+        const w=Math.max(240,chart.getBoundingClientRect().width),h=265,left=43,right=14,top=35,bottom=40;
+        chart.setAttribute('viewBox',`0 0 ${w} ${h}`);chart.replaceChildren();
+        if(view==='activity'){
+          const x=i=>left+i/24*(w-left-right),y=v=>h-bottom-(v-40)/170*(h-top-bottom);
+          svgEl('rect',{x:left,y:y(180),width:w-left-right,height:y(70)-y(180),fill:'#eaf4ec'});
+          [70,120,180].forEach(v=>{svgEl('line',{x1:left,y1:y(v),x2:w-right,y2:y(v),stroke:'#d7e3d9','stroke-dasharray':v===120?'0':'4 4'});svgEl('text',{x:left-8,y:y(v)+4,'text-anchor':'end'},v);});
+          svgEl('text',{x:0,y:16},'mg/dL');
+          const ticks=w<440?[0,12,24]:[0,6,12,18,24];
+          ticks.forEach(i=>svgEl('text',{x:x(i),y:h-20,'text-anchor':i===0?'start':i===24?'end':'middle'},i*5+' min'));
+          svgEl('text',{x:w-right,y:h-2,'text-anchor':'end'},'Temps écoulé');
+          svgEl('path',{d:data.map((v,i)=>(i?'L':'M')+x(i).toFixed(1)+','+y(v).toFixed(1)).join(' '),fill:'none',stroke:'var(--rdp-glucose)','stroke-width':2.5,'stroke-linejoin':'round'});
+          data.forEach((v,i)=>{if(v<70||v>180)svgEl('circle',{cx:x(i),cy:y(v),r:4,fill:v<70?'#bd6464':'#d9a752'});});
+          chart.setAttribute('aria-label','Exemple fictif : glycémie de 136 à 119 mg/dL sur 120 minutes, avec un passage au-dessus de 180 et un passage sous 70.');
+        }else{
+          const y=v=>h-bottom-v/100*(h-top-bottom),bw=Math.min(64,(w-left-right)/7);
+          [0,50,100].forEach(v=>{svgEl('line',{x1:left,y1:y(v),x2:w-right,y2:y(v),stroke:'#e2e7e3'});svgEl('text',{x:left-8,y:y(v)+4,'text-anchor':'end'},v+' %');});
+          weeks.forEach((d,i)=>{const x=left+(i+.5)*(w-left-right)/4;let offset=0;[[d.low,'#bd6464'],[d.range,'#80b291'],[d.high,'#d9a752']].forEach(([n,c])=>{svgEl('rect',{x:x-bw/2,y:y(offset+n),width:bw,height:y(offset)-y(offset+n),fill:c});offset+=n;});svgEl('text',{x,y:y(d.low+d.range/2)+4,'text-anchor':'middle',style:'fill:#17243e;font-weight:600'},d.range+' %');svgEl('text',{x,y:h-20,'text-anchor':'middle'},d.label);});
+          svgEl('text',{x:0,y:16},'Durée observée');svgEl('text',{x:w-right,y:h-2,'text-anchor':'end'},'Semaines');
+          chart.setAttribute('aria-label','Bilan fictif : temps dans la plage par semaine, 83 %, 85 %, 88 %, puis 90 %. Les autres durées sont réparties sous et au-dessus des bornes.');
+        }
+      }
+      function render(){
+        root.style.setProperty('--rdp-bg',style.palette==='ivoire'?'#f7f8f5':'#f3f7fb');root.style.setProperty('--rdp-radius',style.radius+'px');
+        root.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===view)));
+        let low,range,high,total;
+        if(view==='activity'){
+          low=data.slice(0,-1).filter(v=>v<70).length*5;high=data.slice(0,-1).filter(v=>v>180).length*5;total=120;range=total-low-high;
+          set('rdp-eyebrow','ANALYSE D’ACTIVITÉ');set('rdp-title','Trail · sortie longue');set('rdp-meta','18,4 km · 860 m D+ · 2 h 00');set('rdp-chart-title','La glycémie pendant ta sortie');set('rdp-chart-sub','Une lecture dans le temps, avec des repères constants');set('rdp-note-3','120 min observées sur 120 min');
+          set('rdp-secondary-title','Repères de la sortie');root.querySelector('#rdp-secondary').innerHTML='<div class="rdp-row"><span>Départ</span><div class="rdp-track"><i style="width:68%"></i></div><span>136</span></div><div class="rdp-row"><span>Arrivée</span><div class="rdp-track"><i style="width:59.5%"></i></div><span>119</span></div><div class="rdp-quality">Glycémie en mg/dL · échelle commune 0–200</div>';
+          root.querySelector('#rdp-legend').innerHTML='<span><i class="rdp-swatch"></i>Glycémie</span><span><i class="rdp-swatch band"></i>Plage 70–180 mg/dL</span>';
+        }else{
+          total=weeks.reduce((s,w)=>s+w.minutes,0);low=weeks.reduce((s,w)=>s+w.minutes*w.low/100,0);high=weeks.reduce((s,w)=>s+w.minutes*w.high/100,0);range=total-low-high;
+          set('rdp-eyebrow','BILAN ATHLÈTE');set('rdp-title','Ton effort, au fil des semaines');set('rdp-meta','28 derniers jours · course à pied · 12 sorties fictives');set('rdp-chart-title','Évolution de la glycémie à l’effort');set('rdp-chart-sub','Répartition hebdomadaire · plage affichée 70–180 mg/dL');set('rdp-note-3','900 min observées sur 900 min');
+          set('rdp-secondary-title','Temps d’effort observé');root.querySelector('#rdp-secondary').innerHTML=weeks.map(d=>'<div class="rdp-row"><span>'+d.label+'</span><div class="rdp-track"><i style="width:'+d.minutes/3+'%"></i></div><span>'+d.minutes+'′</span></div>').join('');
+          root.querySelector('#rdp-legend').innerHTML='<span><i class="rdp-swatch" style="background:#bd6464"></i>Sous 70</span><span><i class="rdp-swatch" style="background:#80b291"></i>70–180</span><span><i class="rdp-swatch" style="background:#d9a752"></i>Au-dessus de 180</span>';
+        }
+        value('rdp-value-1',Math.round(range/total*100),'%');value('rdp-value-2',Math.round(low),'min');
+        [['low',low],['range',range],['high',high]].forEach(([k,n])=>{root.querySelector('#rdp-'+k).style.width=n/total*100+'%';set('rdp-'+k+'-label',Math.round(n)+' min');});
+        root.querySelector('#rdp-stack').setAttribute('aria-label',`Répartition : ${Math.round(low)} minutes sous 70, ${Math.round(range)} minutes entre 70 et 180, ${Math.round(high)} minutes au-dessus de 180 mg/dL.`);
+        draw();
+      }
+      root.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{view=b.dataset.view;render();}));
+      render();new ResizeObserver(draw).observe(chart);
+      if(globalThis.Tweak){const t=new Tweak({container:root,onChange:render});t.addSelect(style,'palette',{label:'Fond clair',options:[{label:'Ivoire',value:'ivoire'},{label:'Bleu brume',value:'brume'}]});t.addSlider(style,'radius',{label:'Arrondi des panneaux',min:6,max:24,unit:'px'});}
+    })();
+  </script>
+</div>

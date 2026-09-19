@@ -4,6 +4,10 @@ from app.logic import merge_desc, normalize_summary_block_layout
 
 
 class MergeDescriptionTests(unittest.TestCase):
+    def test_long_personal_description_is_never_truncated(self):
+        existing="Mon récit personnel. "*120
+        self.assertEqual(merge_desc(existing,"🔥 Énergie estimée : 860 kcal"),existing.strip())
+
     def test_keeps_footer_lines_visually_separated(self):
         block = normalize_summary_block_layout(
             "⛰️ VAM max : 700 m/h\n"

@@ -21,6 +21,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Date,
     JSON,
+    Index,
 )
 from sqlalchemy.orm import relationship
 
@@ -190,6 +191,7 @@ class Activity(Base):
     __tablename__ = "activities"
     __table_args__ = (
         UniqueConstraint("user_id", "strava_activity_id", name="uq_user_activity"),
+        Index("ix_activity_user_start", "user_id", "start_date"),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -220,6 +222,7 @@ class Activity(Base):
     hypo_count = Column(Integer, nullable=True)
     hyper_count = Column(Integer, nullable=True)
     glucose_summary_block = Column(Text, nullable=True)
+    analytics_summary = Column(JSON(none_as_null=True), nullable=True)
 
     # NEW: caches VAM
     max_vam_5m = Column(Float, nullable=True)
@@ -254,6 +257,7 @@ class Activity(Base):
 
 class ActivityStreamPoint(Base):
     __tablename__ = "activity_stream_points"
+    __table_args__ = (Index("ix_stream_activity_idx", "activity_id", "idx"),)
 
     id = Column(Integer, primary_key=True, index=True)
 
@@ -480,6 +484,7 @@ class UserSettings(Base):
     share_show_club_logo = Column(Boolean, default=False)
 
     desc_format = Column(String(32), default="gly_first")
+    desc_include_energy = Column(Boolean, default=False)
     desc_max_lines = Column(Integer, nullable=True)
 
     user = relationship("User", back_populates="settings")

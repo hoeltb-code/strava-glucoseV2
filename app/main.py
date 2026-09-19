@@ -132,6 +132,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from .logic import (
     select_window,
     compute_stats,
+    format_glucose_stats,
     merge_desc,
     normalize_summary_block_layout,
     compute_hr_zones,
@@ -167,6 +168,12 @@ from .logic import (
     delete_activity_live_data,
     HR_ZONES,
 )
+from .analytics_service import refresh_activity_summary, maintenance_loop
+from .activity_analytics import sparkline, downsample, build_summary as build_activity_analytics
+from .athlete_summary import load_summary as load_athlete_summary
+from .pace_reference import reference_model
+from .energy import terrain_energy, heart_rate_energy, activity_energy, strava_energy_block
+from .glucose_metrics import summarize as summarize_glucose, chart_series as glucose_chart_series, zone_index as glucose_zone_index
 from .settings import settings
 from .strava_client import StravaClient
 from .clubs import build_club_payload, get_available_clubs, get_club_by_slug
@@ -922,7 +929,12 @@ def _smooth_slope_pace_values(values_by_slope: dict[str, float]) -> dict[str, fl
 
 
 def _build_modeled_pace_lookup_from_profile(profile_data: dict | None) -> dict[str, dict[str, float]]:
-    """Retourne le modèle commun slope→zone→allure (secondes/km)."""
+    """Modèle commun au profil, aux projections GPX et aux plans de course.
+
+    Compléter les cellules absentes à partir des valeurs déjà modélisées évite
+    que les projections réintroduisent des observations brutes ou un profil
+    manuel implicite. Les points modélisés existants restent inchangés.
+    """
     modeled_lookup: dict[str, dict[str, float]] = {}
     for zone_name, slopes in ((profile_data or {}).get("zones") or {}).items():
         raw_values = {
@@ -932,7 +944,24 @@ def _build_modeled_pace_lookup_from_profile(profile_data: dict | None) -> dict[s
         }
         for slope_id, pace in _smooth_slope_pace_values(raw_values).items():
             modeled_lookup.setdefault(slope_id, {})[zone_name] = pace
+    _fill_missing_zone_paces(modeled_lookup, [name for name, *_ in HR_ZONES])
     return modeled_lookup
+
+
+def _energy_config(user, reference=None):
+    today = dt.date.today()
+    age = today.year-user.birthdate.year-((today.month,today.day)<(user.birthdate.month,user.birthdate.day)) if user.birthdate else None
+    return {"weight": user.weight_kg, "max_hr": user.max_heartrate, "age": age, "sex": user.sex, "reference": reference or {}}
+
+
+def _reference_pace_payload(db, profile, user_id, sport="run"):
+    cohort = _build_anonymized_pace_benchmarks(db, sport=sport, excluded_user_id=user_id)
+    reference = reference_model(
+        profile, _build_modeled_pace_lookup_from_profile(profile), cohort,
+        [slope for slope, _ in SLOPE_ORDER], [zone for zone, *_ in HR_ZONES],
+    )
+    reference["cohort"] = cohort
+    return reference
 
 
 def _percentile_from_sorted(values: list[float], quantile: float) -> float | None:
@@ -2442,7 +2471,10 @@ def _template_response_compat(*args, **kwargs):
         if request is None:
             raise ValueError("TemplateResponse context must include 'request'.")
         remaining = args[2:]
-        return _raw_template_response(request, name, context, *remaining, **kwargs)
+        response = _raw_template_response(request, name, context, *remaining, **kwargs)
+        if request.url.path.startswith("/ui/user/"):
+            response.headers["Cache-Control"] = "private, no-store"
+        return response
     return _raw_template_response(*args, **kwargs)
 
 
@@ -2705,6 +2737,7 @@ def startup_event():
     # 1) Créer les tables si elles n'existent pas (dont glucose_points)
     init_db()
     print("[DB] Tables vérifiées/créées.")
+    threading.Thread(target=maintenance_loop, daemon=True).start()
     # 2) Démarrer le polling CGM dans un thread séparé
     t = threading.Thread(target=run_polling_loop, daemon=True)
     t.start()
@@ -3111,11 +3144,8 @@ async def process_activity_core(
             print("⚠️ athlete_id manquant, arrêt.")
             return
 
-        # Prépare les samples pour les stats (priorité à la série alignée)
-        if len(aligned_samples) >= 2:
-            samples = aligned_samples
-        else:
-            samples = select_window(graph_db, start_aw, end_aw, buffer_min=0)
+        # Native sensor timestamps preserve sampling gaps; mapped streams are a legacy fallback.
+        samples = select_window(graph_db, start_aw, end_aw, buffer_min=0) or aligned_samples
 
         stats = compute_stats(
             samples,
@@ -3164,6 +3194,14 @@ async def process_activity_core(
             compute_and_store_zone_slope_aggs(db=db, activity=activity_obj, user_id=user_id)
         except Exception as e:
             print("⚠️ Erreur compute_and_store_zone_slope_aggs :", e)
+
+        summary = refresh_activity_summary(db, activity_obj)
+        if summary["glycemia"]["available"]:
+            stats = format_glucose_stats({**(stats or {}), **summary["glycemia"]})
+            activity_obj.glucose_summary_block = stats["block"]
+        else:
+            stats = None
+            activity_obj.glucose_summary_block = None
 
         try:
             update_runner_profile_monthly_from_activity(
@@ -3476,6 +3514,11 @@ async def process_activity_core(
             elif stats and stats.get("block"):
                 # Autres sports : on ne garde que la glycémie si disponible
                 pass
+
+            if getattr(settings, "desc_include_energy", False):
+                energy_block = strava_energy_block(summary.get("energy") or {}, getattr(settings, "desc_format", "compact"))
+                if energy_block:
+                    blocks_ordered.append(energy_block)
 
             if blocks_ordered:
                 app_base_url = _get_app_base_url()
@@ -6808,6 +6851,8 @@ def ui_user_profile(user_id: int, request: Request):
             "glucose_provider": glucose_provider,
             "glucose_source_active_label": glucose_source_active_label,
             "auto_block_enabled": auto_block_enabled,
+            "energy_enabled": bool(user_settings and user_settings.desc_include_energy),
+            "energy_format": user_settings.desc_format if user_settings else "compact",
             "club_options": club_options,
             "selected_club": selected_club,
             "share_show_club_logo": share_show_club_logo,
@@ -6847,6 +6892,9 @@ def ui_user_profile_update(
     glucose_provider: str = Form(""),      # rétro-compat UI historique
     profile_image: UploadFile | None = File(None),  # 👈 fichier uploadé
 
+    desc_settings_present: str | None = Form(None),
+    desc_include_energy: str | None = Form(None),
+    desc_format: str | None = Form(None),
     desc_enable_auto_block: str | None = Form(None),
     share_show_club_logo: str | None = Form(None),
 ):
@@ -6955,6 +7003,9 @@ def ui_user_profile_update(
             db.add(settings)
 
         settings.desc_enable_auto_block = bool(desc_enable_auto_block)
+        if desc_settings_present:
+            settings.desc_include_energy = bool(desc_include_energy)
+            settings.desc_format = desc_format if desc_format in {"compact", "terrain"} else "compact"
         settings.share_show_club_logo = bool(share_show_club_logo)
 
         db.commit()
@@ -6968,6 +7019,19 @@ def ui_user_profile_update(
         status_code=302,
     )
 
+
+
+@app.get("/ui/user/{user_id}/energy", response_class=HTMLResponse)
+def ui_user_energy(user_id: int, request: Request, db: Session = Depends(get_db)):
+    guard = _guard_user_route(request,user_id)
+    if guard: return guard
+    user = db.get(User,user_id)
+    if not user: return HTMLResponse("Utilisateur introuvable",status_code=404)
+    profile = get_cached_runner_profile(db,user_id=user_id,sport="run")
+    if not profile or not profile.get("zones"):
+        profile = build_runner_profile(db,user_id=user_id,sport="run")
+    reference = _reference_pace_payload(db,profile,user_id)
+    return templates.TemplateResponse("energy.html",{"request":request,"user":user,"energy_config":_energy_config(user,reference["lookup"])})
 
 
 @app.get("/ui/user/{user_id}/runner-profile", response_class=HTMLResponse)
@@ -7010,19 +7074,6 @@ def ui_runner_profile(
         date_from = now_utc - dt.timedelta(days=days_window)
         # date_to reste None => jusqu’à maintenant
 
-    # Les totaux sportifs sont archivés séparément des streams détaillés. Ce
-    # rattrapage léger protège également les activités créées avant ce système.
-    activities_to_archive = (
-        db.query(models.Activity)
-        .filter(models.Activity.user_id == user_id)
-        .filter(sport_column_condition(models.Activity.sport, sport))
-        .all()
-    )
-    archived_any = False
-    for activity_to_archive in activities_to_archive:
-        archived_any = ensure_activity_meta_contribution(db, activity_to_archive) or archived_any
-    if archived_any:
-        db.commit()
     archived_training_summary = get_archived_training_summary(
         db,
         user_id=user_id,
@@ -7030,43 +7081,6 @@ def ui_runner_profile(
         date_from=date_from,
         date_to=date_to,
     )
-
-    # Migration progressive des anciennes activités : six sorties sont
-    # corrigées à chaque ouverture, sans bloquer longtemps le tableau de bord.
-    legacy_signed_vam_ids = (
-        db.query(models.Activity.id)
-        .join(
-            models.ActivityStreamPoint,
-            models.ActivityStreamPoint.activity_id == models.Activity.id,
-        )
-        .filter(models.Activity.user_id == user_id)
-        .filter(sport_column_condition(models.Activity.sport, sport))
-        .filter(models.ActivityStreamPoint.slope_percent < -1)
-        .filter(models.ActivityStreamPoint.velocity.isnot(None))
-        .filter(func.abs(models.ActivityStreamPoint.velocity * models.ActivityStreamPoint.slope_percent * 36.0) <= 4000)
-        .filter(
-            (models.ActivityStreamPoint.vertical_speed_m_per_h.is_(None))
-            | (models.ActivityStreamPoint.vertical_speed_m_per_h >= 0)
-        )
-        .distinct()
-        .limit(6)
-        .all()
-    )
-    for (legacy_activity_id,) in legacy_signed_vam_ids:
-        legacy_activity = db.query(models.Activity).get(legacy_activity_id)
-        if legacy_activity is None:
-            continue
-        try:
-            updated_points = backfill_signed_vertical_speed_for_activity(db, legacy_activity)
-            if updated_points:
-                compute_and_store_zone_slope_aggs(db, legacy_activity, user_id)
-                update_runner_profile_monthly_from_activity(db=db, activity=legacy_activity)
-        except Exception:
-            db.rollback()
-            logger.exception(
-                "[RUNNER_PROFILE][signed_vam_backfill] activity_id=%s",
-                legacy_activity_id,
-            )
 
     # 3) Profil coureur (zones × pente)
     profile_start = time.perf_counter()
@@ -7078,42 +7092,7 @@ def ui_runner_profile(
         date_to=date_to,
     )
     if not profile or not profile.get("zones"):
-        logger.warning(
-            "[RUNNER_PROFILE][cache_miss] user_id=%s sport=%s period=%s → recalcul complet",
-            user_id,
-            sport,
-            period,
-        )
-        rebuilt_months = rebuild_runner_profile_range_from_contributions(
-            db,
-            user_id=user_id,
-            sport=sport,
-            date_from=date_from,
-            date_to=date_to,
-        )
-        if rebuilt_months:
-            profile = get_cached_runner_profile(
-                db,
-                user_id=user_id,
-                sport=sport,
-                date_from=date_from,
-                date_to=date_to,
-            )
-        if profile and profile.get("zones"):
-            logger.info(
-                "[RUNNER_PROFILE][cache_rebuild] user_id=%s sport=%s rebuilt_months=%s",
-                user_id,
-                sport,
-                rebuilt_months,
-            )
-        else:
-            profile = build_runner_profile(
-                db,
-                user_id=user_id,
-                sport=sport,
-                date_from=date_from,
-                date_to=date_to,
-            )
+        profile = build_runner_profile(db, user_id=user_id, sport=sport, date_from=date_from, date_to=date_to)
     logger.info(
         "[RUNNER_PROFILE][timing] profile_lookup user_id=%s sport=%s took=%.3fs",
         user_id,
@@ -7124,7 +7103,8 @@ def ui_runner_profile(
     # 4) Ordre des zones cardio + pentes (positives et négatives)
     hr_zone_names = [name for (name, _, _) in HR_ZONES]
     pace_lookup_by_slope = _build_pace_lookup_from_profile(profile, hr_zone_names)
-    modeled_pace_lookup_by_slope = _build_modeled_pace_lookup_from_profile(profile)
+    pace_reference = _reference_pace_payload(db, profile, user_id, sport)
+    modeled_pace_lookup_by_slope = pace_reference["lookup"]
     slopes_order = SLOPE_ORDER
 
     # Le constructeur de plan consomme ce mode JSON afin d'utiliser exactement
@@ -7153,6 +7133,7 @@ def ui_runner_profile(
                 "profile": profile_payload,
                 "pace_lookup_by_slope": pace_lookup_by_slope,
                 "modeled_pace_lookup_by_slope": modeled_pace_lookup_by_slope,
+                "pace_reference": pace_reference,
                 "source": "runner-profile",
             },
             headers={"Cache-Control": "no-store, max-age=0"},
@@ -7170,7 +7151,7 @@ def ui_runner_profile(
     nightscout_connected = (
         db.query(NightscoutCredential.id).filter(NightscoutCredential.user_id == user_id).first() is not None
     )
-    show_glucose_tabs = libre_connected or dexcom_connected or carelink_connected or nightscout_connected
+    show_glucose_tabs = bool(libre_connected or dexcom_connected or carelink_connected or nightscout_connected or db.query(Activity.id).filter(Activity.user_id==user_id,Activity.time_in_range_percent.isnot(None)).first())
 
     glucose_zone_summary = []
     glucose_chart_24h = []
@@ -7219,65 +7200,24 @@ def ui_runner_profile(
                 return f"{m} min"
             return f"{s}s"
 
+        recent_cgm_points = db.query(GlucosePoint).filter(
+            GlucosePoint.user_id == user_id,
+            GlucosePoint.ts >= now_utc - dt.timedelta(days=14),
+            GlucosePoint.ts <= now_utc,
+        ).order_by(GlucosePoint.ts).all()
+        recent_cgm_samples = [{"ts":point.ts,"mgdl":point.mgdl} for point in recent_cgm_points]
+
         def _compute_glucose_zones(duration_days: int):
-            start_ts = now_utc - dt.timedelta(days=duration_days)
-            points = (
-                db.query(GlucosePoint)
-                .filter(GlucosePoint.user_id == user_id)
-                .filter(GlucosePoint.ts >= start_ts)
-                .order_by(GlucosePoint.ts.asc())
-                .all()
-            )
-
-            valid_points = [p for p in points if p.mgdl is not None and p.ts is not None]
-            zone_time = {zid: 0.0 for (zid, *_rest) in glucose_zone_defs}
-
-            def find_zone_id(glu: float | None) -> str | None:
-                if glu is None:
-                    return None
-                for zid, _name, _desc, _range_label, zmin, zmax in glucose_zone_defs:
-                    if (zmin is None or glu >= zmin) and (zmax is None or glu < zmax):
-                        return zid
-                return None
-
-            for i in range(len(valid_points) - 1):
-                curr = valid_points[i]
-                nxt = valid_points[i + 1]
-                dt_seconds = (nxt.ts - curr.ts).total_seconds()
-                if dt_seconds <= 0:
-                    continue
-                zid = find_zone_id(curr.mgdl)
-                if not zid:
-                    continue
-                zone_time[zid] += dt_seconds
-
-            total = sum(zone_time.values())
+            metrics = summarize_glucose(recent_cgm_samples, now_utc-dt.timedelta(days=duration_days), now_utc)
             rows = []
-            for zid, name, desc, range_label, _zmin, _zmax in glucose_zone_defs:
-                t = zone_time.get(zid, 0.0)
-                pct = round(t * 100.0 / total) if total > 0 else 0
-                rows.append(
-                    {
-                        "id": zid,
-                        "name": name,
-                        "description": desc,
-                        "range": range_label,
-                        "time_sec": t,
-                        "time_str": _format_duration_local(t),
-                        "percent": pct,
-                    }
-                )
-
-            avg_mgdl = None
-            if valid_points:
-                avg_mgdl = sum(float(p.mgdl) for p in valid_points) / len(valid_points)
-
-            return {
-                "rows": rows,
-                "has_data": total > 0,
-                "total_time_str": _format_duration_local(total),
-                "avg_mgdl": avg_mgdl,
-            }
+            for index, (zid, name, desc, label, *_rest) in enumerate(glucose_zone_defs):
+                seconds = metrics["zone_seconds"][index]
+                rows.append({"id":zid,"name":name,"description":desc,"range":label,
+                             "time_sec":seconds,"time_str":_format_duration_local(seconds),
+                             "percent":round(seconds/metrics["observed_seconds"]*100) if metrics["available"] else 0})
+            return {"rows":rows,"has_data":metrics["available"],"metrics":metrics,
+                    "coverage_percent":metrics["coverage_percent"],
+                    "total_time_str":_format_duration_local(metrics["observed_seconds"]),"avg_mgdl":metrics["avg"]}
 
         glucose_zone_summary = [
             {
@@ -7298,13 +7238,7 @@ def ui_runner_profile(
         ]
 
         # Série temporelle détaillée sur 24h pour affichage graphique
-        points_24h = (
-            db.query(GlucosePoint)
-            .filter(GlucosePoint.user_id == user_id)
-            .filter(GlucosePoint.ts >= now_utc - dt.timedelta(days=1))
-            .order_by(GlucosePoint.ts.asc())
-            .all()
-        )
+        points_24h = [point for point in recent_cgm_points if point.ts >= now_utc-dt.timedelta(days=1)]
 
         def _ts_iso(ts: dt.datetime | None) -> str | None:
             if ts is None:
@@ -7379,11 +7313,18 @@ def ui_runner_profile(
             "has_data": False,
         }
 
+        metrics_24h = glucose_zone_summary[0]["metrics"]
+        glucose_dashboard_metrics.update({
+            "time_in_range_pct":metrics_24h["pct_in_range"],"low_pct":metrics_24h["pct_hypo"],
+            "high_pct":metrics_24h["pct_hyper"],"average_mgdl":metrics_24h["avg"],
+            "variability_pct":metrics_24h["variability_pct"],"coverage_percent":metrics_24h["coverage_percent"],
+        })
         cached_glucose_summary = get_cached_glucose_activity_summary(
             db,
             user_id=user_id,
             sport=sport,
             limit=20,
+            date_from=date_from, date_to=date_to,
         )
 
         if cached_glucose_summary and cached_glucose_summary.get("activities"):
@@ -7416,6 +7357,7 @@ def ui_runner_profile(
             radar_labels = ["Endurance", "Seuil", "Fractionné"]
             radar_values = []
             radar_counts = []
+            radar_observed = []
             has_data = False
             order = [("endurance", "Endurance"), ("seuil", "Seuil"), ("fractionne", "Fractionné")]
             for key, label in order:
@@ -7423,144 +7365,18 @@ def ui_runner_profile(
                 count = int(stats.get("count") or 0)
                 avg_val = None
                 if count > 0:
-                    avg_val = (stats.get("sum_avg_mgdl") or 0.0) / count
-                    has_data = True
+                    avg_val = stats.get("weighted_sum",0) / stats["observed_seconds"] if stats.get("observed_seconds") else None
+                    has_data = has_data or avg_val is not None
                 radar_values.append(avg_val)
                 radar_counts.append(count)
+                radar_observed.append(stats.get("observed_seconds",0))
             glucose_activity_profile_radar = {
                 "labels": radar_labels,
                 "values": radar_values,
                 "counts": radar_counts,
+                "observed_seconds": radar_observed,
                 "has_data": has_data,
             }
-        else:
-            sport = canonicalize_sport_label(sport)
-            activities_with_glucose = (
-                db.query(models.Activity)
-                .filter(models.Activity.user_id == user_id)
-                .filter(sport_column_condition(models.Activity.sport, sport))
-                .order_by(models.Activity.start_date.desc())
-                .limit(20)
-                .all()
-            )
-
-            if activities_with_glucose:
-                activity_ids = [a.id for a in activities_with_glucose]
-
-                subq = (
-                    db.query(
-                        ActivityStreamPoint.activity_id.label("activity_id"),
-                        func.min(ActivityStreamPoint.elapsed_time).label("min_elapsed"),
-                    )
-                    .filter(ActivityStreamPoint.activity_id.in_(activity_ids))
-                    .filter(ActivityStreamPoint.glucose_mgdl.isnot(None))
-                    .group_by(ActivityStreamPoint.activity_id)
-                    .subquery()
-                )
-
-                start_points = {}
-                if activity_ids:
-                    rows = (
-                        db.query(
-                            ActivityStreamPoint.activity_id,
-                            ActivityStreamPoint.glucose_mgdl,
-                        )
-                        .join(
-                            subq,
-                            and_(
-                                ActivityStreamPoint.activity_id == subq.c.activity_id,
-                                ActivityStreamPoint.elapsed_time == subq.c.min_elapsed,
-                            ),
-                        )
-                        .all()
-                    )
-                    for row in rows:
-                        if row.glucose_mgdl is not None:
-                            start_points[row.activity_id] = float(row.glucose_mgdl)
-
-                zone_mix: dict[int, dict[str, float]] = defaultdict(lambda: defaultdict(float))
-                if activity_ids:
-                    zone_rows = (
-                        db.query(
-                            ActivityZoneSlopeAgg.activity_id,
-                            ActivityZoneSlopeAgg.hr_zone,
-                            func.sum(ActivityZoneSlopeAgg.duration_sec).label("duration_sec"),
-                        )
-                        .filter(ActivityZoneSlopeAgg.activity_id.in_(activity_ids))
-                        .group_by(ActivityZoneSlopeAgg.activity_id, ActivityZoneSlopeAgg.hr_zone)
-                        .all()
-                    )
-
-                    for row in zone_rows:
-                        zone_mix[row.activity_id][row.hr_zone] += float(row.duration_sec or 0)
-
-                radar_acc = {
-                    "endurance": {"label": "Endurance", "sum": 0.0, "count": 0},
-                    "seuil": {"label": "Seuil", "sum": 0.0, "count": 0},
-                    "fractionne": {"label": "Fractionné", "sum": 0.0, "count": 0},
-                }
-
-                for activity in activities_with_glucose:
-                    start_dt = _safe_dt(activity.start_date)
-                    distance_km = float(activity.distance) / 1000.0 if activity.distance else None
-                    elevation_gain = float(activity.total_elevation_gain) if activity.total_elevation_gain else None
-                    recent_glucose_activities.append(
-                        {
-                            "id": activity.id,
-                            "name": activity.name or f"Activité {activity.id}",
-                            "start_label": _format_activity_date(start_dt),
-                            "distance_km": distance_km,
-                            "elevation_gain_m": elevation_gain,
-                            "duration_str": _format_duration(activity.elapsed_time) if activity.elapsed_time else None,
-                            "start_glucose": start_points.get(activity.id),
-                            "avg_glucose": float(activity.avg_glucose) if activity.avg_glucose is not None else None,
-                            "tir_percent": float(activity.time_in_range_percent) if activity.time_in_range_percent is not None else None,
-                        }
-                    )
-
-                for activity in reversed(activities_with_glucose):
-                    start_dt = _safe_dt(activity.start_date)
-                    glucose_activity_chart["labels"].append(_format_activity_date(start_dt, short=True))
-                    glucose_activity_chart["start"].append(start_points.get(activity.id))
-                    glucose_activity_chart["avg"].append(
-                        float(activity.avg_glucose) if activity.avg_glucose is not None else None
-                    )
-                    glucose_activity_chart["tir"].append(
-                        float(activity.time_in_range_percent) if activity.time_in_range_percent is not None else None
-                    )
-
-                    avg_glucose = activity.avg_glucose
-                    if avg_glucose is None:
-                        continue
-                    zone_distribution = zone_mix.get(activity.id) or {}
-                    profile_key = _classify_activity_profile(zone_distribution)
-                    if not profile_key:
-                        continue
-                    bucket = radar_acc.get(profile_key)
-                    if not bucket:
-                        continue
-                    bucket["sum"] += float(avg_glucose)
-                    bucket["count"] += 1
-
-                radar_labels = [radar_acc[k]["label"] for k in ("endurance", "seuil", "fractionne")]
-                radar_values = []
-                radar_counts = []
-                has_data = False
-                for key in ("endurance", "seuil", "fractionne"):
-                    bucket = radar_acc[key]
-                    avg_val = None
-                    if bucket["count"] > 0:
-                        avg_val = bucket["sum"] / bucket["count"]
-                        has_data = True
-                    radar_values.append(avg_val)
-                    radar_counts.append(bucket["count"])
-
-                glucose_activity_profile_radar = {
-                    "labels": radar_labels,
-                    "values": radar_values,
-                    "counts": radar_counts,
-                    "has_data": has_data,
-                }
         logger.info(
             "[RUNNER_PROFILE][timing] glucose_blocks user_id=%s sport=%s took=%.3fs",
             user_id,
@@ -7775,6 +7591,7 @@ def ui_runner_profile(
             "profile": profile_for_template,
             "pace_lookup_by_slope": pace_lookup_by_slope,
             "modeled_pace_lookup_by_slope": modeled_pace_lookup_by_slope,
+                "pace_reference": pace_reference,
             "sport": sport,
             "period": period,
             "tab": tab,
@@ -7791,6 +7608,7 @@ def ui_runner_profile(
             "distance_projections": distance_projections,
             "cardiac_drift_history": cardiac_drift_history,
             "runner_analytics": runner_analytics,
+            "athlete_summary": load_athlete_summary(db,user_id,sport,date_from,date_to),
             "archived_training_summary": archived_training_summary,
         },
     )
@@ -9578,31 +9396,13 @@ def ui_runner_profile_history(
             date_from=date_from,
         )
         if not profile or not profile.get("zones"):
-            rebuilt_months = rebuild_runner_profile_range_from_contributions(
-                db,
-                user_id=user_id,
-                sport="run",
-                date_from=date_from,
-            )
-            if rebuilt_months:
-                profile = get_cached_runner_profile(
-                    db,
-                    user_id=user_id,
-                    sport="run",
-                    date_from=date_from,
-                )
-        if not profile or not profile.get("zones"):
-            profile = build_runner_profile(
-                db,
-                user_id=user_id,
-                sport="run",
-                date_from=date_from,
-            )
+            profile = build_runner_profile(db, user_id=user_id, sport="run", date_from=date_from)
         pace_lookup = _build_pace_lookup_from_profile(
             profile,
             [name for (name, _, _) in HR_ZONES],
         )
-        modeled_pace_lookup = _build_modeled_pace_lookup_from_profile(profile)
+        pace_reference = _reference_pace_payload(db, profile, user_id, "run")
+        modeled_pace_lookup = pace_reference["lookup"]
         # On laisse FastAPI encoder les dates présentes dans ``profile.period``.
         return {
             "period": period,
@@ -9612,6 +9412,7 @@ def ui_runner_profile_history(
             "profile": profile,
             "pace_lookup_by_slope": pace_lookup,
             "modeled_pace_lookup_by_slope": modeled_pace_lookup,
+            "pace_reference": pace_reference,
         }
     finally:
         db.close()
@@ -9629,6 +9430,13 @@ def ui_user_dashboard(user_id: int, request: Request):
     guard = _guard_user_route(request, user_id)
     if guard:
         return guard
+
+    if not request.query_params or request.query_params.get("view") == "overview":
+        with SessionLocal() as db:
+            user = db.get(User,user_id)
+            if not user: return HTMLResponse("Utilisateur introuvable",status_code=404)
+            overview = load_athlete_summary(db,user_id,start=dt.datetime.utcnow()-dt.timedelta(days=30))
+            return templates.TemplateResponse("user_overview.html",{"request":request,"user":user,"athlete_summary":overview})
 
     custom_course_mode = request.query_params.get("mode") == "custom"
 
@@ -9650,6 +9458,7 @@ def ui_user_dashboard(user_id: int, request: Request):
     dash_distance_projections = []
     runner_profile_overview = {"zones": {}}
     dashboard_cohort_curves = {"zones": {}, "minimum_runners": 8}
+    dashboard_pace_reference = {}
     dashboard_pace_lookup = {}
     dashboard_modeled_pace_lookup = {}
     dashboard_hr_zones = [name for (name, _, _) in HR_ZONES]
@@ -10162,35 +9971,14 @@ def ui_user_dashboard(user_id: int, request: Request):
             sport="run",
         )
         if not runner_profile_overview or not runner_profile_overview.get("zones"):
-            rebuilt_months = rebuild_runner_profile_range_from_contributions(
-                db,
-                user_id=user_id,
-                sport="run",
-            )
-            if rebuilt_months:
-                runner_profile_overview = get_cached_runner_profile(
-                    db,
-                    user_id=user_id,
-                    sport="run",
-                )
-        if not runner_profile_overview or not runner_profile_overview.get("zones"):
-            runner_profile_overview = build_runner_profile(
-                db,
-                user_id=user_id,
-                sport="run",
-            )
+            runner_profile_overview = build_runner_profile(db, user_id=user_id, sport="run")
         dashboard_pace_lookup = _build_pace_lookup_from_profile(
             runner_profile_overview,
             dashboard_hr_zones,
         )
-        dashboard_modeled_pace_lookup = _build_modeled_pace_lookup_from_profile(
-            runner_profile_overview,
-        )
-        dashboard_cohort_curves = _build_anonymized_pace_benchmarks(
-            db,
-            sport="run",
-            excluded_user_id=user_id,
-        )
+        dashboard_pace_reference = _reference_pace_payload(db, runner_profile_overview, user_id, "run")
+        dashboard_modeled_pace_lookup = dashboard_pace_reference["lookup"]
+        dashboard_cohort_curves = dashboard_pace_reference["cohort"]
 
         # ---------------------------
         # 🧗‍♂️ Meilleurs D+ / VAM et projections chrono
@@ -10433,6 +10221,7 @@ def ui_user_dashboard(user_id: int, request: Request):
             "dash_distance_projections": dash_distance_projections,
             "runner_profile_overview": runner_profile_overview,
             "dashboard_cohort_curves": dashboard_cohort_curves,
+            "dashboard_pace_reference": dashboard_pace_reference,
             "dashboard_pace_lookup": dashboard_pace_lookup,
             "dashboard_modeled_pace_lookup": dashboard_modeled_pace_lookup,
             "dashboard_hr_zones": dashboard_hr_zones,
@@ -10477,7 +10266,11 @@ def ui_user_activities(user_id: int, request: Request):
 
     db = SessionLocal()
     page = _safe_positive_int(request.query_params.get("page"), 1)
-    page_size = 5
+    page_size = 10
+    sport = request.query_params.get("sport", "all")
+    period = request.query_params.get("period", "30")
+    availability = request.query_params.get("data", "all")
+    days = {"30":30,"90":90,"365":365}.get(period)
 
     WINDOW_DEFS = [
         {"id": "15m", "label": "15 min", "seconds": 15 * 60},
@@ -10486,110 +10279,22 @@ def ui_user_activities(user_id: int, request: Request):
         {"id": "5h", "label": "5 h", "seconds": 5 * 60 * 60},
     ]
 
-    def _sparkline_paths(values: list[float], *, width: int = 320, height: int = 72) -> dict | None:
-        """Construit une mini-courbe SVG sans axes pour les cartes d'activité."""
-        clean = [float(value) for value in values if value is not None and math.isfinite(float(value))]
-        if len(clean) < 2:
-            return None
-        if len(clean) > 90:
-            step = max(1, math.ceil(len(clean) / 90))
-            clean = clean[::step] + ([clean[-1]] if clean[-1] != clean[::step][-1] else [])
-        low, high = min(clean), max(clean)
-        span = max(high - low, 1.0)
-        pad = 3.0
-        coordinates = [
-            (
-                pad + index * (width - 2 * pad) / max(1, len(clean) - 1),
-                pad + (high - value) * (height - 2 * pad) / span,
-            )
-            for index, value in enumerate(clean)
-        ]
-        line = " ".join(
-            f"{'M' if index == 0 else 'L'}{x:.1f},{y:.1f}"
-            for index, (x, y) in enumerate(coordinates)
-        )
-        area = f"{line} L{coordinates[-1][0]:.1f},{height:.1f} L{coordinates[0][0]:.1f},{height:.1f} Z"
-        return {"line": line, "area": area, "width": width, "height": height}
-
     def _build_activity_row(activity: Activity) -> dict:
-        distance_km = float(activity.distance) / 1000.0 if activity.distance else None
-        elevation_gain = float(activity.total_elevation_gain) if activity.total_elevation_gain is not None else None
-        elevation_loss = None
-        duration_str = _format_duration(activity.elapsed_time) if activity.elapsed_time else None
+        summary = activity.analytics_summary or {}
         start_dt = _safe_dt(activity.start_date)
-        start_label = start_dt.strftime("%d %b %Y · %H:%M") if start_dt else "—"
-
-        window_values = {w["id"]: None for w in WINDOW_DEFS}
-
-        points = (
-            db.query(
-                ActivityStreamPoint.elapsed_time,
-                ActivityStreamPoint.altitude,
-                ActivityStreamPoint.glucose_mgdl,
-            )
-            .filter(ActivityStreamPoint.activity_id == activity.id)
-            .order_by(ActivityStreamPoint.idx.asc())
-            .all()
-        )
-
-        if points:
-            times = []
-            cum_gain = []
-            cum_loss = []
-            total_gain_calc = 0.0
-            total_loss_calc = 0.0
-            prev_alt = None
-
-            for pt in points:
-                if pt.elapsed_time is None:
-                    continue
-                alt = float(pt.altitude) if pt.altitude is not None else None
-                if alt is not None and prev_alt is not None:
-                    delta = alt - prev_alt
-                    if delta > 0:
-                        total_gain_calc += delta
-                    elif delta < 0:
-                        total_loss_calc += -delta
-                if alt is not None:
-                    prev_alt = alt
-
-                times.append(float(pt.elapsed_time))
-                cum_gain.append(total_gain_calc)
-                cum_loss.append(total_loss_calc)
-
-            if times:
-                if total_gain_calc > 0:
-                    elevation_gain = total_gain_calc
-                if total_loss_calc > 0:
-                    elevation_loss = total_loss_calc
-
-                for win in WINDOW_DEFS:
-                    best_gain = 0.0
-                    seconds = win["seconds"]
-                    start_idx = 0
-                    for idx, t in enumerate(times):
-                        while start_idx < idx and (t - times[start_idx]) > seconds:
-                            start_idx += 1
-                        gain_window = cum_gain[idx] - cum_gain[start_idx]
-                        if gain_window > best_gain:
-                            best_gain = gain_window
-                    window_values[win["id"]] = best_gain if best_gain > 0 else 0.0
-
-        altitude_profile = _sparkline_paths([point.altitude for point in points if point.altitude is not None])
-        glucose_profile = _sparkline_paths([point.glucose_mgdl for point in points if point.glucose_mgdl is not None])
-
+        effort = summary.get("effort_chart") or []
         return {
-            "id": activity.id,
-            "name": activity.name or f"Activité {activity.id}",
-            "start_label": start_label,
-            "distance_km": distance_km,
-            "elevation_gain_m": elevation_gain,
-            "elevation_loss_m": elevation_loss,
-            "duration_str": duration_str,
-            "dplus_windows": window_values,
-            "sport": activity.sport or (activity.activity_type or "").lower(),
-            "altitude_profile": altitude_profile,
-            "glucose_profile": glucose_profile,
+            "id": activity.id, "name": activity.name or "Activité",
+            "start_label": start_dt.strftime("%d %b %Y · %H:%M") if start_dt else "—",
+            "distance_km": activity.distance/1000 if activity.distance else None,
+            "elevation_gain_m": activity.total_elevation_gain,
+            "elevation_loss_m": summary.get("elevation_loss_m"),
+            "duration_str": _format_duration(activity.elapsed_time) if activity.elapsed_time else "—",
+            "dplus_windows": {}, "sport": activity.sport,
+            "altitude_profile": sparkline([{"x":p["x"],"y":p.get("altitude")} for p in effort]),
+            "glucose_profile": sparkline(summary.get("glucose_chart") or [],glucose=True),
+            "glycemia": summary.get("glycemia") or {}, "energy": summary.get("energy") or {},
+            "pending": not bool(summary),
         }
 
     try:
@@ -10597,11 +10302,15 @@ def ui_user_activities(user_id: int, request: Request):
         if not user:
             return HTMLResponse(status_code=404, content="Utilisateur introuvable")
 
-        total_activities = db.query(Activity.id).filter(Activity.user_id == user_id).count()
+        activity_query = db.query(Activity).filter(Activity.user_id==user_id)
+        if sport in {"run","hike","ride","walk"}: activity_query=activity_query.filter(sport_column_condition(Activity.sport,sport))
+        if days: activity_query=activity_query.filter(Activity.start_date>=dt.datetime.utcnow()-dt.timedelta(days=days))
+        if availability=="glucose": activity_query=activity_query.filter(Activity.time_in_range_percent.isnot(None))
+        if availability=="missing": activity_query=activity_query.filter(Activity.time_in_range_percent.is_(None))
+        total_activities = activity_query.count()
         offset = (page - 1) * page_size
         activities = (
-            db.query(Activity)
-            .filter(Activity.user_id == user_id)
+            activity_query
             .order_by(desc(Activity.start_date))
             .offset(offset)
             .limit(page_size)
@@ -10622,6 +10331,7 @@ def ui_user_activities(user_id: int, request: Request):
             "user": user,
             "activities": activity_rows,
             "window_defs": WINDOW_DEFS,
+            "filters": {"sport":sport,"period":period,"data":availability},
             "pagination": {
                 "page": page,
                 "page_size": page_size,
@@ -10630,8 +10340,8 @@ def ui_user_activities(user_id: int, request: Request):
                 "end_index": min(offset + page_size, total_activities),
                 "has_prev": has_prev,
                 "has_next": has_next,
-                "prev_url": f"/ui/user/{user_id}/activities?page={page - 1}" if has_prev else None,
-                "next_url": f"/ui/user/{user_id}/activities?page={page + 1}" if has_next else None,
+                "prev_url": str(request.url.include_query_params(page=page-1)) if has_prev else None,
+                "next_url": str(request.url.include_query_params(page=page+1)) if has_next else None,
             },
         },
     )
@@ -10643,7 +10353,7 @@ def ui_user_activities(user_id: int, request: Request):
 # -----------------------------------------------------------------------------
 
 @app.get("/ui/user/{user_id}/activity/{activity_id}", response_class=HTMLResponse)
-async def ui_user_activity_detail(user_id: int, activity_id: int, request: Request):
+def ui_user_activity_detail(user_id: int, activity_id: int, request: Request):
     guard = _guard_user_route(request, user_id)
     if guard:
         return guard
@@ -10735,6 +10445,25 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
             .order_by(ActivityStreamPoint.idx.asc())
             .all()
         )
+        analysis_start = _safe_dt(activity.start_date)
+        analysis_end = analysis_start + dt.timedelta(seconds=activity.elapsed_time or 0)
+        surrounding_glucose = load_glucose_graph_from_db(db,user_id,analysis_start-dt.timedelta(minutes=30),analysis_end+dt.timedelta(hours=2),margin_min=0)
+        analysis_samples = surrounding_glucose or [{"ts":analysis_start+dt.timedelta(seconds=p.elapsed_time),"mgdl":p.glucose_mgdl} for p in points if p.elapsed_time is not None and p.glucose_mgdl is not None]
+        glucose_analysis = summarize_glucose(analysis_samples,analysis_start,analysis_end)
+        glucose_analysis["source"] = "sensor" if surrounding_glucose else "activity_stream"
+        activity_analytics = activity.analytics_summary or build_activity_analytics(activity,user,points,analysis_samples)
+        activity_analytics = dict(activity_analytics)
+        activity_analytics["glycemia"] = {key:value for key,value in glucose_analysis.items() if key != "intervals"}
+        activity_analytics["glucose_chart"] = downsample([{ "x":(p["x"]-analysis_start.timestamp())/60,"y":p["y"]} for p in glucose_chart_series(analysis_samples,analysis_start,analysis_end)])
+        activity_analytics["glucose_intervals"] = [{"start":(v["start"]-analysis_start.timestamp())/60,"end":(v["end"]-analysis_start.timestamp())/60,"mgdl":v["mgdl"]} for v in glucose_analysis["intervals"]]
+        phase_glucose = [
+            {"label":label, **summarize_glucose(surrounding_glucose,a,b)}
+            for label,a,b in [
+                ("Avant · 30 min",analysis_start-dt.timedelta(minutes=30),analysis_start),
+                ("Pendant",analysis_start,analysis_end),
+                ("Après · 2 h",analysis_end,analysis_end+dt.timedelta(hours=2)),
+            ]
+        ]
         has_streams = len(points) > 1
         cardiac_drift = compute_terrain_adjusted_cardiac_drift(points)
 
@@ -10746,7 +10475,7 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
             p for p in points
             if p.glucose_mgdl is not None and p.elapsed_time is not None
         ]
-        has_glucose = len(glucose_points) > 1
+        has_glucose = glucose_analysis["available"]
 
         # Par défaut : aucune ligne
         glucose_zone_rows = []
@@ -10776,38 +10505,25 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
                 for (zid, *_rest) in glucose_zone_defs
             }
 
-            # Fonction utilitaire : trouver la zone à partir d'une valeur
-            def find_zone_id(glu: float | None) -> str | None:
-                if glu is None:
-                    return None
-                for zid, _name, _desc, _range_label, zmin, zmax in glucose_zone_defs:
-                    if (zmin is None or glu >= zmin) and (zmax is None or glu < zmax):
-                        return zid
-                return None
+            def find_zone_id(glu):
+                return f"G{glucose_zone_index(glu)+1}" if glu is not None else None
 
-            # On trie par temps (normalement déjà le cas avec idx, mais au cas où)
-            glucose_points_sorted = sorted(glucose_points, key=lambda p: p.elapsed_time or 0)
-
-            # On approxime la durée d'un point comme (t[i+1] - t[i]) et on
-            # l'affecte à la zone de glycémie du point i
-            for i in range(len(glucose_points_sorted) - 1):
-                p = glucose_points_sorted[i]
-                n = glucose_points_sorted[i + 1]
-
-                if p.elapsed_time is None or n.elapsed_time is None:
-                    continue
-                dt_sec = float(n.elapsed_time) - float(p.elapsed_time)
-                if dt_sec <= 0:
-                    continue
-
-                zid = find_zone_id(p.glucose_mgdl)
-                if zid is None:
-                    continue
-
-                zone_time[zid] += dt_sec
-                hz = p.hr_zone if p.hr_zone in hr_zones else None
-                if hz:
-                    glucose_hr_time[zid][hz] += dt_sec
+            glucose_points_sorted = sorted(glucose_points,key=lambda p:p.elapsed_time or 0)
+            point_offsets = [float(p.elapsed_time or 0) for p in points]
+            for interval in glucose_analysis["intervals"]:
+                zid = f"G{interval['zone']+1}"
+                seconds = interval["end"]-interval["start"]
+                zone_time[zid] += seconds
+                offset=interval["start"]-analysis_start.timestamp()
+                end_offset=interval["end"]-analysis_start.timestamp()
+                index=max(0,bisect_left(point_offsets,offset)-1)
+                while index+1<len(points) and point_offsets[index]<end_offset:
+                    lo,hi=point_offsets[index],point_offsets[index+1]
+                    overlap=max(0,min(hi,end_offset)-max(lo,offset))
+                    hr_zone=points[index].hr_zone
+                    if 0<hi-lo<=30 and hr_zone in hr_zones:
+                        glucose_hr_time[zid][hr_zone] += overlap
+                    index+=1
 
             total_time = sum(zone_time.values())
             hr_time_from_glucose = {
@@ -10869,19 +10585,19 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
                 if hyper_ratio >= 0.25 and hyper_ratio >= hypo_ratio + 0.05:
                     glucose_profile_summary = build_summary(
                         "Profil hyperglycémie",
-                        f"{hyper_pct}% du temps > 180 mg/dL. Pense à réduire les apports rapides.",
+                        f"{hyper_pct}% de la durée observée au-dessus de 180 mg/dL.",
                         "warning",
                     )
                 elif hypo_ratio >= 0.2 and hypo_ratio >= hyper_ratio + 0.05:
                     glucose_profile_summary = build_summary(
                         "Profil hypoglycémie",
-                        f"{hypo_pct}% du temps < 70 mg/dL. Prévoir une recharge glucidique en amont.",
+                        f"{hypo_pct}% de la durée observée sous 70 mg/dL.",
                         "danger",
                     )
                 else:
                     glucose_profile_summary = build_summary(
-                        "Profil stable",
-                        f"{in_range_pct}% du temps entre 70 et 180 mg/dL.",
+                        "Répartition glycémique",
+                        f"{in_range_pct}% de la durée observée entre 70 et 180 mg/dL.",
                         "positive",
                     )
 
@@ -10976,13 +10692,14 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
         dplus = int(activity.total_elevation_gain or 0)
         duration_sec = int(activity.elapsed_time or 0)
         fc = round(activity.average_heartrate) if activity.average_heartrate else None
-        gly_avg = round(activity.avg_glucose) if activity.avg_glucose else None
+        gly_avg = round(glucose_analysis["avg"]) if glucose_analysis["avg"] is not None else None
 
         club_data = build_club_payload(user.club_slug)
         share_show_club_logo = bool(
             user.settings.share_show_club_logo
         ) if getattr(user, "settings", None) and user.settings.share_show_club_logo is not None else False
 
+        glucose_chart_points = downsample(glucose_chart_points,600,fields=("mgdl",))
         story_export_data = _build_story_export_data(
             activity,
             glucose_chart_points,
@@ -11483,20 +11200,8 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
             })
 
         # Garde un volume raisonnable pour le navigateur tout en préservant le profil.
-        if len(profile_chart_points) > 900:
-            stride = max(1, len(profile_chart_points) // 900)
-            profile_chart_points = profile_chart_points[::stride]
-            if raw_profile_points:
-                profile_chart_points[-1] = {
-                    "x": round(raw_profile_points[-1]["distance_m"] / 1000.0, 3),
-                    "y": round(raw_profile_points[-1]["altitude_m"], 1),
-                    "grade": round(smoothed_grades[-1], 1),
-                    "pace": None,
-                    "vam": round(raw_profile_points[-1]["vam"]) if raw_profile_points[-1]["vam"] is not None else None,
-                    "hr": round(raw_profile_points[-1]["heartrate"]) if raw_profile_points[-1]["heartrate"] is not None else None,
-                    "hr_zone": raw_profile_points[-1]["hr_zone"],
-                    "glucose": round(raw_profile_points[-1]["glucose"]) if raw_profile_points[-1]["glucose"] is not None else None,
-                }
+        profile_chart_points = downsample(profile_chart_points, 900, fields=("y", "glucose", "hr"))
+
         alt_profile = [[point["x"], point["y"]] for point in profile_chart_points]
         alt_profile_js = json.dumps(alt_profile)
         profile_chart_points_js = json.dumps(profile_chart_points)
@@ -11891,6 +11596,7 @@ async def ui_user_activity_detail(user_id: int, activity_id: int, request: Reque
             "request": request,
             "user": user,
             "activity": activity,
+            "activity_analytics": activity_analytics, "phase_glucose": phase_glucose,
             "dist_km": round(dist_km, 2),
             "dplus": dplus,
             "duration_sec": duration_sec,
@@ -12010,6 +11716,7 @@ async def ui_user_activity_share(user_id: int, activity_id: int, request: Reques
             user.settings.share_show_club_logo
         ) if getattr(user, "settings", None) and user.settings.share_show_club_logo is not None else False
 
+        glucose_chart_points = downsample(glucose_chart_points,600,fields=("mgdl",))
         story_export_data = _build_story_export_data(
             activity,
             glucose_chart_points,

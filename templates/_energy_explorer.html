@@ -1,0 +1,21 @@
+<section class="data-panel energy-explorer" data-energy-explorer aria-labelledby="energy-title">
+  <script type="application/json">{{ energy_config | tojson }}</script>
+  <div class="data-heading"><div><span class="data-eyebrow">Comprendre mon effort</span><h2 id="energy-title">Et si la pente changeait ?</h2><p>Fais varier le terrain : le coût d’un kilomètre et la dépense par heure racontent deux choses différentes.</p></div><span class="data-badge">Simulation · estimation</span></div>
+  <div class="energy-presets" aria-label="Choisir un terrain"><button type="button" data-energy-preset="0">→ Le plat</button><button type="button" data-energy-preset="10">↗ La montée</button><button type="button" data-energy-preset="-25">↘ La descente raide</button></div>
+  <div class="energy-layout"><div class="energy-controls">
+    <label>Poids simulé <output data-energy-value="weight"></output><input type="range" name="weight" min="20" max="300" step="1" value="{{ energy_config.weight or 70 }}"></label>
+    {% if not energy_config.weight %}<p class="data-note">Exemple à 70 kg : ajuste ce poids ou renseigne-le dans ton compte.</p>{% endif %}
+    <label>Pente <output data-energy-value="grade"></output><input type="range" name="grade" min="-45" max="45" step="1" value="0"></label>
+    <label>Allure <output data-energy-value="pace"></output><input type="range" name="pace" min="3" max="30" step="0.25" value="6"></label>
+    <label>Fréquence cardiaque <output data-energy-value="heart_rate"></output><input type="range" name="heart_rate" min="70" max="210" step="1" value="{{ ((energy_config.max_hr or 180) * 0.7)|int }}"></label>
+    <label>Déplacement <select name="gait"><option value="run">Course</option><option value="walk">Marche · coût minimal théorique</option></select></label>
+    <label class="energy-check"><input type="checkbox" name="reference"> Relier l’allure à ma courbe pente × zone cardio</label>
+    <p class="data-note" data-energy-value="source"></p>
+  </div><div>
+    <div class="data-kpis"><article><span>Coût du terrain</span><strong><b data-energy-value="per_km">—</b> <small>kcal/km</small></strong></article><article><span>À cette allure</span><strong><b data-energy-value="per_hour">—</b> <small>kcal/h</small></strong></article><article><span>Par rapport au plat</span><strong data-energy-value="ratio">—</strong></article></div>
+    <svg class="energy-chart" role="img" aria-label="Coût énergétique estimé selon la pente"></svg>
+    <p class="data-insight" data-energy-value="message" aria-live="polite"></p>
+    <p data-energy-value="intensity" class="data-note"></p>
+  </div></div>
+  <details class="data-method"><summary>Comment ces estimations fonctionnent</summary><p>Le modèle terrain de Minetti estime la dépense nette de locomotion à partir du poids, de la pente et de la distance. L’allure transforme ce coût en kcal/h. Le réglage de FC situe l’intensité ; s’il est relié au profil, il sélectionne aussi la courbe d’allure de cette zone.</p><p data-energy-value="cardiac"></p><p>Le modèle cardio de Keytel est séparé : il utilise la FC, le poids, l’âge et le sexe renseignés, uniquement dans son domaine d’étude. Les estimations ne s’additionnent pas. En trail, technicité, météo, charge portée et économie individuelle peuvent modifier la dépense réelle.</p><p><strong>Dépense énergétique ≠ quantité à manger.</strong> Ces valeurs ne sont pas des objectifs de ravitaillement. Une pente plus coûteuse ne signifie pas qu’il faut remplacer toutes les calories dépensées.</p><p><a href="https://doi.org/10.1152/japplphysiol.01177.2001" target="_blank" rel="noopener">Minetti, 2002</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/15966347/" target="_blank" rel="noopener">Keytel, 2005</a></p></details>
+</section>

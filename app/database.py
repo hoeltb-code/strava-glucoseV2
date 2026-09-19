@@ -24,6 +24,8 @@ def _ensure_column(table_name: str, column_name: str, ddl: str):
 
 
 def _run_local_schema_fixes():
+    _ensure_column("activities", "analytics_summary", "analytics_summary JSON")
+    _ensure_column("user_settings", "desc_include_energy", "desc_include_energy BOOLEAN DEFAULT FALSE")
     is_sqlite = DATABASE_URL.startswith("sqlite")
     libre_last_fetch_type = "DATETIME" if is_sqlite else "TIMESTAMP"
     carelink_datetime_type = "DATETIME" if is_sqlite else "TIMESTAMP"
@@ -147,3 +149,6 @@ def init_db():
     from app import models
     Base.metadata.create_all(bind=engine)
     _run_local_schema_fixes()
+    for model in (models.Activity, models.ActivityStreamPoint):
+        for index in model.__table__.indexes:
+            index.create(bind=engine, checkfirst=True)

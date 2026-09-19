@@ -70,7 +70,7 @@ class DataPagesTests(unittest.TestCase):
     def tearDownClass(cls):cls.client.close();cls.stack.close();cls.engine.dispose()
 
     def test_read_only_pages_render_with_data(self):
-        for url,text in [('/ui/user/10','Bonjour Camille'),('/ui/user/10/activities','Journal d’entraînement'),('/ui/user/10/energy','Et si la pente'),('/ui/user/10/runner-profile?tab=pace','Effort, glycémie et énergie'),('/ui/user/10/activity/100','Lire ensemble glycémie et effort')]:
+        for url,text in [('/ui/user/10','home-target-pacing-curve'),('/ui/user/10/activities','Dernières activités'),('/ui/user/10/runner-profile?tab=pace','Ton profil de course'),('/ui/user/10/activity/100','Détail de la sortie'),('/ui/user/10/activity/100?tab=glycemia','glucose-distribution')]:
             with self.subTest(url=url):
                 self.statements.clear();r=self.client.get(url)
                 self.assertEqual(r.status_code,200,r.text[:1000]);self.assertIn(text,r.text)
@@ -79,19 +79,38 @@ class DataPagesTests(unittest.TestCase):
                     self.assertFalse(any('activity_stream_points' in q for q in self.statements))
                     self.assertLessEqual(len(self.statements),4)
 
+    def test_original_navigation_and_activity_structure(self):
+        import re
+        from html import unescape
+        activity = self.client.get('/ui/user/10/activity/100').text
+        def labels(css_class):
+            nav = re.search(r'<nav class="' + css_class + r'".*?</nav>', activity, re.S).group()
+            return [unescape(re.sub(r'<[^>]+>', '', link)).strip() for link in re.findall(r'<a .*?</a>', nav, re.S)]
+        self.assertEqual(labels('primary-nav'), ['Planifier', 'Activités', 'Compte', 'Mes données'])
+        self.assertEqual(labels('mobile-bottom-nav'), ['Plan', 'Sorties', 'Compte', 'Data'])
+        self.assertNotIn('data-advanced', activity)
+        self.assertEqual(activity.count('class="activity-tab-link'), 7)
+        self.assertIn('Énergie estimée', activity)
+        self.assertEqual(activity.count('class="terrain-energy"'), 3)
+        plan = self.client.get('/ui/user/10').text
+        self.assertNotIn('plan-energy', plan)
+        self.assertNotIn('EnergyModel', plan)
+        self.assertNotIn('/10/energy', plan)
+        self.assertEqual(self.client.get('/ui/user/10/energy').status_code, 404)
+
     def test_median_reference_api_and_empty_states(self):
         r=self.client.get('/ui/user/10/runner-profile?format=json')
         self.assertEqual(r.status_code,200)
         payload=r.json()
         self.assertGreater(payload['pace_reference']['counts']['median'],0)
         self.assertNotIn('demo20',r.text)
-        for url in ['/ui/user/20','/ui/user/20/energy','/ui/user/20/activities','/ui/user/20/runner-profile']:
+        for url in ['/ui/user/20','/ui/user/20/activities','/ui/user/20/runner-profile']:
             r=self.client.get(url);self.assertEqual(r.status_code,200,r.text[:200])
 
     def test_filtered_listing_has_no_stream_queries(self):
         r=self.client.get('/ui/user/10/activities?period=all&sport=ride&data=glucose')
         self.assertEqual(r.status_code,200)
-        self.assertIn('Aucune activité ne correspond',r.text)
+        self.assertIn('Aucune activité disponible',r.text)
 
     def test_maintenance_archives_are_idempotent_and_survive_live_retention(self):
         from app import analytics_service

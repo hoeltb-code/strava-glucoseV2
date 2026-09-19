@@ -1,3 +1,5 @@
+> Mise à jour : la navigation ajoutée, le simulateur énergie et le nouvel écran d’activité décrits ci-dessous ont été retirés à la demande de l’utilisateur. Voir [correction-ergonomie.md](correction-ergonomie.md) pour l’état actuel.
+
 # Refonte data — réalisation du 19 septembre 2026
 
 Implémentation locale des demandes autorisées. Aucun déploiement ni publication Strava effectué. Les essais utilisent une base SQLite isolée et des données fictives.

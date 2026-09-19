@@ -4,7 +4,13 @@
 {% block extra_head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
 <script src="/static/js/chart-lazy.js?v=2"></script>
-<script src="/static/js/activity-data.js?v=2" defer></script>
+<script>
+  if (typeof Chart !== 'undefined') {
+    Chart.defaults.font.family = 'Manrope, system-ui, sans-serif';
+    Chart.defaults.font.size = 12;
+    Chart.defaults.color = '#64717e';
+  }
+</script>
 
 <link rel="stylesheet" href="/static/css/activity_detail-1.css?v=2">
 {% endblock %}
@@ -22,7 +28,7 @@
   padding:16px 0 12px; border-bottom:1px solid var(--border-soft);
   margin-bottom:16px;
 ">
-  <div><span class="activity-heading-kicker">Analyse d’activité</span><h1>{{ activity.name or "Ma sortie" }}</h1><p class="data-note">{{ activity.start_date.strftime("%d/%m/%Y") }} · {{ activity.sport or "Activité" }} · {{ dist_km }} km · D+ {{ dplus|round|int if dplus is not none else "—" }} m · {{ (duration_sec/60)|round|int }} min</p></div>
+  <div><span class="activity-heading-kicker">Analyse d’activité</span><h1>Détail de la sortie</h1></div>
 
   <div class="activity-header-actions">
     {% if story_export_data %}
@@ -56,8 +62,6 @@
   </div>
 </div>
 
-{% include '_activity_data.html' %}
-<details class="data-panel data-advanced" {% if tab != 'overview' %}open{% endif %}><summary>Explorer le parcours, les montées, les splits et les croisements avancés</summary>
 <section class="cardiac-drift-card" data-tone="{{ cardiac_drift.tone }}" aria-label="Dérive cardiaque ajustée au terrain">
   <div>
     <span class="tile-k">Dérive cardiaque</span>
@@ -98,6 +102,9 @@
     </div>
     <div><div class="tile-k">FC moy</div><div class="tile-v">{{ fc }}</div></div>
 
+    {% set energy = activity_analytics.energy %}
+    <div title="Dépense de locomotion estimée avec le poids et le relief, sur les portions enregistrées. Ce chiffre n’est pas un objectif d’apport alimentaire."><div class="tile-k">Énergie estimée</div><div class="tile-v">{% if energy.available %}≈ {{ energy.kcal|round|int }} kcal{% else %}—{% endif %}</div><small class="metric-note">{% if energy.available %}{{ energy.coverage_percent|round|int }} % du temps couvert{% else %}Estimation indisponible{% endif %}</small></div>
+
     {% if gly_avg %}
       <div><div class="tile-k">Gly moy</div><div class="tile-v">{{ gly_avg|round(0) }} mg/dL</div></div>
     {% endif %}
@@ -129,7 +136,7 @@
     <a href="{{ base_url }}?tab=segments"
        class="activity-tab-link {% if tab == 'segments' %}is-active{% endif %}">
       {% if is_running_activity %}
-        Marche ou course ?
+        Marche / course
       {% else %}
         Cadence
       {% endif %}
@@ -137,27 +144,27 @@
 
     <a href="{{ base_url }}?tab=climbs"
        class="activity-tab-link {% if tab == 'climbs' %}is-active{% endif %}">
-      Montées remarquables
+      Montées
     </a>
 
     <a href="{{ base_url }}?tab=cardio"
        class="activity-tab-link {% if tab == 'cardio' %}is-active{% endif %}">
-      Zones cardio
+      Cardio
     </a>
 
     <a href="{{ base_url }}?tab=glycemia"
        class="activity-tab-link {% if tab == 'glycemia' %}is-active{% endif %}">
-      Suivi de la glycémie
+      Glycémie
     </a>
 
     <a href="{{ base_url }}?tab=vam"
        class="activity-tab-link {% if tab == 'vam' %}is-active{% endif %}">
-      Vitesse ascensionnelle (m/hr)
+      VAM
     </a>
 
     <a href="{{ base_url }}?tab=splits"
        class="activity-tab-link {% if tab == 'splits' %}is-active{% endif %}">
-      Détail de la course
+      Splits
     </a>
 
   </aside>
@@ -175,14 +182,14 @@
         ">
           <div class="overview-map-container" style="padding:16px;">
             {% if has_activity_map %}
-              <button type="button" class="data-button" id="load-activity-map">Afficher la carte 3D</button>
-              <div hidden id="activity-map-3d" class="activity-map-3d" aria-label="Carte 3D de l’activité colorée selon la glycémie"></div>
+              <button type="button" class="data-button" id="load-activity-map" hidden>Réessayer le chargement</button>
+              <div id="activity-map-3d" class="activity-map-3d" aria-label="Carte 3D de l’activité colorée selon la glycémie"></div>
               <div class="activity-map-legend" aria-label="Légende glycémie"><span><i style="background:#ef4444"></i>&lt; 70 mg/dL</span><span><i style="background:#22c55e"></i>70–180 mg/dL</span><span><i style="background:#facc15"></i>&gt; 180 mg/dL</span><span><i style="background:#8b8b8b"></i>sans donnée</span></div>
               <p class="activity-map-note">Carte en relief 3D : fais glisser pour tourner autour de la trace et utilise la molette pour zoomer.</p>
               <script>
                 document.getElementById('load-activity-map').addEventListener('click', async function() {
                   this.disabled=true; this.textContent='Chargement de la carte…';
-                  try { await window.loadActivityMapLibrary(); } catch (_) { this.disabled=false; this.textContent='Réessayer le chargement'; return; }
+                  try { await window.loadActivityMapLibrary(); } catch (_) { this.disabled=false; this.hidden=false; this.textContent='Réessayer le chargement'; return; }
                   document.getElementById('activity-map-3d').hidden=false; this.hidden=true;
                   const route = {{ activity_map_js|safe }};
                   if (!window.maplibregl || route.length < 2) return;
@@ -219,6 +226,15 @@
                     activityMap.fitBounds(bounds, { padding: 38, duration: 0, maxZoom: 14 });
                   });
                 });
+                const mapHost = document.getElementById('activity-map-3d');
+                if ('IntersectionObserver' in window) {
+                  const observer = new IntersectionObserver(entries => {
+                    if (entries.some(entry => entry.isIntersecting)) {
+                      observer.disconnect(); document.getElementById('load-activity-map').click();
+                    }
+                  }, {rootMargin: '150px'});
+                  observer.observe(mapHost);
+                } else { document.getElementById('load-activity-map').click(); }
               </script>
             {% else %}
               <p class="muted">Pas de GPS.</p>
@@ -275,13 +291,17 @@
             {% if terrain.hr is not none %} · {{ terrain.hr }} bpm{% endif %}
             {% if terrain.glucose is not none %} · {{ terrain.glucose }} mg/dL{% endif %}
           </p>
+          {% set energy_key = 'rolling' if terrain.key == 'flat' else terrain.key %}
+          {% for effort in activity_analytics.energy.terrain if effort.key == energy_key and effort.distance_km > 0 %}
+          <div class="terrain-energy" title="Part de l’énergie estimée sur les portions enregistrées"><span>≈ {{ effort.kcal|round|int }} kcal <small>· {{ effort.percent|round|int }} %</small></span><div class="mini-track" aria-hidden="true"><i style="width:{{ effort.percent }}%"></i></div></div>
+          {% endfor %}
         </article>
         {% endfor %}
       </div>
       <div class="card activity-slope-profile-card" style="margin-top:16px; padding:16px;">
         <h3 style="margin:0 0 6px 0; font-size:0.95rem;">Profil de dénivelé & pente</h3>
         <p class="muted" style="margin:0 0 12px 0; font-size:0.8rem;">
-          La couleur du tracé reflète la pente lissée. Survole le profil pour lire l’effort et les données physiologiques au même endroit.
+          Couleurs par pente · survole pour lire les valeurs.
         </p>
         <div class="slope-profile-legend" aria-label="Légende des pentes">
           <span><i style="background:#419fce"></i>&lt; −15 %</span><span><i style="background:#83cceb"></i>−15 à −5 %</span><span><i style="background:#dfe68d"></i>−5 à 5 %</span><span><i style="background:#f4c446"></i>5 à 15 %</span><span><i style="background:#f38b2d"></i>15 à 30 %</span><span><i style="background:#e94c34"></i>&gt; 30 %</span>
@@ -319,6 +339,7 @@
                 const raw = rawAltData[index + 1];
                 const point = points[index];
                 const next = points[index + 1];
+                ctx.globalAlpha = .3;
                 ctx.fillStyle = slopeColor(raw.grade || 0);
                 ctx.beginPath();
                 ctx.moveTo(point.x, baseY);
@@ -338,9 +359,9 @@
               datasets: [{
                 label: 'Altitude',
                 data: rawAltData,
-                borderColor: 'rgba(69, 67, 63, .48)',
+                borderColor: '#50677a',
                 backgroundColor: 'transparent',
-                borderWidth: 1.25,
+                borderWidth: 2,
                 pointRadius: 0,
                 fill: false,
                 tension: 0.12,
@@ -841,7 +862,7 @@
               data: {
                 datasets: [{
                   label: 'Altitude', data: climbData, borderColor: 'rgba(69, 67, 63, .50)',
-                  backgroundColor: 'transparent', borderWidth: 1.25, pointRadius: 0, fill: false, tension: 0.12,
+                  backgroundColor: 'transparent', borderWidth: 2, pointRadius: 0, fill: false, tension: 0.12,
                 }]
               },
               options: {
@@ -900,8 +921,8 @@
         (()=>{
           const data=window.activityProfileData,canvas=document.getElementById('heartRateElevationProfile');if(!canvas||!data||data.length<2||typeof Chart==='undefined')return;
           const colors={'Zone 1':'#83cceb','Zone 2':'#6f925f','Zone 3':'#d3b44e','Zone 4':'#f38b2d','Zone 5':'#e94c34'},color=zone=>colors[zone]||'#b7b2aa';
-          const area={id:'heartRateElevationArea',beforeDatasetsDraw(chart){const {ctx,scales}=chart,points=chart.getDatasetMeta(0).data;if(!points||points.length<2)return;const baseY=scales.y.getPixelForValue(scales.y.min);ctx.save();ctx.globalAlpha=.86;for(let index=0;index<points.length-1;index++){const point=points[index],next=points[index+1],zone=data[index+1].hr_zone||data[index].hr_zone;ctx.fillStyle=color(zone);ctx.beginPath();ctx.moveTo(point.x,baseY);ctx.lineTo(point.x,point.y);ctx.lineTo(next.x,next.y);ctx.lineTo(next.x,baseY);ctx.closePath();ctx.fill()}ctx.restore()}};
-          lazyChart(canvas.getContext('2d'),{type:'line',data:{datasets:[{data,borderColor:'rgba(69,67,63,.48)',backgroundColor:'transparent',borderWidth:1.25,pointRadius:0,fill:false,tension:.12}]},options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{title:items=>`${items[0].raw.x.toFixed(2)} km · ${Math.round(items[0].raw.y)} m`,label:item=>item.raw.hr==null?'Fréquence cardiaque indisponible':`${item.raw.hr} bpm · ${item.raw.hr_zone||'zone indisponible'}`}}},scales:{x:{type:'linear',title:{display:true,text:'Distance (km)',color:'#5f5b54'},ticks:{color:'#6f6b64'},grid:{color:'rgba(173,166,154,.25)'}},y:{title:{display:true,text:'Altitude (m)',color:'#5f5b54'},ticks:{color:'#6f6b64'},grid:{color:'rgba(173,166,154,.25)'}}}},plugins:[area]});
+          const area={id:'heartRateElevationArea',beforeDatasetsDraw(chart){const {ctx,scales}=chart,points=chart.getDatasetMeta(0).data;if(!points||points.length<2)return;const baseY=scales.y.getPixelForValue(scales.y.min);ctx.save();ctx.globalAlpha=.28;for(let index=0;index<points.length-1;index++){const point=points[index],next=points[index+1],zone=data[index+1].hr_zone||data[index].hr_zone;ctx.fillStyle=color(zone);ctx.beginPath();ctx.moveTo(point.x,baseY);ctx.lineTo(point.x,point.y);ctx.lineTo(next.x,next.y);ctx.lineTo(next.x,baseY);ctx.closePath();ctx.fill()}ctx.restore()}};
+          lazyChart(canvas.getContext('2d'),{type:'line',data:{datasets:[{data,borderColor:'#50677a',backgroundColor:'transparent',borderWidth:2,pointRadius:0,fill:false,tension:.12}]},options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{title:items=>`${items[0].raw.x.toFixed(2)} km · ${Math.round(items[0].raw.y)} m`,label:item=>item.raw.hr==null?'Fréquence cardiaque indisponible':`${item.raw.hr} bpm · ${item.raw.hr_zone||'zone indisponible'}`}}},scales:{x:{type:'linear',title:{display:true,text:'Distance (km)',color:'#5f5b54'},ticks:{color:'#6f6b64'},grid:{color:'rgba(173,166,154,.25)'}},y:{title:{display:true,text:'Altitude (m)',color:'#5f5b54'},ticks:{color:'#6f6b64'},grid:{color:'rgba(173,166,154,.25)'}}}},plugins:[area]});
         })();
       </script>
       {% endif %}
@@ -990,7 +1011,7 @@
             beforeDatasetsDraw(chart) {
               const {ctx,scales}=chart, rendered=chart.getDatasetMeta(0).data;
               if (!rendered || rendered.length < 2) return;
-              const baseY=scales.y.getPixelForValue(scales.y.min);ctx.save();ctx.globalAlpha=.86;
+              const baseY=scales.y.getPixelForValue(scales.y.min);ctx.save();ctx.globalAlpha=.28;
               for(let index=0;index<rendered.length-1;index++){
                 const point=rendered[index],next=rendered[index+1],a=points[index].glucose,b=points[index+1].glucose;
                 const glucose=a == null ? b : b == null ? a : (Number(a)+Number(b))/2;
@@ -999,7 +1020,7 @@
               ctx.restore();
             }
           };
-          lazyChart(canvas.getContext('2d'),{type:'line',data:{datasets:[{label:'Altitude',data:points,borderColor:'rgba(69,67,63,.48)',backgroundColor:'transparent',borderWidth:1.25,pointRadius:0,fill:false,tension:.12}]},options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{title:items=>`${items[0].raw.x.toFixed(2)} km · ${Math.round(items[0].raw.y)} m`,label:item=>item.raw.glucose == null?'Glycémie indisponible':`Glycémie ${Math.round(item.raw.glucose)} mg/dL`}}},scales:{x:{type:'linear',title:{display:true,text:'Distance (km)',color:'#5f5b54'},ticks:{color:'#6f6b64'},grid:{color:'rgba(173,166,154,.25)'}},y:{title:{display:true,text:'Altitude (m)',color:'#5f5b54'},ticks:{color:'#6f6b64'},grid:{color:'rgba(173,166,154,.25)'}}}},plugins:[glucoseAreaPlugin]});
+          lazyChart(canvas.getContext('2d'),{type:'line',data:{datasets:[{label:'Altitude',data:points,borderColor:'#50677a',backgroundColor:'transparent',borderWidth:2,pointRadius:0,fill:false,tension:.12}]},options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{title:items=>`${items[0].raw.x.toFixed(2)} km · ${Math.round(items[0].raw.y)} m`,label:item=>item.raw.glucose == null?'Glycémie indisponible':`Glycémie ${Math.round(item.raw.glucose)} mg/dL`}}},scales:{x:{type:'linear',title:{display:true,text:'Distance (km)',color:'#5f5b54'},ticks:{color:'#6f6b64'},grid:{color:'rgba(173,166,154,.25)'}},y:{title:{display:true,text:'Altitude (m)',color:'#5f5b54'},ticks:{color:'#6f6b64'},grid:{color:'rgba(173,166,154,.25)'}}}},plugins:[glucoseAreaPlugin]});
         })();
       </script>
       {% endif %}
@@ -1011,52 +1032,16 @@
           Distribution de la glycémie pendant la sortie
         </h3>
 
-        <div class="table-responsive">
-        <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
-          <thead>
-            <tr style="border-bottom:1px solid #e5e7eb;">
-              <th style="text-align:left;">Zone</th>
-              <th style="text-align:left;">Desc.</th>
-              <th style="text-align:left;">Plage</th>
-              <th style="text-align:right;">Temps</th>
-              <th style="text-align:right;">% temps</th>
-              <th style="text-align:left; width:25%;">Répartition</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {% for row in glucose_zone_rows %}
-            {% set bar_color =
-                  '#ef4444' if row.zone_index == 1 else
-                  '#facc15' if row.zone_index == 5 else
-                  '#15803d'  %}
-
-            <tr style="border-bottom:1px solid #f3f4f6;">
-              <td>{{ row.name }}</td>
-              <td>{{ row.description }}</td>
-              <td>{{ row.range }}</td>
-              <td style="text-align:right;">{{ row.time_str }}</td>
-              <td style="text-align:right;">{{ row.percent }}%</td>
-
-              <td style="width:25%;">
-                <div class="activity-progress-track">
-                  <div style="
-                    width:{{ row.percent }}%;
-                    height:100%;
-                    background:{{ bar_color }};
-                  "></div>
-                </div>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+        {% set gly = activity_analytics.glycemia %}
+        {% if gly.available %}
+        <div class="glucose-distribution" aria-label="Répartition du temps mesuré par plage de glycémie">
+          {% for row in glucose_zone_rows %}<span style="flex:{{ row.percent }};--zone-color:{{ ['#cc747d','#7cb8aa','#388873','#a1c9b6','#dcac55'][loop.index0] }}" title="{{ row.range }} · {{ row.time_str }} · {{ row.percent }} %"></span>{% endfor %}
         </div>
-
-        <p class="activity-legend-note">
-          Zones actuelles : &lt;70, 70–100, 100–140, 140–180, &gt;180 mg/dL.
-          (bornes fixes pour cette analyse).
-        </p>
+        <div class="glucose-zone-key">
+          {% for row in glucose_zone_rows %}<div><i style="background:{{ ['#cc747d','#7cb8aa','#388873','#a1c9b6','#dcac55'][loop.index0] }}"></i><span>{{ row.range }}<small>{{ row.time_str }}</small></span><strong>{{ row.percent }} %</strong></div>{% endfor %}
+        </div>
+        <p class="metric-note">mg/dL · {{ gly.coverage_percent|round|int }} % du temps couvert · périodes sans mesure exclues</p>
+        {% else %}<p class="metric-note">Pas assez de mesures pour calculer la répartition.</p>{% endif %}
 
       </div>
 
@@ -1075,15 +1060,15 @@
           window.addEventListener('DOMContentLoaded', () => {
             const source=window.activityProfileData;
             if (!source || source.length < 2 || typeof Chart === 'undefined') return;
-            const color=value=>{value=Number(value);if(!Number.isFinite(value))return'#aaa7a0';if(value<50)return'#7f1d1d';if(value<70)return'#dc2626';if(value<90)return'#ea580c';if(value<110)return'#65a30d';if(value<130)return'#22a45d';if(value<150)return'#6f9f45';if(value<170)return'#d4ad28';if(value<180)return'#e6bd20';if(value<200)return'#facc15';if(value<220)return'#f5b914';return'#eaa20e'};
+            const color=value=>{if(value==null)return'#aaa7a0';value=Number(value);if(!Number.isFinite(value))return'#aaa7a0';if(value<50)return'#7f1d1d';if(value<70)return'#dc2626';if(value<90)return'#ea580c';if(value<110)return'#65a30d';if(value<130)return'#22a45d';if(value<150)return'#6f9f45';if(value<170)return'#d4ad28';if(value<180)return'#e6bd20';if(value<200)return'#facc15';if(value<220)return'#f5b914';return'#eaa20e'};
             const paceLabel=value=>{const seconds=Math.round(Number(value));return Number.isFinite(seconds)&&seconds>0?`${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}/km`:'—'};
             const build=(id,key,label,unit,options={})=>{
               const canvas=document.getElementById(id);if(!canvas)return;
-              const rawValues=source.map(point=>{const value=Number(point[key]);return Number.isFinite(value)&&(!options.valid||options.valid(value))?value:null});
+              const rawValues=source.map(point=>{const value=point[key] == null ? NaN : Number(point[key]);return Number.isFinite(value)&&(!options.valid||options.valid(value))?value:null});
               const smoothed=rawValues.map((value,index)=>{if(value===null)return null;const nearby=rawValues.slice(Math.max(0,index-3),index+4).filter(item=>item!==null);return nearby.length?nearby.reduce((sum,item)=>sum+item,0)/nearby.length:value});
               const data=source.map((point,index)=>({x:Number(point.x),y:smoothed[index],glucose:point.glucose})).filter(point=>Number.isFinite(point.x));
               if(data.filter(point=>point.y!==null).length<2){canvas.parentElement.innerHTML='<span class="glucose-cross-empty">Données insuffisantes</span>';return}
-              const area={id:`area-${id}`,beforeDatasetsDraw(chart){const {ctx,chartArea}=chart,rendered=chart.getDatasetMeta(0).data;if(!chartArea||rendered.length<2)return;ctx.save();ctx.globalAlpha=.86;for(let index=0;index<rendered.length-1;index++){const point=rendered[index],next=rendered[index+1];if(point.skip||next.skip)continue;const a=data[index].glucose,b=data[index+1].glucose,glucose=a==null?b:b==null?a:(Number(a)+Number(b))/2;ctx.fillStyle=color(glucose);ctx.beginPath();ctx.moveTo(point.x,chartArea.bottom);ctx.lineTo(point.x,point.y);ctx.lineTo(next.x,next.y);ctx.lineTo(next.x,chartArea.bottom);ctx.closePath();ctx.fill()}ctx.restore()}};
+              const area={id:`area-${id}`,beforeDatasetsDraw(chart){const {ctx,chartArea}=chart,rendered=chart.getDatasetMeta(0).data;if(!chartArea||rendered.length<2)return;ctx.save();ctx.globalAlpha=.28;for(let index=0;index<rendered.length-1;index++){const point=rendered[index],next=rendered[index+1];if(point.skip||next.skip)continue;const a=data[index].glucose,b=data[index+1].glucose,glucose=a==null?b:b==null?a:(Number(a)+Number(b))/2;ctx.fillStyle=color(glucose);ctx.beginPath();ctx.moveTo(point.x,chartArea.bottom);ctx.lineTo(point.x,point.y);ctx.lineTo(next.x,next.y);ctx.lineTo(next.x,chartArea.bottom);ctx.closePath();ctx.fill()}ctx.restore()}};
               lazyChart(canvas.getContext('2d'),{type:'line',data:{datasets:[{data,borderColor:'rgba(69,67,63,.52)',borderWidth:1.3,pointRadius:0,tension:.16,spanGaps:false}]},options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'nearest',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{title:items=>`${items[0].raw.x.toFixed(2)} km`,label:item=>`${label} ${options.pace?paceLabel(item.raw.y):Math.round(item.raw.y)+' '+unit}`,afterLabel:item=>item.raw.glucose==null?'Glycémie indisponible':`Glycémie ${Math.round(item.raw.glucose)} mg/dL`}}},scales:{x:{type:'linear',title:{display:true,text:'Distance (km)'},grid:{color:'rgba(173,166,154,.2)'}},y:{reverse:Boolean(options.reverse),title:{display:true,text:unit},ticks:options.pace?{callback:value=>paceLabel(value)}:{},grid:{color:'rgba(173,166,154,.2)'}}}},plugins:[area]});
             };
             build('glucoseHeartRateChart','hr','FC','bpm',{valid:value=>value>=40&&value<=240});
@@ -1198,99 +1183,14 @@
       {% endif %}
       {% endif %}
 
-      {% if glucose_chart_points and glucose_chart_points|length > 1 %}
+      {% if activity_analytics.glucose_chart|length > 1 %}
       <div class="card activity-slope-profile-card" style="margin-top:16px; padding:16px;">
-        <h3 style="margin:0 0 10px 0; font-size:0.95rem;">
-          Courbe de glycémie pendant l’activité
-        </h3>
-        <p class="muted" style="margin:0 0 12px 0; font-size:0.8rem;">
-          La hauteur représente la glycémie ; chaque tronçon sous la courbe reprend la couleur de sa plage de 20 mg/dL.
-        </p>
-        <div class="slope-profile-legend" aria-label="Légende des plages de glycémie"><span><i style="background:#7f1d1d"></i>&lt; 50</span><span><i style="background:#dc2626"></i>50–70</span><span><i style="background:#ea580c"></i>70–90</span><span><i style="background:#65a30d"></i>90–110</span><span><i style="background:#22a45d"></i>110–130</span><span><i style="background:#6f9f45"></i>130–150</span><span><i style="background:#d4ad28"></i>150–170</span><span><i style="background:#e6bd20"></i>170–180</span><span><i style="background:#facc15"></i>180–200</span><span><i style="background:#f5b914"></i>200–220</span><span><i style="background:#eaa20e"></i>&gt; 220 mg/dL</span></div>
-        <div style="height:260px;">
-          <canvas id="glucoseActivityChart" height="240"></canvas>
-        </div>
+        <h3 style="margin:0 0 10px; font-size:.95rem;">Glycémie pendant l’activité</h3>
+        <div class="glucose-simple-key"><span><i></i>Plage 70–180 mg/dL</span><span>Survole pour lire les valeurs</span></div>
+        <div style="height:260px;"><canvas id="glucoseActivityChart" role="img" aria-label="Glycémie en mg/dL selon les minutes depuis le départ, avec repères 70 et 180"></canvas></div>
+        <script type="application/json" id="activity-glucose-series">{{ activity_analytics.glucose_chart|tojson }}</script>
+        <script src="/static/js/activity-glucose.js?v=3" defer></script>
       </div>
-
-
-      <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-      <script>
-        (function() {
-          const rawPoints = {{ glucose_chart_points | tojson | safe }};
-          if (!rawPoints || rawPoints.length === 0) return;
-
-          const useTimeAxis = rawPoints.every(pt => !!pt.ts);
-          const series = rawPoints.map(pt => ({
-            x: useTimeAxis ? new Date(pt.ts) : pt.elapsed_sec / 60,
-            y: pt.mgdl
-          }));
-
-          const labels = useTimeAxis ? undefined : series.map(pt => pt.x.toFixed(1));
-          const glucoseColor = value => {value=Number(value);if(value<50)return'#7f1d1d';if(value<70)return'#dc2626';if(value<90)return'#ea580c';if(value<110)return'#65a30d';if(value<130)return'#22a45d';if(value<150)return'#6f9f45';if(value<170)return'#d4ad28';if(value<180)return'#e6bd20';if(value<200)return'#facc15';if(value<220)return'#f5b914';return'#eaa20e'};
-          const glucoseArea = {id:'glucoseActivityArea',beforeDatasetsDraw(chart){const {ctx,chartArea}=chart,points=chart.getDatasetMeta(0).data;if(!chartArea||points.length<2)return;ctx.save();ctx.globalAlpha=.86;for(let index=0;index<points.length-1;index++){const point=points[index],next=points[index+1],value=(Number(rawPoints[index].mgdl)+Number(rawPoints[index+1].mgdl))/2;ctx.fillStyle=glucoseColor(value);ctx.beginPath();ctx.moveTo(point.x,chartArea.bottom);ctx.lineTo(point.x,point.y);ctx.lineTo(next.x,next.y);ctx.lineTo(next.x,chartArea.bottom);ctx.closePath();ctx.fill()}ctx.restore()}};
-
-          const ctx = document.getElementById('glucoseActivityChart').getContext('2d');
-          lazyChart(ctx, {
-            type: 'line',
-            data: {
-              labels,
-              datasets: [{
-                label: 'Glycémie (mg/dL)',
-                data: useTimeAxis ? series : series.map(pt => pt.y),
-                borderColor: 'rgba(69,67,63,.52)',
-                backgroundColor: 'transparent',
-                borderWidth: 1.3,
-                pointRadius: 0,
-                tension: 0.15,
-                fill: false,
-              }]
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              interaction: { mode: 'index', intersect: false },
-              plugins: {
-                legend: { display: false },
-                tooltip: {
-                  callbacks: {
-                    title: items => {
-                      const idx = items[0].dataIndex;
-                      const raw = rawPoints[idx];
-                      if (raw.ts) {
-                        return new Date(raw.ts).toLocaleString('fr-FR');
-                      }
-                      const minutes = (raw.elapsed_sec / 60).toFixed(1);
-                      return `${minutes} min depuis le départ`;
-                    },
-                    label: item => `${item.formattedValue} mg/dL`,
-                  }
-                }
-              },
-              scales: {
-                x: useTimeAxis
-                  ? {
-                      type: 'time',
-                      time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } },
-                      ticks: { maxTicksLimit: 8 },
-                      grid: { display: false },
-                    }
-                  : {
-                      title: { display: true, text: 'Temps (min)' },
-                      ticks: { maxTicksLimit: 8 },
-                      grid: { display: false },
-                    },
-                y: {
-                  suggestedMin: 60,
-                  suggestedMax: 220,
-                  grid: { color: 'rgba(148, 163, 184, 0.2)' },
-                  title: { display: true, text: 'mg/dL' },
-                }
-              }
-            },
-            plugins: [glucoseArea]
-          });
-        })();
-      </script>
       {% endif %}
 
     </div>
@@ -1313,8 +1213,8 @@
         (()=>{
           const data=window.activityProfileData,canvas=document.getElementById('vamElevationProfile');if(!canvas||!data||data.length<2||typeof Chart==='undefined')return;
           const color=value=>{value=Number(value);if(!Number.isFinite(value)||value<0)return'#b7b2aa';if(value<300)return'#91a889';if(value<600)return'#6f925f';if(value<900)return'#d0a13e';if(value<1200)return'#df7945';return'#c65343'};
-          const area={id:'vamElevationArea',beforeDatasetsDraw(chart){const {ctx,scales}=chart,points=chart.getDatasetMeta(0).data;if(!points||points.length<2)return;const baseY=scales.y.getPixelForValue(scales.y.min);ctx.save();ctx.globalAlpha=.86;for(let index=0;index<points.length-1;index++){const point=points[index],next=points[index+1],a=data[index].vam,b=data[index+1].vam,value=a==null?b:b==null?a:(Number(a)+Number(b))/2;ctx.fillStyle=color(value);ctx.beginPath();ctx.moveTo(point.x,baseY);ctx.lineTo(point.x,point.y);ctx.lineTo(next.x,next.y);ctx.lineTo(next.x,baseY);ctx.closePath();ctx.fill()}ctx.restore()}};
-          lazyChart(canvas.getContext('2d'),{type:'line',data:{datasets:[{data,borderColor:'rgba(69,67,63,.48)',backgroundColor:'transparent',borderWidth:1.25,pointRadius:0,fill:false,tension:.12}]},options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{title:items=>`${items[0].raw.x.toFixed(2)} km · ${Math.round(items[0].raw.y)} m`,label:item=>item.raw.vam==null?'VAM indisponible':`VAM ${item.raw.vam>=0?'+':''}${Math.round(item.raw.vam)} m/h`}}},scales:{x:{type:'linear',title:{display:true,text:'Distance (km)',color:'#5f5b54'},ticks:{color:'#6f6b64'},grid:{color:'rgba(173,166,154,.25)'}},y:{title:{display:true,text:'Altitude (m)',color:'#5f5b54'},ticks:{color:'#6f6b64'},grid:{color:'rgba(173,166,154,.25)'}}}},plugins:[area]});
+          const area={id:'vamElevationArea',beforeDatasetsDraw(chart){const {ctx,scales}=chart,points=chart.getDatasetMeta(0).data;if(!points||points.length<2)return;const baseY=scales.y.getPixelForValue(scales.y.min);ctx.save();ctx.globalAlpha=.28;for(let index=0;index<points.length-1;index++){const point=points[index],next=points[index+1],a=data[index].vam,b=data[index+1].vam,value=a==null?b:b==null?a:(Number(a)+Number(b))/2;ctx.fillStyle=color(value);ctx.beginPath();ctx.moveTo(point.x,baseY);ctx.lineTo(point.x,point.y);ctx.lineTo(next.x,next.y);ctx.lineTo(next.x,baseY);ctx.closePath();ctx.fill()}ctx.restore()}};
+          lazyChart(canvas.getContext('2d'),{type:'line',data:{datasets:[{data,borderColor:'#50677a',backgroundColor:'transparent',borderWidth:2,pointRadius:0,fill:false,tension:.12}]},options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{title:items=>`${items[0].raw.x.toFixed(2)} km · ${Math.round(items[0].raw.y)} m`,label:item=>item.raw.vam==null?'VAM indisponible':`VAM ${item.raw.vam>=0?'+':''}${Math.round(item.raw.vam)} m/h`}}},scales:{x:{type:'linear',title:{display:true,text:'Distance (km)',color:'#5f5b54'},ticks:{color:'#6f6b64'},grid:{color:'rgba(173,166,154,.25)'}},y:{title:{display:true,text:'Altitude (m)',color:'#5f5b54'},ticks:{color:'#6f6b64'},grid:{color:'rgba(173,166,154,.25)'}}}},plugins:[area]});
         })();
       </script>
       {% endif %}
@@ -1530,7 +1430,6 @@
 
   </main>
 </div>
-</details>
 </div>
 
 {% endblock %}

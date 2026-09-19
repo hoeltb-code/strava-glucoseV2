@@ -50,6 +50,17 @@ class DataAnalyticsTests(unittest.TestCase):
         self.assertIsNone(heart_rate_energy(70,150,55,'male',190))
         self.assertGreater(heart_rate_energy(70,150,35,'male',190),0)
 
+    def test_activity_energy_terrain_cards_use_the_overview_boundaries(self):
+        points = [dict(elapsed_time=i*10, distance=i*20, slope_percent=grade, moving=True)
+                  for i, grade in enumerate([0, -5, -4, 0, 4, 5])]
+        summary = activity_energy(points, 70, terrain_threshold=5)
+        rows = {row['key']: row for row in summary['terrain']}
+        self.assertAlmostEqual(rows['descent']['distance_km'], .02)
+        self.assertAlmostEqual(rows['rolling']['distance_km'], .06)
+        self.assertAlmostEqual(rows['climb']['distance_km'], .02)
+        self.assertAlmostEqual(sum(row['kcal'] for row in rows.values()), summary['kcal'])
+        self.assertAlmostEqual(summary['kcal'], activity_energy(points, 70)['kcal'])
+
     def test_activity_energy_skips_pauses_gaps_and_unknown_sports(self):
         points=[dict(elapsed_time=i*10,distance=i*20,slope_percent=10,heartrate=150,moving=True) for i in range(4)]
         points.append(dict(elapsed_time=100,distance=100,slope_percent=10,moving=True))

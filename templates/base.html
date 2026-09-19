@@ -42,7 +42,7 @@
   <link rel="stylesheet" href="/static/css/base-1.css?v=2">
 
   {% block extra_head %}{% endblock %}
-  <link rel="stylesheet" href="/static/css/data-design.css?v=2">
+  <link rel="stylesheet" href="/static/css/data-design.css?v=3">
 </head>
 
 <body>
@@ -60,10 +60,8 @@
     <div class="header-actions">
       {% if session_user_id %}
       <nav class="primary-nav" aria-label="Navigation principale">
-        <a class="nav-link" href="/ui/user/{{ session_user_id }}?view=plan"><span class="nav-label">Plan de course</span></a>
-        <a class="nav-link" href="/ui/user/{{ session_user_id }}/energy"><span class="nav-label">Énergie</span></a>
         <a class="nav-link home-link {% if current_path == '/ui/user/' ~ session_user_id %}is-active{% endif %}" href="/ui/user/{{ session_user_id }}">
-          <span class="nav-label">Accueil</span>
+          <span class="nav-label">Planifier</span>
         </a>
         <a class="nav-link {% if '/activities' in current_path or '/activity/' in current_path %}is-active{% endif %}" href="/ui/user/{{ session_user_id }}/activities">
           <span class="nav-label">Activités</span>
@@ -72,7 +70,7 @@
           <span class="nav-label">Compte</span>
         </a>
         <a class="nav-link {% if current_path.endswith('/runner-profile') %}is-active{% endif %}" href="/ui/user/{{ session_user_id }}/runner-profile">
-          <span class="nav-label">Bilan athlète</span>
+          <span class="nav-label">Mes données</span>
         </a>
         {% if session_user_id == 1 %}
         <a class="nav-link {% if current_path == '/ui' %}is-active{% endif %}" href="/ui">
@@ -109,9 +107,23 @@
 
   {% if session_user_id %}
   <nav class="mobile-bottom-nav" aria-label="Navigation principale mobile">
-    {% for suffix,label in [('', 'Accueil'),('/activities','Sorties'),('/runner-profile','Bilan'),('?view=plan','Plan'),('/energy','Énergie')] %}
-    <a class="{% if (suffix == '?view=plan' and request.query_params.get('view') == 'plan') or (suffix != '?view=plan' and current_path == '/ui/user/' ~ session_user_id ~ suffix and request.query_params.get('view') != 'plan') %}is-active{% endif %}" href="/ui/user/{{ session_user_id }}{{ suffix }}"><span class="label">{{ label }}</span></a>
-    {% endfor %}
+    <a class="{% if current_path == '/ui/user/' ~ session_user_id %}is-active{% endif %}" href="/ui/user/{{ session_user_id }}">
+      <span class="label">Plan</span>
+    </a>
+    <a class="{% if '/activities' in current_path or '/activity/' in current_path %}is-active{% endif %}" href="/ui/user/{{ session_user_id }}/activities">
+      <span class="label">Sorties</span>
+    </a>
+    <a class="{% if current_path.endswith('/profile') and not current_path.endswith('/runner-profile') %}is-active{% endif %}" href="/ui/user/{{ session_user_id }}/profile">
+      <span class="label">Compte</span>
+    </a>
+    <a class="{% if current_path.endswith('/runner-profile') %}is-active{% endif %}" href="/ui/user/{{ session_user_id }}/runner-profile">
+      <span class="label">Data</span>
+    </a>
+    {% if session_user_id == 1 %}
+    <a class="{% if current_path == '/ui' %}is-active{% endif %}" href="/ui">
+      <span class="label">Admin</span>
+    </a>
+    {% endif %}
   </nav>
   {% endif %}
 

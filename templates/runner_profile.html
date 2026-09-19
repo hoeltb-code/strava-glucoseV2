@@ -16,7 +16,7 @@
   window.addEventListener('DOMContentLoaded', () => {
     if (typeof Chart === 'undefined') return;
     Chart.defaults.font.family = 'Manrope, system-ui, sans-serif';
-    Chart.defaults.font.size = 11;
+    Chart.defaults.font.size = 12;
     Chart.defaults.color = '#706d65';
     Chart.defaults.borderColor = 'rgba(112,109,101,.14)';
     Chart.defaults.plugins.legend.labels.usePointStyle = true;
@@ -52,21 +52,20 @@
 <!-- ╔══════════════════════════════╗ -->
 <!--      🎯 En-tête profil coureur -->
 <!-- ╚══════════════════════════════╝ -->
-{% include '_athlete_summary.html' %}
 <div class="runner-intro">
   {% set runner_name = user.first_name or user.email.split('@')[0] %}
   <div>
     <p class="runner-eyebrow">Performance data</p>
     <h2>Ton profil de course</h2>
     <p>
-      {{ runner_name }}, retrouve ici ce que tes sorties disent réellement de ton niveau : cardio, allure, verticalité, cadence, segments et projections{% if show_glucose_tabs %}, avec la glycémie replacée dans le contexte de l’effort{% endif %}.
+      {{ runner_name }}, tes repères d’allure, de cardio et de terrain{% if show_glucose_tabs %}, avec la glycémie{% endif %}.
     </p>
   </div>
   <form method="get"
           action="{{ request.url.path }}"
           class="runner-filter-form">
 
-      <label>Sport<select name="sport" onchange="this.form.submit()"><option value="run" {{ "selected" if sport == "run" }}>Course</option><option value="hike" {{ "selected" if sport == "hike" }}>Randonnée</option><option value="ride" {{ "selected" if sport == "ride" }}>Vélo</option></select></label>
+      <input type="hidden" name="sport" value="{{ sport }}">
       <input type="hidden" name="tab" value="{{ tab }}">
 
       <label for="period" style="white-space:nowrap; margin:0;">Période</label>
@@ -114,9 +113,13 @@
   <div>
     <span class="runner-data-kpi-label">À retenir</span>
     <h3>Ce que tes données racontent</h3>
-    <p class="drift-history-note">Une lecture synthétique de la période sélectionnée, avant les tableaux détaillés.</p>
+
     <span class="data-confidence">Fiabilité {{ runner_analytics.confidence }}</span>
-    <p class="drift-history-note"><strong>{{ runner_analytics.coverage_hours }} h</strong> de terrain × cardio exploitables sur <strong>{{ runner_analytics.training_hours }} h</strong> sportives archivées{% if runner_analytics.coverage_pct is not none %} ({{ runner_analytics.coverage_pct }} %){% endif %}. {{ runner_analytics.activities_count }} activités composent ce total.</p>
+    <div class="profile-coverage">
+      <span>{{ runner_analytics.activities_count }} sorties · {{ runner_analytics.coverage_hours }} h exploitables / {{ runner_analytics.training_hours }} h</span>
+      {% if runner_analytics.coverage_pct is not none %}<meter min="0" max="100" value="{{ runner_analytics.coverage_pct }}" aria-label="Couverture terrain et cardio">{{ runner_analytics.coverage_pct }} %</meter>{% endif %}
+      {% if athlete_summary.energy_count %}<span title="Dépense de locomotion estimée sur les portions enregistrées de la période sélectionnée">Énergie · <strong>≈ {{ athlete_summary.kcal|round|int }} kcal</strong> sur {{ athlete_summary.energy_count }} sorties</span>{% endif %}
+    </div>
   </div>
   <div class="analytics-list">
     {% for insight in runner_analytics.insights %}

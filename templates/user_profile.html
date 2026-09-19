@@ -205,12 +205,12 @@
           <input type="hidden" name="desc_settings_present" value="1">
           <label style="display:block;margin:12px 0"><input type="checkbox" name="desc_include_energy" value="1" {% if energy_enabled %}checked{% endif %}> Ajouter l’énergie estimée aux prochaines descriptions</label>
           <label>Présentation énergie<select name="desc_format"><option value="compact" {% if energy_format != 'terrain' %}selected{% endif %}>Flash · une ligne kcal + couverture</option><option value="terrain" {% if energy_format == 'terrain' %}selected{% endif %}>Terrain · pente, allure, cardio et kcal</option></select></label>
-          <div class="data-comparison-grid"><div><h3>Flash</h3><pre class="data-description-preview">🔥 Énergie estimée : 860 kcal · terrain couvert 94 %</pre></div><div><h3>Terrain</h3><pre class="data-description-preview">🔥 Énergie estimée : 860 kcal · terrain couvert 94 %
+          <details><summary>Voir les exemples Strava</summary><div class="data-comparison-grid"><div><h3>Flash</h3><pre class="data-description-preview">🔥 Énergie estimée : 860 kcal · terrain couvert 94 %</pre></div><div><h3>Terrain</h3><pre class="data-description-preview">🔥 Énergie estimée : 860 kcal · terrain couvert 94 %
 ↗ Montée +12 % · 9:20/km · FC 155 bpm · ≈ 510 kcal
 → Roulant +1 % · 5:40/km · FC 140 bpm · ≈ 210 kcal
 ↘ Descente −8 % · 5:10/km · FC 132 bpm · ≈ 140 kcal
 Dépense de locomotion estimée, pas un objectif d’apport alimentaire.</pre></div></div>
-          <p class="data-note">Exemples fictifs. Strava affiche du texte : des lignes courtes et des symboles rendent le terrain plus lisible. Le texte personnel est conservé. Ce réglage n’envoie aucune modification immédiate.</p>
+          <p class="data-note">Exemples fictifs · ton texte personnel est conservé.</p></details>
           <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" name="desc_enable_auto_block" {% if auto_block_enabled %}checked{% endif %}> Publier automatiquement les statistiques dans la description Strava</label>
           <div class="settings-panel-actions"><button type="submit" class="btn-primary">Enregistrer cette préférence</button></div>
         </form>

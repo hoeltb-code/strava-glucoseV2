@@ -46,7 +46,7 @@ def heart_rate_energy(weight_kg, heart_rate, age, sex, max_hr=None):
     return kj_min / 4.184 * 60 if kj_min > 0 else None
 
 
-def activity_energy(points, weight_kg, *, sport="run", max_hr=None, duration_seconds=None):
+def activity_energy(points, weight_kg, *, sport="run", max_hr=None, duration_seconds=None, terrain_threshold=None):
     empty = {"available": False, "kcal": None, "coverage_percent": None, "terrain": [], "model": MODEL_VERSION}
     if sport not in {"run", "hike", "walk"} or number(weight_kg) is None:
         return empty
@@ -73,7 +73,9 @@ def activity_energy(points, weight_kg, *, sport="run", max_hr=None, duration_sec
         estimate = terrain_energy(weight_kg, grade, seconds/distance, distance, "run" if sport == "run" else "walk")
         if not estimate:
             continue
-        key = "climb" if grade > 3 else "descent" if grade < -3 else "rolling"
+        uphill = grade >= terrain_threshold if terrain_threshold is not None else grade > 3
+        downhill = grade <= -terrain_threshold if terrain_threshold is not None else grade < -3
+        key = "climb" if uphill else "descent" if downhill else "rolling"
         row = totals[key]
         row["kcal"] += estimate["kcal"]
         row["seconds"] += seconds

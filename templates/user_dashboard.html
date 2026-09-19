@@ -4,7 +4,6 @@
 
 {% block extra_head %}
 <script src="/static/js/pace-curve.js?v=1"></script>
-<script src="/static/js/energy.js?v=2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
 <link rel="stylesheet" href="/static/css/user_dashboard-1.css?v=2">
 {% endblock %}
@@ -209,7 +208,6 @@
     <div class="course-profile-preview" id="home-course-profile-preview" hidden></div>
     <div id="home-custom-segment-explorer" hidden></div>
     <div id="home-target-pacing-curve" hidden></div>
-    <div id="plan-energy" hidden></div>
     <section class="race-settings" id="home-race-settings" hidden aria-label="Départ et ravitos"></section>
     <div id="home-terrain-pace-overview" hidden></div>
     <section class="carbohydrate-profile-preview" id="home-carbohydrate-profile" hidden aria-label="Profil du parcours et alimentation en glucides"></section>
@@ -2316,16 +2314,6 @@
           movingSeconds,
           stopSeconds,
         });
-        const planEnergyHost=document.getElementById('plan-energy');
-        const energyRows=(data.slope_distribution||[]).map(part=>{
-          const grade=slopeCenters[part.slope_id];
-          const pace=paceWithCourseDifficulty(manualProfileIsActive()?manualPaceForSlope(part.slope_id):projectedPaceForSlope(part.slope_id,zone).pace,simulationCoefficientPercent)*targetPaceMultiplier;
-          return {grade,distance:Number(part.distance_km),estimate:EnergyModel.terrain(Number(weightInput.value),grade,pace,Number(part.distance_km))};
-        });
-        const energyDistance=energyRows.reduce((sum,row)=>sum+(row.estimate?row.distance:0),0);
-        const energyKcal=energyRows.reduce((sum,row)=>sum+(row.estimate?.kcal||0),0);
-        planEnergyHost.hidden=false;
-        planEnergyHost.innerHTML=energyDistance>0?`<section class="data-panel"><div class="data-heading"><div><span class="data-eyebrow">Le relief dans ton effort</span><h2>Énergie estimée sur ce parcours</h2></div><a href="/ui/user/{{ user.id }}/energy">Explorer les pentes →</a></div><div class="data-kpis"><article><span>Locomotion</span><strong>≈ ${Math.round(energyKcal)} <small>kcal</small></strong></article><article><span>Au chrono choisi, en mouvement</span><strong>≈ ${Math.round(energyKcal/movingSeconds*3600)} <small>kcal/h</small></strong></article><article><span>Distance estimée</span><strong>${energyDistance.toFixed(1)} <small>km</small></strong></article></div><div class="energy-terrain">${[['Descente',g=>g<-3],['Roulant',g=>Math.abs(g)<=3],['Montée',g=>g>3]].map(([label,test])=>{const kcal=energyRows.filter(row=>test(row.grade)).reduce((sum,row)=>sum+(row.estimate?.kcal||0),0);return `<article><span>${label}</span><strong>${Math.round(kcal)} kcal</strong><div class="data-track"><i style="width:${energyKcal?kcal/energyKcal*100:0}%"></i></div></article>`;}).join('')}</div><p class="data-note">Pour ${Number(weightInput.value)} kg, avec le modèle de course Minetti et le centre de chaque tranche de pente. À distance et relief identiques, un chrono plus court augmente les kcal/h ; le coût total du modèle reste identique. Ce chiffre ne fixe pas les apports à manger. La marche, la technicité et la fatigue peuvent modifier le coût réel.</p></section>`:'<section class="data-panel"><p>Renseigne un poids valide pour estimer la dépense du parcours.</p></section>';
         const totalSeconds = movingSeconds + stopSeconds;
         const stopDetail = stopSeconds ? ` · ${formatDuration(stopSeconds)} de ravito` : '';
         const manualCourseName = manualCourseNameInput.value.trim() || 'Ma trace GPX';

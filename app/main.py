@@ -172,7 +172,7 @@ from .analytics_service import refresh_activity_summary, maintenance_loop
 from .activity_analytics import sparkline, downsample, build_summary as build_activity_analytics
 from .athlete_summary import load_summary as load_athlete_summary
 from .pace_reference import reference_model
-from .energy import terrain_energy, heart_rate_energy, activity_energy, strava_energy_block
+from .energy import activity_energy, strava_energy_block
 from .glucose_metrics import summarize as summarize_glucose, chart_series as glucose_chart_series, zone_index as glucose_zone_index
 from .settings import settings
 from .strava_client import StravaClient
@@ -947,11 +947,6 @@ def _build_modeled_pace_lookup_from_profile(profile_data: dict | None) -> dict[s
     _fill_missing_zone_paces(modeled_lookup, [name for name, *_ in HR_ZONES])
     return modeled_lookup
 
-
-def _energy_config(user, reference=None):
-    today = dt.date.today()
-    age = today.year-user.birthdate.year-((today.month,today.day)<(user.birthdate.month,user.birthdate.day)) if user.birthdate else None
-    return {"weight": user.weight_kg, "max_hr": user.max_heartrate, "age": age, "sex": user.sex, "reference": reference or {}}
 
 
 def _reference_pace_payload(db, profile, user_id, sport="run"):
@@ -7021,19 +7016,6 @@ def ui_user_profile_update(
 
 
 
-@app.get("/ui/user/{user_id}/energy", response_class=HTMLResponse)
-def ui_user_energy(user_id: int, request: Request, db: Session = Depends(get_db)):
-    guard = _guard_user_route(request,user_id)
-    if guard: return guard
-    user = db.get(User,user_id)
-    if not user: return HTMLResponse("Utilisateur introuvable",status_code=404)
-    profile = get_cached_runner_profile(db,user_id=user_id,sport="run")
-    if not profile or not profile.get("zones"):
-        profile = build_runner_profile(db,user_id=user_id,sport="run")
-    reference = _reference_pace_payload(db,profile,user_id)
-    return templates.TemplateResponse("energy.html",{"request":request,"user":user,"energy_config":_energy_config(user,reference["lookup"])})
-
-
 @app.get("/ui/user/{user_id}/runner-profile", response_class=HTMLResponse)
 def ui_runner_profile(
     request: Request,
@@ -9431,13 +9413,6 @@ def ui_user_dashboard(user_id: int, request: Request):
     if guard:
         return guard
 
-    if not request.query_params or request.query_params.get("view") == "overview":
-        with SessionLocal() as db:
-            user = db.get(User,user_id)
-            if not user: return HTMLResponse("Utilisateur introuvable",status_code=404)
-            overview = load_athlete_summary(db,user_id,start=dt.datetime.utcnow()-dt.timedelta(days=30))
-            return templates.TemplateResponse("user_overview.html",{"request":request,"user":user,"athlete_summary":overview})
-
     custom_course_mode = request.query_params.get("mode") == "custom"
 
     db = SessionLocal()
@@ -10266,9 +10241,9 @@ def ui_user_activities(user_id: int, request: Request):
 
     db = SessionLocal()
     page = _safe_positive_int(request.query_params.get("page"), 1)
-    page_size = 10
+    page_size = 5
     sport = request.query_params.get("sport", "all")
-    period = request.query_params.get("period", "30")
+    period = request.query_params.get("period", "all")
     availability = request.query_params.get("data", "all")
     days = {"30":30,"90":90,"365":365}.get(period)
 
@@ -10453,6 +10428,8 @@ def ui_user_activity_detail(user_id: int, activity_id: int, request: Request):
         glucose_analysis["source"] = "sensor" if surrounding_glucose else "activity_stream"
         activity_analytics = activity.analytics_summary or build_activity_analytics(activity,user,points,analysis_samples)
         activity_analytics = dict(activity_analytics)
+        # Match the existing overview terrain cards: descents <= -5%, climbs >= 5%.
+        activity_analytics["energy"] = activity_energy(points, user.weight_kg, sport=activity.sport or "unknown", max_hr=user.max_heartrate, duration_seconds=activity.elapsed_time, terrain_threshold=5)
         activity_analytics["glycemia"] = {key:value for key,value in glucose_analysis.items() if key != "intervals"}
         activity_analytics["glucose_chart"] = downsample([{ "x":(p["x"]-analysis_start.timestamp())/60,"y":p["y"]} for p in glucose_chart_series(analysis_samples,analysis_start,analysis_end)])
         activity_analytics["glucose_intervals"] = [{"start":(v["start"]-analysis_start.timestamp())/60,"end":(v["end"]-analysis_start.timestamp())/60,"mgdl":v["mgdl"]} for v in glucose_analysis["intervals"]]

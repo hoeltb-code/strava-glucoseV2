@@ -3,7 +3,7 @@
 {% block title %}{% if custom_course_mode %}Ma trace GPX · {{ user.email }}{% else %}Dashboard · {{ user.email }}{% endif %}{% endblock %}
 
 {% block extra_head %}
-<script src="/static/js/pace-curve.js?v=1"></script>
+<script src="/static/js/pace-curve.js?v=2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
 <link rel="stylesheet" href="/static/css/user_dashboard-1.css?v=2">
 {% endblock %}
@@ -908,7 +908,7 @@
       profileTableNote.textContent = manual
         ? 'Allures de référence réglées manuellement, avant adaptation au parcours.'
         : hasHistoricalData
-          ? 'Courbe recalculée du profil coureur, avant adaptation au parcours. Les pentes peu documentées utilisent la médiane des autres coureurs lorsque le groupe est suffisant.'
+          ? 'Tendance globale du profil coureur, avant adaptation au parcours. Elle est ajustée aux données personnelles et aux médianes collectives disponibles.'
           : 'Historique insuffisant : active les réglages manuels pour créer un profil de départ.';
       const points = slopeIds.map((slopeId) => {
         const projected = projectedPaceForSlope(slopeId, zone);
@@ -926,7 +926,7 @@
       }
       const medianCount = points.filter(point => point.source === 'Médiane collective').length;
       if (!manual) profileTableNote.textContent += ` · ${points.length - medianCount} pentes personnelles · ${medianCount} pentes issues de la médiane collective.`;
-      const curve = PaceCurve.create(points);
+      const curve = PaceCurve.create(points, manual ? null : paceReference.curves?.[zone]);
       const communityZone = (communityPaceCurves.zones || {})[zone] || {};
       const datasets = [];
       ['p10', 'p90', 'p50'].forEach((percentile) => {
@@ -985,13 +985,13 @@
       if (!points.length) return;
 
       const width = 680; const height = 220; const pad = { left:52, right:16, top:18, bottom:36 };
-      const { min:yMin, max:yMax } = paceScaleBounds(points.map((point) => point.pace));
+      const curve = PaceCurve.create(points, manual ? null : paceReference.curves?.[zone], paceWithCourseDifficulty(multiplier, courseDifficulty));
+      const { min:yMin, max:yMax } = paceScaleBounds(curve.samples.map((point) => point.pace));
       const xScale = (x) => pad.left + ((x + 45) / 90) * (width - pad.left - pad.right);
       const yScale = (pace) => {
         const bounded = Math.max(yMin, Math.min(yMax, pace));
         return pad.top + ((Math.log(bounded) - Math.log(yMin)) / (Math.log(yMax) - Math.log(yMin))) * (height - pad.top - pad.bottom);
       };
-      const curve = PaceCurve.create(points);
       const path = curve.samples.map((point, index) => `${index ? 'L' : 'M'} ${xScale(point.x).toFixed(1)} ${yScale(point.pace).toFixed(1)}`).join(' ');
       const xTicks = [-40, -20, 0, 20, 40];
       const yTicks = paceScaleTicks(yMin, yMax);
@@ -1017,6 +1017,7 @@
         const plotRatio = Math.max(0, Math.min(1, (ratio * width - pad.left) / (width - pad.left - pad.right)));
         const grade = -45 + plotRatio * 90;
         const pace = curve.at(grade);
+        if (pace === null) { tooltip.hidden = true; return; }
         const vam = Math.round((3600 / pace) * 10 * grade);
         tooltip.hidden = false;
         tooltip.classList.toggle('is-left', ratio > .55);

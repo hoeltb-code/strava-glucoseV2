@@ -1,12 +1,13 @@
 """Choose documented personal model cells, otherwise a privacy-safe cohort median."""
 import math
+from .pace_trend import fit, evaluate
 
 MIN_PERSONAL_SECONDS = 300
 MIN_PERSONAL_POINTS = 20
 MIN_COHORT_RUNNERS = 8
 
 
-def reference_model(profile, personal_model, cohort, slopes, zones):
+def reference_model(profile, personal_model, cohort, slopes, zones, slope_centers=None):
     lookup, sources = {}, {}
     counts = {"personal": 0, "median": 0, "missing": 0}
     for slope in slopes:
@@ -29,6 +30,24 @@ def reference_model(profile, personal_model, cohort, slopes, zones):
             sources.setdefault(slope, {})[zone] = source
             if value is not None:
                 lookup.setdefault(slope, {})[zone] = float(value)
-    return {"lookup": lookup, "sources": sources, "counts": counts,
+    curves = {}
+    if slope_centers:
+        for zone in zones:
+            points = []
+            for slope in slopes:
+                value = (lookup.get(slope) or {}).get(zone)
+                if value is None or slope not in slope_centers:
+                    continue
+                cell = ((profile or {}).get("zones", {}).get(zone) or {}).get(slope) or {}
+                seconds = cell.get("pace_duration_sec", cell.get("duration_sec")) or 0
+                weight = min(3., math.sqrt(seconds / MIN_PERSONAL_SECONDS)) if sources[slope][zone] == "personal" else 1.
+                points.append({"x": max(-45., min(45., slope_centers[slope])), "pace": value, "weight": weight})
+            model = fit(points)
+            if model:
+                curves[zone] = model
+                for slope in slopes:
+                    if zone in lookup.get(slope, {}):
+                        lookup[slope][zone] = evaluate(model, max(-45., min(45., slope_centers[slope])))
+    return {"lookup": lookup, "curves": curves, "sources": sources, "counts": counts,
             "minimum_personal_seconds": MIN_PERSONAL_SECONDS, "minimum_personal_points": MIN_PERSONAL_POINTS,
-            "minimum_runners": MIN_COHORT_RUNNERS, "version": "personal-or-cohort-v1"}
+            "minimum_runners": MIN_COHORT_RUNNERS, "version": "personal-or-cohort-trend-v2"}

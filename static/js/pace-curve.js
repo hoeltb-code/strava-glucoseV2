@@ -2,10 +2,32 @@
 (function (root) {
   'use strict';
 
-  function create(points) {
+  function evaluate(model, grade, factor = 1) {
+    if (!model || model.version !== 'asymmetric-quadratic-v1'
+        || !['minimum', 'left', 'right', 'optimum', 'x_min', 'x_max'].every(key => Number.isFinite(model[key]))
+        || model.minimum <= 0 || model.left < 0 || model.right < 0
+        || !Number.isFinite(grade) || !Number.isFinite(factor) || factor <= 0
+        || grade < model.x_min || grade > model.x_max) return null;
+    const delta = (grade - model.optimum) / 30;
+    return (model.minimum + model[delta < 0 ? 'left' : 'right'] * delta * delta) * factor;
+  }
+
+  function create(points, model = null, factor = 1) {
     const nodes = (points || []).filter(p => Number.isFinite(p.x) && Number.isFinite(p.pace) && p.pace > 0)
       .map(p => ({ ...p })).sort((a, b) => a.x - b.x)
       .filter((p, i, all) => !i || p.x !== all[i - 1].x);
+    // Fitted references use the formula itself, never a second visual smoothing.
+    if (model && evaluate(model, model.x_min, factor) !== null) {
+      const at = grade => evaluate(model, grade, factor);
+      const grades = new Set([model.x_min, model.x_max]);
+      for (let x = model.x_min; x < model.x_max; x += .5) grades.add(x);
+      if (model.optimum >= model.x_min && model.optimum <= model.x_max) grades.add(model.optimum);
+      nodes.forEach(p => { if (at(p.x) !== null) grades.add(p.x); });
+      return {
+        nodes: nodes.filter(p => at(p.x) !== null).map(p => ({...p, pace: at(p.x)})),
+        samples: [...grades].sort((a,b) => a-b).map(x => ({x, pace:at(x)})), at,
+      };
+    }
     const widths = nodes.slice(1).map((p, i) => p.x - nodes[i].x);
     const slopes = nodes.slice(1).map((p, i) => (p.pace - nodes[i].pace) / widths[i]);
     // Shape-preserving Hermite interpolation: no overshoot between anchors.
@@ -52,7 +74,7 @@
     return { factor: invalid ? 1 : moving / baseMovingSeconds, targetSeconds, invalid };
   }
 
-  const api = { create, targetAdjustment };
+  const api = { create, evaluate, targetAdjustment };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.PaceCurve = api;
 })(globalThis);

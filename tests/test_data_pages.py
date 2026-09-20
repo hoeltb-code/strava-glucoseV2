@@ -104,6 +104,12 @@ class DataPagesTests(unittest.TestCase):
         payload=r.json()
         self.assertGreater(payload['pace_reference']['counts']['median'],0)
         self.assertNotIn('demo20',r.text)
+        from app.pace_trend import evaluate
+        for zone, model in payload['pace_reference']['curves'].items():
+            for slope, zones in payload['modeled_pace_lookup_by_slope'].items():
+                if zone in zones:
+                    self.assertAlmostEqual(zones[zone], evaluate(model, max(-45, min(45, main.SLOPE_BAND_CENTER[slope]))))
+        self.assertTrue(payload['pace_reference']['curves'])
         for url in ['/ui/user/20','/ui/user/20/activities','/ui/user/20/runner-profile']:
             r=self.client.get(url);self.assertEqual(r.status_code,200,r.text[:200])
 

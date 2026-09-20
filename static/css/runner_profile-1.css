@@ -708,3 +708,16 @@
     .performance-chart .pace-curve-canvas { height:270px; }
     .performance-details .runner-table-scroll { margin:0; }
   }
+
+/* One existing chart, two readings of the same modeled paces. */
+.pace-reference-chart .pace-curve-head{flex-wrap:wrap;gap:12px;margin-bottom:10px}
+.pace-view-choice{display:inline-flex;gap:3px;padding:3px;background:#f5f3ef;border:1px solid #e4dfd6;border-radius:10px}
+.pace-view-choice button{min-height:40px;margin:0;padding:8px 14px;background:transparent;border:0;border-radius:7px;color:#6e6b64;font:600 .78rem Manrope,system-ui,sans-serif;text-transform:none;letter-spacing:0;cursor:pointer;box-shadow:none}
+.pace-view-choice button[aria-pressed=true]{background:#fff;color:#17243e;box-shadow:0 1px 4px #17243e12}
+.pace-view-choice button:focus-visible{outline:2px solid #b76a13;outline-offset:2px}
+.pace-reference-chart .pace-curve-canvas{height:420px}
+.pace-reference-chart .pace-terrain-legend{gap:18px;margin:12px 0 20px}
+.pace-reference-chart .pace-terrain-legend[hidden]{display:none}
+.pace-reference-chart .pace-terrain-legend span{font-size:.76rem}
+.pace-reference-chart .pace-source-note{margin:14px 0 0;font-size:.72rem;line-height:1.5;color:#79766f}
+@media(max-width:700px){.pace-reference-chart .pace-curve-head{display:flex;align-items:center}.pace-reference-chart .pace-curve-canvas{height:310px}.pace-view-choice button{min-height:44px}.pace-reference-chart .pace-terrain-legend{gap:12px}}

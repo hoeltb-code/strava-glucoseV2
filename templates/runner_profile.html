@@ -3,8 +3,8 @@
 
 {% block extra_head %}
 <script src="/static/js/chart-lazy.js?v=2"></script>
-<script src="/static/js/pace-curve.js?v=1"></script>
-<link rel="stylesheet" href="/static/css/runner_profile-1.css?v=2">
+<script src="/static/js/pace-curve.js?v=2"></script>
+<link rel="stylesheet" href="/static/css/runner_profile-1.css?v=3">
 {% set needs_chart_js = modeled_pace_lookup_by_slope or (profile.zones and profile.zones|length > 0) or (show_glucose_tabs and (
   (glucose_chart_24h and glucose_chart_24h|length > 1)
   or (glucose_activity_chart.labels and glucose_activity_chart.labels|length > 0)
@@ -336,7 +336,7 @@
           <article class="pace-curve-card pace-curve-card-wide performance-chart">
             <div class="pace-curve-head">
               <h4>Ton rendement selon la pente</h4>
-              <div class="performance-chart-legend" aria-label="Légende"><span><i></i>Zone sélectionnée · modèle lissé</span></div>
+              <div class="performance-chart-legend" aria-label="Légende"><span><i></i>Zone sélectionnée · tendance calculée</span></div>
             </div>
             <p>Au-dessus de zéro : montée. En dessous : descente. Une valeur plus éloignée de zéro indique une vitesse verticale plus élevée.</p>
             <div class="pace-curve-canvas"><canvas id="vamSlopeChart"></canvas></div>
@@ -400,24 +400,65 @@
                 const canvas = document.getElementById(canvasId);
                 const select = document.getElementById(selectId);
                 if (!canvas || !select) return;
+                const views = document.querySelectorAll('[data-pace-view]');
+                const title = document.getElementById('pace-chart-title');
+                const reading = document.getElementById('pace-chart-reading');
+                const legend = document.getElementById('pace-terrain-legend');
                 const paceLabel = pace => { const seconds=Math.round(pace); return `${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`; };
-                const chart = lazyChart(canvas.getContext('2d'), {
-                  type:'line', data:{ datasets:[{ label:select.value, data:[], borderColor:'#e9a33b', borderWidth:3, pointRadius:0, pointHitRadius:8, tension:0 }] },
-                  options:{ responsive:true, maintainAspectRatio:false, animation:false, interaction:{ mode:'nearest', axis:'x', intersect:false },
-                    plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ title:items => `${Number(items[0].raw.x).toFixed(1)} %`, label:item => { const nearest=slopesOrder.reduce((best,row)=>Math.abs(slopeCenters[row[0]]-item.raw.x)<Math.abs(slopeCenters[best[0]]-item.raw.x)?row:best);const source=paceReference.sources?.[nearest[0]]?.[select.value];return `${select.value} · ${paceLabel(item.raw.y)} /km · ${source === "median" ? "médiane collective" : "modèle personnel"}`; } } } },
-                    scales:{ x:{ type:'linear', min:-45, max:45, title:{ display:true, text:'Pente (%)' }, ticks:{ stepSize:15, callback:v => `${v > 0 ? '+' : ''}${v}%` }, grid:{ color:'rgba(95,91,83,.12)' } },
-                      y:{ type:'logarithmic', reverse:true, title:{ display:true, text:'Allure (min/km)' }, ticks:{ callback:paceLabel }, grid:{ color:'rgba(95,91,83,.12)' } } }
-                  }
-                });
+                let mode = 'bar';
+                let chart = null;
                 const update = () => {
-                  const curve = PaceCurve.create(slopesOrder.map(([slopeId]) => ({ x:slopeCenters[slopeId], pace:modeledPaceFor(select.value, slopeId) })));
-                  const sources=slopesOrder.map(([id])=>paceReference.sources?.[id]?.[select.value]);
-                  const sourceNote=document.getElementById('pace-reference-source');
-                  if(sourceNote)sourceNote.textContent=`${select.value} · ${sources.filter(s=>s==='personal').length} tranches de pente personnelles · ${sources.filter(s=>s==='median').length} collectives · ${sources.filter(s=>s==='missing').length} indisponibles.`;
-                  chart.data.datasets[0].label = select.value;
-                  chart.data.datasets[0].data = curve.samples.map(point => ({ x:point.x, y:point.pace }));
-                  chart.update();
+                  const bars = mode === 'bar';
+                  const points = slopesOrder.map(([slopeId]) => ({ x:slopeCenters[slopeId], pace:modeledPaceFor(select.value, slopeId) }));
+                  const curve = PaceCurve.create(points, paceReference.curves?.[select.value]);
+                  const maximumPace = Math.max(0, ...points.map(point => point.pace || 0));
+                  const tickStep = maximumPace <= 600 ? 120 : maximumPace <= 2400 ? 300 : 600;
+                  const sources = slopesOrder.map(([id])=>paceReference.sources?.[id]?.[select.value]);
+                  const sourceNote = document.getElementById('pace-reference-source');
+                  if (sourceNote) sourceNote.textContent = `${select.value} · ${paceReference.curves?.[select.value] ? "tendance ajustée" : "repères limités"} · ${sources.filter(s=>s==='personal').length} pentes personnelles · ${sources.filter(s=>s==='median').length} collectives · ${sources.filter(s=>s==='missing').length} indisponibles.`;
+                  if (title) title.textContent = bars ? 'Ton allure par tranche de pente' : 'Ta courbe de référence par pente';
+                  if (reading) reading.textContent = bars ? 'Une barre plus basse indique une allure plus rapide. Les valeurs viennent du modèle calculé.' : 'Les allures rapides se lisent en haut. Cette tendance reste la référence de ton plan de course.';
+                  if (legend) legend.hidden = !bars;
+                  views.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.paceView === mode)));
+                  canvas.setAttribute('aria-label', bars ? `Allure calculée par tranche de pente · ${select.value}. Une barre plus basse indique une allure plus rapide.` : `Courbe de tendance allure selon la pente · ${select.value}`);
+                  chart?.destroy();
+                  chart = lazyChart(canvas.getContext('2d'), {
+                    type: bars ? 'bar' : 'line',
+                    data: {
+                      labels: bars ? slopesOrder.map(([, label]) => label) : undefined,
+                      datasets: [{
+                        label: select.value,
+                        // Both presentations use exactly the same fitted reference.
+                        data: bars ? points.map(point => point.pace) : curve.samples.map(point => ({x:point.x, y:point.pace})),
+                        backgroundColor: bars ? slopesOrder.map(([id])=>barColorFor(id)) : 'transparent',
+                        borderColor: '#e9a33b', borderWidth: bars ? 0 : 3,
+                        borderRadius: 8, borderSkipped: 'bottom', maxBarThickness: 48,
+                        categoryPercentage: .88, barPercentage: .82,
+                        pointRadius: 0, pointHitRadius: 8, tension: 0,
+                      }],
+                    },
+                    options: {
+                      responsive:true, maintainAspectRatio:false, animation:false,
+                      interaction:{mode:bars ? 'index' : 'nearest', axis:'x', intersect:false},
+                      plugins:{legend:{display:false}, tooltip:{callbacks:{
+                        title:items => bars ? slopesOrder[items[0].dataIndex][1] : `${Number(items[0].raw.x).toFixed(1)} %`,
+                        label:item => `${select.value} · ${paceLabel(item.parsed.y)} /km · ${paceReference.curves?.[select.value] ? "tendance ajustée" : "repère disponible"}`,
+                      }}},
+                      scales:{
+                        x: bars
+                          ? {type:'category', title:{display:true,text:'Pente'}, ticks:{autoSkip:true,maxRotation:0,maxTicksLimit:8}, grid:{display:false}}
+                          : {type:'linear',min:-45,max:45,title:{display:true,text:'Pente (%)'},ticks:{stepSize:15,callback:v=>`${v>0?'+':''}${v}%`},grid:{color:'rgba(95,91,83,.12)'}},
+                        y:{type:bars?'linear':'logarithmic',reverse:!bars,beginAtZero:bars,
+                          title:{display:true,text:'Allure (min/km)'},ticks:{callback:paceLabel,maxTicksLimit:8,stepSize:bars ? tickStep : undefined},grid:{color:'rgba(95,91,83,.12)'}},
+                      },
+                    },
+                  });
                 };
+                views.forEach(button => button.addEventListener('click', () => {
+                  if (button.dataset.paceView === mode) return;
+                  mode = button.dataset.paceView;
+                  update();
+                }));
                 select.addEventListener('change', update);
                 update();
               };
@@ -547,22 +588,31 @@
           </header>
 
           <div class="performance-body">
-            <p class="performance-explainer"><span>Cette courbe recalculée est la référence commune aux projections GPX et aux plans de course. Une pente utilise ton modèle avec au moins 5 minutes et 20 points dans la zone cardio. Les pentes peu documentées utilisent la médiane anonymisée des autres coureurs (au moins 8 par pente) ; les allures observées restent dans le tableau détaillé.</span></p>
+            <p class="performance-explainer"><span>Une tendance arrondie absorbe les variations entre les pentes. Elle sert de référence aux projections et au plan de course.</span></p>
 
             <div class="performance-insights-grid" id="paceKeyInsights" aria-live="polite"></div>
 
-          <article class="pace-curve-card pace-curve-card-wide performance-chart">
+          <article class="pace-curve-card pace-curve-card-wide performance-chart pace-reference-chart">
             <div class="pace-curve-head">
-              <h4>Ta courbe de référence par pente</h4>
-              <p id="pace-reference-source">Référence personnelle et collective selon les données disponibles.</p>
-              <div class="performance-chart-legend" aria-label="Légende"><span><i></i>Zone sélectionnée · modèle lissé</span></div>
+              <h4 id="pace-chart-title">Ton allure par tranche de pente</h4>
+              <div class="pace-view-choice" role="group" aria-label="Présentation des allures">
+                <button type="button" data-pace-view="bar" aria-pressed="true" aria-controls="paceSlopeChart">Barres</button>
+                <button type="button" data-pace-view="line" aria-pressed="false" aria-controls="paceSlopeChart">Courbe</button>
+              </div>
             </div>
-            <p>À gauche les descentes, au centre le roulant, à droite les montées. Les allures rapides se lisent en haut. Le plan conserve cette courbe, y compris lorsque tu fixes un chrono cible.</p>
-            <div class="pace-curve-canvas"><canvas id="paceSlopeChart"></canvas></div>
+            <p id="pace-chart-reading">Une barre plus basse indique une allure plus rapide. Les valeurs viennent du modèle calculé.</p>
+            <div id="pace-terrain-legend" class="performance-chart-legend pace-terrain-legend" aria-label="Couleurs des terrains">
+              <span><i style="background:#63b7d3"></i>Descente</span>
+              <span><i style="background:#84a964"></i>Roulant</span>
+              <span><i style="background:#f3ad3d"></i>Montée</span>
+            </div>
+            <div class="pace-curve-canvas"><canvas id="paceSlopeChart" role="img" aria-label="Allure calculée par tranche de pente"></canvas></div>
+            <p id="pace-reference-source" class="pace-source-note">Référence personnelle et collective selon les données disponibles.</p>
           </article>
 
           <details class="performance-details">
             <summary>Comparer le modèle aux allures observées</summary>
+            <p class="metric-note">Deux courbes quadratiques se rejoignent avec une tangente horizontale à l’allure optimale. Le minimum et la courbure de chaque côté sont ajustés ensemble ; le modèle ne passe pas forcément par chaque observation. Données personnelles retenues à partir de 5 min et 20 points par pente et zone ; sinon, médiane anonymisée d’au moins 8 autres coureurs. Avec trop peu de pentes disponibles, seuls les repères connus sont affichés.</p>
             <div class="runner-table-scroll">
               <table class="runner-two-column-table" style="width:100%; border-collapse:collapse; font-size:0.8rem;">
                 <thead><tr style="border-bottom:1px solid #e5e7eb;"><th style="text-align:left; padding:4px 2px;">Pente</th><th id="paceZoneTableTitle" style="text-align:right; padding:4px 2px;">Zone 2 · modélisée</th><th style="text-align:right; padding:4px 2px;">Observée</th></tr></thead>

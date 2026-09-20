@@ -88,6 +88,13 @@ test('actual plan renderer uses the modeled curve in automatic and target modes,
   render();
   listeners.pointermove({clientX:52,clientY:100});
   assert.match(tooltip.textContent,/-45.0 % · 0:30/,'display must not silently clamp the time multiplier');
+  context.paceReference.curves = {'Zone 2':formula};
+  context.runnerModeledPaceLookup = Object.fromEntries(points.map((p,i)=>['s'+i,{'Zone 2':PaceCurve.evaluate(formula,p.x)}]));
+  context.targetPaceMultiplier = 1.2;
+  render();
+  listeners.pointermove({clientX:52+33/90*612,clientY:100});
+  assert.match(tooltip.textContent,/-12.0 % · 6:00/,'target curve must evaluate the global formula at its optimum');
+  assert.equal(context.projectedPaceForSlope('s0','Zone 2').pace,PaceCurve.evaluate(formula,-45));
   delete context.runnerModeledPaceLookup.s0;
   assert.equal(context.projectedPaceForSlope('s0','Zone 2').pace,null);
 });
@@ -119,4 +126,64 @@ test('profile GPX projection uses modeled paces for slope totals and kilometer s
   await context.runSlopeAnalysis(1,'run','all');
   assert.match(feedback.textContent,/modèle d’allure est insuffisant/);
   assert.equal(result.innerHTML,'');
+});
+
+const formula = {version:'asymmetric-quadratic-v1',minimum:300,left:400,right:260,optimum:-12,x_min:-45,x_max:45};
+test('fitted formula has one rounded optimum and overrides noisy graphic anchors', () => {
+  const curve=PaceCurve.create(points,formula);
+  near(curve.at(-12),300);
+  near(curve.at(-42),700);
+  near(curve.at(18),560);
+  assert.notEqual(curve.at(-45),points[0].pace);
+  assert.equal(curve.at(-46),null);
+  assert.equal(curve.at(46),null);
+  assert.equal(PaceCurve.evaluate({...formula,minimum:-1},0),null);
+  for (let x=-44.9;x<=45;x+=.1) {
+    if(x<=-12)assert.ok(curve.at(x)<=curve.at(x-.1)+1e-8);
+    if(x>=-11.9)assert.ok(curve.at(x)>=curve.at(x-.1)-1e-8);
+  }
+  const distances=[1,3,4,7,2,1];
+  const base=points.reduce((sum,p,i)=>sum+curve.at(p.x)*distances[i],0);
+  for(const stops of [0,900,1800]) {
+    const {factor}=PaceCurve.targetAdjustment(base,stops,18000);
+    const adjusted=PaceCurve.create(points,formula,factor);
+    near(points.reduce((sum,p,i)=>sum+adjusted.at(p.x)*distances[i],0)+stops,18000);
+    for(let x=-45;x<=45;x+=.25)near(adjusted.at(x),curve.at(x)*factor);
+  }
+});
+
+test('profile bar and curve views use the same model and update with the selected cardio zone', () => {
+  const profileTemplate=fs.readFileSync('templates/runner_profile.html','utf8');
+  const start=profileTemplate.indexOf('              const renderPaceCurve =');
+  const end=profileTemplate.indexOf('              const renderVamBars =',start);
+  const listeners={}, buttons=['bar','line'].map(mode=>({dataset:{paceView:mode},attributes:{},setAttribute(k,v){this.attributes[k]=v;},addEventListener(event,fn){this.click=fn;}}));
+  const select={value:'Zone 2',addEventListener:(event,fn)=>listeners[event]=fn};
+  const canvas={getContext:()=>({}),setAttribute(){}};
+  const nodes={paceSlopeChart:canvas,paceZone:select,'pace-chart-title':{},'pace-chart-reading':{},'pace-terrain-legend':{},'pace-reference-source':{}};
+  let config, destroyed=0;
+  const context={PaceCurve,
+    document:{getElementById:id=>nodes[id],querySelectorAll:()=>buttons},
+    slopesOrder:[['down','−10 à −5 %'],['flat','0–5 %'],['up','10–15 %'],['missing','>40 %']],
+    slopeCenters:{down:-7.5,flat:2.5,up:12.5,missing:45},
+    paceReference:{sources:{},curves:{'Zone 2':formula,'Zone 3':{...formula,minimum:270,left:360,right:234}}},
+    modeledPaceFor:(zone,id)=>id==='missing'?null:PaceCurve.evaluate(formula,{down:-7.5,flat:2.5,up:12.5}[id])*(zone==='Zone 3'?.9:1),
+    barColorFor:id=>({down:'#63b7d3',flat:'#84a964',up:'#f3ad3d'}[id]||'#f3ad3d'),
+    lazyChart:(target,configuration)=>{config=configuration;return{destroy(){destroyed++;}};},
+  };
+  vm.createContext(context);vm.runInContext(profileTemplate.slice(start,end),context);
+  assert.equal(config.type,'bar');
+  assert.equal(config.options.scales.y.beginAtZero,true);
+  assert.equal(config.options.scales.y.reverse,false);
+  assert.equal(config.data.datasets[0].data[3],null,'missing pace must not become a zero-height estimate');
+  const original=config.data.datasets[0].data.slice();
+  buttons[1].click();
+  assert.equal(config.type,'line');assert.equal(buttons[1].attributes['aria-pressed'],'true');
+  assert.equal(config.options.scales.y.reverse,true);
+  near(config.data.datasets[0].data.find(p=>p.x===-7.5).y,original[0]);
+  select.value='Zone 3';listeners.change();
+  near(config.data.datasets[0].data.find(p=>p.x===-7.5).y,original[0]*.9);
+  buttons[0].click();
+  near(config.data.datasets[0].data[0],original[0]*.9);
+  assert.equal(config.options.plugins.tooltip.callbacks.title([{dataIndex:0}]),'−10 à −5 %');
+  assert.equal(destroyed,3,'switching views must replace rather than stack canvas charts');
 });

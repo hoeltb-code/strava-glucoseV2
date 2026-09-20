@@ -172,6 +172,7 @@ from .analytics_service import refresh_activity_summary, maintenance_loop
 from .activity_analytics import sparkline, downsample, build_summary as build_activity_analytics
 from .athlete_summary import load_summary as load_athlete_summary
 from .pace_reference import reference_model
+from .pace_trend import fit as fit_pace_trend, evaluate as evaluate_pace_trend
 from .energy import activity_energy, strava_energy_block
 from .glucose_metrics import summarize as summarize_glucose, chart_series as glucose_chart_series, zone_index as glucose_zone_index
 from .settings import settings
@@ -879,61 +880,21 @@ def _build_pace_lookup_from_profile(profile_data: dict | None, hr_zone_names: li
 
 
 def _smooth_slope_pace_values(values_by_slope: dict[str, float]) -> dict[str, float]:
-    """Lisse localement une série d'allures, sans effacer ses points d'ancrage.
-
-    Cette fonction constitue la source unique du modèle présenté dans Runner
-    Profile et utilisé par le constructeur de plan. Le plat et les pentes
-    extrêmes restent volontairement plus proches des valeurs observées.
-    """
-    points = sorted(
-        (
-            {
-                "slope_id": slope_id,
-                # Les bandes ouvertes représentent le repère ±45 % affiché
-                # dans les deux interfaces (et non leur borne technique ±50).
-                "x": max(-45.0, min(45.0, float(SLOPE_BAND_CENTER[slope_id]))),
-                "pace": float(pace),
-            }
-            for slope_id, pace in (values_by_slope or {}).items()
-            if slope_id in SLOPE_BAND_CENTER
-            and isinstance(pace, (int, float))
-            and 0 < float(pace) <= 7200
-        ),
-        key=lambda point: point["x"],
-    )
-    if len(points) < 3:
-        return {point["slope_id"]: point["pace"] for point in points}
-
-    modeled: dict[str, float] = {}
-    for index, point in enumerate(points):
-        neighbors = points[max(0, index - 1):min(len(points), index + 2)]
-        weighted_total = 0.0
-        weight_total = 0.0
-        for neighbor in neighbors:
-            is_current = neighbor is point
-            distance_factor = 1.0 if is_current else min(
-                1.0,
-                10.0 / max(1.0, abs(neighbor["x"] - point["x"])),
-            )
-            weight = (4.0 if is_current else 1.0) * distance_factor
-            weighted_total += neighbor["pace"] * weight
-            weight_total += weight
-        local_pace = weighted_total / weight_total if weight_total else point["pace"]
-        is_key_anchor = abs(point["x"]) <= 5 or abs(point["x"]) >= 30
-        observation_weight = 0.72 if is_key_anchor else 0.42
-        modeled[point["slope_id"]] = (
-            point["pace"] * observation_weight
-            + local_pace * (1.0 - observation_weight)
-        )
-    return modeled
+    """Fit one global rounded trend instead of preserving local oscillations."""
+    points = [
+        {"slope_id": slope, "x": max(-45., min(45., SLOPE_BAND_CENTER[slope])), "pace": pace}
+        for slope, pace in (values_by_slope or {}).items()
+        if slope in SLOPE_BAND_CENTER and isinstance(pace, (float, int)) and 0 < pace <= 7200
+    ]
+    model = fit_pace_trend(points)
+    return {p["slope_id"]: evaluate_pace_trend(model, p["x"]) if model else p["pace"] for p in points}
 
 
 def _build_modeled_pace_lookup_from_profile(profile_data: dict | None) -> dict[str, dict[str, float]]:
-    """Modèle commun au profil, aux projections GPX et aux plans de course.
+    """Personal-only modeled lookup for legacy consumers.
 
-    Compléter les cellules absentes à partir des valeurs déjà modélisées évite
-    que les projections réintroduisent des observations brutes ou un profil
-    manuel implicite. Les points modélisés existants restent inchangés.
+    The live profile and planner use _reference_pace_payload, which selects
+    reliable personal/collective cells before fitting their joint trend.
     """
     modeled_lookup: dict[str, dict[str, float]] = {}
     for zone_name, slopes in ((profile_data or {}).get("zones") or {}).items():
@@ -952,8 +913,14 @@ def _build_modeled_pace_lookup_from_profile(profile_data: dict | None) -> dict[s
 def _reference_pace_payload(db, profile, user_id, sport="run"):
     cohort = _build_anonymized_pace_benchmarks(db, sport=sport, excluded_user_id=user_id)
     reference = reference_model(
-        profile, _build_modeled_pace_lookup_from_profile(profile), cohort,
+        # Select sufficiently documented observations first, then fit jointly with
+        # the cohort fallback. Fitting before merging would reintroduce bumps.
+        profile, {slope: {zone: cells[slope].get("avg_pace_s_per_km")
+                         for zone, cells in ((profile or {}).get("zones") or {}).items()
+                         if isinstance((cells or {}).get(slope), dict)}
+                  for slope, _ in SLOPE_ORDER}, cohort,
         [slope for slope, _ in SLOPE_ORDER], [zone for zone, *_ in HR_ZONES],
+        slope_centers=SLOPE_BAND_CENTER,
     )
     reference["cohort"] = cohort
     return reference

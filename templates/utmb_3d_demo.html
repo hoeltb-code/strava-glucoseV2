@@ -51,7 +51,7 @@
       <button id="utmb-3d-video" class="three-d-button" type="button" disabled>● Enregistrer une vidéo</button>
       <span id="utmb-3d-status" class="three-d-status">Préparation du relief 3D…</span>
     </div>
-    <details class="three-d-timing"><summary>Timing des points de passage</summary><div class="three-d-timing-grid"><label class="three-d-timing-row"><span>Départ de la course</span><span><input id="utmb-3d-start" type="number" min="3" max="294" step=".5" value="3"> s</span></label><label class="three-d-timing-row"><span>Arrivée de la course</span><span><input id="utmb-3d-finish" type="number" min="6" max="297" step=".5" value="57"> s</span></label></div><label class="three-d-video-format" for="utmb-3d-poi-display">POI affichés <select id="utmb-3d-poi-display"><option value="aid" selected>Ravitaillements uniquement</option><option value="all">Tous les POI</option></select></label><button id="utmb-3d-timing-toggle" class="three-d-button" type="button" aria-pressed="true" disabled>Timing POI actif</button><div id="utmb-3d-timing-list" class="three-d-timing-grid"></div><p class="three-d-timing-note">Le départ et l’arrivée restent toujours affichés. Pour chaque POI, règle son instant de passage et un temps d’arrêt compris entre 0 et 2 s ; la vitesse s’adapte automatiquement entre deux points.</p></details>
+    <details class="three-d-timing"><summary>Timing des points de passage</summary><div class="three-d-timing-grid"><label class="three-d-timing-row"><span>Départ de la course</span><span><input id="utmb-3d-start" type="number" min="3" max="294" step=".5" value="3"> s</span></label><label class="three-d-timing-row"><span>Arrivée de la course</span><span><input id="utmb-3d-finish" type="number" min="6" max="297" step=".5" value="57"> s</span></label><label class="three-d-timing-row"><span>Arrêt à chaque POI</span><span><input id="utmb-3d-poi-pause" type="number" min="0" max="2" step=".1" value="2"> s</span></label></div><label class="three-d-video-format" for="utmb-3d-poi-display">POI affichés <select id="utmb-3d-poi-display"><option value="aid" selected>Ravitaillements uniquement</option><option value="all">Tous les POI</option></select></label><button id="utmb-3d-timing-toggle" class="three-d-button" type="button" aria-pressed="true" disabled>Timing POI actif</button><div id="utmb-3d-timing-list" class="three-d-timing-grid"></div><p class="three-d-timing-note">Le départ et l’arrivée restent toujours affichés. Le temps d’arrêt général, compris entre 0 et 2 s, s’applique à tous les POI ; la vitesse s’adapte automatiquement entre deux points.</p></details>
     <p class="three-d-note">La vidéo est téléchargée au format Story vertical 9:16 (1080 × 1920 px) à la fin de la séquence. Crédit cartographique affiché dans la carte : © MapTiler © OpenStreetMap contributors.</p>
     <div class="three-d-legend" aria-label="Légende de la trace"><span><i style="background:#fff36a;box-shadow:0 0 7px #fff36a"></i>trace parcourue</span><span><i style="background:rgba(246,197,71,.2)"></i>parcours à venir</span></div>
     {% if not maptiler_api_key %}<p class="three-d-error">Ajoute <code>MAPTILER_API_KEY</code> dans l’environnement local ou Render, puis recharge cette page pour activer le relief et le fond satellite.</p>{% endif %}
@@ -84,6 +84,7 @@
   const videoDurationInput = document.getElementById('utmb-3d-duration');
   const videoStartInput = document.getElementById('utmb-3d-start');
   const videoFinishInput = document.getElementById('utmb-3d-finish');
+  const poiPauseInput = document.getElementById('utmb-3d-poi-pause');
   const timingToggle = document.getElementById('utmb-3d-timing-toggle');
   const timingList = document.getElementById('utmb-3d-timing-list');
   const poiDisplaySelect = document.getElementById('utmb-3d-poi-display');
@@ -370,33 +371,24 @@
   const videoStartMs = () => Math.max(3000, Number(videoStartInput.value || 3) * 1000);
   const videoFinishMs = () => Math.min(videoDurationMs() - 3000, Math.max(videoStartMs() + 1000, Number(videoFinishInput.value || 0) * 1000));
   const videoOutroDurationMs = () => Math.max(3000, videoDurationMs() - videoFinishMs());
-  const poiPauseMs = (timelineItem) => Math.max(0, Math.min(2000, Number(timelineItem?.pauseMs ?? 2000)));
+  const poiPauseMs = () => Math.max(0, Math.min(2000, Number(poiPauseInput.value || 0) * 1000));
   const rebuildPoiTimeline = () => {
     const travelStart = videoStartMs(); const travelEnd = videoFinishMs();
     const entries = timelinePoiEntries();
-    const previousPauses = new Map(poiTimeline.map((item) => [item.entry, poiPauseMs(item)]));
-    const pauses = entries.map((entry) => previousPauses.get(entry) ?? 2000);
-    const pauseBudget = pauses.reduce((total, pause) => total + pause, 0);
+    const pauseDuration = poiPauseMs();
+    const pauseBudget = entries.length * pauseDuration;
     const movementBudget = Math.max(1000, travelEnd - travelStart - pauseBudget);
-    let elapsedPauses = 0;
     poiTimeline = entries.map((entry, index) => {
       const distanceRatio = entry.routeIndex / Math.max(1, positions.length - 1);
-      const item = { entry, timeMs:travelStart + distanceRatio * movementBudget + elapsedPauses, pauseMs:pauses[index] };
-      elapsedPauses += pauses[index];
-      return item;
+      return { entry, timeMs:travelStart + distanceRatio * movementBudget + index * pauseDuration };
     });
     renderPoiTimeline();
   };
   const renderPoiTimeline = () => {
-    timingList.innerHTML = poiTimeline.map((item, index) => `<div class="three-d-timing-row"><span>${String(item.entry.item.name || 'POI').slice(0, 28)}</span><span><label>Passage <input type="number" min="3" max="300" step=".5" value="${(item.timeMs / 1000).toFixed(1)}" data-timeline-poi="${index}"> s</label> · <label>Arrêt <input type="number" min="0" max="2" step=".1" value="${(poiPauseMs(item) / 1000).toFixed(1)}" data-timeline-pause="${index}"> s</label></span></div>`).join('') || '<span class="three-d-timing-note">Aucun POI intermédiaire sur ce parcours.</span>';
+    timingList.innerHTML = poiTimeline.map((item, index) => `<label class="three-d-timing-row"><span>${String(item.entry.item.name || 'POI').slice(0, 28)}</span><span><input type="number" min="3" max="300" step=".5" value="${(item.timeMs / 1000).toFixed(1)}" data-timeline-poi="${index}"> s</span></label>`).join('') || '<span class="three-d-timing-note">Aucun POI intermédiaire sur ce parcours.</span>';
     timingList.querySelectorAll('[data-timeline-poi]').forEach((input) => input.addEventListener('change', () => {
-      const index = Number(input.dataset.timelinePoi); const previous = index ? poiTimeline[index - 1].timeMs + poiPauseMs(poiTimeline[index - 1]) : videoStartMs();
+      const index = Number(input.dataset.timelinePoi); const previous = index ? poiTimeline[index - 1].timeMs + poiPauseMs() : videoStartMs();
       poiTimeline[index].timeMs = Math.max(previous + 500, Number(input.value || 0) * 1000);
-      renderPoiTimeline();
-    }));
-    timingList.querySelectorAll('[data-timeline-pause]').forEach((input) => input.addEventListener('change', () => {
-      const index = Number(input.dataset.timelinePause);
-      poiTimeline[index].pauseMs = Math.max(0, Math.min(2, Number(input.value || 0))) * 1000;
       renderPoiTimeline();
     }));
   };
@@ -404,7 +396,7 @@
     timingList.querySelectorAll('[data-timeline-poi]').forEach((input) => {
       const index = Number(input.dataset.timelinePoi);
       if (!poiTimeline[index]) return;
-      const previousTime = index ? poiTimeline[index - 1].timeMs + poiPauseMs(poiTimeline[index - 1]) : videoStartMs();
+      const previousTime = index ? poiTimeline[index - 1].timeMs + poiPauseMs() : videoStartMs();
       poiTimeline[index].timeMs = Math.max(previousTime + 500, Number(input.value || 0) * 1000);
     });
   };
@@ -586,7 +578,7 @@
       const nextTimeline = poiTimeline.find((item) => !passedPoiIndexes.has(poiEntries.indexOf(item.entry)));
       const previousTimeline = [...poiTimeline].reverse().find((item) => passedPoiIndexes.has(poiEntries.indexOf(item.entry)));
       const startIndex = previousTimeline ? previousTimeline.entry.routeIndex : 0;
-      const startTime = previousTimeline ? previousTimeline.timeMs + poiPauseMs(previousTimeline) : videoStartMs();
+      const startTime = previousTimeline ? previousTimeline.timeMs + poiPauseMs() : videoStartMs();
       const endIndex = nextTimeline ? nextTimeline.entry.routeIndex : positions.length - 1;
       const endTime = nextTimeline ? nextTimeline.timeMs : videoFinishMs();
       const segmentRatio = Math.max(0, Math.min(1, (timelineElapsedMs - startTime) / Math.max(250, endTime - startTime)));
@@ -597,7 +589,7 @@
       if (nextTimeline && timelineElapsedMs >= nextTimeline.timeMs) {
         progress = nextTimeline.entry.routeIndex / Math.max(1, positions.length - 1);
         const poiIndex = poiEntries.indexOf(nextTimeline.entry);
-        passedPoiIndexes.add(poiIndex); setActivePoi(poiIndex); pauseRemainingMs = poiPauseMs(nextTimeline);
+        passedPoiIndexes.add(poiIndex); setActivePoi(poiIndex); pauseRemainingMs = poiPauseMs();
         if (pauseRemainingMs === 0) setActivePoi(-1);
       }
     } else {
@@ -607,7 +599,7 @@
       if (poiIndex >= 0) {
         passedPoiIndexes.add(poiIndex);
         setActivePoi(poiIndex);
-        pauseRemainingMs = poiPauseMs(poiTimeline.find((item) => item.entry === poiEntries[poiIndex]));
+        pauseRemainingMs = poiPauseMs();
         if (pauseRemainingMs === 0) setActivePoi(-1);
       }
     }
@@ -632,11 +624,13 @@
     videoStartInput.value = Math.max(3, Math.min(Number(videoDurationInput.value) - 4, Number(videoStartInput.value || 3)));
     if (resetFinish) videoFinishInput.value = Math.max(Number(videoStartInput.value) + 1, Number(videoDurationInput.value) - 3);
     videoFinishInput.value = Math.max(Number(videoStartInput.value) + 1, Math.min(Number(videoDurationInput.value) - 3, Number(videoFinishInput.value || 0)));
+    poiPauseInput.value = Math.max(0, Math.min(2, Number(poiPauseInput.value || 0)));
     rebuildPoiTimeline();
   };
   videoDurationInput.addEventListener('change', () => normalizeVideoTiming(true));
   videoStartInput.addEventListener('change', () => normalizeVideoTiming());
   videoFinishInput.addEventListener('change', () => normalizeVideoTiming());
+  poiPauseInput.addEventListener('change', () => normalizeVideoTiming());
   timingToggle.addEventListener('click', () => {
     timingEnabled = !timingEnabled;
     timingToggle.setAttribute('aria-pressed', String(timingEnabled));

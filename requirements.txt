@@ -9,7 +9,7 @@ pydantic-settings
 stravalib
 sqlmodel
 aiosqlite
-sqlalchemy>=2.0.0
+sqlalchemy>=2.0.0,<2.1
 jinja2
 python-multipart
 fitparse

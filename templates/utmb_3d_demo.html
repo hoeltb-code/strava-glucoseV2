@@ -136,7 +136,7 @@
   const routeYellow = C.Color.fromCssColorString('#f6c547');
   const routeTrailColor = C.Color.fromCssColorString('#fff36a');
   const addPoiSegmentedRoute = (map, opacity = .2) => poiRouteSegments.map((segment) => map.entities.add({
-    polyline: { positions:positions.slice(segment.start, segment.end + 1), width:5, material:routeYellow.withAlpha(opacity), clampToGround:true },
+    polyline: { positions:positions.slice(segment.start, segment.end + 1), width:5, material:routeYellow.withAlpha(opacity), clampToGround:true, zIndex:0 },
   }));
   const viewer = new C.Viewer('utmb-3d-map', {
     animation: false, timeline: false, baseLayerPicker: false, geocoder: false,
@@ -159,25 +159,15 @@
   videoMapContainer.appendChild(videoHud);
 
   const routeEntities = addPoiSegmentedRoute(viewer);
-  const completedRouteGlow = viewer.entities.add({
-    polyline: {
-      positions:[positions[0], positions[0]], width:13, clampToGround:true,
-      material:new C.PolylineGlowMaterialProperty({ color:routeTrailColor, glowPower:.42, taperPower:.65 }),
-    },
-  });
   const completedRouteCore = viewer.entities.add({
-    polyline: { positions:[positions[0], positions[0]], width:6, clampToGround:true, material:new C.ColorMaterialProperty(routeTrailColor) },
+    polyline: { positions:[positions[0], positions[0]], width:7, clampToGround:true, zIndex:2, material:new C.ColorMaterialProperty(routeTrailColor) },
   });
-  let lastTrailRouteIndex = -1;
   const updateRouteHighlight = (routeIndex) => {
     const clamped = Math.max(0, Math.min(positions.length - 1, routeIndex));
-    if (lastTrailRouteIndex >= 0 && Math.abs(clamped - lastTrailRouteIndex) < .35) return;
-    lastTrailRouteIndex = clamped;
     const wholeIndex = Math.floor(clamped);
     const trailPositions = positions.slice(0, wholeIndex + 1);
     const nextPosition = positions[Math.min(positions.length - 1, wholeIndex + 1)];
     trailPositions.push(C.Cartesian3.lerp(positions[wholeIndex], nextPosition, clamped - wholeIndex, new C.Cartesian3()));
-    completedRouteGlow.polyline.positions = trailPositions;
     completedRouteCore.polyline.positions = trailPositions;
   };
   const runner = viewer.entities.add({

@@ -134,10 +134,7 @@
   const poiRouteBreaks = [...new Set([0, ...coursePoints.map(routeIndexForPoi), route.length - 1])].sort((left, right) => left - right);
   const poiRouteSegments = poiRouteBreaks.slice(1).map((end, index) => ({ start:poiRouteBreaks[index], end }));
   const routeYellow = C.Color.fromCssColorString('#f6c547');
-  const routeTrailColor = new C.CallbackProperty(() => {
-    const pulse = (Math.sin(performance.now() / 150) + 1) / 2;
-    return C.Color.fromCssColorString('#fff36a').withAlpha(.84 + pulse * .16);
-  }, false);
+  const routeTrailColor = C.Color.fromCssColorString('#fff36a');
   const addPoiSegmentedRoute = (map, opacity = .2) => poiRouteSegments.map((segment) => map.entities.add({
     polyline: { positions:positions.slice(segment.start, segment.end + 1), width:5, material:routeYellow.withAlpha(opacity), clampToGround:true },
   }));

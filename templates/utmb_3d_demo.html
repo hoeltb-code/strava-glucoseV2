@@ -131,13 +131,11 @@
       return dx * dx + dy * dy < bestDx * bestDx + bestDy * bestDy ? index : best;
     }, 0);
   };
-  const poiRouteBreaks = [...new Set([0, ...coursePoints.map(routeIndexForPoi), route.length - 1])].sort((left, right) => left - right);
-  const poiRouteSegments = poiRouteBreaks.slice(1).map((end, index) => ({ start:poiRouteBreaks[index], end }));
   const routeYellow = C.Color.fromCssColorString('#f6c547');
   const routeTrailColor = C.Color.fromCssColorString('#fff36a');
-  const addPoiSegmentedRoute = (map, opacity = .2) => poiRouteSegments.map((segment) => map.entities.add({
-    polyline: { positions:positions.slice(segment.start, segment.end + 1), width:5, material:routeYellow.withAlpha(opacity), clampToGround:true, zIndex:0 },
-  }));
+  const addRoute = (map, opacity = .2) => map.entities.add({
+    polyline: { positions, width:5, material:routeYellow.withAlpha(opacity), clampToGround:true, zIndex:0 },
+  });
   const viewer = new C.Viewer('utmb-3d-map', {
     animation: false, timeline: false, baseLayerPicker: false, geocoder: false,
     homeButton: false, sceneModePicker: false, navigationHelpButton: false,
@@ -158,17 +156,21 @@
   videoHud.setAttribute('aria-hidden', 'true');
   videoMapContainer.appendChild(videoHud);
 
-  const routeEntities = addPoiSegmentedRoute(viewer);
+  const routeEntity = addRoute(viewer);
+  let animatedRouteIndex = 0;
+  const animatedRoutePositions = new C.CallbackProperty(() => {
+    const clamped = Math.max(0, Math.min(positions.length - 1, animatedRouteIndex));
+    const wholeIndex = Math.floor(clamped);
+    const revealed = positions.slice(0, wholeIndex + 1);
+    const nextPosition = positions[Math.min(positions.length - 1, wholeIndex + 1)];
+    revealed.push(C.Cartesian3.lerp(positions[wholeIndex], nextPosition, clamped - wholeIndex, new C.Cartesian3()));
+    return revealed;
+  }, false);
   const completedRouteCore = viewer.entities.add({
-    polyline: { positions:[positions[0], positions[0]], width:7, clampToGround:true, zIndex:2, material:new C.ColorMaterialProperty(routeTrailColor) },
+    polyline: { positions:animatedRoutePositions, width:7, material:routeTrailColor },
   });
   const updateRouteHighlight = (routeIndex) => {
-    const clamped = Math.max(0, Math.min(positions.length - 1, routeIndex));
-    const wholeIndex = Math.floor(clamped);
-    const trailPositions = positions.slice(0, wholeIndex + 1);
-    const nextPosition = positions[Math.min(positions.length - 1, wholeIndex + 1)];
-    trailPositions.push(C.Cartesian3.lerp(positions[wholeIndex], nextPosition, clamped - wholeIndex, new C.Cartesian3()));
-    completedRouteCore.polyline.positions = trailPositions;
+    animatedRouteIndex = Math.max(0, Math.min(positions.length - 1, routeIndex));
   };
   const runner = viewer.entities.add({
     position: positions[0],
@@ -226,7 +228,7 @@
   };
   let cameraDetailsValue = '';
 
-  const overview = () => viewer.flyTo(routeEntities, { duration: 1.4, offset: new C.HeadingPitchRange(C.Math.toRadians(-24), C.Math.toRadians(-48), 36000) });
+  const overview = () => viewer.flyTo(routeEntity, { duration: 1.4, offset: new C.HeadingPitchRange(C.Math.toRadians(-24), C.Math.toRadians(-48), 36000) });
   const positionAt = (routeIndex) => {
     const clamped = Math.max(0, Math.min(positions.length - 1, routeIndex));
     const index = Math.floor(clamped);
@@ -709,7 +711,7 @@
     updateCamera(0, performance.now()); status.textContent = 'Début de la vidéo.';
   };
   rewindButton.addEventListener('click', rewindVideo);
-  resetButton.addEventListener('click', () => { stop(); progress = 0; timelineElapsedMs = 0; introElapsedMs = 0; outroElapsedMs = 0; outroActive = false; pauseRemainingMs = 0; poiDisplayRemainingMs = 0; passedPoiIndexes.clear(); setActivePoi(-1); smoothCameraPosition = null; smoothCameraTarget = null; runner.position = positions[0]; overview(); status.textContent = 'Vue générale de l’UTMB.'; });
+  resetButton.addEventListener('click', () => { stop(); progress = 0; timelineElapsedMs = 0; introElapsedMs = 0; outroElapsedMs = 0; outroActive = false; pauseRemainingMs = 0; poiDisplayRemainingMs = 0; passedPoiIndexes.clear(); setActivePoi(-1); smoothCameraPosition = null; smoothCameraTarget = null; runner.position = positions[0]; updateRouteHighlight(0); overview(); status.textContent = 'Vue générale de l’UTMB.'; });
   const renderExportFrame = () => {
     if (!recording || !exportCanvas) return;
     const context = exportCanvas.getContext('2d');
@@ -813,7 +815,7 @@
   explorer.scene.globe.depthTestAgainstTerrain = false;
   explorer.scene.requestRenderMode = false;
   explorer.creditDisplay.addStaticCredit(new C.Credit('<a href="https://www.maptiler.com/copyright/" target="_blank">© MapTiler</a> <a href="https://www.openstreetmap.org/copyright" target="_blank">© OpenStreetMap contributors</a>', true));
-  const explorerRoute = addPoiSegmentedRoute(explorer, .75);
+  const explorerRoute = addRoute(explorer, .75);
   const pointStyle = (type) => {
     if (type === 'start') return { color:C.Color.fromCssColorString('#38b876'), label:'Départ' };
     if (type === 'finish') return { color:C.Color.WHITE, label:'Arrivée' };

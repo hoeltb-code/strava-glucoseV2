@@ -325,10 +325,10 @@
     const context = canvas.getContext('2d');
     context.scale(scale, scale);
     drawRoundedRectangle(context, 2, 2, 336, 80, 5);
-    context.fillStyle = '#f6c547'; context.fill();
+    context.fillStyle = '#fff36a'; context.fill();
     context.strokeStyle = '#111111'; context.lineWidth = 2; context.stroke();
     context.fillStyle = '#111111'; context.font = '700 21px sans-serif';
-    context.fillText(String(item.name || 'Point de passage').slice(0, 23), 16, 33);
+    context.fillText(String(item.name || 'Point de passage').toUpperCase().slice(0, 23), 16, 33);
     context.fillStyle = '#111111'; context.font = '700 18px sans-serif';
     context.fillText(`KM ${Number(item.km || 0).toFixed(1)}  ·  D+ ${Math.round(Number(routePoint.elevation_gain_cumulative_m || 0))} m`, 16, 63);
     return canvas;

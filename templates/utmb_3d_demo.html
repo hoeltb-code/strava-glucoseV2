@@ -133,6 +133,11 @@
   };
   const routeYellow = C.Color.fromCssColorString('#f6c547');
   const routeTrailColor = C.Color.fromCssColorString('#fff36a');
+  const elevatedTrailPositions = route.map((point) => C.Cartesian3.fromDegrees(
+    point.longitude,
+    point.latitude,
+    Math.max(0, Number(point.elevation_m || 0)) + 6,
+  ));
   const addRoute = (map, opacity = .2) => map.entities.add({
     polyline: { positions, width:5, material:routeYellow.withAlpha(opacity), clampToGround:true, zIndex:0 },
   });
@@ -146,7 +151,7 @@
       minimumLevel: 0, maximumLevel: 20, tileWidth: 512, tileHeight: 512,
     })),
   });
-  viewer.scene.globe.depthTestAgainstTerrain = false;
+  viewer.scene.globe.depthTestAgainstTerrain = true;
   viewer.scene.globe.maximumScreenSpaceError = 1.25;
   viewer.scene.globe.tileCacheSize = 1000;
   viewer.scene.requestRenderMode = false;
@@ -159,11 +164,11 @@
   const routeEntity = addRoute(viewer);
   let animatedRouteIndex = 0;
   const animatedRoutePositions = new C.CallbackProperty(() => {
-    const clamped = Math.max(0, Math.min(positions.length - 1, animatedRouteIndex));
+    const clamped = Math.max(0, Math.min(elevatedTrailPositions.length - 1, animatedRouteIndex));
     const wholeIndex = Math.floor(clamped);
-    const revealed = positions.slice(0, wholeIndex + 1);
-    const nextPosition = positions[Math.min(positions.length - 1, wholeIndex + 1)];
-    revealed.push(C.Cartesian3.lerp(positions[wholeIndex], nextPosition, clamped - wholeIndex, new C.Cartesian3()));
+    const revealed = elevatedTrailPositions.slice(0, wholeIndex + 1);
+    const nextPosition = elevatedTrailPositions[Math.min(elevatedTrailPositions.length - 1, wholeIndex + 1)];
+    revealed.push(C.Cartesian3.lerp(elevatedTrailPositions[wholeIndex], nextPosition, clamped - wholeIndex, new C.Cartesian3()));
     return revealed;
   }, false);
   const completedRouteCore = viewer.entities.add({

@@ -187,7 +187,7 @@
   };
   const runner = viewer.entities.add({
     position: positions[0],
-    point: { pixelSize: 10, color: C.Color.WHITE, outlineColor: C.Color.BLACK, outlineWidth: 2, heightReference: C.HeightReference.CLAMP_TO_GROUND, disableDepthTestDistance:Number.POSITIVE_INFINITY },
+    point: { show:false, pixelSize:10, color:C.Color.WHITE, outlineColor:C.Color.BLACK, outlineWidth:2, heightReference:C.HeightReference.CLAMP_TO_GROUND },
     label: { text:'', show:false, font:'700 17px sans-serif', fillColor:C.Color.WHITE, outlineColor:C.Color.BLACK, outlineWidth:3, style:C.LabelStyle.FILL_AND_OUTLINE, showBackground:true, backgroundColor:C.Color.fromCssColorString('#17221c').withAlpha(.82), backgroundPadding:new C.Cartesian2(10, 7), pixelOffset:new C.Cartesian2(0, -82), heightReference:C.HeightReference.CLAMP_TO_GROUND, scaleByDistance:new C.NearFarScalar(1000, .95, 30000, .56) },
   });
   let animationFrame = null;

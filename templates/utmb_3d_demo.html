@@ -333,12 +333,38 @@
     context.fillText(`KM ${Number(item.km || 0).toFixed(1)}  ·  D+ ${Math.round(Number(routePoint.elevation_gain_cumulative_m || 0))} m`, 16, 63);
     return canvas;
   };
+  const poiPlanePose = (routeIndex) => {
+    const basePosition = positions[routeIndex];
+    const localUp = C.Ellipsoid.WGS84.geodeticSurfaceNormal(basePosition, new C.Cartesian3());
+    const before = positions[Math.max(0, routeIndex - 4)];
+    const after = positions[Math.min(positions.length - 1, routeIndex + 4)];
+    const rawTangent = C.Cartesian3.subtract(after, before, new C.Cartesian3());
+    const verticalPart = C.Cartesian3.multiplyByScalar(localUp, C.Cartesian3.dot(rawTangent, localUp), new C.Cartesian3());
+    const forward = C.Cartesian3.normalize(C.Cartesian3.subtract(rawTangent, verticalPart, new C.Cartesian3()), new C.Cartesian3());
+    const normal = C.Cartesian3.negate(forward, new C.Cartesian3());
+    const lateral = C.Cartesian3.normalize(C.Cartesian3.cross(localUp, normal, new C.Cartesian3()), new C.Cartesian3());
+    const rotation = new C.Matrix3();
+    C.Matrix3.setColumn(rotation, 0, normal, rotation);
+    C.Matrix3.setColumn(rotation, 1, lateral, rotation);
+    C.Matrix3.setColumn(rotation, 2, localUp, rotation);
+    return {
+      position:C.Cartesian3.add(basePosition, C.Cartesian3.multiplyByScalar(localUp, 48, new C.Cartesian3()), new C.Cartesian3()),
+      orientation:C.Quaternion.fromRotationMatrix(rotation),
+    };
+  };
   const poiEntries = coursePoints.map((item) => {
     const routeIndex = routeIndexForPoi(item);
     const routePoint = route[routeIndex];
+    const pose = poiPlanePose(routeIndex);
     const entity = viewer.entities.add({
-      position: positions[routeIndex],
-      billboard: { image:poiCanvas(item, routePoint), show:false, verticalOrigin:C.VerticalOrigin.BOTTOM, pixelOffset:new C.Cartesian2(0, -82), heightReference:C.HeightReference.CLAMP_TO_GROUND, scaleByDistance:new C.NearFarScalar(1000, 1, 30000, .64) },
+      position:pose.position,
+      orientation:pose.orientation,
+      plane: {
+        plane:new C.Plane(C.Cartesian3.UNIT_X, 0),
+        dimensions:new C.Cartesian2(260, 64),
+        material:new C.ImageMaterialProperty({ image:poiCanvas(item, routePoint, 2), transparent:true }),
+        show:false,
+      },
     });
     return { routeIndex, routePoint, item, entity };
   });
@@ -350,10 +376,6 @@
     runner.label.outlineWidth = 3 * roundedScale;
     runner.label.backgroundPadding = new C.Cartesian2(10 * roundedScale, 7 * roundedScale);
     runner.label.pixelOffset = new C.Cartesian2(0, -82 * roundedScale);
-    poiEntries.forEach((entry) => {
-      entry.entity.billboard.image = poiCanvas(entry.item, entry.routePoint, roundedScale);
-      entry.entity.billboard.pixelOffset = new C.Cartesian2(0, -82 * roundedScale);
-    });
   };
   const isDisplayedVideoPoi = (entry) => poiDisplaySelect.value === 'all' || ['aid_station', 'aid_station_assistance'].includes(entry.item.type);
   const timelinePoiEntries = () => poiEntries.filter((entry) => entry.routeIndex > 1 && entry.routeIndex < positions.length - 2 && isDisplayedVideoPoi(entry));
@@ -436,47 +458,15 @@
     context.strokeText(elevationLabel, textX, infoY + 84 * scale);
     context.fillText(elevationLabel, textX, infoY + 84 * scale);
 
-    if (activePoiIndex >= 0) {
-      const activePoi = poiEntries[activePoiIndex];
-      const poi = activePoi.item;
-      const screenPoint = C.SceneTransforms.wgs84ToWindowCoordinates(viewer.scene, positions[activePoi.routeIndex]);
-      if (!screenPoint) return;
-      const pointX = screenPoint.x * (width / Math.max(1, videoMapContainer.clientWidth));
-      const pointY = screenPoint.y * (height / Math.max(1, videoMapContainer.clientHeight));
-      const point = dataAt(activePoi.routeIndex);
-      const cardWidth = 230 * scale;
-      const titleFont = `700 ${23 * scale}px Manrope, sans-serif`;
-      context.font = titleFont;
-      const titleWords = String(poi.name || 'Point de passage').trim().split(/\s+/);
-      const titleLines = []; let currentLine = '';
-      titleWords.forEach((word) => {
-        const candidate = currentLine ? `${currentLine} ${word}` : word;
-        if (!currentLine || context.measureText(candidate).width <= cardWidth - 24 * scale) { currentLine = candidate; return; }
-        titleLines.push(currentLine); currentLine = word;
-      });
-      if (currentLine) titleLines.push(currentLine);
-      if (titleLines.length > 2) titleLines.splice(1, titleLines.length - 1, `${titleLines.slice(1).join(' ').slice(0, 22).trim()}…`);
-      const cardHeight = (titleLines.length > 1 ? 100 : 76) * scale;
-      const cardX = clamp(pointX - cardWidth / 2, inset, width - inset - cardWidth);
-      const cardY = clamp(pointY - 145 * scale, infoY + infoHeight + 12 * scale, height - inset - cardHeight);
-      context.beginPath(); context.moveTo(pointX, pointY - 8 * scale); context.lineTo(cardX + cardWidth / 2, cardY + cardHeight); context.strokeStyle = '#fff'; context.lineWidth = 1.35 * scale; context.stroke();
-      drawHudPanel(context, cardX, cardY, cardWidth, cardHeight, 5 * scale, { fill:'rgba(9,14,12,.84)', stroke:'#f6c547' });
-      context.fillStyle = '#fff'; context.font = titleFont; context.textAlign = 'center'; context.textBaseline = 'middle';
-      const titleStartY = cardY + (titleLines.length > 1 ? 24 : 29) * scale;
-      titleLines.forEach((line, index) => context.fillText(line, cardX + cardWidth / 2, titleStartY + index * 25 * scale));
-      context.fillStyle = '#f6c547'; context.font = `700 ${16 * scale}px "DM Mono", monospace`;
-      context.fillText(`KM ${Number(poi.km || point.distance_km).toFixed(1)}  ·  D+ ${Math.round(point.elevation_gain_cumulative_m)} m`, cardX + cardWidth / 2, cardY + cardHeight - 20 * scale);
-    }
   };
   const setActivePoi = (poiIndex) => {
     if (poiIndex === activePoiIndex) return;
-    if (activePoiIndex >= 0) poiEntries[activePoiIndex].entity.billboard.show = false;
+    if (activePoiIndex >= 0) poiEntries[activePoiIndex].entity.plane.show = false;
     activePoiIndex = poiIndex;
     runner.label.show = false;
     if (activePoiIndex >= 0) {
       const activePoi = poiEntries[activePoiIndex];
-      activePoi.entity.position = positions[activePoi.routeIndex];
-      activePoi.entity.billboard.show = false;
+      activePoi.entity.plane.show = true;
     }
   };
   const updateCamera = (routeIndex, now) => {

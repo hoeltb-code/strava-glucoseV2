@@ -436,13 +436,14 @@
     context.strokeText(elevationLabel, textX, infoY + 84 * scale);
     context.fillText(elevationLabel, textX, infoY + 84 * scale);
 
-    const screenPoint = C.SceneTransforms.wgs84ToWindowCoordinates(viewer.scene, positionAt(hudRouteIndex));
-    if (!screenPoint) return;
-    const pointX = screenPoint.x * (width / Math.max(1, videoMapContainer.clientWidth));
-    const pointY = screenPoint.y * (height / Math.max(1, videoMapContainer.clientHeight));
-    const point = dataAt(hudRouteIndex);
     if (activePoiIndex >= 0) {
-      const poi = poiEntries[activePoiIndex].item;
+      const activePoi = poiEntries[activePoiIndex];
+      const poi = activePoi.item;
+      const screenPoint = C.SceneTransforms.wgs84ToWindowCoordinates(viewer.scene, positions[activePoi.routeIndex]);
+      if (!screenPoint) return;
+      const pointX = screenPoint.x * (width / Math.max(1, videoMapContainer.clientWidth));
+      const pointY = screenPoint.y * (height / Math.max(1, videoMapContainer.clientHeight));
+      const point = dataAt(activePoi.routeIndex);
       const cardWidth = 230 * scale;
       const titleFont = `700 ${23 * scale}px Manrope, sans-serif`;
       context.font = titleFont;
@@ -472,14 +473,17 @@
     if (activePoiIndex >= 0) poiEntries[activePoiIndex].entity.billboard.show = false;
     activePoiIndex = poiIndex;
     runner.label.show = false;
-    if (activePoiIndex >= 0) poiEntries[activePoiIndex].entity.billboard.show = false;
+    if (activePoiIndex >= 0) {
+      const activePoi = poiEntries[activePoiIndex];
+      activePoi.entity.position = positions[activePoi.routeIndex];
+      activePoi.entity.billboard.show = false;
+    }
   };
   const updateCamera = (routeIndex, now) => {
     hudRouteIndex = routeIndex;
     updateRouteHighlight(routeIndex);
     const current = positionAt(routeIndex);
     runner.position = current;
-    if (activePoiIndex >= 0) poiEntries[activePoiIndex].entity.position = current;
     // La caméra ne regarde pas le coureur à la verticale : elle parcourt une
     // version lissée de la trace, reste en arrière et vise la suite du parcours.
     const currentKm = dataAt(routeIndex).distance_km;

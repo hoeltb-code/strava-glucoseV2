@@ -325,11 +325,11 @@
     const context = canvas.getContext('2d');
     context.scale(scale, scale);
     drawRoundedRectangle(context, 2, 2, 336, 80, 5);
-    context.fillStyle = 'rgba(0,0,0,.50)'; context.fill();
-    context.strokeStyle = '#ff5a36'; context.lineWidth = 2; context.stroke();
-    context.fillStyle = '#ffffff'; context.font = '700 21px sans-serif';
+    context.fillStyle = '#f6c547'; context.fill();
+    context.strokeStyle = '#111111'; context.lineWidth = 2; context.stroke();
+    context.fillStyle = '#111111'; context.font = '700 21px sans-serif';
     context.fillText(String(item.name || 'Point de passage').slice(0, 23), 16, 33);
-    context.fillStyle = '#ffd3c6'; context.font = '700 18px sans-serif';
+    context.fillStyle = '#111111'; context.font = '700 18px sans-serif';
     context.fillText(`KM ${Number(item.km || 0).toFixed(1)}  ·  D+ ${Math.round(Number(routePoint.elevation_gain_cumulative_m || 0))} m`, 16, 63);
     return canvas;
   };
@@ -348,7 +348,7 @@
     C.Matrix3.setColumn(rotation, 1, lateral, rotation);
     C.Matrix3.setColumn(rotation, 2, localUp, rotation);
     return {
-      position:C.Cartesian3.add(basePosition, C.Cartesian3.multiplyByScalar(localUp, 48, new C.Cartesian3()), new C.Cartesian3()),
+      position:C.Cartesian3.add(basePosition, C.Cartesian3.multiplyByScalar(localUp, 144, new C.Cartesian3()), new C.Cartesian3()),
       orientation:C.Quaternion.fromRotationMatrix(rotation),
     };
   };
@@ -361,7 +361,7 @@
       orientation:pose.orientation,
       plane: {
         plane:new C.Plane(C.Cartesian3.UNIT_X, 0),
-        dimensions:new C.Cartesian2(260, 64),
+        dimensions:new C.Cartesian2(520, 128),
         material:new C.ImageMaterialProperty({ image:poiCanvas(item, routePoint, 2), transparent:true }),
         show:false,
       },

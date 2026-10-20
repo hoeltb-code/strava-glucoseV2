@@ -471,17 +471,14 @@
       titleSize -= scale;
       context.font = `800 ${titleSize}px "Open Sans", sans-serif`;
     }
-    context.lineJoin = 'round'; context.lineWidth = 2.4 * scale;
-    context.strokeStyle = '#fff'; context.strokeText(title, textX, infoY + 28 * scale);
+    context.lineJoin = 'round'; context.lineWidth = 1.2 * scale;
+    context.strokeStyle = '#000'; context.strokeText(title, textX, infoY + 28 * scale);
     context.fillStyle = '#ffbd59'; context.fillText(title, textX, infoY + 28 * scale);
     const eventTitle = String(courseEventName || '').toUpperCase();
-    context.lineWidth = 2 * scale; context.strokeStyle = '#000';
     context.fillStyle = '#fff'; context.font = `800 ${20 * scale}px "Open Sans", sans-serif`;
-    context.strokeText(eventTitle, textX, infoY + 57 * scale);
     context.fillText(eventTitle, textX, infoY + 57 * scale);
     const elevationLabel = `${Math.round(routeDistanceKm).toLocaleString('fr-FR')}km - ${Math.round(Number(courseElevationGain || 0)).toLocaleString('fr-FR')}m D+`;
     context.fillStyle = '#f3f3f3'; context.font = `700 ${16 * scale}px "Open Sans", sans-serif`;
-    context.strokeText(elevationLabel, textX, infoY + 84 * scale);
     context.fillText(elevationLabel, textX, infoY + 84 * scale);
 
   };

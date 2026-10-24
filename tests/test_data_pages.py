@@ -70,7 +70,7 @@ class DataPagesTests(unittest.TestCase):
     def tearDownClass(cls):cls.client.close();cls.stack.close();cls.engine.dispose()
 
     def test_read_only_pages_render_with_data(self):
-        for url,text in [('/ui/user/10','home-target-pacing-curve'),('/ui/user/10/activities','Dernières activités'),('/ui/user/10/runner-profile?tab=pace','Ton profil de course'),('/ui/user/10/activity/100','Détail de la sortie'),('/ui/user/10/activity/100?tab=glycemia','glucose-distribution')]:
+        for url,text in [('/ui/user/10','Ton profil coureur'),('/ui/user/10/activities','Dernières activités'),('/ui/user/10/runner-profile?tab=pace','Ton profil de course'),('/ui/user/10/activity/100','Détail de la sortie'),('/ui/user/10/activity/100?tab=glycemia','glucose-distribution')]:
             with self.subTest(url=url):
                 self.statements.clear();r=self.client.get(url)
                 self.assertEqual(r.status_code,200,r.text[:1000]);self.assertIn(text,r.text)
@@ -86,17 +86,23 @@ class DataPagesTests(unittest.TestCase):
         def labels(css_class):
             nav = re.search(r'<nav class="' + css_class + r'".*?</nav>', activity, re.S).group()
             return [unescape(re.sub(r'<[^>]+>', '', link)).strip() for link in re.findall(r'<a .*?</a>', nav, re.S)]
-        self.assertEqual(labels('primary-nav'), ['Planifier', 'Activités', 'Compte', 'Mes données'])
-        self.assertEqual(labels('mobile-bottom-nav'), ['Plan', 'Sorties', 'Compte', 'Data'])
+        self.assertEqual(labels('primary-nav'), ['Accueil', 'Activités', 'Compte', 'Mes données'])
+        self.assertEqual(labels('mobile-bottom-nav'), ['Accueil', 'Sorties', 'Compte', 'Data'])
         self.assertNotIn('data-advanced', activity)
         self.assertEqual(activity.count('class="activity-tab-link'), 7)
         self.assertIn('Énergie estimée', activity)
         self.assertEqual(activity.count('class="terrain-energy"'), 3)
         plan = self.client.get('/ui/user/10').text
+        self.assertIn('Cartographie de ton moteur', plan)
+        self.assertNotIn('home-target-pacing-curve', plan)
+        self.assertNotIn('Mes plans de course', plan)
         self.assertNotIn('plan-energy', plan)
         self.assertNotIn('EnergyModel', plan)
         self.assertNotIn('/10/energy', plan)
         self.assertEqual(self.client.get('/ui/user/10/energy').status_code, 404)
+        self.assertEqual(self.client.get('/ui/user/10/course-simulator').status_code, 200)
+        self.assertEqual(self.client.post('/ui/user/10/course-plans', json={}).status_code, 404)
+        self.assertEqual(self.client.post('/ui/user/10/course-plan/checkout', json={}).status_code, 404)
 
     def test_median_reference_api_and_empty_states(self):
         r=self.client.get('/ui/user/10/runner-profile?format=json')
@@ -175,8 +181,8 @@ class DataPagesTests(unittest.TestCase):
         self.client.post('/ui/user/10/profile',data={**common,'desc_settings_present':'1','desc_format':'compact'},follow_redirects=False)
         with self.factory() as db:self.assertFalse(db.query(UserSettings).filter_by(user_id=10).one().desc_include_energy)
 
-    def test_plan_and_strava_settings_render(self):
-        for url,text in [('/ui/user/10?view=plan','home-target-pacing-curve'),('/ui/user/10/profile','desc_include_energy')]:
+    def test_runner_profile_and_strava_settings_render(self):
+        for url,text in [('/ui/user/10?view=plan','Cartographie de ton moteur'),('/ui/user/10/profile','desc_include_energy')]:
             r=self.client.get(url);self.assertEqual(r.status_code,200,r.text[:1000]);self.assertIn(text,r.text)
 
 if __name__=='__main__':unittest.main()

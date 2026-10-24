@@ -928,6 +928,100 @@ def _reference_pace_payload(db, profile, user_id, sport="run"):
     return reference
 
 
+def _dashboard_runner_identity(profile: dict | None, cohort: dict | None, user: User, recent: list[Activity]) -> dict:
+    """Synthèse lisible du profil, sans transformer un indice en mesure physiologique."""
+    zones = (profile or {}).get("zones") or {}
+    cohort_zones = (cohort or {}).get("zones") or {}
+    terrain_specs = (
+        ("flat", "À plat", ("S0_5",), "Vitesse de référence"),
+        ("climb", "En montée", ("S10_15", "S15_20", "S5_10"), "VAM de référence"),
+        ("descent", "En descente", ("Sneg10_15", "Sneg5_10", "Sneg15_20"), "Vitesse de référence"),
+    )
+
+    def documented_cell(slope_ids):
+        for zone_name in ("Zone 2", "Zone 3", "Zone 1", "Zone 4", "Zone 5"):
+            zone_cells = zones.get(zone_name) or {}
+            for slope_id in slope_ids:
+                cell = zone_cells.get(slope_id) or {}
+                pace = cell.get("avg_pace_s_per_km")
+                if pace and pace > 0:
+                    return zone_name, slope_id, cell
+        return None, None, {}
+
+    def cohort_score(zone_name, slope_id, pace):
+        benchmark = ((cohort_zones.get(zone_name) or {}).get(slope_id) or {})
+        if benchmark.get("count", 0) < 8 or not pace:
+            return None, None
+        p10, p50, p90 = benchmark.get("p10"), benchmark.get("p50"), benchmark.get("p90")
+        if not all(isinstance(value, (int, float)) and value > 0 for value in (p10, p50, p90)):
+            return None, None
+        if pace <= p10:
+            score = 90
+        elif pace <= p50:
+            score = 90 - 40 * (pace - p10) / max(1, p50 - p10)
+        elif pace <= p90:
+            score = 50 - 40 * (pace - p50) / max(1, p90 - p50)
+        else:
+            score = 10
+        score = int(round(max(5, min(95, score))))
+        faster_than = score
+        return score, f"Plus rapide que {faster_than} % du groupe de référence"
+
+    terrain = []
+    for key, label, slope_ids, metric_label in terrain_specs:
+        zone_name, slope_id, cell = documented_cell(slope_ids)
+        pace = cell.get("avg_pace_s_per_km")
+        speed = 3600.0 / pace if pace and pace > 0 else None
+        vam = cell.get("avg_vam_m_per_h")
+        score, comparison = cohort_score(zone_name, slope_id, pace)
+        if key == "climb" and vam is not None:
+            value, unit = int(round(vam)), "m/h"
+        elif speed is not None:
+            value, unit = round(speed, 1), "km/h"
+        else:
+            value, unit = None, ""
+        terrain.append({
+            "key": key,
+            "label": label,
+            "metric_label": metric_label,
+            "value": value,
+            "unit": unit,
+            "score": score,
+            "comparison": comparison or "Référence collective en construction",
+            "zone": zone_name,
+            "slope_id": slope_id,
+        })
+
+    valid_scores = [item["score"] for item in terrain if item["score"] is not None]
+    global_score = int(round(sum(valid_scores) / len(valid_scores))) if valid_scores else None
+    if global_score is None:
+        level_label = "Profil en construction"
+    elif global_score >= 80:
+        level_label = "Moteur très performant"
+    elif global_score >= 65:
+        level_label = "Moteur performant"
+    elif global_score >= 45:
+        level_label = "Moteur équilibré"
+    else:
+        level_label = "Base en progression"
+
+    heart_values = [float(activity.average_heartrate) for activity in recent if activity.average_heartrate]
+    average_hr = int(round(sum(heart_values) / len(heart_values))) if heart_values else None
+    max_hr = compute_user_fc_max(user)
+    heart_load = int(round(average_hr / max_hr * 100)) if average_hr and max_hr else None
+    return {
+        "silhouette": "female" if user.sex == "female" else "male" if user.sex == "male" else "neutral",
+        "global_score": global_score,
+        "level_label": level_label,
+        "terrain": terrain,
+        "average_hr": average_hr,
+        "max_hr": int(round(max_hr)) if max_hr else None,
+        "heart_load": heart_load,
+        "activities_sample": len(recent),
+        "comparison_available": bool(valid_scores),
+    }
+
+
 def _percentile_from_sorted(values: list[float], quantile: float) -> float | None:
     """Percentile interpolé, sans dépendance externe."""
     if not values:
@@ -947,7 +1041,7 @@ def _build_anonymized_pace_benchmarks(
     minimum_runners: int = 8,
     minimum_cell_duration_sec: int = 300,
 ) -> dict:
-    """Construit des repères anonymisés P20/P50/P80 par zone et pente.
+    """Construit des repères anonymisés P10/P20/P50/P80/P90 par zone et pente.
 
     Chaque coureur ne contribue qu'une fois à une cellule, avec son allure
     moyenne pondérée par durée. Cela évite de surpondérer les utilisateurs qui
@@ -2411,6 +2505,7 @@ ENRICHMENT_RETRYABLE_REASONS = {
     "strava_update_error",
     "activity_busy",
 }
+PLAN_BUILDER_ENABLED = False
 
 class CachedStaticFiles(StaticFiles):
     """Conserve les assets locaux dans le navigateur et le CDN pendant 24 h."""
@@ -7685,6 +7780,8 @@ async def ui_save_course_plan(
     guard = _guard_user_route(request, user_id)
     if guard:
         return guard
+    if not PLAN_BUILDER_ENABLED:
+        raise HTTPException(status_code=404, detail="Plan de course temporairement indisponible.")
     user = db.query(User).filter(User.id == user_id).one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="Utilisateur introuvable.")
@@ -7701,6 +7798,8 @@ def ui_get_course_plan(request: Request, user_id: int, plan_id: str, db: Session
     guard = _guard_user_route(request, user_id)
     if guard:
         return guard
+    if not PLAN_BUILDER_ENABLED:
+        raise HTTPException(status_code=404, detail="Plan de course temporairement indisponible.")
     course_plan = db.query(CoursePlan).filter(
         CoursePlan.id == plan_id,
         CoursePlan.user_id == user_id,
@@ -7716,6 +7815,8 @@ def ui_archive_course_plan(request: Request, user_id: int, plan_id: str, db: Ses
     guard = _guard_user_route(request, user_id)
     if guard:
         return guard
+    if not PLAN_BUILDER_ENABLED:
+        raise HTTPException(status_code=404, detail="Plan de course temporairement indisponible.")
     course_plan = db.query(CoursePlan).filter(
         CoursePlan.id == plan_id,
         CoursePlan.user_id == user_id,
@@ -7738,6 +7839,8 @@ async def ui_send_course_plan_email(
     guard = _guard_user_route(request, user_id)
     if guard:
         return guard
+    if not PLAN_BUILDER_ENABLED:
+        raise HTTPException(status_code=404, detail="Plan de course temporairement indisponible.")
     user = db.query(User).filter(User.id == user_id).first()
     if not user or not user.email:
         raise HTTPException(status_code=404, detail="Adresse e-mail du compte introuvable.")
@@ -7860,6 +7963,8 @@ async def ui_create_course_plan_checkout(
     guard = _guard_user_route(request, user_id)
     if guard:
         return guard
+    if not PLAN_BUILDER_ENABLED:
+        raise HTTPException(status_code=404, detail="Plan de course temporairement indisponible.")
     if not _payment_pilot_allowed(user_id):
         raise HTTPException(status_code=404, detail="Paiement indisponible pour ce compte.")
     product = (product or "").strip().lower()
@@ -9403,7 +9508,8 @@ def ui_user_dashboard(user_id: int, request: Request):
         return guard
     dashboard_started_at = time.perf_counter()
 
-    custom_course_mode = request.query_params.get("mode") == "custom"
+    plan_builder_enabled = PLAN_BUILDER_ENABLED
+    custom_course_mode = plan_builder_enabled and request.query_params.get("mode") == "custom"
 
     db = SessionLocal()
 
@@ -9427,7 +9533,7 @@ def ui_user_dashboard(user_id: int, request: Request):
     dashboard_pace_lookup = {}
     dashboard_modeled_pace_lookup = {}
     dashboard_hr_zones = [name for (name, _, _) in HR_ZONES]
-    official_courses = _load_official_course_catalog()
+    official_courses = _load_official_course_catalog() if plan_builder_enabled else []
     daily_glucose_chart = []
     daily_activity_windows = []
     daily_glucose_window_label = None
@@ -9442,6 +9548,17 @@ def ui_user_dashboard(user_id: int, request: Request):
     saved_course_plans = []
     resume_course_plan = None
     recent_stream_points_count = 0
+    runner_identity = {
+        "silhouette": "neutral",
+        "global_score": None,
+        "level_label": "Profil en construction",
+        "terrain": [],
+        "average_hr": None,
+        "max_hr": None,
+        "heart_load": None,
+        "activities_sample": 0,
+        "comparison_available": False,
+    }
 
     try:
         user = db.query(User).get(user_id)
@@ -9459,21 +9576,22 @@ def ui_user_dashboard(user_id: int, request: Request):
                 """,
                 status_code=404,
             )
-        if _payment_pilot_allowed(user_id):
+        if plan_builder_enabled and _payment_pilot_allowed(user_id):
             plan_credits = _get_plan_credit_wallet(db, user_id).credits
             has_purchased_plan = _has_purchased_individual_plan(db, user_id)
-        _backfill_legacy_course_plans(db, user_id)
-        plan_download_count = db.query(CoursePlanDownload.id).filter(CoursePlanDownload.user_id == user_id).count()
-        course_plan_rows = (
-            db.query(CoursePlan)
-            .filter(CoursePlan.user_id == user_id, CoursePlan.status != "archived")
-            .order_by(CoursePlan.updated_at.desc(), CoursePlan.created_at.desc())
-            .all()
-        )
-        saved_course_plans = [_serialize_course_plan(item) for item in course_plan_rows]
-        resume_plan_id = str(request.query_params.get("plan") or "").strip()
-        if resume_plan_id:
-            resume_course_plan = next((item for item in saved_course_plans if item["id"] == resume_plan_id), None)
+        if plan_builder_enabled:
+            _backfill_legacy_course_plans(db, user_id)
+            plan_download_count = db.query(CoursePlanDownload.id).filter(CoursePlanDownload.user_id == user_id).count()
+            course_plan_rows = (
+                db.query(CoursePlan)
+                .filter(CoursePlan.user_id == user_id, CoursePlan.status != "archived")
+                .order_by(CoursePlan.updated_at.desc(), CoursePlan.created_at.desc())
+                .all()
+            )
+            saved_course_plans = [_serialize_course_plan(item) for item in course_plan_rows]
+            resume_plan_id = str(request.query_params.get("plan") or "").strip()
+            if resume_plan_id:
+                resume_course_plan = next((item for item in saved_course_plans if item["id"] == resume_plan_id), None)
 
         _maybe_refresh_glucose_for_page_view(db, user, page_name="dashboard")
 
@@ -9913,10 +10031,9 @@ def ui_user_dashboard(user_id: int, request: Request):
         # ---------------------------
         # 📦 Volume hebdo moyen + SL
         # ---------------------------
-        volume_summary = get_cached_volume_weekly_summary(
-            db,
-            user_id=user_id,
-            sport="run",
+        volume_summary = (
+            get_cached_volume_weekly_summary(db, user_id=user_id, sport="run")
+            if plan_builder_enabled else None
         )
 
         # Le dashboard est désormais le point d'entrée de la projection :
@@ -9929,21 +10046,31 @@ def ui_user_dashboard(user_id: int, request: Request):
         )
         if not runner_profile_overview or not runner_profile_overview.get("zones"):
             runner_profile_overview = build_runner_profile(db, user_id=user_id, sport="run")
-        dashboard_pace_lookup = _build_pace_lookup_from_profile(
-            runner_profile_overview,
-            dashboard_hr_zones,
+        dashboard_cohort_curves = _build_anonymized_pace_benchmarks(
+            db,
+            sport="run",
+            excluded_user_id=user_id,
         )
-        dashboard_pace_reference = _reference_pace_payload(db, runner_profile_overview, user_id, "run")
-        dashboard_modeled_pace_lookup = dashboard_pace_reference["lookup"]
-        dashboard_cohort_curves = dashboard_pace_reference["cohort"]
+        runner_identity = _dashboard_runner_identity(
+            runner_profile_overview,
+            dashboard_cohort_curves,
+            user,
+            recent,
+        )
+        if plan_builder_enabled:
+            dashboard_pace_lookup = _build_pace_lookup_from_profile(
+                runner_profile_overview,
+                dashboard_hr_zones,
+            )
+            dashboard_pace_reference = _reference_pace_payload(db, runner_profile_overview, user_id, "run")
+            dashboard_modeled_pace_lookup = dashboard_pace_reference["lookup"]
 
         # ---------------------------
         # 🧗‍♂️ Meilleurs D+ / VAM et projections chrono
         # ---------------------------
-        dplus_windows = get_cached_dplus_windows(
-            db,
-            user_id=user_id,
-            sport="run",
+        dplus_windows = (
+            get_cached_dplus_windows(db, user_id=user_id, sport="run")
+            if plan_builder_enabled else []
         )
         if dplus_windows:
             lookup_windows = {item["window_id"]: item for item in dplus_windows if item.get("window_id")}
@@ -9962,19 +10089,20 @@ def ui_user_dashboard(user_id: int, request: Request):
                     }
                 )
 
-        series_matrix = get_series_splits_matrix(
-            db,
-            user_id=user_id,
-            sport="run",
-        )
-        dash_distance_efforts = get_cached_distance_efforts(
-            db,
-            user_id=user_id,
-            sport="run",
-        )
-        dash_distance_projections = (
-            compute_distance_projections(series_matrix, dash_distance_efforts) if series_matrix else []
-        )
+        if plan_builder_enabled:
+            series_matrix = get_series_splits_matrix(
+                db,
+                user_id=user_id,
+                sport="run",
+            )
+            dash_distance_efforts = get_cached_distance_efforts(
+                db,
+                user_id=user_id,
+                sport="run",
+            )
+            dash_distance_projections = (
+                compute_distance_projections(series_matrix, dash_distance_efforts) if series_matrix else []
+            )
 
         # ---------------------------
         # 🧭 Répartition des sports (28 derniers jours)
@@ -9994,7 +10122,7 @@ def ui_user_dashboard(user_id: int, request: Request):
             .filter(models.RunnerProfileActivityContribution.activity_start_date.isnot(None))
             .filter(models.RunnerProfileActivityContribution.activity_start_date >= mix_since)
             .all()
-        )
+        ) if plan_builder_enabled else []
 
         agg = defaultdict(lambda: {"count": 0, "distance_m": 0.0, "duration_s": 0.0, "dplus_m": 0.0})
         for row in recent_activities:
@@ -10068,7 +10196,7 @@ def ui_user_dashboard(user_id: int, request: Request):
             .filter(models.UserVamPR.user_id == user_id)
             .order_by(models.UserVamPR.sport.asc(), models.UserVamPR.window_min.asc())
             .all()
-        )
+        ) if plan_builder_enabled else []
 
         # ---------------------------
         # (supprimé) Tableau VAM par bandes de pente — on ne charge plus cette section
@@ -10096,7 +10224,7 @@ def ui_user_dashboard(user_id: int, request: Request):
              .group_by(models.ActivityZoneSlopeAgg.slope_band, models.ActivityZoneSlopeAgg.sport)
              .order_by(models.ActivityZoneSlopeAgg.slope_band.asc())
              .all()
-        )
+        ) if plan_builder_enabled else []
 
         vam_by_slope = []
         for row in vam_by_slope_rows:
@@ -10192,6 +10320,8 @@ def ui_user_dashboard(user_id: int, request: Request):
             "show_daily_glucose": show_daily_glucose,
             "dashboard_warning": dashboard_warning,
             "custom_course_mode": custom_course_mode,
+            "plan_builder_enabled": plan_builder_enabled,
+            "runner_identity": runner_identity,
             "plan_payment_test_enabled": _payment_pilot_allowed(user_id),
             "plan_credits": plan_credits,
             "has_purchased_plan": has_purchased_plan,
@@ -10217,6 +10347,8 @@ def ui_user_custom_course_simulator(user_id: int, request: Request):
     guard = _guard_user_route(request, user_id)
     if guard:
         return guard
+    if not PLAN_BUILDER_ENABLED:
+        return RedirectResponse(url=f"/ui/user/{user_id}#runner-profile", status_code=303)
     return RedirectResponse(url=f"/ui/user/{user_id}?mode=custom#simulation", status_code=303)
 
 

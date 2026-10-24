@@ -15,9 +15,6 @@ class StravaClientTests(unittest.TestCase):
         token = SimpleNamespace(refresh_token="refresh-token")
         lookup_db = MagicMock()
         delete_db = MagicMock()
-        client = StravaClient(user_id=42)
-        client._get_token_record = MagicMock(return_value=token)
-
         response = MagicMock()
         http_client = MagicMock()
         http_client.post = AsyncMock(return_value=response)
@@ -25,10 +22,15 @@ class StravaClientTests(unittest.TestCase):
         async_context.__aenter__ = AsyncMock(return_value=http_client)
         async_context.__aexit__ = AsyncMock(return_value=None)
 
-        with patch("app.strava_client.SessionLocal", side_effect=[lookup_db, delete_db]), patch(
-            "app.strava_client.httpx.AsyncClient", return_value=async_context
+        with patch("app.strava_client.STRAVA_CLIENT_ID", "test"), patch(
+            "app.strava_client.STRAVA_CLIENT_SECRET", "test"
         ):
-            revoked = asyncio.run(client.revoke_authorization())
+            client = StravaClient(user_id=42)
+            client._get_token_record = MagicMock(return_value=token)
+            with patch("app.strava_client.SessionLocal", side_effect=[lookup_db, delete_db]), patch(
+                "app.strava_client.httpx.AsyncClient", return_value=async_context
+            ):
+                revoked = asyncio.run(client.revoke_authorization())
 
         self.assertTrue(revoked)
         http_client.post.assert_awaited_once_with(

@@ -61,7 +61,7 @@
       {% if session_user_id %}
       <nav class="primary-nav" aria-label="Navigation principale">
         <a class="nav-link home-link {% if current_path == '/ui/user/' ~ session_user_id %}is-active{% endif %}" href="/ui/user/{{ session_user_id }}">
-          <span class="nav-label">Planifier</span>
+          <span class="nav-label">Accueil</span>
         </a>
         <a class="nav-link {% if '/activities' in current_path or '/activity/' in current_path %}is-active{% endif %}" href="/ui/user/{{ session_user_id }}/activities">
           <span class="nav-label">Activités</span>
@@ -108,7 +108,7 @@
   {% if session_user_id %}
   <nav class="mobile-bottom-nav" aria-label="Navigation principale mobile">
     <a class="{% if current_path == '/ui/user/' ~ session_user_id %}is-active{% endif %}" href="/ui/user/{{ session_user_id }}">
-      <span class="label">Plan</span>
+      <span class="label">Accueil</span>
     </a>
     <a class="{% if '/activities' in current_path or '/activity/' in current_path %}is-active{% endif %}" href="/ui/user/{{ session_user_id }}/activities">
       <span class="label">Sorties</span>

@@ -7,7 +7,8 @@
 <script defer src="/static/js/pace-curve.js?v=2"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
 {% endif %}
-<link rel="stylesheet" href="/static/css/user_dashboard-1.css?v=2">
+<link rel="stylesheet" href="/static/css/user_dashboard-1.css?v=3">
+<link rel="stylesheet" href="/static/css/runner-studio.css?v=1">
 {% endblock %}
 
 {% block content %}
@@ -3099,89 +3100,72 @@
 
 {% endif %}
 {% else %}
-<section class="runner-identity" id="runner-profile" aria-labelledby="runner-identity-title">
-  <div class="runner-profile-overview">
-    <div class="runner-profile-person">
-      <div>
-        <p class="dashboard-eyebrow">Vue d’ensemble</p>
-        <h2 id="runner-identity-title">Ton profil coureur</h2>
-        <p>Forces documentées sur le plat, en montée et en descente, à partir de tes sorties et de tes zones cardio.</p>
-        <div class="runner-profile-tags">
-          <span>◉ {{ runner_identity.activities_sample }} sortie{% if runner_identity.activities_sample != 1 %}s{% endif %} récente{% if runner_identity.activities_sample != 1 %}s{% endif %}</span>
-          {% if runner_identity.average_hr %}<span>♥ {{ runner_identity.average_hr }} bpm moyens</span>{% endif %}
-          <span>↗ {{ runner_identity.level_label }}</span>
-        </div>
-      </div>
-    </div>
-    <div class="runner-engine-score{% if runner_identity.global_score is none %} is-pending{% endif %}">
-      <span>Score global</span>
-      <strong>{% if runner_identity.global_score is not none %}{{ runner_identity.global_score }}<small>/100</small>{% else %}—{% endif %}</strong>
-      <em>{{ runner_identity.level_label }}</em>
-    </div>
+<section class="runner-studio" id="runner-profile" aria-labelledby="runner-identity-title">
+  <header class="rs-header">
+    <div><span class="rs-eyebrow">PERFORMANCE TRAIL / VUE D’ENSEMBLE</span><h2 id="runner-identity-title">{{ user.first_name or '' }} <span>Ton profil coureur</span></h2><p>Comprendre ton rythme. Repérer tes points forts.</p></div>
+    <a href="/ui/user/{{ user.id }}/runner-profile">Toutes mes données ↗</a>
+  </header>
+  <div class="rs-summary">
+    <span>Course à pied · parmi tes {{ runner_identity.activities_sample }} dernières activités</span>
+    <strong>{{ runner_identity.recent_distance|default(0) }} <small>km</small></strong>
+    <strong>{{ runner_identity.recent_gain|default(0) }} <small>m D+</small></strong>
+    <strong>{{ runner_identity.average_hr or '—' }} <small>bpm moyens · activités récentes</small></strong>
   </div>
-
-  <div class="runner-comparison-head">
-    <div><h3>Comparaison au collectif</h3><p>Ton positionnement anonymisé par rapport aux autres coureurs documentés.</p></div>
-    <span>Plus le score est haut, mieux c’est</span>
-  </div>
-  <div class="runner-performance-map">
+  <div class="rs-main">
+    <article class="rs-panel rs-curve">
+      <div class="rs-panel-heading"><div><span class="rs-eyebrow">01 / TON RYTHME</span><h3>À chaque pente, ton allure.</h3></div><span class="rs-zone">{{ (runner_identity.pace_chart|default({})).zone|default('Zone 2') }}</span></div>
+      <p class="rs-caption">Allure moyenne à zone cardio identique · plus haut = plus rapide</p>
+      {% set chart = runner_identity.pace_chart|default({}) %}
+      {% if chart.has_data %}
+      <svg viewBox="0 0 760 290" role="img" aria-label="Allure en minutes par kilomètre selon la pente, toi et médiane du collectif">
+        <rect x="58" y="32" width="330" height="210" fill="#f2f0fc"/><rect x="388" y="32" width="330" height="210" fill="#edf7f3"/>
+        {% for tick in chart.ticks %}<path d="M58 {{ tick.y }}H718" class="rs-grid"/><text x="45" y="{{ tick.y+4 }}" text-anchor="end">{{ tick.label }}</text>{% endfor %}
+        <path d="M388 32V242" class="rs-zero"/>
+        {% for series in chart.series %}
+        {% set personal = loop.first %}
+        {% for path in series.paths %}<path d="{{ path }}" class="rs-line{% if not personal %} rs-line--cohort{% endif %}"/>{% endfor %}
+        {% for point in series.points %}<circle cx="{{ point.x }}" cy="{{ point.y }}" r="4" class="rs-dot{% if not personal %} rs-dot--cohort{% endif %}"><title>{{ 'Toi' if personal else 'Collectif' }} · {{ point.label }}</title></circle>{% endfor %}
+        {% endfor %}
+        <text x="58" y="265">−30 %</text><text x="223" y="265" text-anchor="middle">−15 %</text><text x="388" y="265" text-anchor="middle">0 %</text><text x="553" y="265" text-anchor="middle">+15 %</text><text x="718" y="265" text-anchor="end">+30 %</text>
+      </svg>
+      {% else %}<div class="rs-empty">Tes courbes apparaîtront dès que tes sorties contiendront suffisamment de données de pente et de cardio.</div>{% endif %}
+      <div class="rs-legend"><span>● Toi</span><span>┄ Médiane du collectif, si disponible</span><small>Descente ← pente → Montée</small></div>
+    </article>
+    <aside class="rs-terrain">
+      <h3>Comparaison au collectif</h3>
       {% for item in runner_identity.terrain or [] %}
-      <article class="runner-performance-card runner-performance-card--{{ item.key }}">
-        <div class="runner-performance-icon">{% if item.key == 'climb' %}↗{% elif item.key == 'descent' %}↘{% else %}→{% endif %}</div>
-        <div class="runner-performance-copy"><span>{{ item.label }}</span><strong>{% if item.value is not none %}{{ item.value }} <small>{{ item.unit }}</small>{% else %}Données à construire{% endif %}</strong><em>{{ item.metric_label }}{% if item.zone %} · {{ item.zone }}{% endif %}</em></div>
-        <div class="runner-performance-rank"><span>{% if item.score is not none %}{{ item.score }}/100{% else %}—{% endif %}</span><div><i style="width:{{ item.score or 6 }}%"></i></div><small>{{ item.comparison }}</small></div>
+      <article class="rs-terrain-card rs-terrain--{{ item.key }}">
+        <div><span>{{ item.label }}</span><b>{{ '↗' if item.key == 'climb' else '↘' if item.key == 'descent' else '→' }}</b></div>
+        <strong>{{ item.value if item.value is not none else '—' }} <small>{{ item.unit }}</small></strong>
+        <p>{{ item.metric_label }} · {{ item.zone or 'Zone à documenter' }}</p>
+        <div class="rs-track"><i style="width:{{ item.score or 0 }}%"></i></div>
+        <small>{{ item.comparison }}</small>
       </article>
       {% endfor %}
+    </aside>
   </div>
-
-  <div class="runner-vitals">
-    <article><span>FC moyenne observée</span><strong>{% if runner_identity.average_hr %}{{ runner_identity.average_hr }}<small> bpm</small>{% else %}—{% endif %}</strong><em>Sur les sorties récentes disponibles</em></article>
-    <article><span>Charge cardiaque</span><strong>{% if runner_identity.heart_load %}{{ runner_identity.heart_load }}<small> % FC max</small>{% else %}—{% endif %}</strong><em>Intensité moyenne observée</em></article>
-    <article><span>FC max de référence</span><strong>{% if runner_identity.max_hr %}{{ runner_identity.max_hr }}<small> bpm</small>{% else %}—{% endif %}</strong><em>{% if runner_identity.max_hr %}Utilisée pour définir les zones{% else %}À renseigner dans ton compte{% endif %}</em></article>
-    <article><span>Données récentes</span><strong>{{ runner_identity.activities_sample }}<small> activité{% if runner_identity.activities_sample != 1 %}s{% endif %}</small></strong><em>Le profil complet exploite aussi l’historique mensuel</em></article>
-  </div>
-
-  <div class="runner-analytics-grid">
-    <article class="runner-chart-card runner-radar-card">
-      <div class="runner-chart-title"><div><h3>Comparaison des qualités</h3><p>Équilibre de ton profil terrain</p></div><span>● Toi</span></div>
-      <svg viewBox="0 0 280 220" role="img" aria-label="Radar des performances sur le plat, en montée et en descente">
-        <polygon class="runner-radar-grid" points="140,22 242,178 38,178"/>
-        <polygon class="runner-radar-grid" points="140,57 208,161 72,161"/>
-        <polygon class="runner-radar-grid" points="140,92 174,144 106,144"/>
-        <path class="runner-radar-axis" d="M140 126V22 M140 126L242 178 M140 126L38 178"/>
-        {% if runner_identity.radar_has_data %}<polygon class="runner-radar-value" points="{{ runner_identity.radar_points }}"/>{% endif %}
-        <text x="140" y="14" text-anchor="middle">Montée</text>
-        <text x="250" y="194" text-anchor="end">Plat</text>
-        <text x="30" y="194">Descente</text>
-      </svg>
-      {% if not runner_identity.radar_has_data %}<p class="runner-chart-empty">Comparaison en construction</p>{% endif %}
+  <div class="rs-bottom">
+    <article class="rs-panel">
+      <span class="rs-eyebrow">02 / DÉNIVELÉ</span><h3>Ta capacité en montée</h3><p class="rs-caption">Meilleures VAM des courses parmi tes dernières activités</p>
+      {% set records = runner_identity.vam_records|default([]) %}
+      {% set peak = records|map(attribute='value')|max if records else 0 %}
+      {% for record in records %}<div class="rs-vam"><span>{{ record.label }}</span><div class="rs-track"><i style="width:{{ (record.value / peak * 100) if peak else 0 }}%"></i></div><strong>{{ record.value if record.value else '—' }} <small>m/h</small></strong></div>{% endfor %}
     </article>
-
-    <article class="runner-chart-card runner-position-card">
-      <div class="runner-chart-title"><div><h3>Ton positionnement</h3><p>Percentile au sein du collectif</p></div></div>
-      <div class="runner-position-list">
-        {% for item in runner_identity.terrain or [] %}
-        <div class="runner-position-row runner-position-row--{{ item.key }}">
-          <span>{% if item.key == 'climb' %}↗{% elif item.key == 'descent' %}↘{% else %}→{% endif %} {{ item.label }}</span>
-          <strong>{% if item.score is not none %}{{ item.score }} %{% else %}—{% endif %}</strong>
-          <div><i style="width:{{ item.score or 0 }}%"></i></div>
-        </div>
-        {% endfor %}
-      </div>
-    </article>
-
-    <article class="runner-chart-card runner-cardio-card">
-      <div class="runner-chart-title"><div><h3>Lecture cardio</h3><p>Intensité moyenne récente</p></div></div>
-      <div class="runner-heart-gauge" style="--heart-load:{{ runner_identity.heart_load or 0 }}%">
-        <div><strong>{% if runner_identity.heart_load %}{{ runner_identity.heart_load }} %{% else %}—{% endif %}</strong><span>de FC max</span></div>
-      </div>
-      <div class="runner-cardio-legend"><span><i></i>FC moyenne <strong>{% if runner_identity.average_hr %}{{ runner_identity.average_hr }} bpm{% else %}—{% endif %}</strong></span><span><i></i>FC max <strong>{% if runner_identity.max_hr %}{{ runner_identity.max_hr }} bpm{% else %}—{% endif %}</strong></span></div>
+    <article class="rs-panel">
+      <span class="rs-eyebrow">03 / CARDIO</span><h3>Ton intensité récente</h3>
+      {% set usage = fc_info.recent_usage if fc_info and fc_info.recent_usage else none %}
+      {% if usage and usage.total_seconds %}
+        <p class="rs-caption">Temps observé par zone · {{ usage.window_days }} derniers jours</p>
+        <div class="rs-zones">{% for zone in usage.zones %}<div style="flex:{{ zone.percent }};background:var(--rs-z{{ loop.index }})" title="{{ zone.label }} : {{ zone.percent }} %"></div>{% endfor %}</div>
+        <div class="rs-zone-key">{% for zone in usage.zones %}<span><i style="background:var(--rs-z{{ loop.index }})"></i>{{ zone.label }}<strong>{{ zone.percent }} %</strong></span>{% endfor %}</div>
+      {% else %}
+        <p class="rs-caption">Moyenne sur les activités récentes disponibles</p>
+        <div class="rs-cardio-number">{{ runner_identity.average_hr or '—' }} <small>bpm</small></div>
+        <p class="rs-caption">{{ runner_identity.heart_load or '—' }} % de ta FC max de référence ({{ runner_identity.max_hr or '—' }} bpm).</p>
+      {% endif %}
     </article>
   </div>
-  <div class="runner-identity-foot">
-    <p>{% if runner_identity.comparison_available %}Le rang est une estimation fondée sur les allures anonymisées P10, médiane et P90 du collectif ; ce n’est ni un diagnostic ni une mesure de puissance en watts.{% else %}Continue à enregistrer tes sorties : les comparaisons apparaîtront lorsque ton historique et le groupe de référence seront suffisants.{% endif %}</p>
-    <a href="/ui/user/{{ user.id }}/runner-profile">Explorer toutes mes données →</a>
-  </div>
+  <p class="rs-note">Comparaisons estimées par zone cardio et pente, disponibles à partir de 8 autres coureurs. Les cases sans données restent vides.</p>
 </section>
 {% endif %}
 </div>

@@ -1009,6 +1009,30 @@ def _dashboard_runner_identity(profile: dict | None, cohort: dict | None, user: 
     average_hr = int(round(sum(heart_values) / len(heart_values))) if heart_values else None
     max_hr = compute_user_fc_max(user)
     heart_load = int(round(average_hr / max_hr * 100)) if average_hr and max_hr else None
+    chart_zone = next((z for z in ("Zone 2", "Zone 3", "Zone 1", "Zone 4", "Zone 5") if zones.get(z)), "Zone 2")
+    slope_rows = sorted((s, float(c)) for s, c in SLOPE_BAND_CENTER.items())
+    slope_rows.sort(key=lambda row: row[1])
+    series = []
+    for source, field in ((zones, "avg_pace_s_per_km"), (cohort_zones, "p50")):
+        series.append([(slope, (source.get(chart_zone, {}).get(sid) or {}).get(field)) for sid, slope in slope_rows if -30 <= slope <= 30])
+    values = [float(p) for rows in series for _, p in rows if p and p > 0]
+    ceiling = max(values, default=600) * 1.1
+    chart_series = []
+    for rows in series:
+        points, paths, current = [], [], []
+        for slope, pace in rows:
+            if not pace or pace <= 0:
+                if current: paths.append(" ".join(current))
+                current = []
+                continue
+            x, y = 58 + (slope + 30) / 60 * 660, 32 + float(pace) / ceiling * 210
+            current.append(f"{'L' if current else 'M'}{x:.1f},{y:.1f}")
+            points.append({"x": x, "y": y, "label": f"{slope:g} % · {int(pace)//60}:{int(pace)%60:02d} /km"})
+        if current: paths.append(" ".join(current))
+        chart_series.append({"paths": paths, "points": points})
+    chart_ticks = [{"y": 32 + i / 4 * 210, "label": f"{int(ceiling*i/4)//60}:{int(ceiling*i/4)%60:02d}"} for i in range(5)]
+    recent_runs = [a for a in recent if (a.sport or a.activity_type or '').lower() in ('run', 'trailrun', 'trail run')]
+    vam_records = [{"label": f"{minutes} min", "value": round(max((getattr(a, f'max_vam_{minutes}m', None) or 0 for a in recent_runs), default=0))} for minutes in (5, 15, 30)]
     terrain_scores = {item["key"]: item["score"] for item in terrain}
     radar_axes = (
         ("climb", (140.0, 22.0)),
@@ -1029,6 +1053,10 @@ def _dashboard_runner_identity(profile: dict | None, cohort: dict | None, user: 
         "heart_load": heart_load,
         "activities_sample": len(recent),
         "comparison_available": bool(valid_scores),
+        "pace_chart": {"zone": chart_zone, "series": chart_series, "ticks": chart_ticks, "has_data": bool(values)},
+        "recent_distance": round(sum(a.distance or 0 for a in recent_runs) / 1000, 1),
+        "recent_gain": round(sum(a.total_elevation_gain or 0 for a in recent_runs)),
+        "vam_records": vam_records,
         "radar_points": " ".join(radar_points),
         "radar_has_data": bool(valid_scores),
     }

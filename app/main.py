@@ -1009,6 +1009,16 @@ def _dashboard_runner_identity(profile: dict | None, cohort: dict | None, user: 
     average_hr = int(round(sum(heart_values) / len(heart_values))) if heart_values else None
     max_hr = compute_user_fc_max(user)
     heart_load = int(round(average_hr / max_hr * 100)) if average_hr and max_hr else None
+    terrain_scores = {item["key"]: item["score"] for item in terrain}
+    radar_axes = (
+        ("climb", (140.0, 22.0)),
+        ("flat", (242.0, 178.0)),
+        ("descent", (38.0, 178.0)),
+    )
+    radar_points = []
+    for key, (target_x, target_y) in radar_axes:
+        ratio = float(terrain_scores.get(key) or 0) / 100.0
+        radar_points.append(f"{140.0 + (target_x - 140.0) * ratio:.1f},{126.0 + (target_y - 126.0) * ratio:.1f}")
     return {
         "silhouette": "female" if user.sex == "female" else "male" if user.sex == "male" else "neutral",
         "global_score": global_score,
@@ -1019,6 +1029,8 @@ def _dashboard_runner_identity(profile: dict | None, cohort: dict | None, user: 
         "heart_load": heart_load,
         "activities_sample": len(recent),
         "comparison_available": bool(valid_scores),
+        "radar_points": " ".join(radar_points),
+        "radar_has_data": bool(valid_scores),
     }
 
 
@@ -9558,6 +9570,8 @@ def ui_user_dashboard(user_id: int, request: Request):
         "heart_load": None,
         "activities_sample": 0,
         "comparison_available": False,
+        "radar_points": "140,126 140,126 140,126",
+        "radar_has_data": False,
     }
 
     try:

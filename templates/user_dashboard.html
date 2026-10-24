@@ -3,8 +3,8 @@
 {% block title %}{% if custom_course_mode %}Ma trace GPX · {{ user.email }}{% else %}Dashboard · {{ user.email }}{% endif %}{% endblock %}
 
 {% block extra_head %}
-<script src="/static/js/pace-curve.js?v=2"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+<script defer src="/static/js/pace-curve.js?v=2"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
 <link rel="stylesheet" href="/static/css/user_dashboard-1.css?v=2">
 {% endblock %}
 

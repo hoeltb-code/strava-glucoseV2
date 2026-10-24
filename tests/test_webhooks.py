@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import unittest
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import tests.test_env  # noqa: F401
 
@@ -34,6 +34,28 @@ class _DummyDb:
 
 
 class WebhookTests(unittest.TestCase):
+    def test_athlete_deauthorization_deletes_local_tokens(self):
+        body = {
+            "aspect_type": "update",
+            "object_id": 789,
+            "object_type": "athlete",
+            "owner_id": 789,
+            "subscription_id": 1,
+            "updates": {"authorized": "false"},
+        }
+        db = MagicMock()
+        db.query.return_value.filter.return_value.delete.return_value = 1
+
+        with patch("app.routers.webhooks.SessionLocal", return_value=db):
+            result = asyncio.run(webhooks.webhook_event(body))
+
+        self.assertEqual(result, {"status": "deauthorized"})
+        db.query.return_value.filter.return_value.delete.assert_called_once_with(
+            synchronize_session=False
+        )
+        db.commit.assert_called_once_with()
+        db.close.assert_called_once_with()
+
     def test_webhook_queues_enrichment_job(self):
         body = {
             "aspect_type": "create",

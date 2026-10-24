@@ -16,6 +16,7 @@ STRAVA_REDIRECT_URI = os.getenv("STRAVA_REDIRECT_URI")
 
 STRAVA_BASE_URL = "https://www.strava.com/api/v3"
 STRAVA_OAUTH_TOKEN_URL = "https://www.strava.com/oauth/token"
+STRAVA_OAUTH_REVOKE_URL = "https://www.strava.com/oauth/revoke"
 
 
 class StravaClient:
@@ -68,6 +69,44 @@ class StravaClient:
         db.commit()
         db.refresh(token)
         return token
+
+    def _delete_tokens(self, db) -> None:
+        db.query(StravaToken).filter(StravaToken.user_id == self.user_id).delete()
+        db.commit()
+
+    def _delete_tokens_after_unauthorized(self) -> None:
+        db = SessionLocal()
+        try:
+            self._delete_tokens(db)
+        finally:
+            db.close()
+
+    async def revoke_authorization(self) -> bool:
+        """Révoque l'autorisation chez Strava, puis supprime les tokens locaux."""
+        db = SessionLocal()
+        try:
+            token = self._get_token_record(db)
+            if not token:
+                return False
+            refresh_token = token.refresh_token
+        finally:
+            db.close()
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                STRAVA_OAUTH_REVOKE_URL,
+                auth=(str(STRAVA_CLIENT_ID), str(STRAVA_CLIENT_SECRET)),
+                data={"token": refresh_token, "token_type_hint": "refresh_token"},
+                timeout=15.0,
+            )
+        response.raise_for_status()
+
+        db = SessionLocal()
+        try:
+            self._delete_tokens(db)
+        finally:
+            db.close()
+        return True
 
     # ======================================================
     # 🔄 OAuth : obtention et refresh des tokens
@@ -131,6 +170,8 @@ class StravaClient:
                     },
                     timeout=15.0,
                 )
+            if r.status_code == 401:
+                self._delete_tokens(db)
             r.raise_for_status()
             data = r.json()
 
@@ -155,6 +196,8 @@ class StravaClient:
         headers = {"Authorization": f"Bearer {access_token}"}
         async with httpx.AsyncClient() as client:
             r = await client.get(f"{STRAVA_BASE_URL}{path}", headers=headers, params=params or {}, timeout=20.0)
+        if r.status_code == 401:
+            self._delete_tokens_after_unauthorized()
         r.raise_for_status()
         return r.json()
 
@@ -163,6 +206,8 @@ class StravaClient:
         headers = {"Authorization": f"Bearer {access_token}"}
         async with httpx.AsyncClient() as client:
             r = await client.put(f"{STRAVA_BASE_URL}{path}", headers=headers, data=data, timeout=20.0)
+        if r.status_code == 401:
+            self._delete_tokens_after_unauthorized()
         r.raise_for_status()
         return r.json()
 

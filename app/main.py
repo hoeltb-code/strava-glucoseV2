@@ -95,6 +95,7 @@ import logging
 import time
 import tempfile
 import uuid
+import httpx
 from datetime import datetime, timedelta
 from collections import Counter, defaultdict, deque
 import re
@@ -251,6 +252,7 @@ OFFICIAL_COURSES_DIR = os.path.abspath(
 )
 
 
+@lru_cache(maxsize=1)
 def _load_official_course_catalog() -> list[dict]:
     """Lit les fiches de courses locales sans exposer les chemins de fichiers."""
     if not os.path.isdir(OFFICIAL_COURSES_DIR):
@@ -2410,8 +2412,18 @@ ENRICHMENT_RETRYABLE_REASONS = {
     "activity_busy",
 }
 
+class CachedStaticFiles(StaticFiles):
+    """Conserve les assets locaux dans le navigateur et le CDN pendant 24 h."""
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        if response.status_code in (200, 304):
+            response.headers["Cache-Control"] = "public, max-age=86400"
+        return response
+
+
 app = FastAPI()
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", CachedStaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY, same_site="lax")
 
@@ -5044,9 +5056,16 @@ async def admin_bulk_delete_users(request: Request):
         users = db.query(User).filter(User.id.in_(selected_user_ids)).order_by(User.id.asc()).all()
         deleted_count = 0
         skipped_admin = False
+        revoke_failed_count = 0
         for user in users:
             if current_admin_id is not None and user.id == current_admin_id:
                 skipped_admin = True
+                continue
+            try:
+                await StravaClient(user_id=user.id).revoke_authorization()
+            except httpx.HTTPError:
+                logger.exception("[STRAVA] Révocation impossible avant suppression de user_id=%s", user.id)
+                revoke_failed_count += 1
                 continue
             _delete_user_account_data(db, user)
             deleted_count += 1
@@ -5062,6 +5081,9 @@ async def admin_bulk_delete_users(request: Request):
     if skipped_admin:
         message += " Le compte admin courant a été ignoré."
         status = "warn" if deleted_count == 0 else "ok"
+    if revoke_failed_count:
+        message += f" {revoke_failed_count} compte(s) conservé(s), car Strava n'a pas confirmé la révocation."
+        status = "warn"
 
     return RedirectResponse(
         url=(
@@ -9379,6 +9401,7 @@ def ui_user_dashboard(user_id: int, request: Request):
     guard = _guard_user_route(request, user_id)
     if guard:
         return guard
+    dashboard_started_at = time.perf_counter()
 
     custom_course_mode = request.query_params.get("mode") == "custom"
 
@@ -9418,6 +9441,7 @@ def ui_user_dashboard(user_id: int, request: Request):
     plan_download_count = 0
     saved_course_plans = []
     resume_course_plan = None
+    recent_stream_points_count = 0
 
     try:
         user = db.query(User).get(user_id)
@@ -9454,13 +9478,13 @@ def ui_user_dashboard(user_id: int, request: Request):
         _maybe_refresh_glucose_for_page_view(db, user, page_name="dashboard")
 
         # ---------------------------
-        # 📊 Liste des activités (pour le sélecteur)
+        # 📊 Le dashboard n'affiche que les cinq dernières activités.
         # ---------------------------
         activities_db = (
             db.query(Activity)
             .filter(Activity.user_id == user_id)
             .order_by(desc(Activity.start_date))
-            .limit(200)
+            .limit(5)
             .all()
         )
 
@@ -9475,13 +9499,32 @@ def ui_user_dashboard(user_id: int, request: Request):
         # ---------------------------
         # 🆕 dernières activités avec stats + carte
         # ---------------------------
-        recent = (
-            db.query(Activity)
-            .filter(Activity.user_id == user_id)
-            .order_by(desc(Activity.start_date))
-            .limit(5)
-            .all()
-        )
+        recent = activities_db[:5]
+
+        # Un seul chargement groupé des flux récents remplace les requêtes GPS,
+        # cardio et glycémie exécutées séparément pour chaque activité.
+        recent_streams_by_activity = defaultdict(list)
+        recent_activity_ids = [activity.id for activity in recent]
+        if recent_activity_ids:
+            recent_stream_rows = (
+                db.query(
+                    ActivityStreamPoint.activity_id,
+                    ActivityStreamPoint.idx,
+                    ActivityStreamPoint.elapsed_time,
+                    ActivityStreamPoint.altitude,
+                    ActivityStreamPoint.glucose_mgdl,
+                    ActivityStreamPoint.hr_zone,
+                    ActivityStreamPoint.heartrate,
+                    ActivityStreamPoint.lat,
+                    ActivityStreamPoint.lon,
+                )
+                .filter(ActivityStreamPoint.activity_id.in_(recent_activity_ids))
+                .order_by(ActivityStreamPoint.activity_id.asc(), ActivityStreamPoint.idx.asc())
+                .all()
+            )
+            recent_stream_points_count = len(recent_stream_rows)
+            for stream_point in recent_stream_rows:
+                recent_streams_by_activity[int(stream_point.activity_id)].append(stream_point)
 
         dashboard_windows = (
             ("15m", "15 min", 15 * 60),
@@ -9592,47 +9635,24 @@ def ui_user_dashboard(user_id: int, request: Request):
 
         last_activities = []
         for a in recent[:5]:
+            stream_rows = recent_streams_by_activity.get(a.id, [])
             # TIR (calc fallback)
             tir = a.time_in_range_percent
             if tir is None:
-                rows = (
-                    db.query(ActivityStreamPoint.glucose_mgdl)
-                    .filter(ActivityStreamPoint.activity_id == a.id)
-                    .all()
-                )
-                vals = [r[0] for r in rows if r[0] is not None]
+                vals = [point.glucose_mgdl for point in stream_rows if point.glucose_mgdl is not None]
                 if vals:
                     in_range = sum(1 for v in vals if 70 <= v <= 180)
                     tir = (in_range / len(vals)) * 100.0
 
             # Build GPS list (downsample to ~200 points)
-            gps_rows = (
-                db.query(ActivityStreamPoint.lat, ActivityStreamPoint.lon)
-                .filter(
-                    ActivityStreamPoint.activity_id == a.id,
-                    ActivityStreamPoint.lat.isnot(None),
-                    ActivityStreamPoint.lon.isnot(None),
-                )
-                .order_by(ActivityStreamPoint.idx.asc())
-                .all()
-            )
-            gps = [[float(lat), float(lon)] for (lat, lon) in gps_rows]
+            gps = [
+                [float(point.lat), float(point.lon)]
+                for point in stream_rows
+                if point.lat is not None and point.lon is not None
+            ]
             if len(gps) > 200:
                 step = max(1, len(gps) // 200)
                 gps = gps[::step]
-
-            stream_rows = (
-                db.query(
-                    ActivityStreamPoint.elapsed_time,
-                    ActivityStreamPoint.altitude,
-                    ActivityStreamPoint.glucose_mgdl,
-                    ActivityStreamPoint.hr_zone,
-                    ActivityStreamPoint.heartrate,
-                )
-                .filter(ActivityStreamPoint.activity_id == a.id)
-                .order_by(ActivityStreamPoint.idx.asc())
-                .all()
-            )
             times, cumulative_gain = [], []
             total_gain_calc = total_loss_calc = 0.0
             previous_altitude = None
@@ -9725,15 +9745,10 @@ def ui_user_dashboard(user_id: int, request: Request):
                 "cardio_profile": _dashboard_segmented_profile(stream_rows, "hr_zone"),
                 "glucose_profile": _dashboard_segmented_profile(stream_rows, "glucose"),
                 "dplus_windows": dplus_windows,
+                "vam_5": float(a.max_vam_5m) if a.max_vam_5m is not None else None,
+                "vam_15": float(a.max_vam_15m) if a.max_vam_15m is not None else None,
+                "vam_30": float(a.max_vam_30m) if a.max_vam_30m is not None else None,
             })
-
-        # VAM 5/15/30 des dernières activités (via caches Activity)
-        for it in last_activities:
-            a_id = it["id"]
-            a = db.query(Activity).get(a_id)
-            it["vam_5"]  = float(a.max_vam_5m)  if a and a.max_vam_5m  is not None else None
-            it["vam_15"] = float(a.max_vam_15m) if a and a.max_vam_15m is not None else None
-            it["vam_30"] = float(a.max_vam_30m) if a and a.max_vam_30m is not None else None
 
         libre_connected = (
             db.query(LibreCredentials.id).filter(LibreCredentials.user_id == user_id).first() is not None
@@ -10143,7 +10158,7 @@ def ui_user_dashboard(user_id: int, request: Request):
     # ---------------------------
     # 🧠 Envoi au template
     # ---------------------------
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         "user_dashboard.html",
         {
             "request": request,
@@ -10186,6 +10201,14 @@ def ui_user_dashboard(user_id: int, request: Request):
             "debug_js": debug_js,
         },
     )
+    logger.info(
+        "[PERF] dashboard user_id=%s rendered_in=%.3fs activities=%s recent_stream_points=%s",
+        user_id,
+        time.perf_counter() - dashboard_started_at,
+        len(activities),
+        recent_stream_points_count,
+    )
+    return response
 
 
 @app.get("/ui/user/{user_id}/course-simulator")
@@ -11735,21 +11758,28 @@ def ui_user_activity_delete(request: Request, user_id: int, activity_id: int):
 # -----------------------------------------------------------------------------
 
 @app.post("/ui/user/{user_id}/strava/disconnect")
-def ui_strava_disconnect(request: Request, user_id: int):
+async def ui_strava_disconnect(request: Request, user_id: int):
     """
-    Supprime les tokens Strava pour cet utilisateur
-    et le considère comme 'non connecté à Strava'.
+    Révoque l'autorisation auprès de Strava, puis supprime les tokens locaux.
     """
     guard = _guard_user_route(request, user_id)
     if guard:
         return guard
 
-    db = SessionLocal()
     try:
-        db.query(StravaToken).filter(StravaToken.user_id == user_id).delete()
-        db.commit()
-    finally:
-        db.close()
+        await StravaClient(user_id=user_id).revoke_authorization()
+    except httpx.HTTPError:
+        logger.exception("[STRAVA] Révocation impossible pour user_id=%s", user_id)
+        return templates.TemplateResponse(
+            "error.html",
+            {
+                "request": request,
+                "title": "Déconnexion Strava impossible",
+                "message": "Strava n'a pas confirmé la révocation. Réessaie dans quelques instants.",
+                "back_url": f"/ui/user/{user_id}/profile#settings-strava",
+            },
+            status_code=502,
+        )
 
     return RedirectResponse(
         url=f"/ui/user/{user_id}/profile",
@@ -12208,13 +12238,28 @@ def ui_dexcom_disconnect(request: Request, user_id: int):
 
 
 @app.post("/ui/user/{user_id}/delete-account", response_class=HTMLResponse)
-def ui_user_delete_account(request: Request, user_id: int):
+async def ui_user_delete_account(request: Request, user_id: int):
     """
     Supprime définitivement le compte utilisateur et toutes ses données associées.
     """
     guard = _guard_user_route(request, user_id)
     if guard:
         return guard
+
+    try:
+        await StravaClient(user_id=user_id).revoke_authorization()
+    except httpx.HTTPError:
+        logger.exception("[STRAVA] Révocation impossible avant suppression de user_id=%s", user_id)
+        return templates.TemplateResponse(
+            "error.html",
+            {
+                "request": request,
+                "title": "Suppression temporairement impossible",
+                "message": "Strava n'a pas confirmé la révocation. Aucune donnée n'a été supprimée ; réessaie dans quelques instants.",
+                "back_url": f"/ui/user/{user_id}/profile",
+            },
+            status_code=502,
+        )
 
     db = SessionLocal()
     try:

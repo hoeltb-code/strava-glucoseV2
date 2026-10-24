@@ -8,7 +8,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
 {% endif %}
 <link rel="stylesheet" href="/static/css/user_dashboard-1.css?v=3">
-<link rel="stylesheet" href="/static/css/runner-studio.css?v=1">
+<link rel="stylesheet" href="/static/css/runner-studio.css?v=2">
 {% endblock %}
 
 {% block content %}
@@ -3156,8 +3156,16 @@
       {% set usage = fc_info.recent_usage if fc_info and fc_info.recent_usage else none %}
       {% if usage and usage.total_seconds %}
         <p class="rs-caption">Temps observé par zone · {{ usage.window_days }} derniers jours</p>
-        <div class="rs-zones">{% for zone in usage.zones %}<div style="flex:{{ zone.percent }};background:var(--rs-z{{ loop.index }})" title="{{ zone.label }} : {{ zone.percent }} %"></div>{% endfor %}</div>
-        <div class="rs-zone-key">{% for zone in usage.zones %}<span><i style="background:var(--rs-z{{ loop.index }})"></i>{{ zone.label }}<strong>{{ zone.percent }} %</strong></span>{% endfor %}</div>
+        <div class="rs-heart-rows">
+          {% for zone in usage.zones %}
+          <div class="rs-heart-row" style="--zone-color:var(--rs-z{{ loop.index }})">
+            <span class="rs-heart-label"><i></i>{{ zone.label }}</span>
+            <div class="rs-heart-track"><i style="width:{{ zone.percent }}%"></i></div>
+            <span class="rs-heart-duration">{{ zone.duration_str }}</span>
+            <strong>{{ ('%.1f'|format(zone.percent)).replace('.', ',') }}<small> %</small></strong>
+          </div>
+          {% endfor %}
+        </div>
       {% else %}
         <p class="rs-caption">Moyenne sur les activités récentes disponibles</p>
         <div class="rs-cardio-number">{{ runner_identity.average_hr or '—' }} <small>bpm</small></div>

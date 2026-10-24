@@ -3100,38 +3100,42 @@
 {% endif %}
 {% else %}
 <section class="runner-identity" id="runner-profile" aria-labelledby="runner-identity-title">
-  <div class="runner-identity-head">
-    <div>
-      <p class="dashboard-eyebrow">Cartographie de ton moteur</p>
-      <h2 id="runner-identity-title">Ton profil coureur</h2>
-      <p>Une lecture de tes performances documentées en endurance, comparées anonymement au collectif lorsqu’au moins huit coureurs sont disponibles.</p>
+  <div class="runner-profile-overview">
+    <div class="runner-profile-person">
+      <div class="runner-mini-body runner-body-map--{{ runner_identity.silhouette|default('neutral') }}" aria-hidden="true">
+        <svg viewBox="0 0 280 520">
+          <defs><linearGradient id="runnerBodyGradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffc75f"/><stop offset="1" stop-color="#ec9f2e"/></linearGradient></defs>
+          <circle class="runner-body-head" cx="140" cy="60" r="38"/>
+          <path class="runner-body-shape runner-body-shape-neutral" d="M101 111 Q140 91 179 111 L198 228 L176 310 L169 487 L122 487 L112 316 L82 228 Z"/>
+          <path class="runner-body-shape runner-body-shape-male" d="M88 112 Q140 91 192 112 L207 226 L175 306 L169 487 L122 487 L108 307 L73 226 Z"/>
+          <path class="runner-body-shape runner-body-shape-female" d="M103 111 Q140 92 177 111 L191 222 Q203 279 177 322 L169 487 L123 487 L106 322 Q78 279 90 222 Z"/>
+          <path class="runner-body-limb" d="M91 132 L39 281 M189 132 L241 281 M112 299 L83 486 M169 299 L199 486"/>
+          <path class="runner-body-heart" d="M140 190 C119 164 91 194 140 234 C189 194 161 164 140 190 Z"/>
+        </svg>
+      </div>
+      <div>
+        <p class="dashboard-eyebrow">Vue d’ensemble</p>
+        <h2 id="runner-identity-title">Ton profil coureur</h2>
+        <p>Forces documentées sur le plat, en montée et en descente, à partir de tes sorties et de tes zones cardio.</p>
+        <div class="runner-profile-tags">
+          <span>◉ {{ runner_identity.activities_sample }} sortie{% if runner_identity.activities_sample != 1 %}s{% endif %} récente{% if runner_identity.activities_sample != 1 %}s{% endif %}</span>
+          {% if runner_identity.average_hr %}<span>♥ {{ runner_identity.average_hr }} bpm moyens</span>{% endif %}
+          <span>↗ {{ runner_identity.level_label }}</span>
+        </div>
+      </div>
     </div>
     <div class="runner-engine-score{% if runner_identity.global_score is none %} is-pending{% endif %}">
-      <span>Indice moteur</span>
+      <span>Score global</span>
       <strong>{% if runner_identity.global_score is not none %}{{ runner_identity.global_score }}<small>/100</small>{% else %}—{% endif %}</strong>
       <em>{{ runner_identity.level_label }}</em>
     </div>
   </div>
 
-  <div class="runner-identity-grid">
-    <div class="runner-body-map runner-body-map--{{ runner_identity.silhouette|default('neutral') }}">
-      <div class="runner-body-orbit" aria-hidden="true"></div>
-      <svg viewBox="0 0 280 520" role="img" aria-label="Silhouette représentant les qualités physiques du coureur">
-        <defs><linearGradient id="runnerBodyGradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffc75f"/><stop offset="1" stop-color="#ec9f2e"/></linearGradient></defs>
-        <circle class="runner-body-head" cx="140" cy="60" r="38"/>
-        <path class="runner-body-shape runner-body-shape-neutral" d="M101 111 Q140 91 179 111 L198 228 L176 310 L169 487 L122 487 L112 316 L82 228 Z"/>
-        <path class="runner-body-shape runner-body-shape-male" d="M88 112 Q140 91 192 112 L207 226 L175 306 L169 487 L122 487 L108 307 L73 226 Z"/>
-        <path class="runner-body-shape runner-body-shape-female" d="M103 111 Q140 92 177 111 L191 222 Q203 279 177 322 L169 487 L123 487 L106 322 Q78 279 90 222 Z"/>
-        <path class="runner-body-limb" d="M91 132 L39 281 M189 132 L241 281 M112 299 L83 486 M169 299 L199 486"/>
-        <path class="runner-body-heart" d="M140 190 C119 164 91 194 140 234 C189 194 161 164 140 190 Z"/>
-        <circle class="runner-body-core" cx="140" cy="282" r="27"/>
-      </svg>
-      <span class="runner-body-label runner-body-label--heart"><b>♥</b>Cœur{% if runner_identity.average_hr %}<strong>{{ runner_identity.average_hr }} bpm</strong>{% endif %}</span>
-      <span class="runner-body-label runner-body-label--power"><b>⚡</b>Puissance<strong>{% if runner_identity.global_score is not none %}{{ runner_identity.global_score }}/100{% else %}à construire{% endif %}</strong></span>
-      <span class="runner-body-label runner-body-label--legs"><b>↗</b>Jambes<strong>{{ runner_identity.level_label }}</strong></span>
-    </div>
-
-    <div class="runner-performance-map">
+  <div class="runner-comparison-head">
+    <div><h3>Comparaison au collectif</h3><p>Ton positionnement anonymisé par rapport aux autres coureurs documentés.</p></div>
+    <span>Plus le score est haut, mieux c’est</span>
+  </div>
+  <div class="runner-performance-map">
       {% for item in runner_identity.terrain or [] %}
       <article class="runner-performance-card runner-performance-card--{{ item.key }}">
         <div class="runner-performance-icon">{% if item.key == 'climb' %}↗{% elif item.key == 'descent' %}↘{% else %}→{% endif %}</div>
@@ -3139,12 +3143,13 @@
         <div class="runner-performance-rank"><span>{% if item.score is not none %}{{ item.score }}/100{% else %}—{% endif %}</span><div><i style="width:{{ item.score or 6 }}%"></i></div><small>{{ item.comparison }}</small></div>
       </article>
       {% endfor %}
+  </div>
 
-      <div class="runner-vitals">
-        <article><span>Charge cardiaque observée</span><strong>{% if runner_identity.heart_load %}{{ runner_identity.heart_load }} %<small> de FC max</small>{% else %}À compléter{% endif %}</strong><em>{% if runner_identity.max_hr %}FC max de référence · {{ runner_identity.max_hr }} bpm{% else %}Renseigne ta FC max dans ton compte{% endif %}</em></article>
-        <article><span>Échantillon récent</span><strong>{{ runner_identity.activities_sample }}<small> activité{% if runner_identity.activities_sample != 1 %}s{% endif %}</small></strong><em>Le profil complet exploite aussi ton historique mensuel.</em></article>
-      </div>
-    </div>
+  <div class="runner-vitals">
+    <article><span>FC moyenne observée</span><strong>{% if runner_identity.average_hr %}{{ runner_identity.average_hr }}<small> bpm</small>{% else %}—{% endif %}</strong><em>Sur les sorties récentes disponibles</em></article>
+    <article><span>Charge cardiaque</span><strong>{% if runner_identity.heart_load %}{{ runner_identity.heart_load }}<small> % FC max</small>{% else %}—{% endif %}</strong><em>Intensité moyenne observée</em></article>
+    <article><span>FC max de référence</span><strong>{% if runner_identity.max_hr %}{{ runner_identity.max_hr }}<small> bpm</small>{% else %}—{% endif %}</strong><em>{% if runner_identity.max_hr %}Utilisée pour définir les zones{% else %}À renseigner dans ton compte{% endif %}</em></article>
+    <article><span>Données récentes</span><strong>{{ runner_identity.activities_sample }}<small> activité{% if runner_identity.activities_sample != 1 %}s{% endif %}</small></strong><em>Le profil complet exploite aussi l’historique mensuel</em></article>
   </div>
   <div class="runner-identity-foot">
     <p>{% if runner_identity.comparison_available %}Le rang est une estimation fondée sur les allures anonymisées P10, médiane et P90 du collectif ; ce n’est ni un diagnostic ni une mesure de puissance en watts.{% else %}Continue à enregistrer tes sorties : les comparaisons apparaîtront lorsque ton historique et le groupe de référence seront suffisants.{% endif %}</p>

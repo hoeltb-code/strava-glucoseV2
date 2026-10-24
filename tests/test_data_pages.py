@@ -93,7 +93,7 @@ class DataPagesTests(unittest.TestCase):
         self.assertIn('Énergie estimée', activity)
         self.assertEqual(activity.count('class="terrain-energy"'), 3)
         plan = self.client.get('/ui/user/10').text
-        self.assertIn('Cartographie de ton moteur', plan)
+        self.assertIn('Comparaison au collectif', plan)
         self.assertNotIn('home-target-pacing-curve', plan)
         self.assertNotIn('Mes plans de course', plan)
         self.assertNotIn('plan-energy', plan)
@@ -182,7 +182,7 @@ class DataPagesTests(unittest.TestCase):
         with self.factory() as db:self.assertFalse(db.query(UserSettings).filter_by(user_id=10).one().desc_include_energy)
 
     def test_runner_profile_and_strava_settings_render(self):
-        for url,text in [('/ui/user/10?view=plan','Cartographie de ton moteur'),('/ui/user/10/profile','desc_include_energy')]:
+        for url,text in [('/ui/user/10?view=plan','Comparaison au collectif'),('/ui/user/10/profile','desc_include_energy')]:
             r=self.client.get(url);self.assertEqual(r.status_code,200,r.text[:1000]);self.assertIn(text,r.text)
 
 if __name__=='__main__':unittest.main()

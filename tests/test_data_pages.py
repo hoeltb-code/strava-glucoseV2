@@ -87,7 +87,7 @@ class DataPagesTests(unittest.TestCase):
             nav = re.search(r'<nav class="' + css_class + r'".*?</nav>', activity, re.S).group()
             return [unescape(re.sub(r'<[^>]+>', '', link)).strip() for link in re.findall(r'<a .*?</a>', nav, re.S)]
         self.assertEqual(labels('primary-nav'), ['Accueil', 'Activités', 'Compte', 'Mes données'])
-        self.assertEqual(labels('mobile-bottom-nav'), ['Accueil', 'Sorties', 'Compte', 'Data'])
+        self.assertEqual(labels('mobile-bottom-nav'), ['Accueil', 'Sorties', 'Compte', 'Données'])
         self.assertNotIn('data-advanced', activity)
         self.assertEqual(activity.count('class="activity-tab-link'), 7)
         self.assertIn('Énergie estimée', activity)
@@ -101,7 +101,8 @@ class DataPagesTests(unittest.TestCase):
         self.assertNotIn('/10/energy', plan)
         self.assertEqual(self.client.get('/ui/user/10/energy').status_code, 404)
         self.assertEqual(self.client.get('/ui/user/10/course-simulator').status_code, 200)
-        self.assertEqual(self.client.post('/ui/user/10/course-plans', json={}).status_code, 404)
+        self.assertIn('/ui/user/10?view=plan', plan)
+        self.assertEqual(self.client.post('/ui/user/10/course-plans', json={'course_name':'Mon trail'}).status_code, 200)
         self.assertEqual(self.client.post('/ui/user/10/course-plan/checkout', json={}).status_code, 404)
 
     def test_median_reference_api_and_empty_states(self):
@@ -182,7 +183,53 @@ class DataPagesTests(unittest.TestCase):
         with self.factory() as db:self.assertFalse(db.query(UserSettings).filter_by(user_id=10).one().desc_include_energy)
 
     def test_runner_profile_and_strava_settings_render(self):
-        for url,text in [('/ui/user/10?view=plan','Comparaison au collectif'),('/ui/user/10/profile','desc_include_energy')]:
+        for url,text in [('/ui/user/10?view=plan','home-target-pacing-curve'),('/ui/user/10/profile','desc_include_energy')]:
             r=self.client.get(url);self.assertEqual(r.status_code,200,r.text[:1000]);self.assertIn(text,r.text)
+
+    def test_plan_draft_roundtrip_and_ownership(self):
+        response = self.client.post('/ui/user/10/course-plans', json={
+            'course_name':'Trail test', 'settings':{'plan_basis':'target', 'target_hours':5},
+        })
+        self.assertEqual(response.status_code, 200)
+        plan = response.json()['plan']
+        self.assertEqual(plan['status'], 'draft')
+        self.assertEqual(self.client.get('/ui/user/10/course-plans/' + plan['id']).status_code, 200)
+        self.assertEqual(self.client.get('/ui/user/20/course-plans/' + plan['id']).status_code, 404)
+        self.assertEqual(self.client.post('/ui/user/20/course-plans', json={'plan_id':plan['id']}).status_code, 404)
+
+    def test_closed_sales_never_deliver_a_free_plan(self):
+        with patch.object(main, '_send_course_plan_email') as send:
+            self.statements.clear()
+            response = self.client.post('/ui/user/10/course-plan/email', json={'roadbook':[{'km':1}]})
+            self.assertEqual(response.status_code, 503)
+            send.assert_not_called()
+            self.assertFalse(any(q.lstrip().upper().startswith(('INSERT','UPDATE','DELETE')) for q in self.statements))
+
+    def test_builder_can_be_disabled_without_hiding_runner_profile(self):
+        with patch.object(main, 'PLAN_BUILDER_ENABLED', False):
+            response = self.client.get('/ui/user/10?view=plan')
+            self.assertEqual(response.status_code, 200)
+            self.assertIn('Comparaison au collectif', response.text)
+            self.assertNotIn('home-projection-form', response.text)
+            self.assertEqual(self.client.post('/ui/user/10/course-plans', json={}).status_code, 404)
+
+    def test_optional_daily_glucose_uses_observed_time(self):
+        from app.models import LibreCredentials
+        with self.factory() as db:
+            db.add(LibreCredentials(user_id=10,email='demo@example.test',password_encrypted='not-a-real-secret'))
+            start=dt.datetime.now().astimezone().replace(hour=0,minute=0,second=0,microsecond=0).astimezone(dt.timezone.utc).replace(tzinfo=None)
+            db.add_all([GlucosePoint(user_id=10,ts=start+dt.timedelta(minutes=i*5),mgdl=120,source='test-today') for i in range(4)])
+            db.commit()
+        try:
+            response=self.client.get('/ui/user/10')
+            self.assertEqual(response.status_code,200)
+            self.assertIn('dashboard-glucose-title',response.text)
+            self.assertIn('Moyenne observée',response.text)
+            self.assertIn('De données aujourd’hui',response.text)
+        finally:
+            with self.factory() as db:
+                db.query(LibreCredentials).filter_by(user_id=10).delete()
+                db.query(GlucosePoint).filter_by(source='test-today').delete()
+                db.commit()
 
 if __name__=='__main__':unittest.main()

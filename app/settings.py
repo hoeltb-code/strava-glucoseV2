@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     # === SÉCURITÉ / AUTRES ===
     SECRET_KEY: str = Field(...)
     TZ: str | None = "Europe/Paris"
+    # Désactive les boucles et threads automatiques sur une instance locale.
+    ENABLE_BACKGROUND_WORKERS: bool = Field(default=True)
 
     # === SMTP / Email ===
     SMTP_HOST: str | None = Field(default=None)
@@ -64,6 +66,7 @@ class Settings(BaseSettings):
     # === PAIEMENTS STRIPE (désactivés par défaut) ===
     STRIPE_SECRET_KEY: str | None = Field(default=None)
     STRIPE_WEBHOOK_SECRET: str | None = Field(default=None)
+    PLAN_BUILDER_ENABLED: bool = Field(default=True)
     PLAN_PAYMENTS_ENABLED: bool = Field(default=False)
     PLAN_PAYMENT_TEST_USER_ID: int | None = Field(default=None)
     PLAN_ADMIN_EMAIL: str | None = Field(default=None)

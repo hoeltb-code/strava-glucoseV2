@@ -1,0 +1,21 @@
+{% if daily_glucose_summary and daily_glucose_summary.available %}
+<section class="dashboard-glucose" aria-labelledby="dashboard-glucose-title">
+  <div class="dashboard-glucose-heading">
+    <h2 id="dashboard-glucose-title">Ma glycémie</h2>
+    <span>{{ daily_glucose_window_label }} · mg/dL</span>
+  </div>
+  <div class="dashboard-glucose-metrics">
+    <div><strong>{{ daily_glucose_summary.avg|round|int }}</strong><span>Moyenne observée</span></div>
+    <div><strong>{{ daily_glucose_summary.pct_in_range|round|int }}<small> %</small></strong><span>Du temps observé entre 70–180</span></div>
+    <div><strong>{{ (daily_glucose_summary.observed_seconds / 3600)|round(1) }}<small> h</small></strong><span>De données aujourd’hui</span></div>
+  </div>
+  {% if daily_glucose_sparkline %}
+  {% set chart = daily_glucose_sparkline %}
+  <svg class="dashboard-glucose-chart" viewBox="0 0 {{ chart.width }} {{ chart.height }}" preserveAspectRatio="none" role="img" aria-label="Évolution de la glycémie enregistrée aujourd’hui. Les interruptions correspondent aux données manquantes.">
+    <rect x="0" y="{{ chart.range_top }}" width="{{ chart.width }}" height="{{ chart.range_height }}" rx="3" fill="#e5f3ec" />
+    <path d="{{ chart.line }}" fill="none" stroke="#287b68" stroke-width="2.5" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" />
+  </svg>
+  <p class="dashboard-glucose-caption">Bande verte : 70–180 mg/dL · Les périodes sans données ne sont pas comptabilisées.</p>
+  {% endif %}
+</section>
+{% endif %}

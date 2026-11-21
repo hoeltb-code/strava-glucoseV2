@@ -1,0 +1,37 @@
+/* Small adjustments to existing screens; keep the site's navigation and layout. */
+.dashboard-page .dashboard-hero { min-height:0; padding:26px; }
+.dashboard-page .dashboard-hero::after { display:none; }
+.dashboard-page .dashboard-hero h1 { max-width:none; font-size:clamp(1.8rem,4vw,2.6rem); letter-spacing:-.035em; text-transform:none; line-height:1.15; }
+.dashboard-page .dashboard-hero p:not(.dashboard-eyebrow) { margin:12px 0; }
+.dashboard-page .dashboard-eyebrow { padding:0; margin-bottom:12px; background:none; clip-path:none; color:#687369; }
+.dashboard-page .home-view-button.is-active { background:#edf3ef; border-color:#a3bcac; color:#173d35; }
+.dashboard-page .plan-entry { display:inline-flex; align-items:center; min-height:44px; padding:10px 18px; margin:12px 18px 0 0; border-radius:12px; background:#173d35; color:#fff; font-weight:700; text-decoration:none; }
+.dashboard-page .plan-entry:hover { background:#24584c; }
+.dashboard-page .plan-entry:focus-visible { outline:3px solid #e99d45; outline-offset:3px; }
+.dashboard-page .home-view-switcher { gap:6px; padding:5px; border-radius:14px; }
+.dashboard-page .home-view-button { min-height:44px; border-radius:10px; }
+.plan-reference-note { padding:12px 16px; border-left:3px solid #7da48c; border-radius:0 10px 10px 0; background:#f0f6f2; color:#284f44; font-size:.9rem; line-height:1.5; }
+.plan-reference-note:empty { display:none; }
+.dashboard-page .plan-library-tab { min-height:48px; padding:12px; border-radius:10px; clip-path:none; text-align:center; }
+.dashboard-page .plan-library-tab.is-active,
+.dashboard-page .plan-basis-option:has(input:checked),
+.dashboard-page .pace-source-option:has(input:checked) { background:#fff3e3; border-color:#db9a49; }
+.dashboard-page .plan-basis-option strong { text-transform:none; }
+.dashboard-page .plan-basis-option:focus-within,
+.dashboard-page .pace-source-option:focus-within { outline:2px solid #287b68; outline-offset:2px; }
+.dashboard-glucose { margin:0 0 24px; padding:24px; border:1px solid #dfe5df; border-radius:20px; background:#fff; color:#263c34; }
+.dashboard-glucose-heading { display:flex; justify-content:space-between; align-items:baseline; gap:12px; flex-wrap:wrap; }
+.dashboard-glucose-heading h2 { margin:0; font-size:1.3rem; }
+.dashboard-glucose-heading > span, .dashboard-glucose-caption { font-size:.85rem; color:#5d6c65; }
+.dashboard-glucose-metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin:22px 0 12px; }
+.dashboard-glucose-metrics strong { display:block; font-size:clamp(1.6rem,4vw,2.3rem); font-variant-numeric:tabular-nums; letter-spacing:-.04em; }
+.dashboard-glucose-metrics strong small { font-size:1rem; }
+.dashboard-glucose-metrics span { display:block; margin-top:4px; font-size:.85rem; color:#5d6c65; }
+.dashboard-glucose-chart { display:block; width:100%; height:140px; margin-top:16px; }
+.dashboard-glucose-caption { margin:12px 0 0; line-height:1.5; }
+@media(max-width:600px) {
+  .dashboard-glucose { padding:18px; }
+  .dashboard-glucose-metrics { gap:10px; }
+  .dashboard-glucose-metrics span { font-size:.75rem; }
+  .dashboard-page .plan-entry { display:flex; justify-content:center; margin-right:0; }
+}

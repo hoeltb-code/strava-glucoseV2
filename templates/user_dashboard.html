@@ -9,6 +9,7 @@
 {% endif %}
 <link rel="stylesheet" href="/static/css/user_dashboard-1.css?v=3">
 <link rel="stylesheet" href="/static/css/runner-studio.css?v=2">
+<link rel="stylesheet" href="/static/css/plan-flow.css?v=1">
 {% endblock %}
 
 {% block content %}
@@ -28,25 +29,48 @@
     <p class="dashboard-eyebrow">Simulateur GPX personnel</p>
     <h1 id="home-title">Crée ta simulation de course</h1>
     <p>Importe ta trace, positionne tes ravitos, assistances et contrôles, puis construis ton roadbook, ton chrono et ton plan nutritionnel.</p>
-    <a class="custom-simulator-back" href="/ui/user/{{ user.id }}#simulation">← Retour aux courses enregistrées</a>
+    <a class="custom-simulator-back" href="/ui/user/{{ user.id }}?view=plan#simulation">← Retour aux courses enregistrées</a>
+    {% elif plan_builder_enabled %}
+    <p class="dashboard-eyebrow">Plan de course</p>
+    <h1 id="home-title">Prépare ta course</h1>
+    <p>Choisis ton parcours, estime ton chrono ou répartis ton objectif, puis prépare tes passages.</p>
+    <a class="custom-simulator-back" href="/ui/user/{{ user.id }}">← Mon tableau de bord</a>
     {% else %}
-    <p class="dashboard-eyebrow">Ton cockpit coureur</p>
+    <p class="dashboard-eyebrow">Ton tableau de bord</p>
     <h1 id="home-title">Bonjour {{ runner_name }} 👋</h1>
     <p>
-      Découvre les forces de ton moteur, suis son évolution et compare tes repères de course à ceux du collectif.
+      Tes sorties, tes repères de performance et ta glycémie si tu la suis.
     </p>
+    {% if plan_builder_available %}<a class="plan-entry" href="/ui/user/{{ user.id }}?view=plan">Préparer mon plan de course →</a>{% endif %}
     {% endif %}
   </div>
+  {% if not custom_course_mode and not plan_builder_enabled %}
+  <div class="dashboard-visual" aria-hidden="true">
+    <svg viewBox="0 0 460 200" fill="none">
+      <circle cx="367" cy="48" r="32" fill="#ddea93"/>
+      <path d="M-20 150Q55 68 115 108T240 86T480 128V210H-20Z" fill="#d8e9e5"/>
+      <path d="M-10 174Q58 108 128 144T275 120T480 160V210H-10Z" fill="#bcd8d3"/>
+      <path d="M-20 129Q70 26 145 88T290 69T480 106" stroke="#fff" stroke-width="2"/>
+      <path d="M-20 111Q70 8 145 70T290 51T480 88" stroke="#fff" stroke-width="1.5" opacity=".6"/>
+      <path d="M22 157C80 155 82 86 143 92S213 170 274 121 352 79 433 97" stroke="#fff" stroke-width="12" stroke-linecap="round"/>
+      <path d="M22 157C80 155 82 86 143 92S213 170 274 121 352 79 433 97" stroke="#4259d8" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="143" cy="92" r="7" fill="#4259d8" stroke="white" stroke-width="3"/>
+      <circle cx="274" cy="121" r="7" fill="#4259d8" stroke="white" stroke-width="3"/>
+      <circle cx="433" cy="97" r="7" fill="#4259d8" stroke="white" stroke-width="3"/>
+    </svg>
+    <div class="dashboard-visual-caption"><span>Terrain</span><span>Effort</span><span>Progression</span></div>
+  </div>
+  {% endif %}
 </section>
 
-{% if not custom_course_mode %}
+{% if not custom_course_mode and not plan_builder_enabled %}
 <nav class="home-view-switcher" aria-label="Contenu de l’accueil">
-  <button type="button" class="home-view-button is-active" data-home-view-button="activities" aria-selected="true">Voir les dernières activités</button>
-  <button type="button" class="home-view-button" data-home-view-button="plan" aria-selected="false">Voir mon profil coureur</button>
+  <button type="button" class="home-view-button is-active" data-home-view-button="activities" aria-selected="true">Mes sorties</button>
+  <button type="button" class="home-view-button" data-home-view-button="plan" aria-selected="false">Mon profil</button>
 </nav>
 {% endif %}
 
-<div class="home-view-panel{% if custom_course_mode %} is-active{% endif %}" data-home-view-panel="plan">
+<div class="home-view-panel{% if plan_builder_enabled %} is-active{% endif %}" data-home-view-panel="plan">
 {% if plan_builder_enabled %}
 {% set draft_plans = saved_course_plans|selectattr('status', 'equalto', 'draft')|list %}
 {% set purchased_plans = saved_course_plans|selectattr('status', 'equalto', 'purchased')|list %}
@@ -55,9 +79,9 @@
     <div><h2 id="home-plan-library-title">Mes plans de course</h2><p>Commence une course, reprends un brouillon ou retrouve tes roadbooks achetés.</p></div>
   </div>
   <div class="plan-library-tabs" role="tablist" aria-label="Mes plans de course">
-    <button type="button" class="plan-library-tab is-active" data-plan-library-tab="new" role="tab" aria-selected="true"><strong>Nouveau plan</strong><span>Choisis une course et construis une nouvelle stratégie.</span></button>
-    <button type="button" class="plan-library-tab" data-plan-library-tab="draft" role="tab" aria-selected="false"><strong>Plans en cours{% if draft_plans %} · {{ draft_plans|length }}{% endif %}</strong><span>Reprends un plan sauvegardé et poursuis ses réglages.</span></button>
-    <button type="button" class="plan-library-tab" data-plan-library-tab="purchased" role="tab" aria-selected="false"><strong>Plans terminés{% if purchased_plans %} · {{ purchased_plans|length }}{% endif %}</strong><span>Ouvre tes roadbooks et télécharge une nouvelle version.</span></button>
+    <button type="button" class="plan-library-tab is-active" data-plan-library-tab="new" role="tab" aria-selected="true"><strong>Nouveau plan</strong></button>
+    <button type="button" class="plan-library-tab" data-plan-library-tab="draft" role="tab" aria-selected="false"><strong>Plans en cours{% if draft_plans %} · {{ draft_plans|length }}{% endif %}</strong></button>
+    <button type="button" class="plan-library-tab" data-plan-library-tab="purchased" role="tab" aria-selected="false"><strong>Plans terminés{% if purchased_plans %} · {{ purchased_plans|length }}{% endif %}</strong></button>
   </div>
   <div class="plan-library-panel" data-plan-library-panel="draft" hidden>
     {% if draft_plans %}<div class="plan-library-tags">{% for plan in draft_plans %}<div class="plan-library-tag-wrap" data-saved-plan-id="{{ plan.id }}"><a class="plan-library-tag" href="/ui/user/{{ user.id }}?plan={{ plan.id }}#simulation"><span>{{ plan.course_name }}</span><small>Modifié le {{ plan.updated_at[:10] if plan.updated_at else '—' }} · Reprendre</small></a><button type="button" class="plan-library-delete" data-plan-library-delete="{{ plan.id }}" aria-label="Supprimer le plan {{ plan.course_name }}" title="Supprimer ce plan">×</button></div>{% endfor %}</div>{% else %}<p class="plan-library-empty">Tu n’as aucun plan en cours. Choisis une course pour commencer : tes réglages seront sauvegardés automatiquement.</p>{% endif %}
@@ -66,21 +90,6 @@
     {% if purchased_plans %}<div class="plan-library-tags">{% for plan in purchased_plans %}<div class="plan-library-tag-wrap" data-saved-plan-id="{{ plan.id }}"><a class="plan-library-tag is-purchased" href="/ui/user/{{ user.id }}?plan={{ plan.id }}#simulation"><span>{{ plan.course_name }}</span><small>Roadbook disponible · Ouvrir</small></a><button type="button" class="plan-library-delete" data-plan-library-delete="{{ plan.id }}" aria-label="Supprimer le plan {{ plan.course_name }}" title="Supprimer ce plan">×</button></div>{% endfor %}</div>{% else %}<p class="plan-library-empty">Tes plans achetés apparaîtront ici, avec leur roadbook et la possibilité de les mettre à jour.</p>{% endif %}
   </div>
 </section>
-
-{% if not custom_course_mode and plan_download_count == 0 %}
-{% set has_activity_history = activities|length > 0 %}
-{% set has_profile_history = runner_profile_overview and runner_profile_overview.zones and runner_profile_overview.zones.get('Zone 2') %}
-<section class="first-plan-checklist" id="home-first-plan-checklist" aria-labelledby="first-plan-checklist-title">
-  <h2 id="first-plan-checklist-title">Ton premier plan en 4 étapes</h2>
-  <p>Un premier chrono apparaît dès que tu choisis une course. Tu pourras ensuite tout affiner.</p>
-  <div class="first-plan-steps">
-    <div class="first-plan-step {% if has_activity_history %}is-done{% endif %}" id="home-checklist-activities"><i>{% if has_activity_history %}✓{% else %}1{% endif %}</i><span><strong>{% if has_activity_history %}Activités prêtes{% else %}Ajoute des activités{% endif %}</strong><br>Strava alimente ton profil.</span></div>
-    <div class="first-plan-step {% if has_profile_history %}is-done{% endif %}" id="home-checklist-profile"><i>{% if has_profile_history %}✓{% else %}2{% endif %}</i><span><strong>{% if has_profile_history %}Profil disponible{% else %}Choisis ton intensité{% endif %}</strong><br>Une base suffit pour démarrer.</span></div>
-    <div class="first-plan-step" id="home-checklist-course"><i>3</i><span><strong>Choisis un parcours</strong><br>Recherche une course ou importe un GPX.</span></div>
-    <div class="first-plan-step" id="home-checklist-plan"><i>4</i><span><strong>Génère ton plan</strong><br>Chrono, ravitos et roadbook.</span></div>
-  </div>
-</section>
-{% endif %}
 
 {% set profile_zone = runner_profile_overview.zones.get('Zone 2', {}) if runner_profile_overview and runner_profile_overview.zones else {} %}
 {% set flat_profile = profile_zone.get('S0_5') %}
@@ -137,8 +146,8 @@
       <h3 id="home-plan-basis-title">Comment veux-tu construire ton plan ?</h3>
       <p>Choisis une base simple. Tu pourras toujours affiner les réglages ensuite.</p>
       <div class="plan-basis-options" role="radiogroup" aria-label="Base de calcul du plan">
-        <label class="plan-basis-option"><input type="radio" name="home-plan-basis" value="target" checked><strong>Mon objectif de temps</strong><span>Les allures sont calibrées pour viser un chrono total.</span></label>
-        <label class="plan-basis-option"><input type="radio" name="home-plan-basis" value="paces"><strong>Mes allures</strong><span>Base ton plan sur tes sorties ou règle tes allures toi-même.</span></label>
+        <label class="plan-basis-option"><input type="radio" name="home-plan-basis" value="target" checked><strong>Répartir mon chrono cible</strong><span>Construire les passages pour un objectif choisi, pauses comprises.</span></label>
+        <label class="plan-basis-option"><input type="radio" name="home-plan-basis" value="paces"><strong>Estimer avec mes allures</strong><span>Calculer un temps indicatif à partir de mon profil.</span></label>
       </div>
     </section>
     <div class="simulation-quick-settings">
@@ -150,7 +159,7 @@
           <label class="pace-source-option"><input type="radio" name="home-pace-source" value="manual"><strong>Paramétrage manuel</strong><span>Plat, montée et descente réglés par toi.</span></label>
         </div>
         <div id="home-history-intensity-settings">
-          <h4 class="pace-choice-kicker">Sur base de mon historique de sorties</h4>
+          <h4 class="pace-choice-kicker">Ma référence par pente</h4>
           <label class="pace-choice-field-label" for="home-history-window">Période analysée</label>
           <select id="home-history-window">
             <option value="last_3_months">3 derniers mois</option>
@@ -165,8 +174,9 @@
             {% endfor %}
           </select>
         </div>
+        <p id="home-reference-quality" class="plan-reference-note" role="status"></p>
         <p id="home-profile-zone-note">La courbe d’allure recalculée dans cette zone cardiaque sert de référence à la projection.</p>
-        <p class="profile-cardio-note"><strong>Important :</strong> renseigne bien ta fréquence cardiaque maximale dans tes réglages. Elle permet de calculer des zones cardio cohérentes et donc de choisir la bonne intensité pour cette projection. <a href="/ui/user/{{ user.id }}/profile">Vérifier mes réglages →</a></p>
+        <p class="profile-cardio-note">Les zones dépendent de ta FC maximale. <a href="/ui/user/{{ user.id }}/profile">Vérifier mes réglages →</a></p>
       </div>
       <div class="time-goal-card" id="home-time-basis-settings">
         <h3 class="pace-choice-title">Mon objectif de temps</h3>
@@ -175,7 +185,7 @@
           <label for="home-target-hours">Heures<input id="home-target-hours" type="number" min="0" max="99" step="1" value="0"></label>
           <label for="home-target-minutes">Minutes<input id="home-target-minutes" type="number" min="0" max="59" step="1" value="0"></label>
         </div>
-        <p class="time-goal-note" id="home-time-goal-note">Le relief du GPX, tes allures par pente et les arrêts ravito restent pris en compte. Toutes les allures sont ensuite ajustées dans la même proportion pour atteindre ton objectif total.</p>
+        <p class="time-goal-note" id="home-time-goal-note">Le relief du GPX, tes allures par pente et les arrêts ravito restent pris en compte. Toutes les allures sont ajustées pour répartir ton objectif total. Ce calcul ne confirme pas que ce chrono est réalisable.</p>
       </div>
     </div>
     <section class="plan-ready-card" id="home-plan-ready-card" aria-live="polite">
@@ -302,7 +312,7 @@
 </section>
 
 <script>
-  (function() {
+  document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('home-projection-form');
     const fileInput = document.getElementById('home-projection-gpx');
     const manualCourseNameInput = document.getElementById('home-manual-course-name');
@@ -557,11 +567,10 @@
 
     function syncPlanBasisUi() {
       const basis = selectedPlanBasis();
-      const usesPaces = basis === 'paces';
-      const usesManualPaces = usesPaces && selectedPaceSource() === 'manual';
+      const usesManualPaces = selectedPaceSource() === 'manual';
       if (historyBasisSettings) {
         historyBasisSettings.hidden = false;
-        historyBasisSettings.querySelectorAll('.pace-source-title, .pace-source-options').forEach(element => { element.hidden = !usesPaces; });
+        historyBasisSettings.querySelectorAll('.pace-source-title, .pace-source-options').forEach(element => { element.hidden = false; });
       }
       if (historyIntensitySettings) historyIntensitySettings.hidden = usesManualPaces;
       if (timeBasisSettings) timeBasisSettings.hidden = basis !== 'target';
@@ -575,7 +584,7 @@
         if (manualWasEnabled !== manualMode.checked) manualMode.dispatchEvent(new Event('change'));
       }
       if (advancedSettings) {
-        advancedSettings.hidden = !usesPaces;
+        advancedSettings.hidden = !usesManualPaces;
         advancedSettings.open = usesManualPaces;
       }
       if (advancedTitle) advancedTitle.textContent = usesManualPaces ? 'Paramétrage manuel' : 'Affiner mon plan';
@@ -892,6 +901,18 @@
       if (!profileCurve) return;
       const zone = zoneInput.value;
       const manual = manualProfileIsActive();
+      const qualityNote = document.getElementById('home-reference-quality');
+      if (qualityNote) {
+        const sources = slopeIds.map(id => paceReference.sources?.[id]?.[zone]);
+        const own = sources.filter(source => source === 'personal').length;
+        const collective = sources.filter(source => source === 'median').length;
+        qualityNote.textContent = manual
+          ? 'Repères déclarés : ils servent à répartir les allures et ne sont pas un historique mesuré.'
+          : own + collective === 0
+            ? 'Pas encore de référence suffisante. Choisis « Paramétrage manuel » et renseigne tes repères, y compris pour un chrono cible.'
+            : `Base utilisée : ${own} pentes personnelles, ${collective} collectives. ${own === 0 ? 'Référence collective, pas une mesure de ton niveau.' : 'Estimation issue de tes sorties, complétée si nécessaire.'}`;
+      }
+
       const historyPeriodLabels = {
         last_3_months: '3 derniers mois',
         last_6_months: '6 derniers mois',
@@ -2500,7 +2521,7 @@
         const creditPackButton = result.querySelector('#home-plan-credit-pack-btn');
         const digitalContentConsent = result.querySelector('#home-digital-content-consent');
         const digitalContentConsentRow = result.querySelector('#home-digital-content-consent-row');
-        const downloadPlanLabel = isSavedPurchasedPlan ? 'Télécharger la nouvelle version' : (planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : 'Acheter ce plan · 14,90 €') : '✉ Envoyer et télécharger le plan PDF');
+        const downloadPlanLabel = isSavedPurchasedPlan ? 'Télécharger la nouvelle version' : (planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : 'Acheter ce plan · 14,90 €') : 'Plan détaillé · vente bientôt disponible');
         const startPaymentCheckout = async (product, planPayload) => {
           const response = await fetch(`/ui/user/{{ user.id }}/course-plan/checkout?product=${encodeURIComponent(product)}`, {
             method: 'POST',
@@ -2566,7 +2587,13 @@
           });
           return metrics;
         };
+        if (!planPaymentPilotEnabled) {
+          emailPlanButton.disabled = true;
+          emailPlanButton.textContent = 'Plan détaillé · vente bientôt disponible';
+          emailPlanButton.title = 'Ton aperçu peut être enregistré. Le téléchargement sera disponible à l’ouverture de la vente.';
+        }
         emailPlanButton.addEventListener('click', async () => {
+          if (!planPaymentPilotEnabled) return;
           if (!isSavedPurchasedPlan && !emailPlanButton.dataset.validated) {
             emailPlanButton.disabled = true;
             await playPlanThinking(0);
@@ -2584,7 +2611,7 @@
               digitalContentConsentRow.hidden = false;
               digitalContentConsentRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
-            emailPlanButton.textContent = planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : 'Acheter ce plan · 14,90 €') : 'Télécharger mon plan PDF';
+            emailPlanButton.textContent = planPaymentPilotEnabled ? (planCredits > 0 ? 'Télécharger mon plan · 1 crédit' : 'Acheter ce plan · 14,90 €') : 'Plan détaillé · vente bientôt disponible';
             status.textContent = planPaymentPilotEnabled ? (planCredits > 0 ? 'Ton plan est enregistré. Confirme les conditions pour le télécharger et débloquer le Roadbook.' : 'Ton plan est enregistré. Confirme les conditions de vente puis passe au paiement pour débloquer le roadbook et le plan nutrition détaillé.') : 'Ton plan est enregistré. Tu peux maintenant le télécharger.';
             return;
           }
@@ -2882,7 +2909,7 @@
         }
       }
     });
-  })();
+  });
 </script>
 
 {% if false %}
@@ -3179,7 +3206,8 @@
 </div>
 
 <!-- ================== DERNIÈRES ACTIVITÉS (split map | VAM) ================== -->
-<div class="home-view-panel{% if not custom_course_mode %} is-active{% endif %}" data-home-view-panel="activities">
+<div class="home-view-panel{% if not plan_builder_enabled %} is-active{% endif %}" data-home-view-panel="activities">
+{% if not plan_builder_enabled %}{% include "_dashboard_glucose.html" %}{% endif %}
 <div class="home-section-heading" style="margin-top:24px;">
   <h2>Dernières activités</h2>
   <a href="/ui/user/{{ user.id }}/activities">Voir tout →</a>
@@ -3228,7 +3256,7 @@
 </div>
 </div>
 
-{% if not custom_course_mode %}
+{% if not custom_course_mode and not plan_builder_enabled %}
 <script>
   (() => {
     const buttons = [...document.querySelectorAll('[data-home-view-button]')];

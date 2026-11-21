@@ -2545,7 +2545,7 @@ ENRICHMENT_RETRYABLE_REASONS = {
     "strava_update_error",
     "activity_busy",
 }
-PLAN_BUILDER_ENABLED = False
+PLAN_BUILDER_ENABLED = settings.PLAN_BUILDER_ENABLED
 
 class CachedStaticFiles(StaticFiles):
     """Conserve les assets locaux dans le navigateur et le CDN pendant 24 h."""
@@ -2819,6 +2819,9 @@ def _run_page_view_glucose_refresh(user_id: int, page_name: str) -> None:
 
 
 def _maybe_refresh_glucose_for_page_view(db, user: User, *, page_name: str) -> None:
+    if not settings.ENABLE_BACKGROUND_WORKERS:
+        print(f"[LOCAL] Refresh glucose automatique désactivé pour {page_name} (user={user.id}).")
+        return
     record_glucose_page_view(user.id, page_name)
     with PAGE_VIEW_REFRESH_LOCK:
         if user.id in PAGE_VIEW_REFRESH_USERS:
@@ -2846,6 +2849,9 @@ def startup_event():
     # 1) Créer les tables si elles n'existent pas (dont glucose_points)
     init_db()
     print("[DB] Tables vérifiées/créées.")
+    if not settings.ENABLE_BACKGROUND_WORKERS:
+        print("[LOCAL] Workers automatiques désactivés (CGM, maintenance, rétention, enrichissement).")
+        return
     threading.Thread(target=maintenance_loop, daemon=True).start()
     # 2) Démarrer le polling CGM dans un thread séparé
     t = threading.Thread(target=run_polling_loop, daemon=True)
@@ -6776,20 +6782,18 @@ def ui_signup(
     try:
         existing = db.query(User).filter(User.email == email).first()
         if existing:
-            html = """
-            <html>
-              <head>
-                <meta charset="utf-8">
-                <title>Création de compte - Erreur</title>
-              </head>
-              <body>
-                <h1>Créer un compte</h1>
-                <p style="color:red;">Un utilisateur avec cet email existe déjà.</p>
-                <a href="/ui/signup">Réessayer</a> · <a href="/ui/login">Se connecter</a>
-              </body>
-            </html>
-            """
-            return HTMLResponse(content=html, status_code=400)
+            return templates.TemplateResponse(
+                "signup.html",
+                {
+                    "request": request,
+                    "signup_error": True,
+                    "form_values": {
+                        "email": email, "first_name": first_name,
+                        "last_name": last_name, "location": location,
+                    },
+                },
+                status_code=400,
+            )
 
         password_hash = pwd_context.hash(password)
         user = User(
@@ -7881,6 +7885,8 @@ async def ui_send_course_plan_email(
         return guard
     if not PLAN_BUILDER_ENABLED:
         raise HTTPException(status_code=404, detail="Plan de course temporairement indisponible.")
+    if not _payment_pilot_allowed(user_id):
+        raise HTTPException(status_code=503, detail="La vente et la livraison des plans ne sont pas encore ouvertes pour ce compte. Ton aperçu reste disponible.")
     user = db.query(User).filter(User.id == user_id).first()
     if not user or not user.email:
         raise HTTPException(status_code=404, detail="Adresse e-mail du compte introuvable.")
@@ -9548,7 +9554,12 @@ def ui_user_dashboard(user_id: int, request: Request):
         return guard
     dashboard_started_at = time.perf_counter()
 
-    plan_builder_enabled = PLAN_BUILDER_ENABLED
+    plan_builder_enabled = PLAN_BUILDER_ENABLED and (
+        request.query_params.get("view") == "plan"
+        or request.query_params.get("mode") == "custom"
+        or bool(request.query_params.get("plan"))
+        or bool(request.query_params.get("payment_plan"))
+    )
     custom_course_mode = plan_builder_enabled and request.query_params.get("mode") == "custom"
 
     db = SessionLocal()
@@ -10328,6 +10339,12 @@ def ui_user_dashboard(user_id: int, request: Request):
     # ---------------------------
     # 🧠 Envoi au template
     # ---------------------------
+    daily_glucose_summary = summarize_glucose(daily_glucose_chart, daily_glucose_day_start, daily_glucose_day_end)
+    daily_glucose_sparkline = sparkline([
+        {"x":point["x"], "y":point["y"]}
+        for point in glucose_chart_series(daily_glucose_chart, daily_glucose_day_start, daily_glucose_day_end)
+    ], glucose=True, height=100) if daily_glucose_chart else None
+
     response = templates.TemplateResponse(
         "user_dashboard.html",
         {
@@ -10363,6 +10380,9 @@ def ui_user_dashboard(user_id: int, request: Request):
             "dashboard_warning": dashboard_warning,
             "custom_course_mode": custom_course_mode,
             "plan_builder_enabled": plan_builder_enabled,
+            "plan_builder_available": PLAN_BUILDER_ENABLED,
+            "daily_glucose_summary": daily_glucose_summary,
+            "daily_glucose_sparkline": daily_glucose_sparkline,
             "runner_identity": runner_identity,
             "plan_payment_test_enabled": _payment_pilot_allowed(user_id),
             "plan_credits": plan_credits,

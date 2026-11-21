@@ -75,7 +75,7 @@ async def webhook_event(body: dict = Body(...)):
         print(f"➡️ Webhook mappé sur user_id={user_id} (athlete_id={athlete_id})")
 
         if aspect_type == "delete":
-            from app.logic import delete_activity_live_data
+            from app.logic import delete_activity_live_data, remove_archived_activity_contributions
 
             activity = (
                 db.query(Activity)
@@ -87,6 +87,10 @@ async def webhook_event(body: dict = Body(...)):
             )
             if activity:
                 delete_activity_live_data(db, activity=activity, rebuild_month_cache=True)
+            else:
+                remove_archived_activity_contributions(
+                    db, user_id=user_id, strava_activity_id=int(activity_id),
+                )
             db.query(ActivityEnrichmentJob).filter(
                 ActivityEnrichmentJob.user_id == user_id,
                 ActivityEnrichmentJob.strava_activity_id == int(activity_id),

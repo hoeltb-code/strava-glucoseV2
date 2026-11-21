@@ -2,7 +2,10 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const PaceCurve = require('../static/js/pace-curve.js');
+// Load the browser bundle independently of the repository's package module type.
+const curveContext = vm.createContext({});
+vm.runInContext(fs.readFileSync(require.resolve('../static/js/pace-curve.js'), 'utf8'), curveContext);
+const PaceCurve = curveContext.PaceCurve;
 const points = [{ x:-45, pace:1500 }, { x:-27.5, pace:620 }, { x:-7.5, pace:330 }, { x:2.5, pace:360 }, { x:17.5, pace:790 }, { x:45, pace:1600 }];
 const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-8, `${actual} != ${expected}`);
 
@@ -43,12 +46,51 @@ test('no missing profile is silently replaced with made-up paces', () => {
 });
 
 const template=fs.readFileSync('templates/user_dashboard.html','utf8');
+test('plan bootstrap waits for deferred curve dependencies before touching the form', () => {
+  const source=template.match(/<script>\s*([\s\S]*?)<\/script>/)[1]
+    .replace(/\{\{[\s\S]*?\}\}/g,'null');
+  const listeners=[];
+  vm.runInNewContext(source, {document:{addEventListener:(event,callback)=>listeners.push({event,callback})}});
+  assert.equal(listeners.length,1);
+  assert.equal(listeners[0].event,'DOMContentLoaded');
+  assert.equal(typeof listeners[0].callback,'function');
+});
 function functionSource(name) {
   const start=template.indexOf(`    function ${name}(`);
   assert.ok(start>=0,name);
   const end=template.indexOf('\n    function ',start+1);
   return template.slice(start,end);
 }
+
+test('target mode exposes manual references when the runner has no usable history', () => {
+  let source = 'manual', historyLoads = 0;
+  const choices = [{hidden:true},{hidden:true}];
+  const context = {
+    selectedPlanBasis:()=> 'target', selectedPaceSource:()=>source,
+    historyBasisSettings:{hidden:true,querySelectorAll:()=>choices},
+    historyIntensitySettings:{hidden:false}, timeBasisSettings:{hidden:true},
+    timeModeInputs:[{value:'target'},{value:'automatic'}],
+    manualMode:{checked:false,dispatchEvent(){}}, Event:class {},
+    advancedSettings:{hidden:true,open:false}, advancedTitle:{}, advancedDescription:{},
+    planReadyCard:{before(){}}, nutritionSettings:{after(){}},
+    refreshTimeGoalUi(){},updatePlanFlow(){},refreshLiveProjection:null,
+    loadHistoryProfileForWindow(){historyLoads++;},
+  };
+  vm.createContext(context);
+  vm.runInContext(template.slice(template.indexOf('    function syncPlanBasisUi('),
+    template.indexOf('    async function loadHistoryProfileForWindow(')),context);
+  context.syncPlanBasisUi();
+  assert.equal(context.manualMode.checked,true);
+  assert.equal(context.advancedSettings.hidden,false);
+  assert.equal(context.timeBasisSettings.hidden,false);
+  assert.ok(choices.every(choice=>!choice.hidden));
+  assert.equal(historyLoads,0);
+  source='history';context.syncPlanBasisUi();
+  assert.equal(context.manualMode.checked,false);
+  assert.equal(context.advancedSettings.hidden,true);
+  assert.equal(context.historyIntensitySettings.hidden,false);
+  assert.equal(historyLoads,1);
+});
 
 test('actual plan renderer uses the modeled curve in automatic and target modes, with accurate hover coordinates', () => {
   const listeners={};

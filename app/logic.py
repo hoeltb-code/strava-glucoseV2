@@ -1177,6 +1177,19 @@ def is_valid_activity_stream_interval(previous, current, *, running: bool = True
     t1 = getattr(current, "elapsed_time", None)
     if t0 is None or t1 is None:
         return False
+    # NaN comparisons otherwise pass all bounds checks and poison aggregates.
+    for point in (previous, current):
+        for field in ("elapsed_time", "distance", "altitude", "velocity"):
+            value = getattr(point, field, None)
+            if value is not None:
+                try:
+                    if not math.isfinite(float(value)):
+                        return False
+                except (TypeError, ValueError, OverflowError):
+                    return False
+        velocity = getattr(point, "velocity", None)
+        if running and velocity is not None and not 0 <= float(velocity) <= MAX_RUNNING_STREAM_SPEED_M_S:
+            return False
     dt_sec = float(t1) - float(t0)
     if dt_sec <= 0 or dt_sec > MAX_CONTINUOUS_STREAM_GAP_SEC:
         return False
@@ -3035,6 +3048,34 @@ def _delete_activity_contributions(
     db.flush()
 
 
+def remove_archived_activity_contributions(
+    db: Session, *, user_id: int, strava_activity_id: int,
+) -> None:
+    """Remove an activity from the performance profile even after raw-data retention.
+
+    Rebuild every affected cache; the caller owns the transaction. Repeated
+    webhook deliveries are harmless and other athletes' contributions stay intact.
+    """
+    groups = _activity_contribution_months(db, user_id, strava_activity_id)
+    _delete_activity_contributions(db, user_id=user_id, strava_activity_id=strava_activity_id)
+    for sport, month in groups:
+        rebuild_runner_profile_month_from_contributions(db, user_id=user_id, sport=sport, month=month)
+
+
+def _activity_contribution_months(db: Session, user_id: int, strava_activity_id: int) -> set:
+    rows = db.query(
+        models.RunnerProfileActivityContribution.sport,
+        models.RunnerProfileActivityContribution.activity_start_date,
+    ).filter(
+        models.RunnerProfileActivityContribution.user_id == user_id,
+        models.RunnerProfileActivityContribution.strava_activity_id == strava_activity_id,
+    ).distinct().all()
+    return {
+        (canonicalize_sport_label(sport), _month_floor_date(_safe_dt(start)))
+        for sport, start in rows if start is not None
+    }
+
+
 def _add_activity_contribution(
     db: Session,
     *,
@@ -4602,6 +4643,7 @@ def update_runner_profile_monthly_from_activity(
         activity.user_id, activity.id, sport, month,
     )
 
+    previous_groups = _activity_contribution_months(db, activity.user_id, activity.strava_activity_id)
     rebuild_activity_contributions(
         db,
         activity=activity,
@@ -4613,6 +4655,11 @@ def update_runner_profile_monthly_from_activity(
         sport=sport,
         month=month,
     )
+    # A corrected activity date or sport must also invalidate its previous cache.
+    for previous_sport, previous_month in previous_groups - {(sport, month)}:
+        rebuild_runner_profile_month_from_contributions(
+            db, user_id=activity.user_id, sport=previous_sport, month=previous_month,
+        )
     db.commit()
     logger.info(
         "[RPM] Maj profils mensuels OK user_id=%s activity_id=%s sport=%s month=%s",
@@ -4756,7 +4803,7 @@ def delete_activity_live_data(
 
     if rebuild_month_cache and month is not None:
         month_start, month_end = _month_bounds(month)
-        _delete_activity_contributions(
+        remove_archived_activity_contributions(
             db,
             user_id=activity.user_id,
             strava_activity_id=strava_activity_id,
